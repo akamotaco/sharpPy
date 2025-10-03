@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <!-- Include Generated tokenizer for PegGenerator to use -->
+  <!-- PegGenerator only needs Tokenizer, NOT Parser (Parser is what we generate!) -->
   <ItemGroup>
     <Compile Include="..\Generated\PyTokenizer.cs" Link="Generated\PyTokenizer.cs" />
   </ItemGroup>

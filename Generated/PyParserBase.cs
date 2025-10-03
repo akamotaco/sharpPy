@@ -20,6 +20,15 @@ namespace SharpPy.Generated
 
         protected readonly string _filename;
 
+        // CPython 3.12: Error tracking for RAISE_SYNTAX_ERROR
+        // Instead of throwing immediately, we store the error and throw only if no alternative succeeds
+        protected string? _pendingSyntaxError = null;
+        protected int _pendingErrorPosition = -1;
+
+        // CPython 3.12: Flag to control whether invalid_* rules should be called
+        // Set to false in *_without_invalid rules to prevent invalid rule execution
+        protected bool _callInvalidRules = true;
+
         // CPython 3.12: PegInterpreter for grammar-based parsing
         // Concrete type is defined in GeneratedPyParser via property
         protected abstract object? InterpreterObject { get; }
@@ -27,6 +36,52 @@ namespace SharpPy.Generated
         // Context management for CPython 3.12 compatibility
         protected readonly Stack<ParserContext> _contextStack = new();
         protected int _indentLevel = 0;
+
+        // CPython 3.12: BoolOp and CmpOp constants for grammar actions
+        protected static readonly BoolOpType Or = BoolOpType.Or;
+        protected static readonly BoolOpType And = BoolOpType.And;
+        protected static readonly CmpOpType Eq = CmpOpType.Eq;
+        protected static readonly CmpOpType NotEq = CmpOpType.NotEq;
+        protected static readonly CmpOpType Lt = CmpOpType.Lt;
+        protected static readonly CmpOpType LtE = CmpOpType.LtE;
+        protected static readonly CmpOpType Gt = CmpOpType.Gt;
+        protected static readonly CmpOpType GtE = CmpOpType.GtE;
+        protected static readonly CmpOpType Is = CmpOpType.Is;
+        protected static readonly CmpOpType IsNot = CmpOpType.IsNot;
+        protected static readonly CmpOpType In = CmpOpType.In;
+        protected static readonly CmpOpType NotIn = CmpOpType.NotIn;
+
+        // CPython 3.12: ExprContext constants
+        protected static readonly ExprContext Load = ExprContext.Load;
+        protected static readonly ExprContext Store = ExprContext.Store;
+        protected static readonly ExprContext Del = ExprContext.Del;
+
+        // CPython 3.12: UnaryOp constants
+        protected static readonly UnaryOpType Invert = UnaryOpType.Invert;
+        protected static readonly UnaryOpType Not = UnaryOpType.Not;
+        protected static readonly UnaryOpType UAdd = UnaryOpType.UAdd;
+        protected static readonly UnaryOpType USub = UnaryOpType.USub;
+
+        // CPython 3.12: BinOp constants
+        protected static readonly BinOpType Add = BinOpType.Add;
+        protected static readonly BinOpType Sub = BinOpType.Sub;
+        protected static readonly BinOpType Mult = BinOpType.Mult;
+        protected static readonly BinOpType MatMult = BinOpType.MatMult;
+        protected static readonly BinOpType Div = BinOpType.Div;
+        protected static readonly BinOpType Mod = BinOpType.Mod;
+        protected static readonly BinOpType Pow = BinOpType.Pow;
+        protected static readonly BinOpType LShift = BinOpType.LShift;
+        protected static readonly BinOpType RShift = BinOpType.RShift;
+        protected static readonly BinOpType BitOr = BinOpType.BitOr;
+        protected static readonly BinOpType BitXor = BinOpType.BitXor;
+        protected static readonly BinOpType BitAnd = BinOpType.BitAnd;
+        protected static readonly BinOpType FloorDiv = BinOpType.FloorDiv;
+
+        // CPython 3.12: Python singleton constants
+        protected readonly object? Py_None = null;
+        protected readonly bool Py_True = true;
+        protected readonly bool Py_False = false;
+        protected readonly string Py_Ellipsis = "...";
 
         // Constructor
         protected PyParserBase(List<GeneratedTokenInfo> tokens, string filename = "<string>")
@@ -48,14 +103,22 @@ namespace SharpPy.Generated
             if (_position < _tokens.Count) _position++;
         }
 
-        protected bool Expect(string expected)
+        protected GeneratedTokenInfo? Expect(string expected)
         {
-            if (CurrentToken?.Type.ToString() == expected)
+            // CPython 3.12: Expect matches string literals (keywords and operators)
+            // For keywords like 'if', 'def', 'class': match token value (NAME token with that value)
+            // For operators like ':', '(', ')': match token value (OP token with that value)
+            // Returns the token if matched, null otherwise
+            Console.WriteLine($"[DEBUG] Expect('{expected}'): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+            if (CurrentToken != null && CurrentToken.Value == expected)
             {
+                Console.WriteLine($"[DEBUG] Expect('{expected}'): MATCH! Advancing from {_position}");
+                var token = CurrentToken;
                 Advance();
-                return true;
+                return token;
             }
-            return false;
+            Console.WriteLine($"[DEBUG] Expect('{expected}'): NO MATCH");
+            return null;
         }
 
 
@@ -95,6 +158,46 @@ namespace SharpPy.Generated
         {
             var key = (_position, ruleName);
             _memoCache[key] = value;
+        }
+
+        /// <summary>
+        /// CPython 3.12: Simple memoization wrapper for non-left-recursive rules marked with (memo)
+        /// Unlike TryLeftRecursive, this only caches results without Warth algorithm
+        /// Prevents infinite recursion by tracking active parsing
+        /// </summary>
+        protected T? TryMemoized<T>(string ruleName, Func<T?> parseMethod) where T : class
+        {
+            var key = (_position, ruleName);
+
+            // Check if already cached
+            if (_memoCache.TryGetValue(key, out var cached))
+            {
+                return cached as T;
+            }
+
+            // Check for recursive call at same position (would cause infinite loop)
+            if (_activeLeftRecursive.Contains(key))
+            {
+                // Recursive call detected - return null to break recursion
+                // This handles right-recursion in rules like factor: '+' factor | power
+                return null;
+            }
+
+            // Mark as active
+            _activeLeftRecursive.Add(key);
+
+            try
+            {
+                // Not cached - parse and cache result
+                var result = parseMethod();
+                SetMemo(ruleName, result);
+                return result;
+            }
+            finally
+            {
+                // Remove from active set
+                _activeLeftRecursive.Remove(key);
+            }
         }
 
         // Left recursion support - based on Warth et al. "Packrat parsers can support left recursion"
@@ -259,7 +362,7 @@ namespace SharpPy.Generated
         protected TFileModule ParseFileTemplate<TFileModule>() where TFileModule : GeneratedAstNode, new()
         {
             var parser = this as GeneratedPyParser;
-            var statements = parser?.ParseStatements();
+            var statements = parser?.Statements();
 
             if (typeof(TFileModule) == typeof(GeneratedModule))
             {
@@ -298,7 +401,7 @@ namespace SharpPy.Generated
                     break;
 
                 var parser = this as GeneratedPyParser;
-                var stmtSeq = parser?.ParseStatement(); // Use generated parser's method - returns GeneratedStmtSeq
+                var stmtSeq = parser?.Statement(); // Use generated parser's method - returns GeneratedStmtSeq
                 if (stmtSeq != null)
                 {
                     // ParseStatement always returns GeneratedStmtSeq
@@ -316,7 +419,7 @@ namespace SharpPy.Generated
             return statements;
         }
 
-        // Removed ParseStatements() - using generated parser's implementation instead
+        // Removed Statements() - using generated parser's implementation instead
 
         // Generic comparison parsing template - will be replaced by generated ParseComparison
         protected object? ParseComparisonTemplate()
@@ -332,7 +435,7 @@ namespace SharpPy.Generated
 
 
 
-        // Removed ParseStatement() - using generated parser's implementation instead
+        // Removed Statement() - using generated parser's implementation instead
 
         // Template for simple statement parsing (assignment, expression, etc.)
         protected object? ParseSimpleStatement()
@@ -354,7 +457,7 @@ namespace SharpPy.Generated
             }
 
             // Try expression statement
-            var expr = (object?)null; // ParseExpression(); // Will use generated method
+            var expr = (object?)null; // Expression(); // Will use generated method
             if (expr != null && expr is GeneratedExpr genExpr)
             {
                 // Return expression statement
@@ -376,7 +479,7 @@ namespace SharpPy.Generated
             // CPython 3.12: Try augmented assignment FIRST (single_target augassign value)
             // This matches: i += 1, x *= 2, etc.
             var augassignMark = Mark();
-            var augTarget = parser?.ParseExpression();
+            var augTarget = parser?.Expression();
 
             if (augTarget != null)
             {
@@ -388,7 +491,7 @@ namespace SharpPy.Generated
                     Advance(); // consume the operator
 
                     // Parse the value (right side)
-                    var augValue = parser?.ParseExpression();
+                    var augValue = parser?.Expression();
                     if (augValue != null)
                     {
                         // CPython 3.12: Set Store context on target
@@ -408,7 +511,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 var targetMark = Mark();
-                var target = parser?.ParseExpression();
+                var target = parser?.Expression();
 
                 if (target == null)
                 {
@@ -447,7 +550,7 @@ namespace SharpPy.Generated
             }
 
             // Parse the value (right side of assignment)
-            var value = parser?.ParseExpression();
+            var value = parser?.Expression();
             if (value == null)
             {
                 Reset(mark);
@@ -596,7 +699,7 @@ namespace SharpPy.Generated
 
             Advance(); // consume 'if'
 
-            var condition = (object?)null; // ParseExpression(); // Will use generated method
+            var condition = (object?)null; // Expression(); // Will use generated method
             if (condition == null) return null;
 
             if (CurrentToken?.Type.ToString() != "OP" || CurrentToken?.Value != ":") return null;
@@ -610,7 +713,7 @@ namespace SharpPy.Generated
 
             var body = new List<object>();
             var parser = this as GeneratedPyParser;
-            var bodyStmt = parser?.ParseStatement();
+            var bodyStmt = parser?.Statement();
             if (bodyStmt != null)
             {
                 body.Add(bodyStmt);
@@ -702,17 +805,20 @@ namespace SharpPy.Generated
         /// <summary>
         /// Expect a specific token type and value
         /// </summary>
-        protected bool ExpectToken(GeneratedTokenType tokenType, string value = null)
+        protected GeneratedTokenInfo? ExpectToken(GeneratedTokenType tokenType, string value = null)
         {
+            // CPython 3.12: ExpectToken matches token type (and optionally value)
+            // Returns the token if matched, null otherwise
             if (CurrentToken?.Type == tokenType)
             {
                 if (value == null || CurrentToken.Value == value)
                 {
+                    var token = CurrentToken;
                     Advance();
-                    return true;
+                    return token;
                 }
             }
-            return false;
+            return null;
         }
 
         /// <summary>
@@ -731,7 +837,7 @@ namespace SharpPy.Generated
             }
 
             // Expect INDENT
-            if (!ExpectToken(GeneratedTokenType.INDENT))
+            if (ExpectToken(GeneratedTokenType.INDENT) == null)
             {
                 Console.WriteLine($"[DEBUG] ParseBlock: Failed to find INDENT at position {_position}");
                 return null;
@@ -746,7 +852,7 @@ namespace SharpPy.Generated
 
                 var startPos = _position;
                 var parser = this as GeneratedPyParser;
-                var stmt = parser?.ParseStatement();
+                var stmt = parser?.Statement();
 
                 Console.WriteLine($"[DEBUG] ParseBlock: After ParseStatement, position {startPos} -> {_position}, stmt = {stmt?.GetType()?.Name}");
 
@@ -924,6 +1030,154 @@ namespace SharpPy.Generated
 
 
         /// <summary>
+        /// Extract Call.args from an expression (if it's a Call)
+        /// CPython pattern: ((expr_ty) b)->v.Call.args
+        /// </summary>
+        protected GeneratedExprSeq? ExtractCallArgs(object? expr)
+        {
+            if (expr == null) return null;
+
+            // If it's already a Call expression with args
+            if (expr is GeneratedCallExpr callExpr)
+            {
+                return callExpr.Args;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Extract Call.keywords from an expression (if it's a Call)
+        /// CPython pattern: ((expr_ty) b)->v.Call.keywords
+        /// </summary>
+        protected List<object>? ExtractCallKeywords(object? expr)
+        {
+            if (expr == null) return null;
+
+            if (expr is GeneratedCallExpr callExpr)
+            {
+                return callExpr.Keywords;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// _PyPegen_seq_insert_in_front - Insert element at front of sequence
+        /// CPython 3.12: asdl_seq *_PyPegen_seq_insert_in_front(Parser *p, void *a, asdl_seq *seq)
+        /// </summary>
+        protected GeneratedExprSeq _PyPegen_seq_insert_in_front(object? a, object? seq)
+        {
+            var result = new GeneratedExprSeq();
+
+            // Insert 'a' at front
+            if (a is GeneratedExpr expr)
+            {
+                result.Add(expr);
+            }
+
+            // Add existing sequence elements
+            if (seq is GeneratedExprSeq exprSeq)
+            {
+                result.AddRange(exprSeq);
+            }
+            else if (seq is List<GeneratedExpr> exprList)
+            {
+                result.AddRange(exprList);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// _PyPegen_get_cmpops - Extract comparison operators from CmpopExprPair sequence
+        /// CPython 3.12: asdl_int_seq *_PyPegen_get_cmpops(Parser *p, asdl_seq *seq)
+        /// </summary>
+        protected List<CmpOpType> _PyPegen_get_cmpops(object? seq)
+        {
+            var result = new List<CmpOpType>();
+
+            if (seq is List<(CmpOpType op, GeneratedExpr expr)> pairList)
+            {
+                foreach (var pair in pairList)
+                {
+                    result.Add(pair.op);
+                }
+            }
+            else if (seq is List<object> objList)
+            {
+                foreach (var obj in objList)
+                {
+                    if (obj is ValueTuple<CmpOpType, GeneratedExpr> pair)
+                    {
+                        result.Add(pair.Item1);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// _PyPegen_get_exprs - Extract expressions from CmpopExprPair sequence
+        /// CPython 3.12: asdl_expr_seq *_PyPegen_get_exprs(Parser *p, asdl_seq *seq)
+        /// </summary>
+        protected GeneratedExprSeq _PyPegen_get_exprs(object? seq)
+        {
+            var result = new GeneratedExprSeq();
+
+            if (seq is List<(CmpOpType op, GeneratedExpr expr)> pairList)
+            {
+                foreach (var pair in pairList)
+                {
+                    result.Add(pair.expr);
+                }
+            }
+            else if (seq is List<object> objList)
+            {
+                foreach (var obj in objList)
+                {
+                    if (obj is ValueTuple<CmpOpType, GeneratedExpr> pair)
+                    {
+                        result.Add(pair.Item2);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// _PyPegen_map_names_to_ids - Map name expressions to their IDs
+        /// CPython 3.12: asdl_expr_seq *_PyPegen_map_names_to_ids(Parser *p, asdl_expr_seq *seq)
+        /// </summary>
+        protected GeneratedExprSeq? _PyPegen_map_names_to_ids(object? seq)
+        {
+            if (seq == null) return null;
+
+            var result = new GeneratedExprSeq();
+
+            if (seq is GeneratedExprSeq exprSeq)
+            {
+                foreach (var expr in exprSeq)
+                {
+                    if (expr is GeneratedNameExpr nameExpr)
+                    {
+                        // Just keep the name expression as-is for now
+                        // CPython converts Name to Constant, but we'll handle this differently
+                        result.Add(expr);
+                    }
+                    else
+                    {
+                        result.Add(expr);
+                    }
+                }
+            }
+
+            return result.Count > 0 ? result : null;
+        }
+
+        /// <summary>
         /// _PyPegen_empty_arguments - Create empty argument list
         /// </summary>
         protected object _PyPegen_empty_arguments()
@@ -938,6 +1192,126 @@ namespace SharpPy.Generated
                 ["kwarg"] = null,
                 ["defaults"] = new List<object>()
             };
+        }
+
+        /// <summary>
+        /// _PyPegen_dummy_name - Create a dummy name for invalid expressions
+        /// CPython 3.12: expr_ty _PyPegen_dummy_name(Parser *p, ...)
+        /// Used for error recovery in invalid expressions
+        /// </summary>
+        protected GeneratedNameExpr _PyPegen_dummy_name()
+        {
+            return new GeneratedNameExpr
+            {
+                Id = "<invalid>",
+                Context = "Load"
+            };
+        }
+
+        /// <summary>
+        /// _PyPegen_get_keys - Extract keys from key-value pairs
+        /// CPython 3.12: asdl_expr_seq *_PyPegen_get_keys(Parser *p, asdl_seq *seq)
+        /// </summary>
+        protected GeneratedExprSeq _PyPegen_get_keys(object? seq)
+        {
+            var result = new GeneratedExprSeq();
+
+            if (seq is List<(GeneratedExpr key, GeneratedExpr value)> pairList)
+            {
+                foreach (var pair in pairList)
+                {
+                    result.Add(pair.key);
+                }
+            }
+            else if (seq is List<object> objList)
+            {
+                foreach (var obj in objList)
+                {
+                    if (obj is ValueTuple<GeneratedExpr, GeneratedExpr> pair)
+                    {
+                        result.Add(pair.Item1);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// _PyPegen_get_values - Extract values from key-value pairs
+        /// CPython 3.12: asdl_expr_seq *_PyPegen_get_values(Parser *p, asdl_seq *seq)
+        /// </summary>
+        protected GeneratedExprSeq _PyPegen_get_values(object? seq)
+        {
+            var result = new GeneratedExprSeq();
+
+            if (seq is List<(GeneratedExpr key, GeneratedExpr value)> pairList)
+            {
+                foreach (var pair in pairList)
+                {
+                    result.Add(pair.value);
+                }
+            }
+            else if (seq is List<object> objList)
+            {
+                foreach (var obj in objList)
+                {
+                    if (obj is ValueTuple<GeneratedExpr, GeneratedExpr> pair)
+                    {
+                        result.Add(pair.Item2);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// _PyPegen_seq_extract_starred_exprs - Extract starred expressions from sequence
+        /// CPython 3.12: asdl_expr_seq *_PyPegen_seq_extract_starred_exprs(Parser *p, asdl_expr_seq *seq)
+        /// </summary>
+        protected GeneratedExprSeq? _PyPegen_seq_extract_starred_exprs(object? seq)
+        {
+            if (seq == null) return null;
+
+            var result = new GeneratedExprSeq();
+
+            if (seq is GeneratedExprSeq exprSeq)
+            {
+                foreach (var expr in exprSeq)
+                {
+                    if (expr is GeneratedStarredExpr starredExpr && starredExpr.Value != null)
+                    {
+                        result.Add(starredExpr.Value);
+                    }
+                }
+            }
+
+            return result.Count > 0 ? result : null;
+        }
+
+        /// <summary>
+        /// _PyPegen_seq_delete_starred_exprs - Remove starred expressions from sequence
+        /// CPython 3.12: asdl_expr_seq *_PyPegen_seq_delete_starred_exprs(Parser *p, asdl_expr_seq *seq)
+        /// </summary>
+        protected GeneratedExprSeq? _PyPegen_seq_delete_starred_exprs(object? seq)
+        {
+            if (seq == null) return null;
+
+            var result = new GeneratedExprSeq();
+
+            if (seq is GeneratedExprSeq exprSeq)
+            {
+                foreach (var expr in exprSeq)
+                {
+                    if (expr is not GeneratedStarredExpr)
+                    {
+                        result.Add(expr);
+                    }
+                }
+            }
+
+            return result.Count > 0 ? result : null;
         }
 
         /// <summary>
@@ -1018,17 +1392,25 @@ namespace SharpPy.Generated
         /// _PyAST_Assign - Create assignment statement (single target)
         /// CPython 3.12: _PyAST_Assign(targets, value, type_comment, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedAssignStmt _PyAST_Assign(object target, object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedAssignStmt _PyAST_Assign(object target, object value, object? type_comment = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             // CPython expects targets (plural), so wrap single target in a list
             var targets = new GeneratedExprSeq();
             if (target is GeneratedExpr expr)
                 targets.Add(expr);
 
+            // Extract type comment string from token (NEW_TYPE_COMMENT macro)
+            string? tcStr = null;
+            if (type_comment != null)
+            {
+                tcStr = ASTHelpers.ExtractStringValue(type_comment);
+            }
+
             return new GeneratedAssignStmt
             {
                 Targets = targets,
                 Value = ASTHelpers.ExtractExpr(value),
+                TypeComment = tcStr,
                 LineNo = lineno,
                 ColOffset = col_offset,
                 EndLineNo = end_lineno,
@@ -1040,7 +1422,7 @@ namespace SharpPy.Generated
         /// _PyAST_Assign - Create assignment statement (multiple targets for chained assignment)
         /// CPython 3.12: a = b = c = value
         /// </summary>
-        protected GeneratedAssignStmt _PyAST_Assign(List<object> targets, object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedAssignStmt _PyAST_Assign(List<object> targets, object value, string? type_comment = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             var targetSeq = new GeneratedExprSeq();
             foreach (var target in targets)
@@ -1053,6 +1435,7 @@ namespace SharpPy.Generated
             {
                 Targets = targetSeq,
                 Value = ASTHelpers.ExtractExpr(value),
+                TypeComment = type_comment,
                 LineNo = lineno,
                 ColOffset = col_offset,
                 EndLineNo = end_lineno,
@@ -2315,6 +2698,51 @@ namespace SharpPy.Generated
                 EndColOffset = end_col_offset
             };
         }
+        /// <summary>
+        /// _PyAST_BoolOp - Create boolean operation expression
+        /// CPython 3.12: _PyAST_BoolOp(op, values, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedBoolOpExpr _PyAST_BoolOp(BoolOpType op, object values, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            return new GeneratedBoolOpExpr
+            {
+                Op = op == BoolOpType.Or ? "Or" : "And",
+                Values = ASTHelpers.ExtractExprSeq(values),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
+        /// <summary>
+        /// _PyAST_Compare - Create comparison expression
+        /// CPython 3.12: _PyAST_Compare(left, ops, comparators, lineno, col_offset, end_lineno, end_col_offset, arena)
+        /// </summary>
+        protected GeneratedCompareExpr _PyAST_Compare(object left, object ops, object comparators, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        {
+            // Convert CmpOpType list to string list
+            List<string> opStrings;
+            if (ops is List<CmpOpType> cmpOps)
+            {
+                opStrings = cmpOps.Select(op => op.ToString()).ToList();
+            }
+            else
+            {
+                opStrings = ASTHelpers.ExtractCmpOpSeq(ops);
+            }
+
+            return new GeneratedCompareExpr
+            {
+                Left = ASTHelpers.ExtractExpr(left),
+                Ops = opStrings,
+                Comparators = ASTHelpers.ExtractExprSeq(comparators),
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
 
         /// <summary>
         /// _PyAST_BinOp - Create binary operation expression
@@ -2975,6 +3403,39 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
+        /// Extract operator kind from token object
+        /// Handles CPython pattern: b->kind where 'b' is an operator token
+        /// Used in augmented assignment: _PyAST_AugAssign(a, b->kind, c, EXTRA)
+        /// </summary>
+        public static string ExtractOpKind(object? obj)
+        {
+            if (obj == null)
+                return "";
+
+            // If it's a token, extract the operator string
+            var type = obj.GetType();
+            var valueProp = type.GetProperty("Value");
+            if (valueProp != null)
+            {
+                var value = valueProp.GetValue(obj);
+                if (value is string sv)
+                    return sv;
+            }
+
+            // Try StringValue property
+            var stringValueProp = type.GetProperty("StringValue");
+            if (stringValueProp != null)
+            {
+                var value = stringValueProp.GetValue(obj);
+                if (value is string sv)
+                    return sv;
+            }
+
+            // Try ToString
+            return obj.ToString() ?? "";
+        }
+
+        /// <summary>
         /// Extract GeneratedStmtSeq from parser result
         /// </summary>
         public static GeneratedStmtSeq ExtractStmtSeq(object? obj)
@@ -3038,5 +3499,98 @@ namespace SharpPy.Generated
             // If it's a wrapped expression, try to unwrap
             return obj as GeneratedExpr ?? null!;
         }
+
+        /// <summary>
+        /// Extract comparison operator sequence from parser result
+        /// CPython 3.12: asdl_int_seq* of comparison operators
+        /// </summary>
+        public static List<string> ExtractCmpOpSeq(object? obj)
+        {
+            if (obj == null)
+                return new List<string>();
+
+            if (obj is List<string> strList)
+                return strList;
+
+            if (obj is List<object> objList)
+            {
+                return objList.Select(o => o?.ToString() ?? "").ToList();
+            }
+
+            // Single operator - wrap in list
+            return new List<string> { obj.ToString() ?? "" };
+        }
+    }
+
+    /// <summary>
+    /// CPython 3.12: Boolean operator type
+    /// typedef enum _boolop { And=1, Or=2 } boolop_ty;
+    /// </summary>
+    public enum BoolOpType
+    {
+        And = 1,
+        Or = 2
+    }
+
+    /// <summary>
+    /// CPython 3.12: Comparison operator type
+    /// typedef enum _cmpop { Eq=1, NotEq=2, Lt=3, LtE=4, Gt=5, GtE=6, Is=7, IsNot=8, In=9, NotIn=10 } cmpop_ty;
+    /// </summary>
+    public enum CmpOpType
+    {
+        Eq = 1,      // ==
+        NotEq = 2,   // !=
+        Lt = 3,      // <
+        LtE = 4,     // <=
+        Gt = 5,      // >
+        GtE = 6,     // >=
+        Is = 7,      // is
+        IsNot = 8,   // is not
+        In = 9,      // in
+        NotIn = 10   // not in
+    }
+
+    /// <summary>
+    /// CPython 3.12: Expression context
+    /// typedef enum _expr_context { Load=1, Store=2, Del=3 } expr_context_ty;
+    /// </summary>
+    public enum ExprContext
+    {
+        Load = 1,
+        Store = 2,
+        Del = 3
+    }
+
+    /// <summary>
+    /// CPython 3.12: Unary operator type
+    /// typedef enum _unaryop { Invert=1, Not=2, UAdd=3, USub=4 } unaryop_ty;
+    /// </summary>
+    public enum UnaryOpType
+    {
+        Invert = 1,  // ~
+        Not = 2,     // not
+        UAdd = 3,    // +
+        USub = 4     // -
+    }
+
+    /// <summary>
+    /// CPython 3.12: Binary operator type
+    /// typedef enum _operator { Add=1, Sub=2, Mult=3, MatMult=4, Div=5, Mod=6, Pow=7, LShift=8, RShift=9, BitOr=10, BitXor=11, BitAnd=12, FloorDiv=13 } operator_ty;
+    /// </summary>
+    public enum BinOpType
+    {
+        Add = 1,       // +
+        Sub = 2,       // -
+        Mult = 3,      // *
+        MatMult = 4,   // @
+        Div = 5,       // /
+        Mod = 6,       // %
+        Pow = 7,       // **
+        LShift = 8,    // <<
+        RShift = 9,    // >>
+        BitOr = 10,    // |
+        BitXor = 11,   // ^
+        BitAnd = 12,   // &
+        FloorDiv = 13  // //
     }
 }

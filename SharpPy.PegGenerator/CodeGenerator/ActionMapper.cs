@@ -87,39 +87,193 @@ namespace SharpPy.PegGenerator.CodeGenerator
         /// <returns>C# code string to construct the AST node</returns>
         public string? MapAction(string funcName, List<string> args, Dictionary<string, string> variables, Rule rule)
         {
-            // CPython 3.12: Expand EXTRA and simplify C expressions
-            // EXTRA = _start_lineno, _start_col_offset, _end_lineno, _end_col_offset, p->arena
-            var expandedArgs = new List<string>();
+            // CPython 3.12: Translate action arguments to C# expressions
+            // Keep complex expressions intact (constants, function calls, etc.)
+            var translatedArgs = new List<string>();
             foreach (var arg in args)
             {
                 if (arg == "EXTRA")
                 {
                     // Expand EXTRA macro to position parameters
-                    expandedArgs.Add("_start_lineno");
-                    expandedArgs.Add("_start_col_offset");
-                    expandedArgs.Add("_end_lineno");
-                    expandedArgs.Add("_end_col_offset");
+                    translatedArgs.Add("_start_lineno");
+                    translatedArgs.Add("_start_col_offset");
+                    translatedArgs.Add("_end_lineno");
+                    translatedArgs.Add("_end_col_offset");
                     // Note: arena is C-specific memory management, not needed in C#
                 }
                 else if (!arg.Contains("arena"))
                 {
-                    // Simplify C expression to extract variable name
-                    var simplified = SimplifyCExpression(arg);
-                    expandedArgs.Add(simplified);
+                    // Translate C expression to C# expression (keep complex expressions)
+                    var translated = TranslateToCSharp(arg.Trim(), variables);
+                    translatedArgs.Add(translated);
                 }
             }
 
             // Determine if this is a statement or expression
             if (StmtTypeMap.TryGetValue(funcName, out var stmtType))
             {
-                return GenerateStmtConstruction(stmtType, expandedArgs, variables);
+                return GenerateStmtConstruction(stmtType, translatedArgs, variables);
             }
             else if (ExprTypeMap.TryGetValue(funcName, out var exprType))
             {
-                return GenerateExprConstruction(exprType, expandedArgs, variables);
+                return GenerateExprConstruction(exprType, translatedArgs, variables);
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Translate CPython C expression to C# expression
+        /// Examples:
+        ///   Or → Or (constant, kept as-is)
+        ///   a → a (variable, kept as-is)
+        ///   n->v.Name.id → ASTHelpers.ExtractStringValue(n) (token string extraction)
+        ///   _PyPegen_seq_insert_in_front(p, a, b) → _PyPegen_seq_insert_in_front(p, a, b) (function call, kept as-is)
+        ///   (params) ? params : expr → params ?? expr (ternary to null coalescing)
+        /// </summary>
+        private string TranslateToCSharp(string expr, Dictionary<string, string> variables)
+        {
+            // Whitespace/empty
+            if (string.IsNullOrWhiteSpace(expr))
+                return "null";
+
+            // NULL literal
+            if (expr == "NULL")
+                return "null";
+
+            // Numeric literals
+            if (int.TryParse(expr, out _) || expr.Contains(".") && double.TryParse(expr, out _))
+                return expr;
+
+            // String literals
+            if (expr.StartsWith("\"") && expr.EndsWith("\""))
+                return expr;
+
+            // Position parameters from EXTRA expansion
+            if (expr == "_start_lineno" || expr == "_start_col_offset" ||
+                expr == "_end_lineno" || expr == "_end_col_offset")
+                return expr;
+
+            // CPython constants: Or, And, Eq, Lt, Gt, etc. - keep as-is
+            var constants = new[] { "Or", "And", "Eq", "NotEq", "Lt", "LtE", "Gt", "GtE",
+                                   "Is", "IsNot", "In", "NotIn", "Load", "Store", "Del" };
+            if (constants.Contains(expr))
+                return expr;
+
+            // CPython ternary operator with complex expressions - CHECK BEFORE field access
+            // This must come BEFORE the ->v. check because ternary may contain ->v.
+            // Instead of trying to parse C expressions, use helper functions
+            // Examples:
+            //   (b) ? ((expr_ty) b)->v.Call.args : NULL → ExtractCallArgs(b)
+            //   (b) ? ((expr_ty) b)->v.Call.keywords : NULL → ExtractCallKeywords(b)
+            //   (params) ? params : expr → params_ ?? expr (simple case)
+            if (expr.Contains("?") && expr.Contains(":"))
+            {
+                // Check for complex Cast/Field access patterns
+                if (expr.Contains("->v.Call.args"))
+                {
+                    // Extract variable before the ternary
+                    var condStart = expr.IndexOf('(');
+                    var condEnd = expr.IndexOf(')');
+                    if (condStart >= 0 && condEnd > condStart)
+                    {
+                        var variable = expr.Substring(condStart + 1, condEnd - condStart - 1).Trim();
+                        return $"ExtractCallArgs({EscapeCSharpKeyword(variable)})";
+                    }
+                }
+                else if (expr.Contains("->v.Call.keywords"))
+                {
+                    var condStart = expr.IndexOf('(');
+                    var condEnd = expr.IndexOf(')');
+                    if (condStart >= 0 && condEnd > condStart)
+                    {
+                        var variable = expr.Substring(condStart + 1, condEnd - condStart - 1).Trim();
+                        return $"ExtractCallKeywords({EscapeCSharpKeyword(variable)})";
+                    }
+                }
+                // Simple ternary: (x) ? x : y → x ?? y
+                else
+                {
+                    var questionPos = expr.IndexOf('?');
+                    var colonPos = expr.LastIndexOf(':');
+                    var condition = expr.Substring(0, questionPos).Trim().Trim('(', ')');
+                    var trueExpr = expr.Substring(questionPos + 1, colonPos - questionPos - 1).Trim();
+                    var falseExpr = expr.Substring(colonPos + 1).Trim();
+
+                    // Escape keywords
+                    var escapedCondition = EscapeCSharpKeyword(condition);
+
+                    // If condition is same as trueExpr, use null coalescing
+                    if (condition == trueExpr)
+                    {
+                        return $"{escapedCondition} ?? {TranslateToCSharp(falseExpr, variables)}";
+                    }
+                    else
+                    {
+                        return $"{escapedCondition} != null ? {TranslateToCSharp(trueExpr, variables)} : {TranslateToCSharp(falseExpr, variables)}";
+                    }
+                }
+            }
+
+            // CPython token field access: n->v.Name.id → ASTHelpers.ExtractStringValue(n)
+            // AFTER ternary check
+            if (expr.Contains("->v.Name.id") || expr.Contains("->v.String.s") ||
+                expr.Contains("->v.Number.") || expr.Contains("->v."))
+            {
+                // Extract variable name before ->
+                var varName = expr.Substring(0, expr.IndexOf("->")).Trim();
+                // Remove any parentheses
+                varName = varName.Replace("(", "").Replace(")", "");
+                return $"ASTHelpers.ExtractStringValue({varName})";
+            }
+
+            // Function calls: _PyPegen_*, _PyAST_* - keep as-is
+            if (expr.Contains("_PyPegen_") || expr.Contains("_PyAST_"))
+                return expr;
+
+            // Simple variable reference - check if it's in variables dict
+            if (variables.ContainsKey(expr))
+            {
+                // Check if it's a C# keyword and needs @ prefix
+                return EscapeCSharpKeyword(expr);
+            }
+
+            // Check if expression is a simple identifier that needs escaping
+            if (System.Text.RegularExpressions.Regex.IsMatch(expr, @"^[a-zA-Z_][a-zA-Z0-9_]*$"))
+            {
+                return EscapeCSharpKeyword(expr);
+            }
+
+            // Complex expression - keep as-is
+            return expr;
+        }
+
+        /// <summary>
+        /// Escape C# keywords with _ postfix
+        /// CPython grammar uses some C# keywords as variable names (e.g., params, object, class)
+        /// We add _ suffix to avoid conflicts: params → params_
+        /// </summary>
+        private string EscapeCSharpKeyword(string identifier)
+        {
+            var keywords = new HashSet<string> {
+                "abstract", "as", "base", "bool", "break", "byte", "case", "catch", "char",
+                "checked", "class", "const", "continue", "decimal", "default", "delegate",
+                "do", "double", "else", "enum", "event", "explicit", "extern", "false",
+                "finally", "fixed", "float", "for", "foreach", "goto", "if", "implicit",
+                "in", "int", "interface", "internal", "is", "lock", "long", "namespace",
+                "new", "null", "object", "operator", "out", "override", "params", "private",
+                "protected", "public", "readonly", "ref", "return", "sbyte", "sealed",
+                "short", "sizeof", "stackalloc", "static", "string", "struct", "switch",
+                "this", "throw", "true", "try", "typeof", "uint", "ulong", "unchecked",
+                "unsafe", "ushort", "using", "virtual", "void", "volatile", "while"
+            };
+
+            if (keywords.Contains(identifier))
+            {
+                return identifier + "_";
+            }
+
+            return identifier;
         }
 
         private string GenerateStmtConstruction(string stmtType, List<string> args, Dictionary<string, string> variables)
@@ -127,26 +281,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             var sb = new StringBuilder();
 
             // CPython 3.12 pattern: Call _PyAST_* helper method directly
-            // These methods are already implemented in PyParserBase
+            // Arguments are already translated to C# expressions
             var pyastFuncName = $"_PyAST_{stmtType}";
 
-            // Build argument list, filtering out only NULL
-            // Position parameters (_start_lineno, etc.) are now included
-            var actualArgs = args.Where(a =>
-                a != "NULL" &&
-                !string.IsNullOrWhiteSpace(a)
-            ).Select(a => {
-                var result = GetVarOrNull(a, variables);
-                Console.WriteLine($"[ActionMapper] Stmt arg '{a}' -> '{result}'");
-                return result;
-            }).ToList();
-
-            // Filter out null arguments that resulted from missing variables
-            // If all arguments are missing, use empty list to call with defaults
-            var validArgs = actualArgs.Where(a =>
-                !a.Contains("/* Missing variable:") &&
-                a != "null"
-            ).ToList();
+            // Filter out only null arguments
+            var validArgs = args.Where(a => a != "null" && !string.IsNullOrWhiteSpace(a)).ToList();
 
             // Generate the call
             if (validArgs.Count > 0)
@@ -166,21 +305,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             var sb = new StringBuilder();
 
             // CPython 3.12 pattern: Call _PyAST_* helper method directly
+            // Arguments are already translated to C# expressions
             var pyastFuncName = $"_PyAST_{exprType}";
 
-            // Build argument list, filtering out only NULL
-            // Position parameters (_start_lineno, etc.) are now included
-            var actualArgs = args.Where(a =>
-                a != "NULL" &&
-                !string.IsNullOrWhiteSpace(a)
-            ).Select(a => GetVarOrNull(a, variables)).ToList();
-
-            // Filter out null arguments that resulted from missing variables
-            // If all arguments are missing, use empty list to call with defaults
-            var validArgs = actualArgs.Where(a =>
-                !a.Contains("/* Missing variable:") &&
-                a != "null"
-            ).ToList();
+            // Filter out only null arguments
+            var validArgs = args.Where(a => a != "null" && !string.IsNullOrWhiteSpace(a)).ToList();
 
             // Generate the call
             if (validArgs.Count > 0)

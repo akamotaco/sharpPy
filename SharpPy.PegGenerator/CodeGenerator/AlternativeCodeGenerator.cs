@@ -17,6 +17,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private readonly Alternative _alternative;
         private readonly int _alternativeIndex;
         private readonly Dictionary<string, string> _variables = new();
+        private readonly List<string> _allVarNames = new();  // Track all variables in order
         private int _tempVarCounter = 0;
         private readonly string _labelPrefix;
 
@@ -46,6 +47,17 @@ namespace SharpPy.PegGenerator.CodeGenerator
             _parent.WriteLine("_position = _mark;");
             _parent.WriteLine();
 
+            // CPython 3.12: Check error_indicator at start of each alternative
+            _parent.WriteLine("// CPython 3.12: Check error indicator before trying alternative");
+            _parent.WriteLine("if (_pendingSyntaxError != null)");
+            _parent.WriteLine("{");
+            _parent.Indent();
+            _parent.WriteLine("_res = null;");
+            _parent.WriteLine("break;");
+            _parent.Dedent();
+            _parent.WriteLine("}");
+            _parent.WriteLine();
+
             // Generate code for each item in the sequence
             bool allItemsSucceeded = GenerateItemSequence();
 
@@ -53,7 +65,18 @@ namespace SharpPy.PegGenerator.CodeGenerator
             {
                 // Generate AST construction code
                 GenerateActionCode();
-                _parent.WriteLine("if (_res != null) goto done;");
+
+                // CPython 3.12: Don't clear error here - let the rule-level done block handle it
+                // RAISE_* actions set pending error and break, so they never reach here
+                bool isRaiseAction = !string.IsNullOrEmpty(_alternative.Action) &&
+                    (_alternative.Action.Contains("RAISE_SYNTAX_ERROR") ||
+                     _alternative.Action.Contains("RAISE_INDENTATION_ERROR") ||
+                     _alternative.Action.Contains("RAISE_"));
+
+                if (!isRaiseAction)
+                {
+                    _parent.WriteLine("if (_res != null) goto done;");
+                }
             }
 
             _parent.Dedent();
@@ -71,6 +94,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             foreach (var item in _alternative.Items)
             {
+                // CPython 3.12: Lookahead items don't produce values, so skip tracking them
+                bool isLookahead = item.Atom is PositiveLookahead || item.Atom is NegativeLookahead;
+
                 // Determine variable name
                 string varName;
                 if (!string.IsNullOrEmpty(item.Name))
@@ -92,17 +118,20 @@ namespace SharpPy.PegGenerator.CodeGenerator
                         varName = uniqueName;
                         usedVarNames.Add(uniqueName);
                         _variables[item.Name] = varName;
+                        if (!isLookahead) _allVarNames.Add(varName);  // Track all variables except lookahead
                     }
                     else
                     {
                         varName = baseName;
                         usedVarNames.Add(baseName);
                         _variables[item.Name] = varName;
+                        if (!isLookahead) _allVarNames.Add(varName);  // Track all variables except lookahead
                     }
                 }
                 else
                 {
                     varName = $"_tmp{_tempVarCounter++}";
+                    if (!isLookahead) _allVarNames.Add(varName);  // Track unnamed variables except lookahead
                 }
 
                 // Generate code for this item
@@ -149,16 +178,18 @@ namespace SharpPy.PegGenerator.CodeGenerator
         {
             if (string.IsNullOrEmpty(_alternative.Action))
             {
-                // No action specified - return first non-null variable or create default AST
+                // CPython 3.12: No action specified - return first variable (named or unnamed)
                 _parent.WriteLine("// No action specified - using default result");
 
-                var firstVar = _variables.Values.FirstOrDefault();
+                var firstVar = _allVarNames.FirstOrDefault();
+                Console.WriteLine($"[CODEGEN] Alternative with no action: firstVar={firstVar}, allVarCount={_allVarNames.Count}, rule={_rule.Name}");
                 if (firstVar != null)
                 {
                     _parent.WriteLine($"_res = ({_parent.GetRuleReturnType(_rule)})((object?){firstVar});");
                 }
                 else
                 {
+                    // No variables at all - this alternative matches empty sequence
                     _parent.WriteLine($"_res = default({_parent.GetRuleReturnType(_rule)});");
                 }
                 return;
@@ -180,8 +211,15 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 }
             }
 
+            // Check if this is a RAISE_SYNTAX_ERROR, RAISE_INDENTATION_ERROR, or RAISE_*_KNOWN_* call
+            if (_alternative.Action.Contains("RAISE_SYNTAX_ERROR") ||
+                _alternative.Action.Contains("RAISE_INDENTATION_ERROR") ||
+                _alternative.Action.Contains("RAISE_"))
+            {
+                GenerateRaiseErrorAction();
+            }
             // Check if this is a _PyAST_* function call
-            if (_alternative.Action.Contains("_PyAST_"))
+            else if (_alternative.Action.Contains("_PyAST_"))
             {
                 GeneratePyASTAction();
             }
@@ -225,6 +263,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // Check if the action indicates a sequence result (asdl_stmt_seq* or asdl_expr_seq*)
             bool needsSequenceWrap = action.Contains("asdl_stmt_seq*") || action.Contains("asdl_expr_seq*") || action.Contains("_PyPegen_singleton_seq");
 
+            if (needsSequenceWrap && action.Contains("Pass"))
+            {
+                Console.WriteLine($"[DEBUG Pass] Original action: [{action}]");
+                Console.WriteLine($"[DEBUG Pass] needsSequenceWrap: {needsSequenceWrap}");
+            }
+
             // Remove CHECK_VERSION wrapper first
             // CHECK_VERSION(type, version, "message", actual_call)
             if (action.Contains("CHECK_VERSION("))
@@ -254,7 +298,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             }
 
             var funcEnd = action.IndexOf('(', funcStart);
-            var argsEnd = action.LastIndexOf(')');
+            var argsEnd = FindMatchingParen(action, funcEnd);
 
             if (funcEnd < 0 || argsEnd < 0 || funcEnd >= argsEnd)
             {
@@ -266,15 +310,48 @@ namespace SharpPy.PegGenerator.CodeGenerator
             var funcName = action.Substring(funcStart, funcEnd - funcStart);
             var argsStr = action.Substring(funcEnd + 1, argsEnd - funcEnd - 1);
 
+            if (funcName.Contains("Pass"))
+            {
+                Console.WriteLine($"[DEBUG Pass argsStr] Before clean: [{argsStr}]");
+                Console.WriteLine($"[DEBUG Pass argsStr] funcEnd={funcEnd}, argsEnd={argsEnd}");
+            }
+
+            // Debug: Check if action is multiline
+            if (funcName.Contains("BoolOp") || funcName.Contains("Compare"))
+            {
+                Console.WriteLine($"[DEBUG] Full action string for {funcName}:");
+                Console.WriteLine($"  Length: {action.Length}");
+                Console.WriteLine($"  funcStart: {funcStart}, funcEnd: {funcEnd}, argsEnd: {argsEnd}");
+                Console.WriteLine($"  Substring calc: funcEnd+1={funcEnd+1}, length={argsEnd - funcEnd - 1}");
+                Console.WriteLine($"  Action text: [{action}]");
+                Console.WriteLine($"  Extracted argsStr length: {argsStr.Length}");
+                Console.WriteLine($"  Extracted argsStr (escaped): [{argsStr.Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t")}]");
+            }
+
             // Clean CPython macros from arguments
             argsStr = CleanCPythonMacros(argsStr);
+
+            if (funcName.Contains("BoolOp") || funcName.Contains("Compare"))
+            {
+                Console.WriteLine($"[DEBUG] {funcName} after CleanCPythonMacros: [{argsStr}]");
+            }
 
             // Split arguments respecting parentheses depth
             var args = SplitArgumentsRespectingParens(argsStr);
 
+            if (funcName.Contains("BoolOp") || funcName.Contains("Compare"))
+            {
+                Console.WriteLine($"[DEBUG] {funcName} split args count: {args.Count}, values: [{string.Join("], [", args)}]");
+            }
+
             // Use ActionMapper to convert to C# AST construction
             var mapper = new ActionMapper();
             var astCode = mapper.MapAction(funcName, args, _variables, _rule);
+
+            if (needsSequenceWrap && action.Contains("Pass"))
+            {
+                Console.WriteLine($"[DEBUG Pass] After MapAction, astCode: [{astCode}]");
+            }
 
             if (astCode != null)
             {
@@ -305,16 +382,98 @@ namespace SharpPy.PegGenerator.CodeGenerator
         /// </summary>
         private string CleanCPythonMacros(string argsStr)
         {
+            // Debug logging
+            bool debugLog = argsStr.Contains("BoolOp") || argsStr.Contains("_PyPegen_seq_insert") || argsStr.Contains("_PyPegen_get_cmpops");
+
+            if (debugLog)
+            {
+                Console.WriteLine($"[CleanCPythonMacros] Input: [{argsStr.Replace("\n", "\\n")}]");
+            }
+
+            // Remove C type casts: (asdl_expr_seq*), (expr_ty), etc.
+            // Pattern: (type*) or (type_ty)
+            argsStr = System.Text.RegularExpressions.Regex.Replace(argsStr, @"\([a-zA-Z_][a-zA-Z0-9_]*\s*\*+\s*\)", "");
+            argsStr = System.Text.RegularExpressions.Regex.Replace(argsStr, @"\([a-zA-Z_][a-zA-Z0-9_]*_ty\)", "");
+
+            // Remove C pointer operators for specific patterns
+            // b->kind → ASTHelpers.ExtractOpKind(b)
+            // b->v.Name.id → ASTHelpers.ExtractStringValue(b)
+            argsStr = System.Text.RegularExpressions.Regex.Replace(argsStr, @"([a-zA-Z_][a-zA-Z0-9_]*)\s*->\s*kind", "ASTHelpers.ExtractOpKind($1)");
+            argsStr = System.Text.RegularExpressions.Regex.Replace(argsStr, @"([a-zA-Z_][a-zA-Z0-9_]*)\s*->\s*v\.Name\.id", "ASTHelpers.ExtractStringValue($1)");
+            argsStr = System.Text.RegularExpressions.Regex.Replace(argsStr, @"([a-zA-Z_][a-zA-Z0-9_]*)\s*->\s*v\.[a-zA-Z_]+\.[a-zA-Z_]+", "ASTHelpers.ExtractStringValue($1)");
+            // Generic fallback: b->something → b
+            argsStr = System.Text.RegularExpressions.Regex.Replace(argsStr, @"([a-zA-Z_][a-zA-Z0-9_]*)\s*->\s*[a-zA-Z_][a-zA-Z0-9_]*", "$1");
+
+            // Remove 'p' parameter from _PyPegen_* function calls
+            // Pattern: _PyPegen_*(p, ...) → _PyPegen_*(...)
+            argsStr = System.Text.RegularExpressions.Regex.Replace(argsStr, @"_PyPegen_([a-zA-Z0-9_]+)\(p,\s*", "_PyPegen_$1(");
+            argsStr = System.Text.RegularExpressions.Regex.Replace(argsStr, @"_PyPegen_([a-zA-Z0-9_]+)\(p\)", "_PyPegen_$1()");
+
             // Remove CHECK(...) macro
             // Pattern: CHECK(type, expression) → expression
             while (argsStr.Contains("CHECK("))
             {
                 var checkStart = argsStr.IndexOf("CHECK(");
                 var checkEnd = FindMatchingParen(argsStr, checkStart + 5);  // +5 for "CHECK"
+
+                if (debugLog)
+                {
+                    Console.WriteLine($"[CleanCPythonMacros] CHECK found at {checkStart}, matching paren at {checkEnd}");
+                }
+
                 if (checkEnd > checkStart)
                 {
                     var checkContent = argsStr.Substring(checkStart + 6, checkEnd - checkStart - 6);
+
+                    if (debugLog)
+                    {
+                        Console.WriteLine($"[CleanCPythonMacros] CHECK content: [{checkContent.Replace("\n", "\\n")}]");
+                    }
+
                     // Extract the expression after the first comma
+                    var commaPos = checkContent.IndexOf(',');
+                    if (commaPos >= 0)
+                    {
+                        var expression = checkContent.Substring(commaPos + 1).Trim();
+                        if (debugLog)
+                        {
+                            Console.WriteLine($"[CleanCPythonMacros] Extracted expression: [{expression.Replace("\n", "\\n")}]");
+                        }
+                        argsStr = argsStr.Substring(0, checkStart) + expression + argsStr.Substring(checkEnd + 1);
+                    }
+                    else
+                    {
+                        // No comma, remove the entire CHECK
+                        argsStr = argsStr.Substring(0, checkStart) + argsStr.Substring(checkEnd + 1);
+                    }
+
+                    if (debugLog)
+                    {
+                        Console.WriteLine($"[CleanCPythonMacros] After CHECK removal: [{argsStr.Replace("\n", "\\n")}]");
+                    }
+                }
+                else
+                {
+                    if (debugLog)
+                    {
+                        Console.WriteLine($"[CleanCPythonMacros] Could not find matching paren, breaking");
+                    }
+                    break; // Can't find matching paren, give up
+                }
+            }
+
+            // Remove CHECK_NULL_ALLOWED(type, expr) → expr
+            // Pattern: CHECK_NULL_ALLOWED(asdl_expr_seq*, _PyPegen_seq_extract_starred_exprs(p, a)) → _PyPegen_seq_extract_starred_exprs(p, a)
+            while (argsStr.Contains("CHECK_NULL_ALLOWED("))
+            {
+                var checkStart = argsStr.IndexOf("CHECK_NULL_ALLOWED(");
+                var checkEnd = FindMatchingParen(argsStr, checkStart + 18);  // +18 for "CHECK_NULL_ALLOWED"
+
+                if (checkEnd > checkStart)
+                {
+                    var checkContent = argsStr.Substring(checkStart + 19, checkEnd - checkStart - 19);
+
+                    // Extract the expression after the first comma (skip type)
                     var commaPos = checkContent.IndexOf(',');
                     if (commaPos >= 0)
                     {
@@ -323,13 +482,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     }
                     else
                     {
-                        // No comma, remove the entire CHECK
+                        // No comma, remove the entire CHECK_NULL_ALLOWED
                         argsStr = argsStr.Substring(0, checkStart) + argsStr.Substring(checkEnd + 1);
                     }
                 }
                 else
                 {
-                    break; // Can't find matching paren, give up
+                    break;
                 }
             }
 
@@ -385,22 +544,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 }
             }
 
-            // Remove any remaining incomplete macro calls (ending without closing paren)
-            // Pattern: MACRO_NAME(... without closing )
-            var macroPatterns = new[] { "CHECK(", "NEW_TYPE_COMMENT(", "_PyPegen_" };
-            foreach (var pattern in macroPatterns)
+            // Note: _PyPegen_* functions are helper functions, not macros to remove
+            // They should be kept in the argument list and handled at runtime
+            // Example: _PyPegen_seq_insert_in_front(p, a, b) should remain as-is
+
+            if (debugLog)
             {
-                var pos = argsStr.IndexOf(pattern);
-                if (pos >= 0)
-                {
-                    // Find if there's a closing paren
-                    var parenPos = FindMatchingParen(argsStr, pos + pattern.Length - 1);
-                    if (parenPos < 0)
-                    {
-                        // No matching paren found, remove from this pattern to end
-                        argsStr = argsStr.Substring(0, pos).TrimEnd();
-                    }
-                }
+                Console.WriteLine($"[CleanCPythonMacros] Final output: [{argsStr.Replace("\n", "\\n")}]");
             }
 
             return argsStr;
@@ -477,6 +627,59 @@ namespace SharpPy.PegGenerator.CodeGenerator
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Generate code for RAISE_SYNTAX_ERROR, RAISE_INDENTATION_ERROR, and RAISE_*_KNOWN_* calls
+        /// CPython 3.12: These actions throw exceptions to report invalid syntax
+        /// </summary>
+        private void GenerateRaiseErrorAction()
+        {
+            var action = _alternative.Action.Trim();
+
+            // CPython 3.12: All RAISE_* macros throw syntax errors
+            // For now, just throw a generic PySyntaxError since we're focused on getting parsing to work
+            // The exact error message isn't critical for our testing purposes
+
+            // CPython 3.12: For now, use System.Exception for all syntax errors
+            // TODO: Create custom PySyntaxError and PyIndentationError exception classes
+            string exceptionClass = "System.Exception";
+
+            // Try to extract the first quoted string as the error message
+            // Need to handle escaped quotes like \"==\" properly
+            string message = "\"invalid syntax\"";  // Default message
+            var firstQuote = action.IndexOf('"');
+            if (firstQuote >= 0)
+            {
+                // Find the closing quote, skipping over escaped quotes
+                int pos = firstQuote + 1;
+                while (pos < action.Length)
+                {
+                    if (action[pos] == '"')
+                    {
+                        // Found potential closing quote
+                        message = action.Substring(firstQuote, pos - firstQuote + 1);
+                        break;
+                    }
+                    else if (action[pos] == '\\' && pos + 1 < action.Length)
+                    {
+                        // Skip escaped character
+                        pos += 2;
+                    }
+                    else
+                    {
+                        pos++;
+                    }
+                }
+            }
+
+            // Generate C# code to set pending error (CPython 3.12: RAISE_SYNTAX_ERROR sets error and returns NULL immediately)
+            // CPython 3.12: After RAISE_SYNTAX_ERROR, no other alternatives are tried
+            _parent.WriteLine($"// CPython 3.12: Invalid syntax detected - set error and return immediately");
+            _parent.WriteLine($"_pendingSyntaxError = {message};");
+            _parent.WriteLine($"_pendingErrorPosition = _position;");
+            _parent.WriteLine($"_res = null;");
+            _parent.WriteLine($"goto done;  // CPython: Skip remaining alternatives after RAISE_SYNTAX_ERROR");
         }
     }
 }

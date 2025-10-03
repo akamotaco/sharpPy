@@ -102,7 +102,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             {
                 // Token reference - use Expect()
                 _parent.WriteLine($"// Expect token: {ruleRef.Name}");
+                _parent.WriteLine($"Console.WriteLine($\"[DEBUG] ExpectToken({ruleRef.Name}): pos={{_position}}, token={{CurrentToken?.Type}}:'{{CurrentToken?.Value}}'\");");
                 _parent.WriteLine($"var {_varName} = ExpectToken(GeneratedTokenType.{ruleRef.Name.ToUpper()});");
+                _parent.WriteLine($"Console.WriteLine($\"[DEBUG] ExpectToken({ruleRef.Name}): result={{({_varName} != null ? \"SUCCESS\" : \"FAIL\")}}, newPos={{_position}}\");");
                 _parent.WriteLine($"if ({_varName} == null)");
                 _parent.WriteLine("{");
                 _parent.Indent();
@@ -116,8 +118,27 @@ namespace SharpPy.PegGenerator.CodeGenerator
             {
                 // Rule reference - call method
                 var methodName = _parent.ToCSharpMethodName(ruleRef.Name);
+                bool isInvalidRule = ruleRef.Name.StartsWith("invalid_", StringComparison.OrdinalIgnoreCase);
+
                 _parent.WriteLine($"// Call rule: {ruleRef.Name}");
-                _parent.WriteLine($"var {_varName} = {methodName}();");
+
+                // CPython 3.12: Wrap invalid_* rule calls in if (_callInvalidRules) check
+                // Declare variable outside if block to avoid scope issues
+                if (isInvalidRule)
+                {
+                    _parent.WriteLine($"object? {_varName} = null;");
+                    _parent.WriteLine($"if (_callInvalidRules)");
+                    _parent.WriteLine("{");
+                    _parent.Indent();
+                    _parent.WriteLine($"{_varName} = {methodName}();");
+                    _parent.Dedent();
+                    _parent.WriteLine("}");
+                }
+                else
+                {
+                    _parent.WriteLine($"var {_varName} = {methodName}();");
+                }
+
                 _parent.WriteLine($"if ({_varName} == null)");
                 _parent.WriteLine("{");
                 _parent.Indent();
@@ -367,12 +388,51 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
         private void GenerateNegativeLookahead(NegativeLookahead nla)
         {
-            // CPython 3.12 pattern: Fail if matches
-            var markVar = $"_lookahead_mark_{_lookaheadCounter++}";
-            _parent.WriteLine($"// Negative lookahead - fail if matches");
-            _parent.WriteLine($"int {markVar} = _position;");
-            _parent.WriteLine($"// TODO: Parse lookahead content for {nla.Expression?.GetType().Name}, fail if succeeds");
-            _parent.WriteLine($"_position = {markVar}; // Restore position");
+            // CPython 3.12 pattern: Negative lookahead fails the alternative if the pattern matches
+            // We test without consuming input (position doesn't change)
+            var testVar = $"_lookahead_test_{_lookaheadCounter++}";
+
+            _parent.WriteLine($"// Negative lookahead: !({nla.Expression})");
+            _parent.WriteLine($"object? {testVar} = null;");
+
+            // Generate code to test the expression - only check current token position
+            switch (nla.Expression)
+            {
+                case Group grp:
+                    // For group like ('=' | ':='), test each alternative
+                    _parent.WriteLine($"// Test if current token matches: {nla.Expression}");
+                    foreach (var alt in grp.Alternatives)
+                    {
+                        if (alt.Items.Count == 1 && alt.Items[0].Atom is StringLiteral lit)
+                        {
+                            var escaped = _parent.EscapeString(lit.Value);
+                            _parent.WriteLine($"if (CurrentToken?.Value == \"{escaped}\") {{ {testVar} = CurrentToken; }}");
+                        }
+                    }
+                    break;
+
+                case StringLiteral slit:
+                    // Single string literal
+                    var escapedS = _parent.EscapeString(slit.Value);
+                    _parent.WriteLine($"if (CurrentToken?.Value == \"{escapedS}\") {{ {testVar} = CurrentToken; }}");
+                    break;
+
+                default:
+                    // For complex cases, skip for now
+                    _parent.WriteLine($"// TODO: Complex negative lookahead for {nla.Expression.GetType().Name}");
+                    break;
+            }
+
+            // If the expression matched, this alternative must fail
+            _parent.WriteLine($"if ({testVar} != null)");
+            _parent.WriteLine("{");
+            _parent.Indent();
+            _parent.WriteLine($"// Negative lookahead matched - fail this alternative");
+            _parent.WriteLine($"_position = _mark;");
+            _parent.WriteLine($"_res = null;");
+            _parent.WriteLine($"break;  // Exit this alternative");
+            _parent.Dedent();
+            _parent.WriteLine("}");
         }
 
         private void GenerateCut(Cut cut)
