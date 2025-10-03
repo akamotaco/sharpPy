@@ -437,7 +437,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("private readonly PegInterpreter _interpreter;");
             WriteLine();
             WriteLine("// Override base class abstract property");
-            WriteLine("protected override GeneratedPtr? InterpreterObject => _interpreter;");
+            WriteLine("protected override PegInterpreter? InterpreterObject => _interpreter;");
             WriteLine();
 
             WriteLine("public GeneratedPyParser(List<GeneratedTokenInfo> tokens, string filename = \"<string>\")");
@@ -445,8 +445,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             WriteLine("    // CPython 3.12: Initialize PegInterpreter with embedded grammar");
             WriteLine("    var embeddedGrammar = EmbeddedGrammar.GetGrammar();");
-            WriteLine("    var tokenInfoList = tokens.Cast<ITokenInfo>().ToList();");
-            WriteLine("    _interpreter = new PegInterpreter(embeddedGrammar, tokenInfoList);");
+            WriteLine("    _interpreter = new PegInterpreter(embeddedGrammar, tokens);");
             WriteLine("}");
             WriteLine();
 
@@ -1837,7 +1836,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("return result;");
         }
 
-        private void GenerateSimpleStmtMethod(string returnType)
+        private void GeneratePegStmtMethod(string returnType)
         {
             // simple_stmt[stmt_ty] with multiple alternatives including 'pass', 'break', 'continue'
             WriteLine("// simple_stmt[stmt_ty]: Multiple alternatives including simple keyword statements");
@@ -2077,27 +2076,27 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("// Check for import statements");
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"import\")");
             WriteLine("{");
-            WriteLine("    Console.WriteLine($\"[DEBUG] ParseSimpleStmt: Found import statement, calling ParseImportStatement\");");
+            WriteLine("    Console.WriteLine($\"[DEBUG] ParsePegStmt: Found import statement, calling ParseImportStatement\");");
             WriteLine("    var result = ParseImportStatement();");
-            WriteLine("    Console.WriteLine($\"[DEBUG] ParseSimpleStmt: ParseImportStatement returned: {result}\");");
+            WriteLine("    Console.WriteLine($\"[DEBUG] ParsePegStmt: ParseImportStatement returned: {result}\");");
             WriteLine("    return result;");
             WriteLine("}");
             WriteLine();
             WriteLine("// Check for from-import statements");
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"from\")");
             WriteLine("{");
-            WriteLine("    Console.WriteLine($\"[DEBUG] ParseSimpleStmt: Found from-import statement, calling ParseFromImportStatement\");");
+            WriteLine("    Console.WriteLine($\"[DEBUG] ParsePegStmt: Found from-import statement, calling ParseFromImportStatement\");");
             WriteLine("    var result = ParseFromImportStatement();");
-            WriteLine("    Console.WriteLine($\"[DEBUG] ParseSimpleStmt: ParseFromImportStatement returned: {result}\");");
+            WriteLine("    Console.WriteLine($\"[DEBUG] ParsePegStmt: ParseFromImportStatement returned: {result}\");");
             WriteLine("    return result;");
             WriteLine("}");
             WriteLine();
             WriteLine("// Check for raise statements");
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"raise\")");
             WriteLine("{");
-            WriteLine("    Console.WriteLine($\"[DEBUG] ParseSimpleStmt: Found raise statement, calling ParseRaiseStatement\");");
+            WriteLine("    Console.WriteLine($\"[DEBUG] ParsePegStmt: Found raise statement, calling ParseRaiseStatement\");");
             WriteLine("    var result = ParseRaiseStatement();");
-            WriteLine("    Console.WriteLine($\"[DEBUG] ParseSimpleStmt: ParseRaiseStatement returned: {result}\");");
+            WriteLine("    Console.WriteLine($\"[DEBUG] ParsePegStmt: ParseRaiseStatement returned: {result}\");");
             WriteLine("    return result;");
             WriteLine("}");
             WriteLine();
@@ -2356,7 +2355,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Try simple_stmts");
-            WriteLine("var simpleStmts = SimpleStmts();");
+            WriteLine("var simpleStmts = PegStmts();");
             WriteLine("if (simpleStmts != null)");
             WriteLine("{");
             Indent();
@@ -2368,12 +2367,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine($"return default({returnType});");
         }
 
-        private void GenerateSimpleStmtsMethod(string returnType)
+        private void GeneratePegStmtsMethod(string returnType)
         {
             // simple_stmts[asdl_stmt_seq*]: a=simple_stmt b=newline { (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a) }
             WriteLine("// simple_stmts[asdl_stmt_seq*]: simple_stmt NEWLINE | simple_stmt $$");
             WriteLine();
-            WriteLine("var stmt = SimpleStmt();");
+            WriteLine("var stmt = PegStmt();");
             WriteLine("if (stmt != null)");
             WriteLine("{");
             Indent();
@@ -3090,8 +3089,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("// ========================================");
             WriteLine();
 
-            // Include SimpleModule, SimpleStmt, SimpleExpr classes
-            WriteLine("public class SimpleModule");
+            // Include PegModule, PegStmt, PegExpr classes
+            WriteLine("public class PegModule");
             WriteLine("{");
             Indent();
             WriteLine("public List<object>? Body { get; set; }");
@@ -3099,7 +3098,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
 
-            WriteLine("public class LegacySimpleStmt");
+            WriteLine("public class PegStmt");
             WriteLine("{");
             Indent();
             WriteLine("public string? Type { get; set; }");
@@ -3108,7 +3107,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
 
-            WriteLine("public class LegacySimpleExpr");
+            WriteLine("public class PegExpr");
             WriteLine("{");
             Indent();
             WriteLine("public string? Type { get; set; }");
@@ -3544,7 +3543,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Dedent();
             WriteLine("case \"simple_stmt\":");
             Indent();
-            WriteLine("return ParseSimpleStmt();");
+            WriteLine("return ParsePegStmt();");
             Dedent();
             WriteLine("case \"stmt\":");
             Indent();
@@ -3711,7 +3710,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Dedent();
             WriteLine("}");
             WriteLine();
-            WriteLine("private object ParseSimpleStmt()");
+            WriteLine("private object ParsePegStmt()");
             WriteLine("{");
             Indent();
             WriteLine("// Try assignment first");
@@ -3750,7 +3749,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Dedent();
             WriteLine("}");
             WriteLine();
-            WriteLine("return ParseSimpleStmt();");
+            WriteLine("return ParsePegStmt();");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -5926,13 +5925,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Try simple statements");
-            WriteLine("var simple = ParseSimpleStmts();");
+            WriteLine("var simple = ParsePegStmts();");
             WriteLine("if (simple != null)");
             WriteLine("{");
             WriteLine("    if (_position == startPos)");
             WriteLine("    {");
             WriteLine("        // CRITICAL: Position didn't advance - this indicates an infinite loop");
-            WriteLine("        Console.WriteLine($\"[ERROR] ParseStatement: Position {_position} didn't advance after ParseSimpleStmts, forcing advance to prevent infinite loop. Token: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
+            WriteLine("        Console.WriteLine($\"[ERROR] ParseStatement: Position {_position} didn't advance after ParsePegStmts, forcing advance to prevent infinite loop. Token: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
             WriteLine("        Advance();");
             WriteLine("        return null;");
             WriteLine("    }");
@@ -6275,11 +6274,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("/// <summary>");
             WriteLine("/// simple_stmts[asdl_stmt_seq*]: simple_stmt (';' simple_stmt)* [';'] NEWLINE");
             WriteLine("/// </summary>");
-            WriteLine("public GeneratedStmtSeq ParseSimpleStmts()");
+            WriteLine("public GeneratedStmtSeq ParsePegStmts()");
             WriteLine("{");
             Indent();
             WriteLine("var statements = new GeneratedStmtSeq();");
-            WriteLine("var stmt = ParseSimpleStmt();");
+            WriteLine("var stmt = ParsePegStmt();");
             WriteLine("if (stmt != null)");
             WriteLine("    statements.Add(stmt);");
             WriteLine();
@@ -6293,7 +6292,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NEWLINE)");
             WriteLine("    break;");
             WriteLine();
-            WriteLine("var nextStmt = ParseSimpleStmt();");
+            WriteLine("var nextStmt = ParsePegStmt();");
             WriteLine("if (nextStmt != null)");
             WriteLine("    statements.Add(nextStmt);");
             WriteLine("else");
@@ -6317,7 +6316,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("/// <summary>");
             WriteLine("/// simple_stmt[stmt_ty]: CPython 3.12 order - assignment | star_expressions | 'pass' | 'return' | ...");
             WriteLine("/// </summary>");
-            WriteLine("public GeneratedStmt ParseSimpleStmt()");
+            WriteLine("public GeneratedStmt ParsePegStmt()");
             WriteLine("{");
             Indent();
             WriteLine("// CPython 3.12: assignment FIRST");
@@ -6901,10 +6900,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Second alternative: simple_stmts");
-            WriteLine("var stmt = ParseSimpleStmts();");
+            WriteLine("var stmt = ParsePegStmts();");
             WriteLine("if (stmt != null)");
             WriteLine("{");
-            WriteLine("    return stmt; // ParseSimpleStmts returns GeneratedStmtSeq directly");
+            WriteLine("    return stmt; // ParsePegStmts returns GeneratedStmtSeq directly");
             WriteLine("}");
             WriteLine();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseBlock: Returning result with {statements.Count} statements at position {_position}\");");
@@ -7063,7 +7062,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("else");
             WriteLine("{");
             WriteLine("    // Single line class body - parse one statement");
-            WriteLine("    var stmt = ParseSimpleStmt();");
+            WriteLine("    var stmt = ParsePegStmt();");
             WriteLine("    if (stmt != null)");
             WriteLine("    {");
             WriteLine("        statements.Add(stmt);");
@@ -7822,7 +7821,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("public object Statement()");
             WriteLine("{");
             Indent();
-            WriteLine("return ParseSimpleStmt();");
+            WriteLine("return ParsePegStmt();");
             Dedent();
             WriteLine("}");
             WriteLine();

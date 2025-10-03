@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using SharpPy.Tokenizer;
+using SharpPy.Generated;
 
 namespace SharpPy.PegGenerator.Interpreter
 {
@@ -53,9 +54,9 @@ namespace SharpPy.PegGenerator.Interpreter
     /// </summary>
     public sealed class PegTokenResult : PegParseResult
     {
-        public ITokenInfo Token { get; }
+        public GeneratedTokenInfo Token { get; }
 
-        public PegTokenResult(ITokenInfo token, int endPosition)
+        public PegTokenResult(GeneratedTokenInfo token, int endPosition)
             : base(true, endPosition)
         {
             Token = token ?? throw new ArgumentNullException(nameof(token));
@@ -85,9 +86,9 @@ namespace SharpPy.PegGenerator.Interpreter
     /// </summary>
     public sealed class PegAstResult : PegParseResult
     {
-        public GeneratedPtr AstNode { get; }
+        public PegNode AstNode { get; }
 
-        public PegAstResult(GeneratedPtr astNode, int endPosition)
+        public PegAstResult(PegNode astNode, int endPosition)
             : base(true, endPosition)
         {
             AstNode = astNode ?? throw new ArgumentNullException(nameof(astNode));
@@ -132,9 +133,9 @@ namespace SharpPy.PegGenerator.Interpreter
     /// </summary>
     public sealed class PegActionResult : PegParseResult
     {
-        public GeneratedPtr ActionResult { get; }
+        public PegNode ActionResult { get; }
 
-        public PegActionResult(GeneratedPtr actionResult, int endPosition)
+        public PegActionResult(PegNode actionResult, int endPosition)
             : base(true, endPosition)
         {
             ActionResult = actionResult ?? throw new ArgumentNullException(nameof(actionResult));
