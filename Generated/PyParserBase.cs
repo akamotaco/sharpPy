@@ -33,9 +33,8 @@ namespace SharpPy.Generated
         // Set to false in *_without_invalid rules to prevent invalid rule execution
         protected bool _callInvalidRules = true;
 
-        // CPython 3.12: PegInterpreter for grammar-based parsing
-        // Concrete type is defined in GeneratedPyParser via property
-        protected abstract PegInterpreter? InterpreterObject { get; }
+        // CPython 3.12: Generated parser is independent - no interpreter needed
+        // (PegInterpreter only used during parser generation, not runtime)
 
         // Context management for CPython 3.12 compatibility
         protected readonly Stack<ParserContext> _contextStack = new();
@@ -394,7 +393,7 @@ namespace SharpPy.Generated
                 if (stmtSeq != null)
                 {
                     // ParseStatement always returns GeneratedStmtSeq
-                    statementList.AddRange(stmtSeq);
+                    statementList.AddRange(stmtSeq.AsEnumerable());
                 }
                 else
                 {
@@ -411,12 +410,6 @@ namespace SharpPy.Generated
         // Removed Statements() - using generated parser's implementation instead
 
         // Generic comparison parsing template - will be replaced by generated ParseComparison
-        protected object? ParseComparisonTemplate()
-        {
-            // This is a temporary placeholder - the generated parser will have ParseComparison
-            return null;
-        }
-
         // Common parsing methods - no need to generate these dynamically
 
 
@@ -425,173 +418,6 @@ namespace SharpPy.Generated
 
 
         // Removed Statement() - using generated parser's implementation instead
-
-        // Template for simple statement parsing (assignment, expression, etc.)
-        protected object? ParseSimpleStatement()
-        {
-            // Try assignment first (NAME '=' expr)
-            var mark = Mark();
-            if (CurrentToken?.Type.ToString() == "NAME")
-            {
-                var namePos = _position;
-                Advance(); // consume NAME
-
-                if (CurrentToken?.Type.ToString() == "OP" && CurrentToken?.Value == "=")
-                {
-                    Reset(namePos); // go back to start
-                    return ParseAssignment();
-                }
-
-                Reset(mark); // backtrack if not assignment
-            }
-
-            // Try expression statement
-            var expr = (object?)null; // Expression(); // Will use generated method
-            if (expr != null && expr is GeneratedExpr genExpr)
-            {
-                // Return expression statement
-                return new GeneratedExprStmt { Value = genExpr };
-            }
-
-            return null;
-        }
-
-        // Assignment parsing template - CPython 3.12 chained assignment and augmented assignment support
-        // Grammar:
-        //   | a[asdl_expr_seq*]=(z=star_targets '=' { z })+ b=(yield_expr | star_expressions) !'='
-        //   | a=single_target b=augassign ~ c=(yield_expr | star_expressions)
-        protected GeneratedStmt? ParseAssignment()
-        {
-            var mark = Mark();
-            var parser = this as GeneratedPyParser;
-
-            // CPython 3.12: Try augmented assignment FIRST (single_target augassign value)
-            // This matches: i += 1, x *= 2, etc.
-            var augassignMark = Mark();
-            var augTarget = parser?.Expression();
-
-            if (augTarget != null)
-            {
-                // Check for augmented assignment operators: +=, -=, *=, /=, etc.
-                string? augOp = TryMatchAugAssignOp();
-                if (augOp != null)
-                {
-                    // Matched augmented assignment operator
-                    Advance(); // consume the operator
-
-                    // Parse the value (right side)
-                    var augValue = parser?.Expression();
-                    if (augValue != null)
-                    {
-                        // CPython 3.12: Set Store context on target
-                        SetExprContext(augTarget, "Store");
-
-                        // Create AugAssign statement
-                        return _PyAST_AugAssign(augTarget, augOp, augValue);
-                    }
-                }
-            }
-
-            // Augmented assignment failed, try regular assignment
-            Reset(mark);
-            var targets = new List<object>();
-
-            // Parse one or more "target =" patterns
-            while (true)
-            {
-                var targetMark = Mark();
-                var target = parser?.Expression();
-
-                if (target == null)
-                {
-                    Reset(targetMark);
-                    break;
-                }
-
-                // Check for '=' after target (exact match, not augmented)
-                if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "=")
-                {
-                    targets.Add(target);
-                    Advance(); // consume '='
-
-                    // Check if next token is NOT '=' (to avoid matching == comparison)
-                    if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "=")
-                    {
-                        // This is '==' comparison, not assignment - rollback
-                        Reset(targetMark);
-                        targets.RemoveAt(targets.Count - 1);
-                        break;
-                    }
-                }
-                else
-                {
-                    // No '=' found, not an assignment
-                    Reset(targetMark);
-                    break;
-                }
-            }
-
-            // Must have at least one target
-            if (targets.Count == 0)
-            {
-                Reset(mark);
-                return null;
-            }
-
-            // Parse the value (right side of assignment)
-            var value = parser?.Expression();
-            if (value == null)
-            {
-                Reset(mark);
-                return null;
-            }
-
-            // Check that we don't have another '=' (to avoid a = b = c = syntax errors)
-            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "=")
-            {
-                // Next is '=', this might be part of a longer chain - let it be parsed
-                // Actually, we should have captured all of them in the loop above
-                // If we're here, it means there's a syntax error or the loop logic needs review
-            }
-
-            // CPython 3.12: Set Store context on all assignment targets
-            SetExprContextRecursive(targets, "Store");
-
-            // Create chained assignment statement
-            return _PyAST_Assign(targets, value);
-        }
-
-        /// <summary>
-        /// CPython 3.12: Check if current token is an augmented assignment operator
-        /// Returns the operator name if matched, null otherwise
-        /// Grammar: augassign: '+=' | '-=' | '*=' | '@=' | '/=' | '%=' | '&=' | '|=' | '^=' | '<<=' | '>>=' | '**=' | '//='
-        /// </summary>
-        private string? TryMatchAugAssignOp()
-        {
-            if (CurrentToken?.Type != GeneratedTokenType.OP)
-                return null;
-
-            var op = CurrentToken.Value;
-
-            // CPython 3.12: All augmented assignment operators
-            switch (op)
-            {
-                case "+=": return "Add";
-                case "-=": return "Sub";
-                case "*=": return "Mult";
-                case "@=": return "MatMult";
-                case "/=": return "Div";
-                case "%=": return "Mod";
-                case "&=": return "BitAnd";
-                case "|=": return "BitOr";
-                case "^=": return "BitXor";
-                case "<<=": return "LShift";
-                case ">>=": return "RShift";
-                case "**=": return "Pow";
-                case "//=": return "FloorDiv";
-                default: return null;
-            }
-        }
 
         /// <summary>
         /// CPython 3.12: Create AugAssign statement
@@ -681,79 +507,8 @@ namespace SharpPy.Generated
             }
         }
 
-        // If statement parsing template
-        protected object? ParseIfStatement()
-        {
-            if (CurrentToken?.Type.ToString() != "NAME" || CurrentToken?.Value != "if") return null;
-
-            Advance(); // consume 'if'
-
-            var condition = (object?)null; // Expression(); // Will use generated method
-            if (condition == null) return null;
-
-            if (CurrentToken?.Type.ToString() != "OP" || CurrentToken?.Value != ":") return null;
-            Advance(); // consume ':'
-
-            // Skip NEWLINE and INDENT
-            while (CurrentToken != null && (CurrentToken.Type.ToString() == "NEWLINE" || CurrentToken.Type.ToString() == "INDENT"))
-            {
-                Advance();
-            }
-
-            var body = new List<object>();
-            var parser = this as GeneratedPyParser;
-            var bodyStmt = parser?.Statement();
-            if (bodyStmt != null)
-            {
-                body.Add(bodyStmt);
-            }
-
-            // Skip DEDENT
-            if (CurrentToken?.Type.ToString() == "DEDENT")
-            {
-                Advance();
-            }
-
-            return new { type = "if", condition = condition, body = body };
-        }
-
         // Entry point
         public abstract TModule Parse();
-
-        // Embedded PEG Interpreter and supporting classes (moved from generated parser)
-        public interface IEmbeddedTokenInfo
-        {
-            object Type { get; }
-            string Value { get; }
-            int Line { get; }
-            int Column { get; }
-        }
-
-        public class EmbeddedTokenInfoAdapter : IEmbeddedTokenInfo
-        {
-            private readonly object _token;
-
-            public EmbeddedTokenInfoAdapter(object token)
-            {
-                _token = token;
-            }
-
-            public object Type => _token.GetType().GetProperty("Type")?.GetValue(_token);
-            public string Value => _token.GetType().GetProperty("Value")?.GetValue(_token)?.ToString() ?? "";
-            public int Line => (int)(_token.GetType().GetProperty("Line")?.GetValue(_token) ?? 0);
-            public int Column => (int)(_token.GetType().GetProperty("Column")?.GetValue(_token) ?? 0);
-        }
-
-        public class EmbeddedGrammar
-        {
-            // Grammar rules will be dynamically generated from python.gram
-            public Dictionary<string, string> Rules { get; set; } = new();
-
-            public EmbeddedGrammar(Dictionary<string, string> rules)
-            {
-                Rules = rules ?? new Dictionary<string, string>();
-            }
-        }
 
 
 
@@ -813,81 +568,6 @@ namespace SharpPy.Generated
         /// <summary>
         /// Parse a block of statements (INDENT statements DEDENT)
         /// </summary>
-        protected List<object>? ParseBlock()
-        {
-            Console.WriteLine($"[DEBUG] ParseBlock: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
-
-            var statements = new List<object>();
-
-            // Skip NEWLINE before INDENT
-            if (CurrentToken?.Type == GeneratedTokenType.NEWLINE)
-            {
-                Advance();
-            }
-
-            // Expect INDENT
-            if (ExpectToken(GeneratedTokenType.INDENT) == null)
-            {
-                Console.WriteLine($"[DEBUG] ParseBlock: Failed to find INDENT at position {_position}");
-                return null;
-            }
-
-            // Parse statements until DEDENT
-            while (_position < _tokens.Count &&
-                   CurrentToken?.Type != GeneratedTokenType.DEDENT &&
-                   CurrentToken?.Type != GeneratedTokenType.ENDMARKER)
-            {
-                Console.WriteLine($"[DEBUG] ParseBlock: Loop iteration at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'");
-
-                var startPos = _position;
-                var parser = this as GeneratedPyParser;
-                var stmt = parser?.Statement();
-
-                Console.WriteLine($"[DEBUG] ParseBlock: After ParseStatement, position {startPos} -> {_position}, stmt = {stmt?.GetType()?.Name}");
-
-                if (stmt != null)
-                {
-                    // ParseStatement returns GeneratedStmtSeq
-                    statements.AddRange(stmt);
-                }
-                else
-                {
-                    // Skip tokens that couldn't be parsed to avoid infinite loop
-                    if (CurrentToken?.Type == GeneratedTokenType.NEWLINE || CurrentToken?.Type == GeneratedTokenType.NL)
-                    {
-                        Advance();
-                    }
-                    else
-                    {
-                        Console.WriteLine($"[DEBUG] ParseBlock: Skipping unparsed token at position {_position}: {CurrentToken?.Type} '{CurrentToken?.Value}'");
-                        Advance();
-                    }
-                }
-
-                // Safety check: if we didn't advance, break to avoid infinite loop
-                if (_position == startPos && stmt == null)
-                {
-                    Console.WriteLine($"[DEBUG] ParseBlock: No advancement, breaking at position {_position}");
-                    break;
-                }
-
-                // Check if we hit DEDENT after statement parsing
-                if (CurrentToken?.Type == GeneratedTokenType.DEDENT)
-                {
-                    Console.WriteLine($"[DEBUG] ParseBlock: Found DEDENT at position {_position}, breaking");
-                    break;
-                }
-            }
-
-            // Expect DEDENT to close the block
-            if (CurrentToken?.Type == GeneratedTokenType.DEDENT)
-            {
-                Advance();
-            }
-
-            Console.WriteLine($"[DEBUG] ParseBlock: Returning result with {statements.Count} statements at position {_position}");
-            return statements;
-        }
 
         /// <summary>
         /// Expect and return a NAME token

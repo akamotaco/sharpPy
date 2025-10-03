@@ -26,19 +26,8 @@
     <DefineConstants>TRACE</DefineConstants>
   </PropertyGroup>
 
-  <!-- Exclude PegGenerator files from main build but reference the library -->
-  <ItemGroup>
-    <Compile Remove="SharpPy.PegGenerator\**" />
-    <EmbeddedResource Remove="SharpPy.PegGenerator\**" />
-    <None Remove="SharpPy.PegGenerator\**" />
-    <!-- Generated parser now included for Phase 1 testing -->
-  </ItemGroup>
-
-  <!-- Add reference to Tokenizer and PegGenerator libraries -->
-  <ItemGroup>
-    <ProjectReference Include="SharpPy.Tokenizer\SharpPy.Tokenizer.csproj" />
-    <ProjectReference Include="SharpPy.PegGenerator\SharpPy.PegGenerator.csproj" />
-  </ItemGroup>
+  <!-- Tokenizer and PegGenerator are build-time tools only, not runtime dependencies -->
+  <!-- They generate PyTokenizer.cs and PyParser.cs which are directly included in the build -->
 
   <!-- Tokenizer Generation (Phase 1) -->
   <Target Name="GenerateTokenizer" BeforeTargets="GenerateParser">
@@ -51,7 +40,7 @@
   <!-- PEG Parser Generation (Phase 2) -->
   <Target Name="GenerateParser" BeforeTargets="BeforeBuild">
     <Message Text="Generating PEG parser from Grammar/python.gram..." Importance="high" />
-    <Exec Command="dotnet run --project SharpPy.PegGenerator --grammar Grammar/python.gram --tokens Grammar/Tokens --parser-output Generated/PyParser.cs"
+    <Exec Command="dotnet run --project ../SharpPy.PegGenerator --grammar Grammar/python.gram --tokens Grammar/Tokens --parser-output Generated/PyParser.cs"
           ContinueOnError="false"
           WorkingDirectory="$(ProjectDir)" />
   </Target>

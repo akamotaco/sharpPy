@@ -75,9 +75,9 @@ namespace SharpPy
 
                 case GeneratedStmtSeq stmtSeq:
                     // Convert statement sequence
-                    foreach (var stmt in stmtSeq)
+                    foreach (var stmt in stmtSeq.AsEnumerable())
                     {
-                        var converted = ConvertStatement(stmt, false, false);
+                        var converted = ConvertStatement((GeneratedStmt)stmt, false, false);
                         if (converted != null)
                             statements.Add(converted);
                     }
@@ -109,13 +109,13 @@ namespace SharpPy
             if (module.Body != null)
             {
                 // Convert each statement in the module body
-                foreach (var stmt in module.Body)
+                foreach (var stmt in module.Body.AsEnumerable())
                 {
 #if DEBUG_LOG
                     Console.WriteLine($"[DEBUG] Module statement: Type={stmt.GetType().Name}");
 #endif
                     // Regular statement conversion - all assignments are already properly structured
-                    var converted = ConvertStatement(stmt, false, false);
+                    var converted = ConvertStatement((GeneratedStmt)stmt, false, false);
                     if (converted != null)
                         statements.Add(converted);
                 }
@@ -323,18 +323,18 @@ namespace SharpPy
 
                         // Convert body statements
                         var bodyStmts = new List<Statement>();
-                        foreach (var bodyStmt in ifStmt.Body)
+                        foreach (var bodyStmt in ifStmt.Body.AsEnumerable())
                         {
-                            var convertedStmt = ConvertStatement(bodyStmt, insideLoop, insideFunction);
+                            var convertedStmt = ConvertStatement((GeneratedStmt)bodyStmt, insideLoop, insideFunction);
                             if (convertedStmt != null)
                                 bodyStmts.Add(convertedStmt);
                         }
 
                         // Convert else clause (orelse)
                         var elseStmts = new List<Statement>();
-                        foreach (var elseStmt in ifStmt.OrElse)
+                        foreach (var elseStmt in ifStmt.OrElse.AsEnumerable())
                         {
-                            var convertedStmt = ConvertStatement(elseStmt, insideLoop, insideFunction);
+                            var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
                             if (convertedStmt != null)
                                 elseStmts.Add(convertedStmt);
                         }
@@ -350,18 +350,18 @@ namespace SharpPy
 
                         // Convert body statements
                         var bodyStmts = new List<Statement>();
-                        foreach (var bodyStmt in whileStmt.Body)
+                        foreach (var bodyStmt in whileStmt.Body.AsEnumerable())
                         {
-                            var convertedStmt = ConvertStatement(bodyStmt, true, insideFunction); // insideLoop = true
+                            var convertedStmt = ConvertStatement((GeneratedStmt)bodyStmt, true, insideFunction); // insideLoop = true
                             if (convertedStmt != null)
                                 bodyStmts.Add(convertedStmt);
                         }
 
                         // Convert optional else statements (Python while-else construct)
                         var elseStmts = new List<Statement>();
-                        foreach (var elseStmt in whileStmt.OrElse)
+                        foreach (var elseStmt in whileStmt.OrElse.AsEnumerable())
                         {
-                            var convertedStmt = ConvertStatement(elseStmt, insideLoop, insideFunction);
+                            var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
                             if (convertedStmt != null)
                                 elseStmts.Add(convertedStmt);
                         }
@@ -385,18 +385,18 @@ namespace SharpPy
 
                         // Convert body statements
                         var bodyStmts = new List<Statement>();
-                        foreach (var bodyStmt in forStmt.Body)
+                        foreach (var bodyStmt in forStmt.Body.AsEnumerable())
                         {
-                            var convertedStmt = ConvertStatement(bodyStmt, true, insideFunction); // insideLoop = true
+                            var convertedStmt = ConvertStatement((GeneratedStmt)bodyStmt, true, insideFunction); // insideLoop = true
                             if (convertedStmt != null)
                                 bodyStmts.Add(convertedStmt);
                         }
 
                         // Convert optional else statements (Python for-else construct)
                         var elseStmts = new List<Statement>();
-                        foreach (var elseStmt in forStmt.OrElse)
+                        foreach (var elseStmt in forStmt.OrElse.AsEnumerable())
                         {
-                            var convertedStmt = ConvertStatement(elseStmt, insideLoop, insideFunction);
+                            var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
                             if (convertedStmt != null)
                                 elseStmts.Add(convertedStmt);
                         }
@@ -420,18 +420,18 @@ namespace SharpPy
 
                         // Convert body statements
                         var bodyStmts = new List<Statement>();
-                        foreach (var bodyStmt in asyncForStmt.Body)
+                        foreach (var bodyStmt in asyncForStmt.Body.AsEnumerable())
                         {
-                            var convertedStmt = ConvertStatement(bodyStmt, true, insideFunction); // insideLoop = true
+                            var convertedStmt = ConvertStatement((GeneratedStmt)bodyStmt, true, insideFunction); // insideLoop = true
                             if (convertedStmt != null)
                                 bodyStmts.Add(convertedStmt);
                         }
 
                         // Convert optional else statements
                         var elseStmts = new List<Statement>();
-                        foreach (var elseStmt in asyncForStmt.OrElse)
+                        foreach (var elseStmt in asyncForStmt.OrElse.AsEnumerable())
                         {
-                            var convertedStmt = ConvertStatement(elseStmt, insideLoop, insideFunction);
+                            var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
                             if (convertedStmt != null)
                                 elseStmts.Add(convertedStmt);
                         }
@@ -448,16 +448,16 @@ namespace SharpPy
 
                         // Convert try body statements
                         var tryBodyStatements = new List<Statement>();
-                        foreach (var bodyStmt in tryStmt.Body)
+                        foreach (var bodyStmt in tryStmt.Body.AsEnumerable())
                         {
-                            var convertedStmt = ConvertStatement(bodyStmt, insideLoop, insideFunction);
+                            var convertedStmt = ConvertStatement((GeneratedStmt)bodyStmt, insideLoop, insideFunction);
                             if (convertedStmt != null)
                                 tryBodyStatements.Add(convertedStmt);
                         }
 
                         // Convert except blocks
                         var exceptHandlersList = new List<ExceptHandler>();
-                        foreach (var exceptBlock in tryStmt.Handlers)
+                        foreach (var exceptBlock in tryStmt.Handlers.AsEnumerable())
                         {
                             var exceptData = exceptBlock as dynamic;
 #if DEBUG_LOG
@@ -467,7 +467,7 @@ namespace SharpPy
                             var exceptBodyStmts = new List<Statement>();
                             if (exceptData.body != null)
                             {
-                                foreach (var exceptStmt in exceptData.body)
+                                foreach (var exceptStmt in (exceptData.body as IEnumerable<GeneratedPtr>).Cast<GeneratedStmt>())
                                 {
                                     var convertedStmt = ConvertStatement(exceptStmt, insideLoop, insideFunction);
                                     if (convertedStmt != null)
@@ -501,17 +501,17 @@ namespace SharpPy
 
                         // Convert else and finally blocks
                         var elseStatements = new List<Statement>();
-                        foreach (var elseStmt in tryStmt.OrElse)
+                        foreach (var elseStmt in tryStmt.OrElse.AsEnumerable())
                         {
-                            var convertedStmt = ConvertStatement(elseStmt, insideLoop, insideFunction);
+                            var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
                             if (convertedStmt != null)
                                 elseStatements.Add(convertedStmt);
                         }
 
                         var finallyStatements = new List<Statement>();
-                        foreach (var finallyStmt in tryStmt.FinallyBody)
+                        foreach (var finallyStmt in tryStmt.FinallyBody.AsEnumerable())
                         {
-                            var convertedStmt = ConvertStatement(finallyStmt, insideLoop, insideFunction);
+                            var convertedStmt = ConvertStatement((GeneratedStmt)finallyStmt, insideLoop, insideFunction);
                             if (convertedStmt != null)
                                 finallyStatements.Add(convertedStmt);
                         }
@@ -526,9 +526,9 @@ namespace SharpPy
                         var tryBodyStmts = new List<Statement>();
                         if (tryStarStmt.Body != null)
                         {
-                            foreach (var bodyStmt in tryStarStmt.Body)
+                            foreach (var bodyStmt in tryStarStmt.Body.AsEnumerable())
                             {
-                                var convertedStmt = ConvertStatement(bodyStmt, insideLoop, insideFunction);
+                                var convertedStmt = ConvertStatement((GeneratedStmt)bodyStmt, insideLoop, insideFunction);
                                 if (convertedStmt != null)
                                     tryBodyStmts.Add(convertedStmt);
                             }
@@ -538,7 +538,7 @@ namespace SharpPy
                         var exceptHandlers = new List<ExceptHandler>();
                         if (tryStarStmt.Handlers != null)
                         {
-                            foreach (var handlerData in tryStarStmt.Handlers)
+                            foreach (var handlerData in tryStarStmt.Handlers.AsEnumerable())
                             {
                                 var handler = handlerData as dynamic;
 
@@ -573,9 +573,9 @@ namespace SharpPy
                         var elseStmts = new List<Statement>();
                         if (tryStarStmt.OrElse != null)
                         {
-                            foreach (var elseStmt in tryStarStmt.OrElse)
+                            foreach (var elseStmt in tryStarStmt.OrElse.AsEnumerable())
                             {
-                                var convertedStmt = ConvertStatement(elseStmt, insideLoop, insideFunction);
+                                var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
                                 if (convertedStmt != null)
                                     elseStmts.Add(convertedStmt);
                             }
@@ -584,9 +584,9 @@ namespace SharpPy
                         var finallyStmts = new List<Statement>();
                         if (tryStarStmt.FinallyBody != null)
                         {
-                            foreach (var finallyStmt in tryStarStmt.FinallyBody)
+                            foreach (var finallyStmt in tryStarStmt.FinallyBody.AsEnumerable())
                             {
-                                var convertedStmt = ConvertStatement(finallyStmt, insideLoop, insideFunction);
+                                var convertedStmt = ConvertStatement((GeneratedStmt)finallyStmt, insideLoop, insideFunction);
                                 if (convertedStmt != null)
                                     finallyStmts.Add(convertedStmt);
                             }
@@ -853,7 +853,7 @@ namespace SharpPy
                             {
                                 foreach (var bodyItem in funcDef.Body)
                                 {
-                                    var convertedStmt = ConvertStatement(bodyItem, insideLoop, true); // insideFunction=true
+                                    var convertedStmt = ConvertStatement((GeneratedStmt)bodyItem, insideLoop, true); // insideFunction=true
                                     if (convertedStmt != null)
                                     {
                                         bodyStmts.Add(convertedStmt);
@@ -955,11 +955,11 @@ namespace SharpPy
                         var classBodyStmts = new List<Statement>();
                         if (classDef.Body != null)
                         {
-                            foreach (var bodyStmt in classDef.Body)
+                            foreach (var bodyStmt in classDef.Body.AsEnumerable())
                             {
                                 try
                                 {
-                                    var convertedStmt = ConvertStatement(bodyStmt, insideLoop, insideFunction);
+                                    var convertedStmt = ConvertStatement((GeneratedStmt)bodyStmt, insideLoop, insideFunction);
                                     if (convertedStmt != null)
                                         classBodyStmts.Add(convertedStmt);
                                 }
@@ -1153,9 +1153,9 @@ namespace SharpPy
                         var bodyStmts = new List<Statement>();
                         if (withStmt.Body != null)
                         {
-                            foreach (var bodyStmt in withStmt.Body)
+                            foreach (var bodyStmt in withStmt.Body.AsEnumerable())
                             {
-                                var convertedStmt = ConvertStatement(bodyStmt, insideLoop, insideFunction);
+                                var convertedStmt = ConvertStatement((GeneratedStmt)bodyStmt, insideLoop, insideFunction);
                                 if (convertedStmt != null)
                                     bodyStmts.Add(convertedStmt);
                             }
@@ -1186,9 +1186,9 @@ namespace SharpPy
                         var bodyStmts = new List<Statement>();
                         if (asyncWithStmt.Body != null)
                         {
-                            foreach (var bodyStmt in asyncWithStmt.Body)
+                            foreach (var bodyStmt in asyncWithStmt.Body.AsEnumerable())
                             {
-                                var convertedStmt = ConvertStatement(bodyStmt, insideLoop, insideFunction);
+                                var convertedStmt = ConvertStatement((GeneratedStmt)bodyStmt, insideLoop, insideFunction);
                                 if (convertedStmt != null)
                                     bodyStmts.Add(convertedStmt);
                             }
@@ -1521,7 +1521,7 @@ namespace SharpPy
                 // Boolean operations
                 GeneratedBoolOpExpr boolOp => new BoolOpExpression(
                     ConvertToBoolOperator(boolOp.Op),
-                    boolOp.Values.Select(v => ConvertAnyExpression(v)).ToList()
+                    boolOp.Values.AsEnumerable().Select(v => ConvertAnyExpression(v)).ToList()
                 ),
 
                 GeneratedUnaryOpExpr unaryOp => new UnaryOpExpression(
@@ -1531,7 +1531,7 @@ namespace SharpPy
 
                 // F-strings
                 GeneratedJoinedStrExpr joinedStr => new JoinedStrExpression(
-                    joinedStr.Values.Select(v => ConvertAnyExpression(v)).ToList()
+                    joinedStr.Values.AsEnumerable().Select(v => ConvertAnyExpression(v)).ToList()
                 ),
 
                 GeneratedFormattedValueExpr formattedValue => new FormattedValueExpression(
@@ -1557,14 +1557,14 @@ namespace SharpPy
                 GeneratedCompareExpr compare => new CompareExpression(
                     ConvertAnyExpression(compare.Left),
                     string.Join(" ", compare.Ops),
-                    ConvertAnyExpression(compare.Comparators.First())
+                    ConvertAnyExpression(compare.Comparators.AsEnumerable().First())
                 ),
 
                 // Function calls and attribute access
                 GeneratedCallExpr call => new CallExpression(
                     ConvertAnyExpression(call.Func),
-                    call.Args.Select(a => ConvertAnyExpression(a)).ToList(),
-                    call.Keywords.Select(k => ConvertKeyword(k)).ToList()
+                    call.Args.AsEnumerable().Select(a => ConvertAnyExpression(a)).ToList(),
+                    call.Keywords.AsEnumerable().Select(k => ConvertKeyword(k)).ToList()
                 ),
 
                 GeneratedAttributeExpr attr => new AttributeExpression(
@@ -1579,44 +1579,44 @@ namespace SharpPy
 
                 // Collections
                 GeneratedListExpr list => new ListExpression(
-                    list.Elements.Select(e => ConvertAnyExpression(e)).ToList()
+                    list.Elements.AsEnumerable().Select(e => ConvertAnyExpression(e)).ToList()
                 ),
 
                 GeneratedTupleExpr tuple => new TupleExpression(
-                    tuple.Elements.Select(e => ConvertAnyExpression(e)).ToList()
+                    tuple.Elements.AsEnumerable().Select(e => ConvertAnyExpression(e)).ToList()
                 ),
 
                 GeneratedDictExpr dict => new DictExpression(
-                    dict.Keys.Zip(dict.Values, (k, v) => (
+                    dict.Keys.AsEnumerable().Zip(dict.Values.AsEnumerable(), (k, v) => (
                         Key: ConvertAnyExpression(k),
                         Value: ConvertAnyExpression(v))
                     ).ToList()
                 ),
 
                 GeneratedSetExpr set => new SetExpression(
-                    set.Elements.Select(e => ConvertAnyExpression(e)).ToList()
+                    set.Elements.AsEnumerable().Select(e => ConvertAnyExpression(e)).ToList()
                 ),
 
                 // Comprehensions
                 GeneratedListCompExpr listComp => new ListComprehension(
                     ConvertAnyExpression(listComp.Element),
-                    listComp.Generators.Select(g => ConvertComprehension(g)).ToList()
+                    listComp.Generators.AsEnumerable().Select(g => ConvertComprehension(g)).ToList()
                 ),
 
                 GeneratedSetCompExpr setComp => new SetComprehension(
                     ConvertAnyExpression(setComp.Element),
-                    setComp.Generators.Select(g => ConvertComprehension(g)).ToList()
+                    setComp.Generators.AsEnumerable().Select(g => ConvertComprehension(g)).ToList()
                 ),
 
                 GeneratedDictCompExpr dictComp => new DictComprehension(
                     ConvertAnyExpression(dictComp.Key),
                     ConvertAnyExpression(dictComp.Value),
-                    dictComp.Generators.Select(g => ConvertComprehension(g)).ToList()
+                    dictComp.Generators.AsEnumerable().Select(g => ConvertComprehension(g)).ToList()
                 ),
 
                 GeneratedGeneratorExpExpr genExp => new GeneratorExpression(
                     ConvertAnyExpression(genExp.Element),
-                    genExp.Generators.Select(g => ConvertComprehension(g)).ToList()
+                    genExp.Generators.AsEnumerable().Select(g => ConvertComprehension(g)).ToList()
                 ),
 
                 // Lambda expressions
@@ -1817,7 +1817,7 @@ namespace SharpPy
 
             var targetExpr = ConvertAnyExpression(target);
             var iterExpr = ConvertAnyExpression(iter);
-            var ifsList = ifs?.Select(i => ConvertAnyExpression(i)).ToList() ?? new List<Expression>();
+            var ifsList = ifs?.AsEnumerable().Select(i => ConvertAnyExpression(i)).ToList() ?? new List<Expression>();
 
             // Note: isAsync is tracked separately in GeneratedAsyncForStmt, not in Comprehension itself
             return new Comprehension(targetExpr, iterExpr, ifsList);
