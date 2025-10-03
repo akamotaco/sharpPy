@@ -376,14 +376,6 @@ namespace SharpPy.PegGenerator.Interpreter
                 return PegFailure.Instance;
             }
 
-            // Check memoization cache with performance tracking
-            var cacheKey = (_position, ruleName);
-            if (TryGetFromCache(cacheKey, out var cachedResult))
-            {
-                // Console.WriteLine($"[MEMO] Cache hit for {ruleName} at position {_position}");
-                return cachedResult;
-            }
-
             // Find the rule in grammar
             var rule = _grammar.Rules.FirstOrDefault(r => r.Name == ruleName);
             if (rule == null)
@@ -392,6 +384,27 @@ namespace SharpPy.PegGenerator.Interpreter
                 return PegFailure.Instance;
             }
 
+            // CPython 3.12 Style: Selective memoization
+            // Only memoize if: 1) Rule has (memo) marker, OR 2) Rule is left-recursive (required for algorithm)
+            bool isLeftRec = IsLeftRecursive(rule);
+            bool shouldMemoize = rule.IsMemoized || isLeftRec;
+
+            // Check memoization cache (only if memoization is enabled for this rule)
+            var cacheKey = (_position, ruleName);
+            if (shouldMemoize && TryGetFromCache(cacheKey, out var cachedResult))
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"[MEMO] Cache hit for '{ruleName}' (IsMemoized={rule.IsMemoized}, LeftRec={isLeftRec}) at position {_position}");
+#endif
+                return cachedResult;
+            }
+#if DEBUG_LOG
+            else if (shouldMemoize)
+            {
+                Console.WriteLine($"[MEMO] Cache miss for '{ruleName}' (IsMemoized={rule.IsMemoized}, LeftRec={isLeftRec}) at position {_position}");
+            }
+#endif
+
             // Check if this is a left-recursive rule and handle specially
             if (IsLeftRecursive(rule))
             {
@@ -399,13 +412,13 @@ namespace SharpPy.PegGenerator.Interpreter
             }
 
             // Handle normal (non-left-recursive) rules
-            return ParseNormalRule(ruleName, rule);
+            return ParseNormalRule(ruleName, rule, shouldMemoize);
         }
 
         /// <summary>
         /// Parse normal (non-left-recursive) rules
         /// </summary>
-        private IPegParseResult ParseNormalRule(string ruleName, Rule rule)
+        private IPegParseResult ParseNormalRule(string ruleName, Rule rule, bool shouldMemoize = true)
         {
             var cacheKey = (_position, ruleName);
 
@@ -433,13 +446,19 @@ namespace SharpPy.PegGenerator.Interpreter
                     {
                         // Cut failed - no backtracking to other alternatives allowed
                         Console.WriteLine($"[DEBUG] Rule {ruleName}: Cut failure prevents trying other alternatives");
-                        StoreInCache(cacheKey, PegFailure.Instance);
+                        if (shouldMemoize)
+                        {
+                            StoreInCache(cacheKey, PegFailure.Instance);
+                        }
                         return PegFailure.Instance;
                     }
                     else if (result.IsSuccess)
                     {
-                        // Success - cache and return
-                        StoreInCache(cacheKey, result);
+                        // Success - cache and return (CPython style: only if shouldMemoize)
+                        if (shouldMemoize)
+                        {
+                            StoreInCache(cacheKey, result);
+                        }
                         // Console.WriteLine($"[DEBUG] Rule {ruleName} succeeded at position {_position}");
                         return result;
                     }
@@ -450,7 +469,10 @@ namespace SharpPy.PegGenerator.Interpreter
 
                 // No alternative succeeded
                 // Console.WriteLine($"[DEBUG] Rule {ruleName} failed at position {_position}");
-                StoreInCache(cacheKey, PegFailure.Instance);
+                if (shouldMemoize)
+                {
+                    StoreInCache(cacheKey, PegFailure.Instance);
+                }
                 return PegFailure.Instance;
             }
             finally
@@ -461,133 +483,88 @@ namespace SharpPy.PegGenerator.Interpreter
         }
 
         /// <summary>
-        /// Parse left-recursive rules using seed parsing technique
+        /// Parse left-recursive rules using CPython 3.12 Warth algorithm
+        /// Reference: "Packrat Parsers Can Support Left Recursion" (Warth et al., 2008)
         /// </summary>
         private IPegParseResult ParseLeftRecursiveRule(string ruleName, Rule rule)
         {
-            var cacheKey = (_position, ruleName);
+            var startMark = _position;
+            var cacheKey = (startMark, ruleName);
 
-            Console.WriteLine($"[LEFT-REC] Parsing left-recursive rule: {ruleName} at position {_position}, token: {CurrentToken?.Type}('{CurrentToken?.Value}')");
+#if DEBUG_LOG
+            Console.WriteLine($"[LEFT-REC] Starting Warth algorithm for '{ruleName}' at position {startMark}, token: {CurrentToken?.Type}('{CurrentToken?.Value}')");
+#endif
 
-            // Step 1: Find base alternatives (non-recursive ones)
-            var baseAlternatives = rule.Alternatives.Where(alt =>
-                !(alt.Items.Count > 0 &&
-                  alt.Items[0].Atom is RuleRef ruleRef &&
-                  ruleRef.Name == ruleName)).ToList();
+            // Step 1: Prime the cache with failure (CPython Warth algorithm)
+            // This is the "seed" that will grow through iterations
+            _memoCache[cacheKey] = PegFailure.Instance;
 
-            // Step 2: Find recursive alternatives
-            var recursiveAlternatives = rule.Alternatives.Where(alt =>
-                alt.Items.Count > 0 &&
-                alt.Items[0].Atom is RuleRef ruleRef &&
-                ruleRef.Name == ruleName).ToList();
+            IPegParseResult lastResult = PegFailure.Instance;
+            var lastMark = startMark;
+            int iteration = 0;
+            const int maxIterations = 1000;
 
-            if (baseAlternatives.Count == 0)
+            // Step 2: Growth loop - repeatedly parse the rule until no progress
+            while (iteration < maxIterations)
             {
-                // No base case - this shouldn't happen in well-formed grammar
-                // Console.WriteLine($"[LEFT-REC] No base alternatives found for {ruleName}");
-                return PegFailure.Instance;
-            }
+                iteration++;
+                Reset(startMark);
 
-            // Step 3: Parse base alternatives to get initial seed
-            IPegParseResult? seed = null;
-            int seedPosition = _position;
+#if DEBUG_LOG
+                Console.WriteLine($"[LEFT-REC] Iteration {iteration}: Attempting '{ruleName}' from position {startMark}");
+#endif
 
-            foreach (var baseAlt in baseAlternatives)
-            {
-                var mark = Mark();
-                var result = ParseAlternative(baseAlt);
+                // Parse the entire rule (no base/recursive separation - CPython style)
+                // The rule will see the cached seed value when it recurses
+                var result = ParseNormalRule(ruleName, rule, shouldMemoize: false); // Don't double-cache
+                var currentMark = _position;
 
-                if (result.IsSuccess)
+#if DEBUG_LOG
+                Console.WriteLine($"[LEFT-REC] Iteration {iteration}: Result={result.IsSuccess}, Position: {startMark} -> {currentMark}");
+#endif
+
+                // Step 3: Check for progress (CPython termination condition)
+                if (!result.IsSuccess)
                 {
-                    seed = result;
-                    seedPosition = _position;
-                    Console.WriteLine($"[LEFT-REC] Found seed for {ruleName} at position {seedPosition}: {seed}");
+                    // Parsing failed - use last successful result
+#if DEBUG_LOG
+                    Console.WriteLine($"[LEFT-REC] Iteration {iteration}: Parse failed, terminating with last result");
+#endif
                     break;
                 }
 
-                Reset(mark);
-            }
-
-            if (seed == null)
-            {
-                // No base case matched
-                StoreInCache(cacheKey, PegFailure.Instance);
-                return PegFailure.Instance;
-            }
-
-            // Step 4: Iteratively expand the seed using recursive alternatives
-            const int maxIterations = 1000; // Prevent infinite loops
-            int iterationCount = 0;
-            int lastPosition = seedPosition;
-
-            while (iterationCount < maxIterations)
-            {
-                iterationCount++;
-                var expandedSeed = seed;
-                var expandedPosition = seedPosition;
-                var foundExpansion = false;
-
-                foreach (var recursiveAlt in recursiveAlternatives)
+                if (currentMark <= lastMark)
                 {
-                    // Reset to seed position for each recursive alternative
-                    Reset(seedPosition);
-
-                    // Temporarily set the seed result for this rule
-                    var tempCacheKey = (_position, ruleName);
-                    _memoCache[tempCacheKey] = seed; // Direct assignment for left recursion
-
-                    try
-                    {
-                        var result = ParseAlternative(recursiveAlt);
-                        // CPython-style check: must advance position to be a valid expansion
-                        if (result.IsSuccess && _position > seedPosition)
-                        {
-                            // Found a longer parse - update seed
-                            expandedSeed = result;
-                            expandedPosition = _position;
-                            foundExpansion = true;
-                            Console.WriteLine($"[LEFT-REC] Iteration {iterationCount}: Expanded seed for {ruleName} from pos {seedPosition} to {_position}");
-                            break;
-                        }
-                    }
-                    finally
-                    {
-                        // Remove temporary cache entry
-                        _memoCache.Remove(tempCacheKey);
-                    }
-                }
-
-                if (!foundExpansion)
-                {
-                    // No more expansions possible - terminate normally
-                    Console.WriteLine($"[LEFT-REC] No expansion found for {ruleName} at iteration {iterationCount}, terminating");
+                    // No progress made - terminate
+#if DEBUG_LOG
+                    Console.WriteLine($"[LEFT-REC] Iteration {iteration}: No progress (position {currentMark} <= {lastMark}), terminating");
+#endif
                     break;
                 }
 
-                // CPython-style progress check: if position didn't advance, we're stuck
-                if (expandedPosition <= lastPosition)
-                {
-                    Console.WriteLine($"[LEFT-REC] Position didn't advance for {ruleName} (was {lastPosition}, now {expandedPosition}), terminating to prevent infinite loop");
-                    break;
-                }
+                // Step 4: Progress made - update cache with new result (growth)
+                lastResult = result;
+                lastMark = currentMark;
+                _memoCache[cacheKey] = result;
 
-                // Update seed for next iteration
-                seed = expandedSeed;
-                lastPosition = seedPosition;  // Store previous seed position
-                seedPosition = expandedPosition;  // New seed position
+#if DEBUG_LOG
+                Console.WriteLine($"[LEFT-REC] Iteration {iteration}: Grew from position {startMark} to {currentMark}");
+#endif
             }
 
-            if (iterationCount >= maxIterations)
+            if (iteration >= maxIterations)
             {
-                Console.WriteLine($"[LEFT-REC] WARNING: Maximum iterations ({maxIterations}) reached for rule {ruleName}, terminating to prevent infinite loop");
+                Console.WriteLine($"[LEFT-REC] WARNING: Maximum iterations ({maxIterations}) reached for '{ruleName}' at position {startMark}");
             }
 
-            // Step 5: Set final position and cache result
-            _position = seedPosition;
-            StoreInCache(cacheKey, seed);
+            // Step 5: Restore final position and return result
+            Reset(lastMark);
 
-            Console.WriteLine($"[LEFT-REC] Final result for {ruleName}: {seed} at position {seedPosition}");
-            return seed;
+#if DEBUG_LOG
+            Console.WriteLine($"[LEFT-REC] Final result for '{ruleName}': {lastResult.IsSuccess} at position {lastMark} (after {iteration} iterations)");
+#endif
+
+            return lastResult;
         }
 
         /// <summary>
