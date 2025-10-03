@@ -11,6 +11,16 @@ using System.Text.RegularExpressions;
 namespace SharpPy.Generated
 {
     /// <summary>
+    /// CPython 3.12: Equivalent of C's void* - base class for all generated types
+    /// This replaces object type usage to maintain type safety
+    /// All AST nodes, tokens, and helper types inherit from this
+    /// </summary>
+    public abstract class GeneratedPtr
+    {
+        // Minimal base class - just provides type hierarchy
+    }
+
+    /// <summary>
     /// CPython 3.12 compatible token types
     /// </summary>
     public enum GeneratedTokenType
@@ -90,7 +100,7 @@ namespace SharpPy.Generated
     /// </summary>
     public interface ITokenInfo
     {
-        object Type { get; }
+        GeneratedTokenType Type { get; }
         string Value { get; }
         int Line { get; }
         int Column { get; }
@@ -99,7 +109,7 @@ namespace SharpPy.Generated
     /// <summary>
     /// CPython 3.12 compatible token info
     /// </summary>
-    public class GeneratedTokenInfo : ITokenInfo
+    public class GeneratedTokenInfo : GeneratedPtr, ITokenInfo
     {
         public GeneratedTokenType Type { get; set; }
         public string Value { get; set; } = "";
@@ -107,9 +117,6 @@ namespace SharpPy.Generated
         public int Column { get; set; }
         public int Start { get; set; }
         public int End { get; set; }
-
-        // ITokenInfo interface implementation
-        object ITokenInfo.Type => Type;
 
         public GeneratedTokenInfo(GeneratedTokenType type, string value, int line, int column, int start = 0, int end = 0)
         {

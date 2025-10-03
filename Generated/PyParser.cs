@@ -20,7 +20,7 @@ namespace SharpPy.Generated
         private readonly PegInterpreter _interpreter;
 
         // Override base class abstract property
-        protected override object? InterpreterObject => _interpreter;
+        protected override GeneratedPtr? InterpreterObject => _interpreter;
 
         public GeneratedPyParser(List<GeneratedTokenInfo> tokens, string filename = "<string>")
             : base(tokens, filename)
@@ -519,7 +519,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedStmtSeq)((object?)a);
+                _res = (GeneratedStmtSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -605,7 +605,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmtSeq)((object?)_tmp0);
+                _res = (GeneratedStmtSeq)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -713,7 +713,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(';')
-                object? _lookahead_test_0 = null;
+                GeneratedPtr? _lookahead_test_0 = null;
                 if (CurrentToken?.Value == ";") { _lookahead_test_0 = CurrentToken; }
                 if (_lookahead_test_0 != null)
                 {
@@ -836,7 +836,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedStmtSeq)((object?)a);
+                _res = (GeneratedStmtSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -893,7 +893,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp0);
+                _res = (GeneratedStmt)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -922,7 +922,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp1);
+                _res = (GeneratedStmt)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -977,7 +977,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp1);
+                _res = (GeneratedStmt)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1006,7 +1006,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp1);
+                _res = (GeneratedStmt)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1035,7 +1035,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp1);
+                _res = (GeneratedStmt)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1090,7 +1090,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp1);
+                _res = (GeneratedStmt)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1119,7 +1119,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp1);
+                _res = (GeneratedStmt)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1148,7 +1148,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp1);
+                _res = (GeneratedStmt)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1229,7 +1229,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp1);
+                _res = (GeneratedStmt)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1258,7 +1258,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp1);
+                _res = (GeneratedStmt)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1313,7 +1313,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp1);
+                _res = (GeneratedStmt)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1342,7 +1342,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp1);
+                _res = (GeneratedStmt)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1371,7 +1371,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp1);
+                _res = (GeneratedStmt)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1400,7 +1400,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp1);
+                _res = (GeneratedStmt)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1429,7 +1429,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp1);
+                _res = (GeneratedStmt)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1458,7 +1458,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp1);
+                _res = (GeneratedStmt)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1487,7 +1487,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp1);
+                _res = (GeneratedStmt)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1512,7 +1512,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp0);
+                _res = (GeneratedStmt)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1804,7 +1804,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !('=')
-                object? _lookahead_test_17 = null;
+                GeneratedPtr? _lookahead_test_17 = null;
                 if (CurrentToken?.Value == "=") { _lookahead_test_17 = CurrentToken; }
                 if (_lookahead_test_17 != null)
                 {
@@ -1922,7 +1922,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_assignment
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidAssignment();
@@ -1934,7 +1934,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp0);
+                _res = (GeneratedStmt)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1985,7 +1985,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -2010,7 +2010,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -2861,7 +2861,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_del_stmt
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidDelStmt();
@@ -2873,7 +2873,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp0);
+                _res = (GeneratedStmt)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -3058,7 +3058,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_import
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidImport();
@@ -3070,7 +3070,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp0);
+                _res = (GeneratedStmt)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -3095,7 +3095,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp0);
+                _res = (GeneratedStmt)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -3120,7 +3120,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp0);
+                _res = (GeneratedStmt)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -3479,7 +3479,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedAliasSeq)((object?)a);
+                _res = (GeneratedAliasSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -3504,7 +3504,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(',')
-                object? _lookahead_test_19 = null;
+                GeneratedPtr? _lookahead_test_19 = null;
                 if (CurrentToken?.Value == ",") { _lookahead_test_19 = CurrentToken; }
                 if (_lookahead_test_19 != null)
                 {
@@ -3514,7 +3514,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAliasSeq)((object?)_tmp0);
+                _res = (GeneratedAliasSeq)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -3556,7 +3556,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_import_from_targets
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidImportFromTargets();
@@ -3568,7 +3568,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAliasSeq)((object?)_tmp0);
+                _res = (GeneratedAliasSeq)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -3661,7 +3661,7 @@ namespace SharpPy.Generated
                     a.Add(_loop_elem_a);
                 }
                 // Action: a
-                _res = (GeneratedAliasSeq)((object?)a);
+                _res = (GeneratedAliasSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -3841,7 +3841,7 @@ namespace SharpPy.Generated
                     a.Add(_loop_elem_a);
                 }
                 // Action: a
-                _res = (GeneratedAliasSeq)((object?)a);
+                _res = (GeneratedAliasSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -4029,7 +4029,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                // CPython 3.12: NAME token → Name expression (implicit _PyPegen_name_token)
+                _res = NameToken(_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -4116,7 +4117,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedStmtSeq)((object?)a);
+                _res = (GeneratedStmtSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -4141,7 +4142,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmtSeq)((object?)_tmp0);
+                _res = (GeneratedStmtSeq)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -4158,7 +4159,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_block
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidBlock();
@@ -4170,7 +4171,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmtSeq)((object?)_tmp0);
+                _res = (GeneratedStmtSeq)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -4258,7 +4259,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExprSeq)((object?)a);
+                _res = (GeneratedExprSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -4343,7 +4344,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp0);
+                _res = (GeneratedStmt)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -4386,7 +4387,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_class_def_raw
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidClassDefRaw();
@@ -4398,7 +4399,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp0);
+                _res = (GeneratedStmt)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -4624,7 +4625,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp0);
+                _res = (GeneratedStmt)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -4667,7 +4668,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_def_raw
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidDefRaw();
@@ -4679,7 +4680,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp0);
+                _res = (GeneratedStmt)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -5079,7 +5080,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_parameters
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidParameters();
@@ -5091,7 +5092,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedArguments)((object?)_tmp0);
+                _res = (GeneratedArguments)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -5116,7 +5117,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedArguments)((object?)_tmp0);
+                _res = (GeneratedArguments)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -5584,7 +5585,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedAstNodeSeq)((object?)a);
+                _res = (GeneratedAstNodeSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5640,7 +5641,7 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for StringLiteral
                 _position = _lookahead_mark_24; // Restore position
                 // Action: a
-                _res = (GeneratedAstNodeSeq)((object?)a);
+                _res = (GeneratedAstNodeSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5869,7 +5870,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_star_etc
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidStarEtc();
@@ -5881,7 +5882,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStarEtc)((object?)_tmp0);
+                _res = (GeneratedStarEtc)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -6199,7 +6200,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_kwds
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidKwds();
@@ -6211,7 +6212,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedArg)((object?)_tmp0);
+                _res = (GeneratedArg)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -6244,7 +6245,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedArg)((object?)a);
+                _res = (GeneratedArg)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6987,7 +6988,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExpr)((object?)a);
+                _res = (GeneratedExpr)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -7046,7 +7047,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExpr)((object?)a);
+                _res = (GeneratedExpr)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -7105,7 +7106,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExpr)((object?)a);
+                _res = (GeneratedExpr)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -7122,7 +7123,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_default
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidDefault();
@@ -7134,7 +7135,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -7177,7 +7178,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_if_stmt
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidIfStmt();
@@ -7189,7 +7190,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp0);
+                _res = (GeneratedStmt)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -7366,7 +7367,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_elif_stmt
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidElifStmt();
@@ -7378,7 +7379,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp0);
+                _res = (GeneratedStmt)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -7555,7 +7556,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_else_stmt
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidElseStmt();
@@ -7567,7 +7568,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmtSeq)((object?)_tmp0);
+                _res = (GeneratedStmtSeq)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -7604,7 +7605,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: b
-                _res = (GeneratedStmtSeq)((object?)b);
+                _res = (GeneratedStmtSeq)((GeneratedPtr?)b);
                 if (_res != null) goto done;
             } while (false);
 
@@ -7647,7 +7648,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_while_stmt
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidWhileStmt();
@@ -7659,7 +7660,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp0);
+                _res = (GeneratedStmt)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -7778,7 +7779,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_for_stmt
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidForStmt();
@@ -7790,7 +7791,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp0);
+                _res = (GeneratedStmt)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -8057,7 +8058,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_for_target
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidForTarget();
@@ -8069,7 +8070,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp0);
+                _res = (GeneratedStmt)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -8112,7 +8113,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_with_stmt_indent
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidWithStmtIndent();
@@ -8124,7 +8125,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp0);
+                _res = (GeneratedStmt)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -8645,7 +8646,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_with_stmt
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidWithStmt();
@@ -8657,7 +8658,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp0);
+                _res = (GeneratedStmt)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -8746,7 +8747,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_with_item
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidWithItem();
@@ -8758,7 +8759,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedWithItem)((object?)_tmp0);
+                _res = (GeneratedWithItem)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -8827,7 +8828,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_try_stmt
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidTryStmt();
@@ -8839,7 +8840,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp0);
+                _res = (GeneratedStmt)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -9164,7 +9165,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_except_stmt_indent
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidExceptStmtIndent();
@@ -9176,7 +9177,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExceptHandler)((object?)_tmp0);
+                _res = (GeneratedExceptHandler)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -9315,7 +9316,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_except_stmt
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidExceptStmt();
@@ -9327,7 +9328,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExceptHandler)((object?)_tmp0);
+                _res = (GeneratedExceptHandler)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -9370,7 +9371,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_except_star_stmt_indent
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidExceptStarStmtIndent();
@@ -9382,7 +9383,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExceptHandler)((object?)_tmp0);
+                _res = (GeneratedExceptHandler)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -9487,7 +9488,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_except_stmt
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidExceptStmt();
@@ -9499,7 +9500,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExceptHandler)((object?)_tmp0);
+                _res = (GeneratedExceptHandler)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -9542,7 +9543,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_finally_stmt
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidFinallyStmt();
@@ -9554,7 +9555,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmtSeq)((object?)_tmp0);
+                _res = (GeneratedStmtSeq)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -9591,7 +9592,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedStmtSeq)((object?)a);
+                _res = (GeneratedStmtSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -9733,7 +9734,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_match_stmt
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidMatchStmt();
@@ -9745,7 +9746,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)((object?)_tmp0);
+                _res = (GeneratedStmt)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -9846,7 +9847,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -9889,7 +9890,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_case_block
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidCaseBlock();
@@ -9901,7 +9902,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedMatchCase)((object?)_tmp0);
+                _res = (GeneratedMatchCase)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10026,7 +10027,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: guard
-                _res = (GeneratedExpr)((object?)guard);
+                _res = (GeneratedExpr)((GeneratedPtr?)guard);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10103,7 +10104,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)((object?)_tmp0);
+                _res = (GeneratedPattern)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10154,7 +10155,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)((object?)_tmp0);
+                _res = (GeneratedPattern)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10179,7 +10180,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)((object?)_tmp0);
+                _res = (GeneratedPattern)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10264,7 +10265,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_as_pattern
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidAsPattern();
@@ -10276,7 +10277,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)((object?)_tmp0);
+                _res = (GeneratedPattern)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10427,7 +10428,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)((object?)_tmp0);
+                _res = (GeneratedPattern)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10452,7 +10453,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)((object?)_tmp0);
+                _res = (GeneratedPattern)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10477,7 +10478,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)((object?)_tmp0);
+                _res = (GeneratedPattern)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10502,7 +10503,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)((object?)_tmp0);
+                _res = (GeneratedPattern)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10527,7 +10528,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)((object?)_tmp0);
+                _res = (GeneratedPattern)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10552,7 +10553,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)((object?)_tmp0);
+                _res = (GeneratedPattern)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10577,7 +10578,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)((object?)_tmp0);
+                _res = (GeneratedPattern)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10602,7 +10603,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)((object?)_tmp0);
+                _res = (GeneratedPattern)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10653,7 +10654,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('+' | '-'))
-                object? _lookahead_test_36 = null;
+                GeneratedPtr? _lookahead_test_36 = null;
                 // Test if current token matches: ('+' | '-')
                 if (CurrentToken?.Value == "+") { _lookahead_test_36 = CurrentToken; }
                 if (CurrentToken?.Value == "-") { _lookahead_test_36 = CurrentToken; }
@@ -10847,7 +10848,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('+' | '-'))
-                object? _lookahead_test_37 = null;
+                GeneratedPtr? _lookahead_test_37 = null;
                 // Test if current token matches: ('+' | '-')
                 if (CurrentToken?.Value == "+") { _lookahead_test_37 = CurrentToken; }
                 if (CurrentToken?.Value == "-") { _lookahead_test_37 = CurrentToken; }
@@ -10859,7 +10860,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10884,7 +10885,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10909,7 +10910,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -11150,7 +11151,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                // CPython 3.12: NUMBER token → Constant expression (implicit _PyPegen_number_token)
+                _res = NumberToken(_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11237,7 +11239,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -11474,7 +11476,7 @@ namespace SharpPy.Generated
                 }
 
                 // Negative lookahead: !('"_"')
-                object? _lookahead_test_38 = null;
+                GeneratedPtr? _lookahead_test_38 = null;
                 if (CurrentToken?.Value == "\"_\"") { _lookahead_test_38 = CurrentToken; }
                 if (_lookahead_test_38 != null)
                 {
@@ -11494,7 +11496,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('.' | '(' | '='))
-                object? _lookahead_test_39 = null;
+                GeneratedPtr? _lookahead_test_39 = null;
                 // Test if current token matches: ('.' | '(' | '=')
                 if (CurrentToken?.Value == ".") { _lookahead_test_39 = CurrentToken; }
                 if (CurrentToken?.Value == "(") { _lookahead_test_39 = CurrentToken; }
@@ -11610,7 +11612,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('.' | '(' | '='))
-                object? _lookahead_test_40 = null;
+                GeneratedPtr? _lookahead_test_40 = null;
                 // Test if current token matches: ('.' | '(' | '=')
                 if (CurrentToken?.Value == ".") { _lookahead_test_40 = CurrentToken; }
                 if (CurrentToken?.Value == "(") { _lookahead_test_40 = CurrentToken; }
@@ -11745,7 +11747,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -11772,7 +11774,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                // CPython 3.12: NAME token → Name expression (implicit _PyPegen_name_token)
+                _res = NameToken(_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11839,7 +11842,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: pattern
-                _res = (GeneratedPattern)((object?)pattern);
+                _res = (GeneratedPattern)((GeneratedPtr?)pattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12149,7 +12152,7 @@ namespace SharpPy.Generated
                     _tmp0 = null; // Optional not present
                 }
                 // Action: patterns
-                _res = (GeneratedSeq)((object?)patterns);
+                _res = (GeneratedSeq)((GeneratedPtr?)patterns);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12200,7 +12203,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)((object?)_tmp0);
+                _res = (GeneratedPattern)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -12225,7 +12228,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)((object?)_tmp0);
+                _res = (GeneratedPattern)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -12678,7 +12681,7 @@ namespace SharpPy.Generated
                     _tmp0.Add(_loop_elem__tmp0);
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedSeq)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -12825,7 +12828,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: target
-                _res = (GeneratedExpr)((object?)target);
+                _res = (GeneratedExpr)((GeneratedPtr?)target);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13137,7 +13140,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_class_pattern
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidClassPattern();
@@ -13149,7 +13152,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)((object?)_tmp0);
+                _res = (GeneratedPattern)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -13242,7 +13245,7 @@ namespace SharpPy.Generated
                     args.Add(_loop_elem_args);
                 }
                 // Action: args
-                _res = (GeneratedAstNodeSeq)((object?)args);
+                _res = (GeneratedAstNodeSeq)((GeneratedPtr?)args);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13335,7 +13338,7 @@ namespace SharpPy.Generated
                     _tmp0.Add(_loop_elem__tmp0);
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedSeq)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -13698,7 +13701,7 @@ namespace SharpPy.Generated
                     _tmp0 = null; // Optional not present
                 }
                 // Action: a
-                _res = (GeneratedTypeParamSeq)((object?)a);
+                _res = (GeneratedTypeParamSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -14029,7 +14032,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: e
-                _res = (GeneratedExpr)((object?)e);
+                _res = (GeneratedExpr)((GeneratedPtr?)e);
                 if (_res != null) goto done;
             } while (false);
 
@@ -14207,7 +14210,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -14256,7 +14259,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_expression
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidExpression();
@@ -14268,7 +14271,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -14285,7 +14288,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_legacy_expression
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidLegacyExpression();
@@ -14297,7 +14300,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -14380,7 +14383,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -14405,7 +14408,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -14703,7 +14706,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -14794,7 +14797,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -14913,7 +14916,7 @@ namespace SharpPy.Generated
                     _tmp0 = null; // Optional not present
                 }
                 // Action: a
-                _res = (GeneratedExprSeq)((object?)a);
+                _res = (GeneratedExprSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -14998,7 +15001,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15123,7 +15126,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15140,7 +15143,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_named_expression
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidNamedExpression();
@@ -15152,7 +15155,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15177,7 +15180,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(':=')
-                object? _lookahead_test_41 = null;
+                GeneratedPtr? _lookahead_test_41 = null;
                 if (CurrentToken?.Value == ":=") { _lookahead_test_41 = CurrentToken; }
                 if (_lookahead_test_41 != null)
                 {
@@ -15187,7 +15190,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15315,7 +15318,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15443,7 +15446,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15534,7 +15537,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15643,7 +15646,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15694,7 +15697,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15719,7 +15722,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15744,7 +15747,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15769,7 +15772,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15794,7 +15797,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15819,7 +15822,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15844,7 +15847,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15869,7 +15872,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15894,7 +15897,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15919,7 +15922,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -16644,7 +16647,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -16743,7 +16746,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -16842,7 +16845,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -16983,7 +16986,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -17124,7 +17127,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -17391,7 +17394,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -17550,7 +17553,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -17643,7 +17646,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -17736,7 +17739,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -17993,7 +17996,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -18044,7 +18047,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(',')
-                object? _lookahead_test_42 = null;
+                GeneratedPtr? _lookahead_test_42 = null;
                 if (CurrentToken?.Value == ",") { _lookahead_test_42 = CurrentToken; }
                 if (_lookahead_test_42 != null)
                 {
@@ -18054,7 +18057,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExpr)((object?)a);
+                _res = (GeneratedExpr)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -18372,7 +18375,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExpr)((object?)a);
+                _res = (GeneratedExpr)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -18425,7 +18428,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                // CPython 3.12: NAME token → Name expression (implicit _PyPegen_name_token)
+                _res = NameToken(_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -18532,7 +18536,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp1);
+                _res = (GeneratedExpr)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -18559,7 +18563,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                // CPython 3.12: NUMBER token → Constant expression (implicit _PyPegen_number_token)
+                _res = NumberToken(_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -18618,7 +18623,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp1);
+                _res = (GeneratedExpr)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -18667,7 +18672,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp1);
+                _res = (GeneratedExpr)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -18736,7 +18741,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp1);
+                _res = (GeneratedExpr)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -18849,7 +18854,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExpr)((object?)a);
+                _res = (GeneratedExpr)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -18866,7 +18871,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_group
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidGroup();
@@ -18878,7 +18883,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -19015,7 +19020,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_lambda_parameters
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidLambdaParameters();
@@ -19027,7 +19032,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedArguments)((object?)_tmp0);
+                _res = (GeneratedArguments)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -19052,7 +19057,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedArguments)((object?)_tmp0);
+                _res = (GeneratedArguments)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -19520,7 +19525,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedAstNodeSeq)((object?)a);
+                _res = (GeneratedAstNodeSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19576,7 +19581,7 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for StringLiteral
                 _position = _lookahead_mark_47; // Restore position
                 // Action: a
-                _res = (GeneratedAstNodeSeq)((object?)a);
+                _res = (GeneratedAstNodeSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19805,7 +19810,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_lambda_star_etc
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidLambdaStarEtc();
@@ -19817,7 +19822,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStarEtc)((object?)_tmp0);
+                _res = (GeneratedStarEtc)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -20054,7 +20059,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_lambda_kwds
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidLambdaKwds();
@@ -20066,7 +20071,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedArg)((object?)_tmp0);
+                _res = (GeneratedArg)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -20099,7 +20104,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedArg)((object?)a);
+                _res = (GeneratedArg)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20158,7 +20163,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedArg)((object?)a);
+                _res = (GeneratedArg)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20187,7 +20192,7 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for StringLiteral
                 _position = _lookahead_mark_49; // Restore position
                 // Action: a
-                _res = (GeneratedArg)((object?)a);
+                _res = (GeneratedArg)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20520,7 +20525,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -20721,7 +20726,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_replacement_field
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidReplacementField();
@@ -20733,7 +20738,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -20947,7 +20952,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -21577,7 +21582,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: invalid_double_starred_kvpairs
-                object? _tmp1 = null;
+                GeneratedPtr? _tmp1 = null;
                 if (_callInvalidRules)
                 {
                     _tmp1 = InvalidDoubleStarredKvpairs();
@@ -21597,7 +21602,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -21716,7 +21721,7 @@ namespace SharpPy.Generated
                     _tmp0 = null; // Optional not present
                 }
                 // Action: a
-                _res = (GeneratedSeq)((object?)a);
+                _res = (GeneratedSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21801,7 +21806,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -21939,7 +21944,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedComprehensionSeq)((object?)a);
+                _res = (GeneratedComprehensionSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -22166,7 +22171,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_for_target
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidForTarget();
@@ -22178,7 +22183,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedComprehension)((object?)_tmp0);
+                _res = (GeneratedComprehension)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -22271,7 +22276,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_comprehension
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidComprehension();
@@ -22283,7 +22288,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -22376,7 +22381,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_comprehension
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidComprehension();
@@ -22388,7 +22393,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -22459,7 +22464,7 @@ namespace SharpPy.Generated
                     {
                         // WARNING: Lookahead in value position - this is unusual
                         // Negative lookahead: !(':=')
-                        object? _lookahead_test_52 = null;
+                        GeneratedPtr? _lookahead_test_52 = null;
                         if (CurrentToken?.Value == ":=") { _lookahead_test_52 = CurrentToken; }
                         if (_lookahead_test_52 != null)
                         {
@@ -22516,7 +22521,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_comprehension
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidComprehension();
@@ -22528,7 +22533,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -22621,7 +22626,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_dict_comprehension
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidDictComprehension();
@@ -22633,7 +22638,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -22720,7 +22725,7 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for StringLiteral
                 _position = _lookahead_mark_53; // Restore position
                 // Action: a
-                _res = (GeneratedExpr)((object?)a);
+                _res = (GeneratedExpr)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -22737,7 +22742,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_arguments
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidArguments();
@@ -22749,7 +22754,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -22831,7 +22836,7 @@ namespace SharpPy.Generated
                         {
                             // WARNING: Lookahead in value position - this is unusual
                             // Negative lookahead: !(':=')
-                            object? _lookahead_test_54 = null;
+                            GeneratedPtr? _lookahead_test_54 = null;
                             if (CurrentToken?.Value == ":=") { _lookahead_test_54 = CurrentToken; }
                             if (_lookahead_test_54 != null)
                             {
@@ -22857,7 +22862,7 @@ namespace SharpPy.Generated
                     {
                         // WARNING: Lookahead in value position - this is unusual
                         // Negative lookahead: !('=')
-                        object? _lookahead_test_55 = null;
+                        GeneratedPtr? _lookahead_test_55 = null;
                         if (CurrentToken?.Value == "=") { _lookahead_test_55 = CurrentToken; }
                         if (_lookahead_test_55 != null)
                         {
@@ -22940,7 +22945,7 @@ namespace SharpPy.Generated
                             {
                                 // WARNING: Lookahead in value position - this is unusual
                                 // Negative lookahead: !(':=')
-                                object? _lookahead_test_56 = null;
+                                GeneratedPtr? _lookahead_test_56 = null;
                                 if (CurrentToken?.Value == ":=") { _lookahead_test_56 = CurrentToken; }
                                 if (_lookahead_test_56 != null)
                                 {
@@ -22966,7 +22971,7 @@ namespace SharpPy.Generated
                         {
                             // WARNING: Lookahead in value position - this is unusual
                             // Negative lookahead: !('=')
-                            object? _lookahead_test_57 = null;
+                            GeneratedPtr? _lookahead_test_57 = null;
                             if (CurrentToken?.Value == "=") { _lookahead_test_57 = CurrentToken; }
                             if (_lookahead_test_57 != null)
                             {
@@ -23276,7 +23281,7 @@ namespace SharpPy.Generated
                     _tmp0.Add(_loop_elem__tmp0);
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedSeq)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -23343,7 +23348,7 @@ namespace SharpPy.Generated
                     _tmp0.Add(_loop_elem__tmp0);
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)((object?)_tmp0);
+                _res = (GeneratedSeq)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -23386,7 +23391,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_starred_expression
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidStarredExpression();
@@ -23398,7 +23403,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -23503,7 +23508,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_kwarg
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidKwarg();
@@ -23515,7 +23520,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedKeywordOrStarred)((object?)_tmp0);
+                _res = (GeneratedKeywordOrStarred)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -23628,7 +23633,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_kwarg
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidKwarg();
@@ -23640,7 +23645,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedKeywordOrStarred)((object?)_tmp0);
+                _res = (GeneratedKeywordOrStarred)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -23769,7 +23774,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(',')
-                object? _lookahead_test_58 = null;
+                GeneratedPtr? _lookahead_test_58 = null;
                 if (CurrentToken?.Value == ",") { _lookahead_test_58 = CurrentToken; }
                 if (_lookahead_test_58 != null)
                 {
@@ -23779,7 +23784,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExpr)((object?)a);
+                _res = (GeneratedExpr)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23985,7 +23990,7 @@ namespace SharpPy.Generated
                     _tmp0 = null; // Optional not present
                 }
                 // Action: a
-                _res = (GeneratedExprSeq)((object?)a);
+                _res = (GeneratedExprSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -24200,7 +24205,7 @@ namespace SharpPy.Generated
                     _position = _group_mark_a;
                     // WARNING: Lookahead in value position - this is unusual
                     // Negative lookahead: !('*')
-                    object? _lookahead_test_59 = null;
+                    GeneratedPtr? _lookahead_test_59 = null;
                     if (CurrentToken?.Value == "*") { _lookahead_test_59 = CurrentToken; }
                     if (_lookahead_test_59 != null)
                     {
@@ -24252,7 +24257,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -24327,7 +24332,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(t_lookahead)
-                object? _lookahead_test_60 = null;
+                GeneratedPtr? _lookahead_test_60 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_60 != null)
                 {
@@ -24387,7 +24392,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(t_lookahead)
-                object? _lookahead_test_61 = null;
+                GeneratedPtr? _lookahead_test_61 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_61 != null)
                 {
@@ -24423,7 +24428,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -24688,7 +24693,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -24756,7 +24761,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExpr)((object?)a);
+                _res = (GeneratedExpr)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -24825,7 +24830,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(t_lookahead)
-                object? _lookahead_test_62 = null;
+                GeneratedPtr? _lookahead_test_62 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_62 != null)
                 {
@@ -24885,7 +24890,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(t_lookahead)
-                object? _lookahead_test_63 = null;
+                GeneratedPtr? _lookahead_test_63 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_63 != null)
                 {
@@ -25173,7 +25178,7 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for RuleRef
                 _position = _lookahead_mark_68; // Restore position
                 // Action: a
-                _res = (GeneratedExpr)((object?)a);
+                _res = (GeneratedExpr)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -25190,11 +25195,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: t_lookahead from python.gram
-        public object? TLookahead()
+        public GeneratedAstNode? TLookahead()
         {
             // CPython 3.12 PEG: t_lookahead
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -25224,7 +25229,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -25249,7 +25254,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -25274,7 +25279,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -25393,7 +25398,7 @@ namespace SharpPy.Generated
                     _tmp0 = null; // Optional not present
                 }
                 // Action: a
-                _res = (GeneratedExprSeq)((object?)a);
+                _res = (GeneratedExprSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -25468,7 +25473,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(t_lookahead)
-                object? _lookahead_test_69 = null;
+                GeneratedPtr? _lookahead_test_69 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_69 != null)
                 {
@@ -25528,7 +25533,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(t_lookahead)
-                object? _lookahead_test_70 = null;
+                GeneratedPtr? _lookahead_test_70 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_70 != null)
                 {
@@ -25564,7 +25569,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -26300,7 +26305,7 @@ namespace SharpPy.Generated
                     a.Add(_loop_elem_a);
                 }
                 // Action: a
-                _res = (GeneratedExprSeq)((object?)a);
+                _res = (GeneratedExprSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -26367,7 +26372,7 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for Group
                 _position = _lookahead_mark_71; // Restore position
                 // Action: t
-                _res = (GeneratedAstNode?)((object?)t);
+                _res = (GeneratedAstNode?)((GeneratedPtr?)t);
                 if (_res != null) goto done;
             } while (false);
 
@@ -26384,7 +26389,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_double_type_comments
-                object? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 if (_callInvalidRules)
                 {
                     _tmp0 = InvalidDoubleTypeComments();
@@ -26396,7 +26401,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -26423,7 +26428,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -26440,11 +26445,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_arguments from python.gram
-        public object? InvalidArguments()
+        public GeneratedAstNode? InvalidArguments()
         {
             // CPython 3.12 PEG: invalid_arguments
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -26517,7 +26522,7 @@ namespace SharpPy.Generated
                                 {
                                     // WARNING: Lookahead in value position - this is unusual
                                     // Negative lookahead: !(':=')
-                                    object? _lookahead_test_72 = null;
+                                    GeneratedPtr? _lookahead_test_72 = null;
                                     if (CurrentToken?.Value == ":=") { _lookahead_test_72 = CurrentToken; }
                                     if (_lookahead_test_72 != null)
                                     {
@@ -26543,7 +26548,7 @@ namespace SharpPy.Generated
                             {
                                 // WARNING: Lookahead in value position - this is unusual
                                 // Negative lookahead: !('=')
-                                object? _lookahead_test_73 = null;
+                                GeneratedPtr? _lookahead_test_73 = null;
                                 if (CurrentToken?.Value == "=") { _lookahead_test_73 = CurrentToken; }
                                 if (_lookahead_test_73 != null)
                                 {
@@ -26626,7 +26631,7 @@ namespace SharpPy.Generated
                                     {
                                         // WARNING: Lookahead in value position - this is unusual
                                         // Negative lookahead: !(':=')
-                                        object? _lookahead_test_74 = null;
+                                        GeneratedPtr? _lookahead_test_74 = null;
                                         if (CurrentToken?.Value == ":=") { _lookahead_test_74 = CurrentToken; }
                                         if (_lookahead_test_74 != null)
                                         {
@@ -26652,7 +26657,7 @@ namespace SharpPy.Generated
                                 {
                                     // WARNING: Lookahead in value position - this is unusual
                                     // Negative lookahead: !('=')
-                                    object? _lookahead_test_75 = null;
+                                    GeneratedPtr? _lookahead_test_75 = null;
                                     if (CurrentToken?.Value == "=") { _lookahead_test_75 = CurrentToken; }
                                     if (_lookahead_test_75 != null)
                                     {
@@ -26743,7 +26748,7 @@ namespace SharpPy.Generated
                     {
                         // WARNING: Lookahead in value position - this is unusual
                         // Negative lookahead: !('=')
-                        object? _lookahead_test_76 = null;
+                        GeneratedPtr? _lookahead_test_76 = null;
                         if (CurrentToken?.Value == "=") { _lookahead_test_76 = CurrentToken; }
                         if (_lookahead_test_76 != null)
                         {
@@ -26800,7 +26805,7 @@ namespace SharpPy.Generated
                         {
                             // WARNING: Lookahead in value position - this is unusual
                             // Negative lookahead: !('=')
-                            object? _lookahead_test_77 = null;
+                            GeneratedPtr? _lookahead_test_77 = null;
                             if (CurrentToken?.Value == "=") { _lookahead_test_77 = CurrentToken; }
                             if (_lookahead_test_77 != null)
                             {
@@ -27174,11 +27179,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_kwarg from python.gram
-        public object? InvalidKwarg()
+        public GeneratedAstNode? InvalidKwarg()
         {
             // CPython 3.12 PEG: invalid_kwarg
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -27320,7 +27325,7 @@ namespace SharpPy.Generated
                 }
 
                 // Negative lookahead: !((NAME '='))
-                object? _lookahead_test_79 = null;
+                GeneratedPtr? _lookahead_test_79 = null;
                 // Test if current token matches: (NAME '=')
                 if (_lookahead_test_79 != null)
                 {
@@ -27516,7 +27521,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -27541,7 +27546,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -27559,11 +27564,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_legacy_expression from python.gram
-        public object? InvalidLegacyExpression()
+        public GeneratedAstNode? InvalidLegacyExpression()
         {
             // CPython 3.12 PEG: invalid_legacy_expression
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -27595,7 +27600,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !('(')
-                object? _lookahead_test_80 = null;
+                GeneratedPtr? _lookahead_test_80 = null;
                 if (CurrentToken?.Value == "(") { _lookahead_test_80 = CurrentToken; }
                 if (_lookahead_test_80 != null)
                 {
@@ -27635,11 +27640,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_expression from python.gram
-        public object? InvalidExpression()
+        public GeneratedAstNode? InvalidExpression()
         {
             // CPython 3.12 PEG: invalid_expression
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -27661,7 +27666,7 @@ namespace SharpPy.Generated
                 }
 
                 // Negative lookahead: !((NAME STRING | SOFT_KEYWORD))
-                object? _lookahead_test_81 = null;
+                GeneratedPtr? _lookahead_test_81 = null;
                 // Test if current token matches: (NAME STRING | SOFT_KEYWORD)
                 if (_lookahead_test_81 != null)
                 {
@@ -27733,7 +27738,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('else' | ':'))
-                object? _lookahead_test_82 = null;
+                GeneratedPtr? _lookahead_test_82 = null;
                 // Test if current token matches: ('else' | ':')
                 if (CurrentToken?.Value == "else") { _lookahead_test_82 = CurrentToken; }
                 if (CurrentToken?.Value == ":") { _lookahead_test_82 = CurrentToken; }
@@ -27831,17 +27836,17 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_named_expression from python.gram
-        public object? InvalidNamedExpression()
+        public GeneratedAstNode? InvalidNamedExpression()
         {
             // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return TryLeftRecursive<object?>("InvalidNamedExpression", _InvalidNamedExpression);
+            return TryLeftRecursive<GeneratedAstNode?>("InvalidNamedExpression", _InvalidNamedExpression);
         }
 
-        private object? _InvalidNamedExpression()
+        private GeneratedAstNode? _InvalidNamedExpression()
         {
             // CPython 3.12 PEG: invalid_named_expression
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -27935,7 +27940,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('=' | ':='))
-                object? _lookahead_test_84 = null;
+                GeneratedPtr? _lookahead_test_84 = null;
                 // Test if current token matches: ('=' | ':=')
                 if (CurrentToken?.Value == "=") { _lookahead_test_84 = CurrentToken; }
                 if (CurrentToken?.Value == ":=") { _lookahead_test_84 = CurrentToken; }
@@ -27967,7 +27972,7 @@ namespace SharpPy.Generated
                 }
 
                 // Negative lookahead: !((list | tuple | genexp | 'True' | 'None' | 'False'))
-                object? _lookahead_test_85 = null;
+                GeneratedPtr? _lookahead_test_85 = null;
                 // Test if current token matches: (list | tuple | genexp | 'True' | 'None' | 'False')
                 if (CurrentToken?.Value == "True") { _lookahead_test_85 = CurrentToken; }
                 if (CurrentToken?.Value == "None") { _lookahead_test_85 = CurrentToken; }
@@ -28004,7 +28009,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('=' | ':='))
-                object? _lookahead_test_86 = null;
+                GeneratedPtr? _lookahead_test_86 = null;
                 // Test if current token matches: ('=' | ':=')
                 if (CurrentToken?.Value == "=") { _lookahead_test_86 = CurrentToken; }
                 if (CurrentToken?.Value == ":=") { _lookahead_test_86 = CurrentToken; }
@@ -28038,11 +28043,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_assignment from python.gram
-        public object? InvalidAssignment()
+        public GeneratedAstNode? InvalidAssignment()
         {
             // CPython 3.12 PEG: invalid_assignment
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -28064,7 +28069,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_ann_assign_target
-                object? a = null;
+                GeneratedPtr? a = null;
                 if (_callInvalidRules)
                 {
                     a = InvalidAnnAssignTarget();
@@ -28479,7 +28484,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -28504,7 +28509,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)((object?)_tmp0);
+                _res = (GeneratedExpr)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -28529,7 +28534,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: invalid_ann_assign_target
-                object? a = null;
+                GeneratedPtr? a = null;
                 if (_callInvalidRules)
                 {
                     a = InvalidAnnAssignTarget();
@@ -28549,7 +28554,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExpr)((object?)a);
+                _res = (GeneratedExpr)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -28566,11 +28571,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_del_stmt from python.gram
-        public object? InvalidDelStmt()
+        public GeneratedAstNode? InvalidDelStmt()
         {
             // CPython 3.12 PEG: invalid_del_stmt
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -28628,11 +28633,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_block from python.gram
-        public object? InvalidBlock()
+        public GeneratedAstNode? InvalidBlock()
         {
             // CPython 3.12 PEG: invalid_block
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -28664,7 +28669,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_87 = null;
+                GeneratedPtr? _lookahead_test_87 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_87 != null)
                 {
@@ -28694,11 +28699,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_comprehension from python.gram
-        public object? InvalidComprehension()
+        public GeneratedAstNode? InvalidComprehension()
         {
             // CPython 3.12 PEG: invalid_comprehension
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -28948,11 +28953,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_dict_comprehension from python.gram
-        public object? InvalidDictComprehension()
+        public GeneratedAstNode? InvalidDictComprehension()
         {
             // CPython 3.12 PEG: invalid_dict_comprehension
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -29034,11 +29039,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_parameters from python.gram
-        public object? InvalidParameters()
+        public GeneratedAstNode? InvalidParameters()
         {
             // CPython 3.12 PEG: invalid_parameters
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -29210,7 +29215,7 @@ namespace SharpPy.Generated
                 }
                 // Collected _tmp1.Count items (may be 0)
                 // Call rule: invalid_parameters_helper
-                object? _tmp2 = null;
+                GeneratedPtr? _tmp2 = null;
                 if (_callInvalidRules)
                 {
                     _tmp2 = InvalidParametersHelper();
@@ -29415,9 +29420,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: (',' | param_no_default)
-                object? _tmp3 = null;
-                // CPython 3.12: void* pattern - only GeneratedTokenInfo or GeneratedArg expected
-                // Type check: if (_tmp3 != null) { var typeName = _tmp3.GetType().Name; /* validate */ }
+                GeneratedAstNode? _tmp3 = null;
                 int _group_mark__tmp3 = _position;
                 // Try group alternative 1: ','
                 {
@@ -29557,11 +29560,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_default from python.gram
-        public object? InvalidDefault()
+        public GeneratedAstNode? InvalidDefault()
         {
             // CPython 3.12 PEG: invalid_default
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -29615,11 +29618,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_star_etc from python.gram
-        public object? InvalidStarEtc()
+        public GeneratedAstNode? InvalidStarEtc()
         {
             // CPython 3.12 PEG: invalid_star_etc
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -29826,9 +29829,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: (param_no_default | ',')
-                object? _tmp1 = null;
-                // CPython 3.12: void* pattern - only GeneratedTokenInfo or GeneratedArg expected
-                // Type check: if (_tmp1 != null) { var typeName = _tmp1.GetType().Name; /* validate */ }
+                GeneratedAstNode? _tmp1 = null;
                 int _group_mark__tmp1 = _position;
                 // Try group alternative 1: param_no_default
                 {
@@ -29885,9 +29886,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: (param_no_default | ',')
-                object? _tmp3 = null;
-                // CPython 3.12: void* pattern - only GeneratedTokenInfo or GeneratedArg expected
-                // Type check: if (_tmp3 != null) { var typeName = _tmp3.GetType().Name; /* validate */ }
+                GeneratedAstNode? _tmp3 = null;
                 int _group_mark__tmp3 = _position;
                 // Try group alternative 1: param_no_default
                 {
@@ -29935,11 +29934,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_kwds from python.gram
-        public object? InvalidKwds()
+        public GeneratedAstNode? InvalidKwds()
         {
             // CPython 3.12 PEG: invalid_kwds
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -30139,11 +30138,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_parameters_helper from python.gram
-        public object? InvalidParametersHelper()
+        public GeneratedAstNode? InvalidParametersHelper()
         {
             // CPython 3.12 PEG: invalid_parameters_helper
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -30217,7 +30216,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -30234,11 +30233,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_lambda_parameters from python.gram
-        public object? InvalidLambdaParameters()
+        public GeneratedAstNode? InvalidLambdaParameters()
         {
             // CPython 3.12 PEG: invalid_lambda_parameters
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -30410,7 +30409,7 @@ namespace SharpPy.Generated
                 }
                 // Collected _tmp1.Count items (may be 0)
                 // Call rule: invalid_lambda_parameters_helper
-                object? _tmp2 = null;
+                GeneratedPtr? _tmp2 = null;
                 if (_callInvalidRules)
                 {
                     _tmp2 = InvalidLambdaParametersHelper();
@@ -30638,9 +30637,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: (',' | lambda_param_no_default)
-                object? _tmp3 = null;
-                // CPython 3.12: void* pattern - only GeneratedTokenInfo or GeneratedArg expected
-                // Type check: if (_tmp3 != null) { var typeName = _tmp3.GetType().Name; /* validate */ }
+                GeneratedAstNode? _tmp3 = null;
                 int _group_mark__tmp3 = _position;
                 // Try group alternative 1: ','
                 {
@@ -30780,11 +30777,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_lambda_parameters_helper from python.gram
-        public object? InvalidLambdaParametersHelper()
+        public GeneratedAstNode? InvalidLambdaParametersHelper()
         {
             // CPython 3.12 PEG: invalid_lambda_parameters_helper
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -30858,7 +30855,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -30875,11 +30872,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_lambda_star_etc from python.gram
-        public object? InvalidLambdaStarEtc()
+        public GeneratedAstNode? InvalidLambdaStarEtc()
         {
             // CPython 3.12 PEG: invalid_lambda_star_etc
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -31040,9 +31037,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: (lambda_param_no_default | ',')
-                object? _tmp1 = null;
-                // CPython 3.12: void* pattern - only GeneratedTokenInfo or GeneratedArg expected
-                // Type check: if (_tmp1 != null) { var typeName = _tmp1.GetType().Name; /* validate */ }
+                GeneratedAstNode? _tmp1 = null;
                 int _group_mark__tmp1 = _position;
                 // Try group alternative 1: lambda_param_no_default
                 {
@@ -31099,9 +31094,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Group: (lambda_param_no_default | ',')
-                object? _tmp3 = null;
-                // CPython 3.12: void* pattern - only GeneratedTokenInfo or GeneratedArg expected
-                // Type check: if (_tmp3 != null) { var typeName = _tmp3.GetType().Name; /* validate */ }
+                GeneratedAstNode? _tmp3 = null;
                 int _group_mark__tmp3 = _position;
                 // Try group alternative 1: lambda_param_no_default
                 {
@@ -31149,11 +31142,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_lambda_kwds from python.gram
-        public object? InvalidLambdaKwds()
+        public GeneratedAstNode? InvalidLambdaKwds()
         {
             // CPython 3.12 PEG: invalid_lambda_kwds
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -31353,11 +31346,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_double_type_comments from python.gram
-        public object? InvalidDoubleTypeComments()
+        public GeneratedAstNode? InvalidDoubleTypeComments()
         {
             // CPython 3.12 PEG: invalid_double_type_comments
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -31449,11 +31442,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_with_item from python.gram
-        public object? InvalidWithItem()
+        public GeneratedAstNode? InvalidWithItem()
         {
             // CPython 3.12 PEG: invalid_with_item
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -31523,11 +31516,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_for_target from python.gram
-        public object? InvalidForTarget()
+        public GeneratedAstNode? InvalidForTarget()
         {
             // CPython 3.12 PEG: invalid_for_target
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -31603,11 +31596,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_group from python.gram
-        public object? InvalidGroup()
+        public GeneratedAstNode? InvalidGroup()
         {
             // CPython 3.12 PEG: invalid_group
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -31725,11 +31718,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_import from python.gram
-        public object? InvalidImport()
+        public GeneratedAstNode? InvalidImport()
         {
             // CPython 3.12 PEG: invalid_import
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -31845,11 +31838,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_import_from_targets from python.gram
-        public object? InvalidImportFromTargets()
+        public GeneratedAstNode? InvalidImportFromTargets()
         {
             // CPython 3.12 PEG: invalid_import_from_targets
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -31917,11 +31910,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_with_stmt from python.gram
-        public object? InvalidWithStmt()
+        public GeneratedAstNode? InvalidWithStmt()
         {
             // CPython 3.12 PEG: invalid_with_stmt
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -32207,11 +32200,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_with_stmt_indent from python.gram
-        public object? InvalidWithStmtIndent()
+        public GeneratedAstNode? InvalidWithStmtIndent()
         {
             // CPython 3.12 PEG: invalid_with_stmt_indent
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -32337,7 +32330,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_90 = null;
+                GeneratedPtr? _lookahead_test_90 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_90 != null)
                 {
@@ -32503,7 +32496,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_91 = null;
+                GeneratedPtr? _lookahead_test_91 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_91 != null)
                 {
@@ -32533,11 +32526,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_try_stmt from python.gram
-        public object? InvalidTryStmt()
+        public GeneratedAstNode? InvalidTryStmt()
         {
             // CPython 3.12 PEG: invalid_try_stmt
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -32585,7 +32578,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_92 = null;
+                GeneratedPtr? _lookahead_test_92 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_92 != null)
                 {
@@ -32639,7 +32632,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('except' | 'finally'))
-                object? _lookahead_test_93 = null;
+                GeneratedPtr? _lookahead_test_93 = null;
                 // Test if current token matches: ('except' | 'finally')
                 if (CurrentToken?.Value == "except") { _lookahead_test_93 = CurrentToken; }
                 if (CurrentToken?.Value == "finally") { _lookahead_test_93 = CurrentToken; }
@@ -32900,11 +32893,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_except_stmt from python.gram
-        public object? InvalidExceptStmt()
+        public GeneratedAstNode? InvalidExceptStmt()
         {
             // CPython 3.12 PEG: invalid_except_stmt
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -33150,11 +33143,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_finally_stmt from python.gram
-        public object? InvalidFinallyStmt()
+        public GeneratedAstNode? InvalidFinallyStmt()
         {
             // CPython 3.12 PEG: invalid_finally_stmt
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -33202,7 +33195,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_94 = null;
+                GeneratedPtr? _lookahead_test_94 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_94 != null)
                 {
@@ -33232,11 +33225,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_except_stmt_indent from python.gram
-        public object? InvalidExceptStmtIndent()
+        public GeneratedAstNode? InvalidExceptStmtIndent()
         {
             // CPython 3.12 PEG: invalid_except_stmt_indent
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -33284,7 +33277,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_95 = null;
+                GeneratedPtr? _lookahead_test_95 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_95 != null)
                 {
@@ -33340,7 +33333,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_96 = null;
+                GeneratedPtr? _lookahead_test_96 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_96 != null)
                 {
@@ -33370,11 +33363,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_except_star_stmt_indent from python.gram
-        public object? InvalidExceptStarStmtIndent()
+        public GeneratedAstNode? InvalidExceptStarStmtIndent()
         {
             // CPython 3.12 PEG: invalid_except_star_stmt_indent
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -33430,7 +33423,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_97 = null;
+                GeneratedPtr? _lookahead_test_97 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_97 != null)
                 {
@@ -33460,11 +33453,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_match_stmt from python.gram
-        public object? InvalidMatchStmt()
+        public GeneratedAstNode? InvalidMatchStmt()
         {
             // CPython 3.12 PEG: invalid_match_stmt
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -33566,7 +33559,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_98 = null;
+                GeneratedPtr? _lookahead_test_98 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_98 != null)
                 {
@@ -33596,11 +33589,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_case_block from python.gram
-        public object? InvalidCaseBlock()
+        public GeneratedAstNode? InvalidCaseBlock()
         {
             // CPython 3.12 PEG: invalid_case_block
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -33734,7 +33727,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_99 = null;
+                GeneratedPtr? _lookahead_test_99 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_99 != null)
                 {
@@ -33764,11 +33757,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_as_pattern from python.gram
-        public object? InvalidAsPattern()
+        public GeneratedAstNode? InvalidAsPattern()
         {
             // CPython 3.12 PEG: invalid_as_pattern
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -33850,7 +33843,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(NAME)
-                object? _lookahead_test_100 = null;
+                GeneratedPtr? _lookahead_test_100 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_100 != null)
                 {
@@ -33888,11 +33881,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_class_pattern from python.gram
-        public object? InvalidClassPattern()
+        public GeneratedAstNode? InvalidClassPattern()
         {
             // CPython 3.12 PEG: invalid_class_pattern
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -33930,7 +33923,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: invalid_class_argument_pattern
-                object? a = null;
+                GeneratedPtr? a = null;
                 if (_callInvalidRules)
                 {
                     a = InvalidClassArgumentPattern();
@@ -34046,7 +34039,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedAstNodeSeq)((object?)a);
+                _res = (GeneratedAstNodeSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -34063,11 +34056,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_if_stmt from python.gram
-        public object? InvalidIfStmt()
+        public GeneratedAstNode? InvalidIfStmt()
         {
             // CPython 3.12 PEG: invalid_if_stmt
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -34169,7 +34162,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_101 = null;
+                GeneratedPtr? _lookahead_test_101 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_101 != null)
                 {
@@ -34199,11 +34192,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_elif_stmt from python.gram
-        public object? InvalidElifStmt()
+        public GeneratedAstNode? InvalidElifStmt()
         {
             // CPython 3.12 PEG: invalid_elif_stmt
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -34305,7 +34298,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_102 = null;
+                GeneratedPtr? _lookahead_test_102 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_102 != null)
                 {
@@ -34335,11 +34328,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_else_stmt from python.gram
-        public object? InvalidElseStmt()
+        public GeneratedAstNode? InvalidElseStmt()
         {
             // CPython 3.12 PEG: invalid_else_stmt
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -34387,7 +34380,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_103 = null;
+                GeneratedPtr? _lookahead_test_103 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_103 != null)
                 {
@@ -34417,11 +34410,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_while_stmt from python.gram
-        public object? InvalidWhileStmt()
+        public GeneratedAstNode? InvalidWhileStmt()
         {
             // CPython 3.12 PEG: invalid_while_stmt
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -34523,7 +34516,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_104 = null;
+                GeneratedPtr? _lookahead_test_104 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_104 != null)
                 {
@@ -34553,11 +34546,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_for_stmt from python.gram
-        public object? InvalidForStmt()
+        public GeneratedAstNode? InvalidForStmt()
         {
             // CPython 3.12 PEG: invalid_for_stmt
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -34743,7 +34736,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_105 = null;
+                GeneratedPtr? _lookahead_test_105 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_105 != null)
                 {
@@ -34773,11 +34766,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_def_raw from python.gram
-        public object? InvalidDefRaw()
+        public GeneratedAstNode? InvalidDefRaw()
         {
             // CPython 3.12 PEG: invalid_def_raw
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -34923,7 +34916,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_106 = null;
+                GeneratedPtr? _lookahead_test_106 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_106 != null)
                 {
@@ -34953,11 +34946,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_class_def_raw from python.gram
-        public object? InvalidClassDefRaw()
+        public GeneratedAstNode? InvalidClassDefRaw()
         {
             // CPython 3.12 PEG: invalid_class_def_raw
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -35161,7 +35154,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(INDENT)
-                object? _lookahead_test_107 = null;
+                GeneratedPtr? _lookahead_test_107 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_107 != null)
                 {
@@ -35191,11 +35184,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_double_starred_kvpairs from python.gram
-        public object? InvalidDoubleStarredKvpairs()
+        public GeneratedAstNode? InvalidDoubleStarredKvpairs()
         {
             // CPython 3.12 PEG: invalid_double_starred_kvpairs
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -35275,7 +35268,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: invalid_kvpair
-                object? _tmp2 = null;
+                GeneratedPtr? _tmp2 = null;
                 if (_callInvalidRules)
                 {
                     _tmp2 = InvalidKvpair();
@@ -35287,7 +35280,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -35396,11 +35389,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_kvpair from python.gram
-        public object? InvalidKvpair()
+        public GeneratedAstNode? InvalidKvpair()
         {
             // CPython 3.12 PEG: invalid_kvpair
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -35430,7 +35423,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !((':'))
-                object? _lookahead_test_109 = null;
+                GeneratedPtr? _lookahead_test_109 = null;
                 // Test if current token matches: (':')
                 if (CurrentToken?.Value == ":") { _lookahead_test_109 = CurrentToken; }
                 if (_lookahead_test_109 != null)
@@ -35553,11 +35546,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_starred_expression from python.gram
-        public object? InvalidStarredExpression()
+        public GeneratedAstNode? InvalidStarredExpression()
         {
             // CPython 3.12 PEG: invalid_starred_expression
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -35631,11 +35624,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_replacement_field from python.gram
-        public object? InvalidReplacementField()
+        public GeneratedAstNode? InvalidReplacementField()
         {
             // CPython 3.12 PEG: invalid_replacement_field
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -35809,7 +35802,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !((yield_expr | star_expressions))
-                object? _lookahead_test_111 = null;
+                GeneratedPtr? _lookahead_test_111 = null;
                 // Test if current token matches: (yield_expr | star_expressions)
                 if (_lookahead_test_111 != null)
                 {
@@ -35875,7 +35868,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('=' | '!' | ':' | '}'))
-                object? _lookahead_test_112 = null;
+                GeneratedPtr? _lookahead_test_112 = null;
                 // Test if current token matches: ('=' | '!' | ':' | '}')
                 if (CurrentToken?.Value == "=") { _lookahead_test_112 = CurrentToken; }
                 if (CurrentToken?.Value == "!") { _lookahead_test_112 = CurrentToken; }
@@ -35953,7 +35946,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('!' | ':' | '}'))
-                object? _lookahead_test_113 = null;
+                GeneratedPtr? _lookahead_test_113 = null;
                 // Test if current token matches: ('!' | ':' | '}')
                 if (CurrentToken?.Value == "!") { _lookahead_test_113 = CurrentToken; }
                 if (CurrentToken?.Value == ":") { _lookahead_test_113 = CurrentToken; }
@@ -36038,7 +36031,7 @@ namespace SharpPy.Generated
                     _tmp2 = null; // Optional not present
                 }
                 // Call rule: invalid_conversion_character
-                object? _tmp3 = null;
+                GeneratedPtr? _tmp3 = null;
                 if (_callInvalidRules)
                 {
                     _tmp3 = InvalidConversionCharacter();
@@ -36050,7 +36043,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)((object?)_tmp0);
+                _res = (GeneratedAstNode?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -36149,7 +36142,7 @@ namespace SharpPy.Generated
                     _tmp3 = null; // Optional not present
                 }
                 // Negative lookahead: !((':' | '}'))
-                object? _lookahead_test_114 = null;
+                GeneratedPtr? _lookahead_test_114 = null;
                 // Test if current token matches: (':' | '}')
                 if (CurrentToken?.Value == ":") { _lookahead_test_114 = CurrentToken; }
                 if (CurrentToken?.Value == "}") { _lookahead_test_114 = CurrentToken; }
@@ -36292,7 +36285,7 @@ namespace SharpPy.Generated
                 }
                 // Collected _tmp5.Count items (may be 0)
                 // Negative lookahead: !('}')
-                object? _lookahead_test_115 = null;
+                GeneratedPtr? _lookahead_test_115 = null;
                 if (CurrentToken?.Value == "}") { _lookahead_test_115 = CurrentToken; }
                 if (_lookahead_test_115 != null)
                 {
@@ -36404,7 +36397,7 @@ namespace SharpPy.Generated
                     _tmp3 = null; // Optional not present
                 }
                 // Negative lookahead: !('}')
-                object? _lookahead_test_116 = null;
+                GeneratedPtr? _lookahead_test_116 = null;
                 if (CurrentToken?.Value == "}") { _lookahead_test_116 = CurrentToken; }
                 if (_lookahead_test_116 != null)
                 {
@@ -36434,11 +36427,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_conversion_character from python.gram
-        public object? InvalidConversionCharacter()
+        public GeneratedAstNode? InvalidConversionCharacter()
         {
             // CPython 3.12 PEG: invalid_conversion_character
             int _mark = _position;
-            object? _res = null;
+            GeneratedAstNode? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -36500,7 +36493,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(NAME)
-                object? _lookahead_test_118 = null;
+                GeneratedPtr? _lookahead_test_118 = null;
                 // TODO: Complex negative lookahead for RuleRef
                 if (_lookahead_test_118 != null)
                 {
@@ -36649,12 +36642,12 @@ namespace SharpPy.Generated
             return null;
         }
 
-        private object? TryParseGrammarItems(string[] items)
+        private GeneratedPtr? TryParseGrammarItems(string[] items)
         {
             // Parse sequence of grammar items
             var startPos = _position;
-            var results = new List<object?>();
-            var variables = new Dictionary<string, object?>();
+            var results = new List<GeneratedPtr?>();
+            var variables = new Dictionary<string, GeneratedPtr?>();
 
             foreach (var item in items)
             {
@@ -36671,7 +36664,7 @@ namespace SharpPy.Generated
             return CreateResultFromItems(items, results, variables);
         }
 
-        private object? ParseGrammarItem(string item, Dictionary<string, object?> variables)
+        private GeneratedPtr? ParseGrammarItem(string item, Dictionary<string, GeneratedPtr?> variables)
         {
             // Handle variable assignments (e.g., "a=statements")
             if (item.Contains('='))
@@ -36688,7 +36681,7 @@ namespace SharpPy.Generated
             return ParsePattern(item);
         }
 
-        private object? ParsePattern(string pattern)
+        private GeneratedPtr? ParsePattern(string pattern)
         {
             // Remove optional markers
             if (pattern.StartsWith("[") && pattern.EndsWith("]"))
@@ -36730,7 +36723,7 @@ namespace SharpPy.Generated
             if (pattern.EndsWith("+"))
             {
                 var basePattern = pattern.Substring(0, pattern.Length - 1);
-                var results = new List<object?>();
+                var results = new List<GeneratedPtr?>();
                 while (true)
                 {
                     var startPos = _position;
@@ -36748,7 +36741,7 @@ namespace SharpPy.Generated
             if (pattern.EndsWith("*"))
             {
                 var basePattern = pattern.Substring(0, pattern.Length - 1);
-                var results = new List<object?>();
+                var results = new List<GeneratedPtr?>();
                 while (true)
                 {
                     var startPos = _position;
@@ -36767,7 +36760,7 @@ namespace SharpPy.Generated
             return ParseRuleReference(pattern);
         }
 
-        private object? ParseStringLiteral(string literal)
+        private GeneratedPtr? ParseStringLiteral(string literal)
         {
             // Handle operators
             if (literal == "=") return ExpectOperator("=") ? "=" : null;
@@ -36781,7 +36774,7 @@ namespace SharpPy.Generated
             return null;
         }
 
-        private object? ParseRuleReference(string ruleName)
+        private GeneratedPtr? ParseRuleReference(string ruleName)
         {
             // Map rule names to method calls
             switch (ruleName)
@@ -36799,7 +36792,7 @@ namespace SharpPy.Generated
             }
         }
 
-        private object? CreateResultFromItems(string[] items, List<object?> results, Dictionary<string, object?> variables)
+        private GeneratedPtr? CreateResultFromItems(string[] items, List<GeneratedPtr?> results, Dictionary<string, GeneratedPtr?> variables)
         {
             // Create appropriate result based on the pattern context
             if (items.Length == 2 && items[1] == "ENDMARKER")
@@ -36915,7 +36908,7 @@ namespace SharpPy.Generated
             /// </summary>
             public sealed class PegAstResult : PegParseResult
             {
-                public object AstNode { get; }
+                public GeneratedPtr AstNode { get; }
 
                 public PegAstResult(object astNode, int endPosition)
                     : base(true, endPosition)
@@ -36962,7 +36955,7 @@ namespace SharpPy.Generated
             /// </summary>
             public sealed class PegActionResult : PegParseResult
             {
-                public object ActionResult { get; }
+                public GeneratedPtr ActionResult { get; }
 
                 public PegActionResult(object actionResult, int endPosition)
                     : base(true, endPosition)
@@ -37011,7 +37004,7 @@ namespace SharpPy.Generated
                 private int _cacheHits = 0;
                 private int _cacheMisses = 0;
 
-                private readonly Dictionary<string, object?> _variables = new();
+                private readonly Dictionary<string, GeneratedPtr?> _variables = new();
                 private readonly HashSet<(int, string)> _activeRules = new(); // Track active rules to prevent left recursion
                 private readonly Dictionary<string, bool> _leftRecursiveRules = new(); // Cache for left-recursive rule detection
                 private readonly Dictionary<string, IPegParseResult> _seedResults = new(); // Store seed results for left-recursive expansion
@@ -38028,7 +38021,7 @@ namespace SharpPy.Generated
                         // Module: statements+
                         var module = new SimpleModule
                         {
-                            Body = variables.ContainsKey("a") ? variables["a"] as List<object> : new List<object>()
+                            Body = variables.ContainsKey("a") ? variables["a"] as List<GeneratedPtr> : new List<GeneratedPtr>()
                         };
                         return new PegAstResult(module, _position);
                     }

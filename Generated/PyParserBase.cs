@@ -3792,4 +3792,107 @@ namespace SharpPy.Generated
         BitAnd = 12,   // &
         FloorDiv = 13  // //
     }
+
+    // ========================================
+    // Token to AST Conversion Helpers
+    // ========================================
+    // CPython 3.12: Implicit token to AST node conversion functions
+    // These are called when grammar rules like "| NAME" have no explicit action
+
+    public partial class PyParserBase<TModule>
+    {
+        /// <summary>
+        /// CPython 3.12: _PyPegen_name_token() - Convert NAME token to Name expression
+        /// </summary>
+        protected GeneratedExpr NameToken(GeneratedTokenInfo? token)
+        {
+            if (token == null)
+                throw new ArgumentNullException(nameof(token));
+
+            return new GeneratedNameExpr
+            {
+                Id = token.Value,
+                LineNo = token.Line,
+                ColOffset = token.Column,
+                EndLineNo = token.Line,
+                EndColOffset = token.Column + token.Value.Length
+            };
+        }
+
+        /// <summary>
+        /// CPython 3.12: _PyPegen_number_token() - Convert NUMBER token to Constant expression
+        /// </summary>
+        protected GeneratedExpr NumberToken(GeneratedTokenInfo? token)
+        {
+            if (token == null)
+                throw new ArgumentNullException(nameof(token));
+
+            // Parse number token value
+            PyObject value;
+            string numStr = token.Value;
+
+            // Handle different number types
+            if (numStr.Contains('.') || numStr.Contains('e') || numStr.Contains('E'))
+            {
+                // Float
+                value = new PyFloat(double.Parse(numStr, System.Globalization.CultureInfo.InvariantCulture));
+            }
+            else if (numStr.StartsWith("0x") || numStr.StartsWith("0X"))
+            {
+                // Hexadecimal
+                value = new PyInt((int)Convert.ToInt64(numStr, 16));
+            }
+            else if (numStr.StartsWith("0o") || numStr.StartsWith("0O"))
+            {
+                // Octal
+                value = new PyInt((int)Convert.ToInt64(numStr.Substring(2), 8));
+            }
+            else if (numStr.StartsWith("0b") || numStr.StartsWith("0B"))
+            {
+                // Binary
+                value = new PyInt((int)Convert.ToInt64(numStr.Substring(2), 2));
+            }
+            else
+            {
+                // Decimal integer
+                value = new PyInt((int)long.Parse(numStr));
+            }
+
+            return new GeneratedConstantExpr
+            {
+                Value = value,
+                LineNo = token.Line,
+                ColOffset = token.Column,
+                EndLineNo = token.Line,
+                EndColOffset = token.Column + token.Value.Length
+            };
+        }
+
+        /// <summary>
+        /// CPython 3.12: STRING token handling - usually handled by 'strings' rule
+        /// This is a fallback for direct STRING token usage
+        /// </summary>
+        protected GeneratedExpr StringToken(GeneratedTokenInfo? token)
+        {
+            if (token == null)
+                throw new ArgumentNullException(nameof(token));
+
+            // Simple string constant
+            // TODO: Handle string prefixes (r, f, b, u) and escape sequences properly
+            string value = token.Value;
+            if (value.Length >= 2 && (value.StartsWith("'") || value.StartsWith("\"")))
+            {
+                value = value.Substring(1, value.Length - 2);
+            }
+
+            return new GeneratedConstantExpr
+            {
+                Value = new PyString(value),
+                LineNo = token.Line,
+                ColOffset = token.Column,
+                EndLineNo = token.Line,
+                EndColOffset = token.Column + token.Value.Length
+            };
+        }
+    }
 }

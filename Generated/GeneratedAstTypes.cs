@@ -13,12 +13,25 @@ namespace SharpPy.Generated
     /// Base class for all AST nodes - replaces object-based approach
     /// CPython 3.12: All AST nodes inherit from this
     /// </summary>
-    public abstract class GeneratedAstNode
+    public abstract class GeneratedAstNode : GeneratedPtr
     {
         public int LineNo { get; set; }
         public int ColOffset { get; set; }
         public int EndLineNo { get; set; }
         public int EndColOffset { get; set; }
+    }
+
+    /// <summary>
+    /// CPython 3.12: Represents void* return type for rules without explicit type
+    /// Used for invalid_* error recovery rules that always return NULL
+    /// This replaces C#'s object type to maintain type safety
+    /// </summary>
+    public class GeneratedVoidNode : GeneratedAstNode
+    {
+        // Singleton instance since invalid rules always return null/void
+        public static readonly GeneratedVoidNode Instance = new GeneratedVoidNode();
+
+        private GeneratedVoidNode() { }
     }
 
     // ============================================================
@@ -393,7 +406,18 @@ namespace SharpPy.Generated
     /// Base generic sequence type for various list types in the parser
     /// CPython 3.12: asdl_seq* (generic sequence)
     /// </summary>
-    public class GeneratedSeq : List<GeneratedAstNode> { }
+    public class GeneratedSeq : GeneratedPtr, IEnumerable<GeneratedAstNode>
+    {
+        private List<GeneratedAstNode> _items = new List<GeneratedAstNode>();
+        public void Add(GeneratedAstNode item) => _items.Add(item);
+        public void AddRange(IEnumerable<GeneratedAstNode> items) => _items.AddRange(items);
+        public int Count => _items.Count;
+        public GeneratedAstNode this[int index] { get => _items[index]; set => _items[index] = value; }
+        public IEnumerator<GeneratedAstNode> GetEnumerator() => _items.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
+        public List<GeneratedAstNode> ToList() => _items;
+        public static implicit operator List<GeneratedAstNode>(GeneratedSeq seq) => seq._items;
+    }
 
     /// <summary>
     /// Sequence of base AST nodes - used for mixed or unknown AST node lists
@@ -424,10 +448,57 @@ namespace SharpPy.Generated
         public static implicit operator List<GeneratedAstNode>(GeneratedAstNodeSeq seq) => seq._items;
     }
 
-    public class GeneratedStmtSeq : List<GeneratedStmt> { }
-    public class GeneratedExprSeq : List<GeneratedExpr> { }
-    public class GeneratedArgSeq : List<GeneratedArg> { }
-    public class GeneratedPatternSeq : List<GeneratedPattern> { }
+    public class GeneratedStmtSeq : GeneratedPtr, IEnumerable<GeneratedStmt>
+    {
+        private List<GeneratedStmt> _items = new List<GeneratedStmt>();
+        public void Add(GeneratedStmt item) => _items.Add(item);
+        public void AddRange(IEnumerable<GeneratedStmt> items) => _items.AddRange(items);
+        public int Count => _items.Count;
+        public GeneratedStmt this[int index] { get => _items[index]; set => _items[index] = value; }
+        public IEnumerator<GeneratedStmt> GetEnumerator() => _items.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
+        public List<GeneratedStmt> ToList() => _items;
+        public static implicit operator List<GeneratedStmt>(GeneratedStmtSeq seq) => seq._items;
+    }
+
+    public class GeneratedExprSeq : GeneratedPtr, IEnumerable<GeneratedExpr>
+    {
+        private List<GeneratedExpr> _items = new List<GeneratedExpr>();
+        public void Add(GeneratedExpr item) => _items.Add(item);
+        public void AddRange(IEnumerable<GeneratedExpr> items) => _items.AddRange(items);
+        public int Count => _items.Count;
+        public GeneratedExpr this[int index] { get => _items[index]; set => _items[index] = value; }
+        public IEnumerator<GeneratedExpr> GetEnumerator() => _items.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
+        public List<GeneratedExpr> ToList() => _items;
+        public static implicit operator List<GeneratedExpr>(GeneratedExprSeq seq) => seq._items;
+    }
+
+    public class GeneratedArgSeq : GeneratedPtr, IEnumerable<GeneratedArg>
+    {
+        private List<GeneratedArg> _items = new List<GeneratedArg>();
+        public void Add(GeneratedArg item) => _items.Add(item);
+        public void AddRange(IEnumerable<GeneratedArg> items) => _items.AddRange(items);
+        public int Count => _items.Count;
+        public GeneratedArg this[int index] { get => _items[index]; set => _items[index] = value; }
+        public IEnumerator<GeneratedArg> GetEnumerator() => _items.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
+        public List<GeneratedArg> ToList() => _items;
+        public static implicit operator List<GeneratedArg>(GeneratedArgSeq seq) => seq._items;
+    }
+
+    public class GeneratedPatternSeq : GeneratedPtr, IEnumerable<GeneratedPattern>
+    {
+        private List<GeneratedPattern> _items = new List<GeneratedPattern>();
+        public void Add(GeneratedPattern item) => _items.Add(item);
+        public void AddRange(IEnumerable<GeneratedPattern> items) => _items.AddRange(items);
+        public int Count => _items.Count;
+        public GeneratedPattern this[int index] { get => _items[index]; set => _items[index] = value; }
+        public IEnumerator<GeneratedPattern> GetEnumerator() => _items.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
+        public List<GeneratedPattern> ToList() => _items;
+        public static implicit operator List<GeneratedPattern>(GeneratedPatternSeq seq) => seq._items;
+    }
 
     // ============================================================
     // Additional Typed Sequences (replacing List<object>)
@@ -436,12 +507,23 @@ namespace SharpPy.Generated
     /// <summary>
     /// CPython 3.12: withitem = (expr context_expr, expr? optional_vars)
     /// </summary>
-    public class GeneratedWithItem
+    public class GeneratedWithItem : GeneratedPtr
     {
         public GeneratedExpr ContextExpr { get; set; } = null!;
         public GeneratedExpr? OptionalVars { get; set; }
     }
-    public class GeneratedWithItemSeq : List<GeneratedWithItem> { }
+    public class GeneratedWithItemSeq : GeneratedPtr, IEnumerable<GeneratedWithItem>
+    {
+        private List<GeneratedWithItem> _items = new List<GeneratedWithItem>();
+        public void Add(GeneratedWithItem item) => _items.Add(item);
+        public void AddRange(IEnumerable<GeneratedWithItem> items) => _items.AddRange(items);
+        public int Count => _items.Count;
+        public GeneratedWithItem this[int index] { get => _items[index]; set => _items[index] = value; }
+        public IEnumerator<GeneratedWithItem> GetEnumerator() => _items.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
+        public List<GeneratedWithItem> ToList() => _items;
+        public static implicit operator List<GeneratedWithItem>(GeneratedWithItemSeq seq) => seq._items;
+    }
 
     /// <summary>
     /// CPython 3.12: KeywordOrStarred (union of keyword_ty and expr_ty for starred expressions)
@@ -453,18 +535,40 @@ namespace SharpPy.Generated
         public GeneratedExpr? StarredExpr { get; set; } // For starred expressions (*args)
         public bool IsKeyword { get; set; } // True if keyword, false if starred
     }
-    public class GeneratedKeywordOrStarredSeq : List<GeneratedKeywordOrStarred> { }
+    public class GeneratedKeywordOrStarredSeq : GeneratedPtr, IEnumerable<GeneratedKeywordOrStarred>
+    {
+        private List<GeneratedKeywordOrStarred> _items = new List<GeneratedKeywordOrStarred>();
+        public void Add(GeneratedKeywordOrStarred item) => _items.Add(item);
+        public void AddRange(IEnumerable<GeneratedKeywordOrStarred> items) => _items.AddRange(items);
+        public int Count => _items.Count;
+        public GeneratedKeywordOrStarred this[int index] { get => _items[index]; set => _items[index] = value; }
+        public IEnumerator<GeneratedKeywordOrStarred> GetEnumerator() => _items.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
+        public List<GeneratedKeywordOrStarred> ToList() => _items;
+        public static implicit operator List<GeneratedKeywordOrStarred>(GeneratedKeywordOrStarredSeq seq) => seq._items;
+    }
 
     /// <summary>
     /// CPython 3.12: match_case = (pattern pattern, expr? guard, stmt* body)
     /// </summary>
-    public class GeneratedMatchCase
+    public class GeneratedMatchCase : GeneratedPtr
     {
         public GeneratedPattern Pattern { get; set; } = null!;
         public GeneratedExpr? Guard { get; set; }
         public GeneratedStmtSeq Body { get; set; } = new();
     }
-    public class GeneratedMatchCaseSeq : List<GeneratedMatchCase> { }
+    public class GeneratedMatchCaseSeq : GeneratedPtr, IEnumerable<GeneratedMatchCase>
+    {
+        private List<GeneratedMatchCase> _items = new List<GeneratedMatchCase>();
+        public void Add(GeneratedMatchCase item) => _items.Add(item);
+        public void AddRange(IEnumerable<GeneratedMatchCase> items) => _items.AddRange(items);
+        public int Count => _items.Count;
+        public GeneratedMatchCase this[int index] { get => _items[index]; set => _items[index] = value; }
+        public IEnumerator<GeneratedMatchCase> GetEnumerator() => _items.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
+        public List<GeneratedMatchCase> ToList() => _items;
+        public static implicit operator List<GeneratedMatchCase>(GeneratedMatchCaseSeq seq) => seq._items;
+    }
 
     /// <summary>
     /// CPython 3.12: pattern base type
@@ -526,7 +630,7 @@ namespace SharpPy.Generated
     /// <summary>
     /// CPython 3.12: excepthandler = ExceptHandler(expr? type, identifier? name, stmt* body)
     /// </summary>
-    public abstract class GeneratedExceptHandler
+    public abstract class GeneratedExceptHandler : GeneratedPtr
     {
         public int LineNo { get; set; }
         public int ColOffset { get; set; }
@@ -540,14 +644,25 @@ namespace SharpPy.Generated
         public string? Name { get; set; }
         public GeneratedStmtSeq Body { get; set; } = new();
     }
-    public class GeneratedExceptHandlerSeq : List<GeneratedExceptHandler> { }
+    public class GeneratedExceptHandlerSeq : GeneratedPtr, IEnumerable<GeneratedExceptHandler>
+    {
+        private List<GeneratedExceptHandler> _items = new List<GeneratedExceptHandler>();
+        public void Add(GeneratedExceptHandler item) => _items.Add(item);
+        public void AddRange(IEnumerable<GeneratedExceptHandler> items) => _items.AddRange(items);
+        public int Count => _items.Count;
+        public GeneratedExceptHandler this[int index] { get => _items[index]; set => _items[index] = value; }
+        public IEnumerator<GeneratedExceptHandler> GetEnumerator() => _items.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
+        public List<GeneratedExceptHandler> ToList() => _items;
+        public static implicit operator List<GeneratedExceptHandler>(GeneratedExceptHandlerSeq seq) => seq._items;
+    }
 
     /// <summary>
     /// CPython 3.12: type_param = TypeVar(identifier name, expr? bound)
     ///                          | ParamSpec(identifier name)
     ///                          | TypeVarTuple(identifier name)
     /// </summary>
-    public abstract class GeneratedTypeParam
+    public abstract class GeneratedTypeParam : GeneratedPtr
     {
         public string Name { get; set; } = "";
         public int LineNo { get; set; }
@@ -565,7 +680,18 @@ namespace SharpPy.Generated
 
     public class GeneratedTypeVarTuple : GeneratedTypeParam { }
 
-    public class GeneratedTypeParamSeq : List<GeneratedTypeParam> { }
+    public class GeneratedTypeParamSeq : GeneratedPtr, IEnumerable<GeneratedTypeParam>
+    {
+        private List<GeneratedTypeParam> _items = new List<GeneratedTypeParam>();
+        public void Add(GeneratedTypeParam item) => _items.Add(item);
+        public void AddRange(IEnumerable<GeneratedTypeParam> items) => _items.AddRange(items);
+        public int Count => _items.Count;
+        public GeneratedTypeParam this[int index] { get => _items[index]; set => _items[index] = value; }
+        public IEnumerator<GeneratedTypeParam> GetEnumerator() => _items.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
+        public List<GeneratedTypeParam> ToList() => _items;
+        public static implicit operator List<GeneratedTypeParam>(GeneratedTypeParamSeq seq) => seq._items;
+    }
 
     /// <summary>
     /// CPython 3.12: alias = (identifier name, identifier? asname)
@@ -581,7 +707,18 @@ namespace SharpPy.Generated
         public int EndLineNo { get; set; }
         public int EndColOffset { get; set; }
     }
-    public class GeneratedAliasSeq : List<GeneratedAlias> { }
+    public class GeneratedAliasSeq : GeneratedPtr, IEnumerable<GeneratedAlias>
+    {
+        private List<GeneratedAlias> _items = new List<GeneratedAlias>();
+        public void Add(GeneratedAlias item) => _items.Add(item);
+        public void AddRange(IEnumerable<GeneratedAlias> items) => _items.AddRange(items);
+        public int Count => _items.Count;
+        public GeneratedAlias this[int index] { get => _items[index]; set => _items[index] = value; }
+        public IEnumerator<GeneratedAlias> GetEnumerator() => _items.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
+        public List<GeneratedAlias> ToList() => _items;
+        public static implicit operator List<GeneratedAlias>(GeneratedAliasSeq seq) => seq._items;
+    }
 
     /// <summary>
     /// CPython 3.12: comprehension = (expr target, expr iter, expr* ifs, int is_async)
@@ -595,13 +732,24 @@ namespace SharpPy.Generated
         public GeneratedExprSeq Ifs { get; set; } = new();
         public bool IsAsync { get; set; }
     }
-    public class GeneratedComprehensionSeq : List<GeneratedComprehension> { }
+    public class GeneratedComprehensionSeq : GeneratedPtr, IEnumerable<GeneratedComprehension>
+    {
+        private List<GeneratedComprehension> _items = new List<GeneratedComprehension>();
+        public void Add(GeneratedComprehension item) => _items.Add(item);
+        public void AddRange(IEnumerable<GeneratedComprehension> items) => _items.AddRange(items);
+        public int Count => _items.Count;
+        public GeneratedComprehension this[int index] { get => _items[index]; set => _items[index] = value; }
+        public IEnumerator<GeneratedComprehension> GetEnumerator() => _items.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
+        public List<GeneratedComprehension> ToList() => _items;
+        public static implicit operator List<GeneratedComprehension>(GeneratedComprehensionSeq seq) => seq._items;
+    }
 
     /// <summary>
     /// CPython 3.12: keyword = (identifier? arg, expr value)
     /// Note: runtime/ast.cs has KeywordExpression, but we create Generated version for parser
     /// </summary>
-    public class GeneratedKeyword
+    public class GeneratedKeyword : GeneratedPtr
     {
         public string? Arg { get; set; }  // None for **kwargs
         public GeneratedExpr Value { get; set; } = null!;
@@ -610,7 +758,18 @@ namespace SharpPy.Generated
         public int EndLineNo { get; set; }
         public int EndColOffset { get; set; }
     }
-    public class GeneratedKeywordSeq : List<GeneratedKeyword> { }
+    public class GeneratedKeywordSeq : GeneratedPtr, IEnumerable<GeneratedKeyword>
+    {
+        private List<GeneratedKeyword> _items = new List<GeneratedKeyword>();
+        public void Add(GeneratedKeyword item) => _items.Add(item);
+        public void AddRange(IEnumerable<GeneratedKeyword> items) => _items.AddRange(items);
+        public int Count => _items.Count;
+        public GeneratedKeyword this[int index] { get => _items[index]; set => _items[index] = value; }
+        public IEnumerator<GeneratedKeyword> GetEnumerator() => _items.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
+        public List<GeneratedKeyword> ToList() => _items;
+        public static implicit operator List<GeneratedKeyword>(GeneratedKeywordSeq seq) => seq._items;
+    }
 
     /// <summary>
     /// CPython 3.12: arg = (identifier arg, expr? annotation, string? type_comment)
@@ -630,7 +789,7 @@ namespace SharpPy.Generated
     ///                            arg* kwonlyargs, expr* kw_defaults, arg? kwarg, expr* defaults)
     /// Note: runtime/FunctionArguments.cs has similar, but we create Generated version for parser
     /// </summary>
-    public class GeneratedArguments
+    public class GeneratedArguments : GeneratedPtr
     {
         public List<GeneratedArg> PosOnlyArgs { get; set; } = new();
         public List<GeneratedArg> Args { get; set; } = new();

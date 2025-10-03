@@ -130,7 +130,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 // Declare variable outside if block to avoid scope issues
                 if (isInvalidRule)
                 {
-                    _parent.WriteLine($"object? {_varName} = null;");
+                    _parent.WriteLine($"GeneratedPtr? {_varName} = null;");
                     _parent.WriteLine($"if (_callInvalidRules)");
                     _parent.WriteLine("{");
                     _parent.Indent();
@@ -467,8 +467,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             _parent.WriteLine($"{groupType} {_varName} = null;");
 
-            // Add type validation comment for object? types (void* pattern)
-            if (groupType == "object?")
+            // Add type validation comment for GeneratedPtr? types (void* pattern)
+            if (groupType == "GeneratedPtr?")
             {
                 _parent.WriteLine($"// CPython 3.12: void* pattern - only GeneratedTokenInfo or GeneratedArg expected");
                 _parent.WriteLine($"// Type check: if ({_varName} != null) {{ var typeName = {_varName}.GetType().Name; /* validate */ }}");
@@ -673,7 +673,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             var testVar = $"_lookahead_test_{_lookaheadCounter++}";
 
             _parent.WriteLine($"// Negative lookahead: !({nla.Expression})");
-            _parent.WriteLine($"object? {testVar} = null;");
+            _parent.WriteLine($"GeneratedPtr? {testVar} = null;");
 
             // Generate code to test the expression - only check current token position
             switch (nla.Expression)
@@ -1167,12 +1167,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             {
                 // Mixing TokenInfo with AstNode types - this happens in invalid_* error recovery rules
                 // CPython 3.12: Uses void* for both tokens and AST nodes
-                // C# solution: Use object type (C void* equivalent) with string-based type checking
-                // This is ONLY for compile-time error recovery rules (no runtime performance impact)
-                // Type checking pattern: use GetType().Name comparison to avoid reference issues
+                // C# solution: Use GeneratedAstNode base type (all nodes inherit from it)
+                // NOTE: GeneratedTokenInfo should inherit from GeneratedAstNode for this to work
                 Console.WriteLine($"[INFO] Group mixing TokenInfo with AST nodes: {string.Join(", ", types)}");
-                Console.WriteLine($"[INFO] Using object? type (C void* equivalent) with string-based type checks");
-                return "object?";
+                Console.WriteLine($"[INFO] Using GeneratedAstNode? as common base (Token+Node mix)");
+                return "GeneratedAstNode?";
             }
 
             // Default: All AST types derive from GeneratedAstNode

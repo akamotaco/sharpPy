@@ -7,6 +7,11 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!-- Reference Tokenizer project for GeneratedPtr -->
+  <ItemGroup>
+    <ProjectReference Include="..\SharpPy.Tokenizer\SharpPy.Tokenizer.csproj" />
+  </ItemGroup>
+
   <!-- Include Generated tokenizer for PegGenerator to use -->
   <!-- PegGenerator only needs Tokenizer, NOT Parser (Parser is what we generate!) -->
   <ItemGroup>

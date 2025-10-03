@@ -34,20 +34,29 @@
     <!-- Generated parser now included for Phase 1 testing -->
   </ItemGroup>
 
-  <!-- Add reference to PegGenerator library -->
+  <!-- Add reference to Tokenizer and PegGenerator libraries -->
   <ItemGroup>
+    <ProjectReference Include="SharpPy.Tokenizer\SharpPy.Tokenizer.csproj" />
     <ProjectReference Include="SharpPy.PegGenerator\SharpPy.PegGenerator.csproj" />
   </ItemGroup>
 
-  <!-- PEG Parser Generation -->
-  <Target Name="GenerateParser" BeforeTargets="BeforeBuild">
-    <Message Text="Generating PEG parser from Grammar/python.gram..." Importance="high" />
-    <Exec Command="dotnet run --project SharpPy.PegGenerator --grammar Grammar/python.gram --tokens Grammar/Tokens --parser-output Generated/PyParser.cs --tokenizer-output Generated/PyTokenizer.cs"
+  <!-- Tokenizer Generation (Phase 1) -->
+  <Target Name="GenerateTokenizer" BeforeTargets="GenerateParser">
+    <Message Text="Generating tokenizer from Grammar/Tokens..." Importance="high" />
+    <Exec Command="dotnet run --project SharpPy.Tokenizer --tokens Grammar/Tokens --output Generated/PyTokenizer.cs"
           ContinueOnError="false"
           WorkingDirectory="$(ProjectDir)" />
   </Target>
 
-  <Target Name="CreateGeneratedDir" BeforeTargets="GenerateParser">
+  <!-- PEG Parser Generation (Phase 2) -->
+  <Target Name="GenerateParser" BeforeTargets="BeforeBuild">
+    <Message Text="Generating PEG parser from Grammar/python.gram..." Importance="high" />
+    <Exec Command="dotnet run --project SharpPy.PegGenerator --grammar Grammar/python.gram --tokens Grammar/Tokens --parser-output Generated/PyParser.cs"
+          ContinueOnError="false"
+          WorkingDirectory="$(ProjectDir)" />
+  </Target>
+
+  <Target Name="CreateGeneratedDir" BeforeTargets="GenerateTokenizer">
     <MakeDir Directories="Generated" Condition="!Exists('Generated')" />
   </Target>
 

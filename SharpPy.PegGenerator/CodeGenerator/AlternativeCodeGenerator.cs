@@ -179,13 +179,54 @@ namespace SharpPy.PegGenerator.CodeGenerator
             if (string.IsNullOrEmpty(_alternative.Action))
             {
                 // CPython 3.12: No action specified - return first variable (named or unnamed)
+                // Special case: Single token alternatives need implicit conversion to AST nodes
                 _parent.WriteLine("// No action specified - using default result");
 
                 var firstVar = _allVarNames.FirstOrDefault();
                 Console.WriteLine($"[CODEGEN] Alternative with no action: firstVar={firstVar}, allVarCount={_allVarNames.Count}, rule={_rule.Name}");
                 if (firstVar != null)
                 {
-                    _parent.WriteLine($"_res = ({_parent.GetRuleReturnType(_rule)})((object?){firstVar});");
+                    // Check if this is a single token alternative that needs implicit AST conversion
+                    // CPython 3.12: NAME → _PyPegen_name_token(), NUMBER → _PyPegen_number_token(), STRING → strings
+                    if (_alternative.Items.Count == 1)
+                    {
+                        var item = _alternative.Items[0];
+
+                        // Check if it's a token reference (RuleRef to NAME/NUMBER/STRING)
+                        if (item.Atom is SharpPy.PegGenerator.Grammar.RuleRef ruleRef)
+                        {
+                            var ruleName = ruleRef.Name;
+
+                            // CPython 3.12: Implicit token to AST node conversion for token rules
+                            if (ruleName == "NAME" && _rule.ReturnType == "expr_ty")
+                            {
+                                _parent.WriteLine($"// CPython 3.12: NAME token → Name expression (implicit _PyPegen_name_token)");
+                                _parent.WriteLine($"_res = NameToken({firstVar});");
+                                return;
+                            }
+                            else if (ruleName == "NUMBER" && _rule.ReturnType == "expr_ty")
+                            {
+                                _parent.WriteLine($"// CPython 3.12: NUMBER token → Constant expression (implicit _PyPegen_number_token)");
+                                _parent.WriteLine($"_res = NumberToken({firstVar});");
+                                return;
+                            }
+                            else if (ruleName == "STRING" && _rule.ReturnType == "expr_ty")
+                            {
+                                _parent.WriteLine($"// CPython 3.12: STRING token → handled by strings rule");
+                                _parent.WriteLine($"_res = StringToken({firstVar});");
+                                return;
+                            }
+                        }
+                    }
+
+                    // Default: assign to result
+                    // CPython 3.12: C allows implicit void* conversions, C# needs explicit casts
+                    // Only cast if necessary - avoid (object?) boxing for performance
+                    var targetType = _parent.GetRuleReturnType(_rule);
+
+                    // If variable type matches target type, direct assignment (no cast needed)
+                    // Otherwise, explicit cast (C#'s strong typing requirement)
+                    _parent.WriteLine($"_res = ({targetType}){firstVar};");
                 }
                 else
                 {
@@ -229,7 +270,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 var cleanAction = _alternative.Action.Trim();
                 if (_variables.ContainsKey(cleanAction))
                 {
-                    _parent.WriteLine($"_res = ({_parent.GetRuleReturnType(_rule)})((object?){_variables[cleanAction]});");
+                    _parent.WriteLine($"_res = ({_parent.GetRuleReturnType(_rule)})((GeneratedPtr?){_variables[cleanAction]});");
                 }
                 else
                 {

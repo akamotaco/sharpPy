@@ -3,9 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using SharpPy.PegGenerator.Grammar;
 
-namespace SharpPy.PegGenerator.CodeGenerator
+namespace SharpPy.Tokenizer
 {
     /// <summary>
     /// Generates C# tokenizer code from PEG grammar tokens
@@ -45,7 +44,6 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("using System.Linq;");
             WriteLine("using System.Text;");
             WriteLine("using System.Text.RegularExpressions;");
-            WriteLine("using SharpPy.Tokenizer;");
             WriteLine();
         }
 
@@ -55,13 +53,29 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
 
-            // GeneratedPtr now defined in SharpPy.Tokenizer project
+            GenerateGeneratedPtrClass(); // CPython 3.12: void* equivalent base class
             GenerateTokenTypeEnum(); // Generate enum from Grammar/Tokens
             GenerateTokenInfoClass();
             GenerateGeneratedTokenizerClass();
 
             Dedent();
             WriteLine("}"); // Close namespace
+        }
+
+        private void GenerateGeneratedPtrClass()
+        {
+            WriteLine("/// <summary>");
+            WriteLine("/// CPython 3.12: Equivalent of C's void* - base class for all generated types");
+            WriteLine("/// This replaces object type usage to maintain type safety");
+            WriteLine("/// All AST nodes, tokens, and helper types inherit from this");
+            WriteLine("/// </summary>");
+            WriteLine("public abstract class GeneratedPtr");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Minimal base class - just provides type hierarchy");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
         }
 
         private void GenerateTokenTypeEnum()

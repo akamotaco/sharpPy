@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using SharpPy.PegGenerator.Grammar;
 using SharpPy.Generated;
+using SharpPy.Tokenizer;
 
 namespace SharpPy.PegGenerator.Interpreter
 {
@@ -51,13 +52,13 @@ namespace SharpPy.PegGenerator.Interpreter
     public class LegacySimpleStmt
     {
         public string? Type { get; set; }
-        public object? Data { get; set; }
+        public GeneratedPtr? Data { get; set; }
     }
 
     public class LegacySimpleExpr
     {
         public string? Type { get; set; }
-        public object? Data { get; set; }
+        public GeneratedPtr? Data { get; set; }
     }
 
     /// <summary>
@@ -65,19 +66,19 @@ namespace SharpPy.PegGenerator.Interpreter
     /// </summary>
     public class SimpleModule
     {
-        public List<object>? Body { get; set; }
+        public List<GeneratedPtr>? Body { get; set; }
     }
 
     public class SimpleStmt
     {
         public string? Type { get; set; }
-        public object? Data { get; set; }
+        public GeneratedPtr? Data { get; set; }
     }
 
     public class SimpleExpr
     {
         public string? Type { get; set; }
-        public object? Data { get; set; }
+        public GeneratedPtr? Data { get; set; }
     }
 
 
@@ -97,7 +98,7 @@ namespace SharpPy.PegGenerator.Interpreter
         private int _cacheHits = 0;
         private int _cacheMisses = 0;
 
-        private readonly Dictionary<string, object?> _variables = new();
+        private readonly Dictionary<string, GeneratedPtr?> _variables = new();
         private readonly HashSet<(int, string)> _activeRules = new(); // Track active rules to prevent left recursion
         private readonly Dictionary<string, bool> _leftRecursiveRules = new(); // Cache for left-recursive rule detection
         private readonly Dictionary<string, IPegParseResult> _seedResults = new(); // Store seed results for left-recursive expansion

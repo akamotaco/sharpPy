@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using SharpPy.Tokenizer;
 
 namespace SharpPy.PegGenerator.Interpreter
 {
@@ -84,9 +85,9 @@ namespace SharpPy.PegGenerator.Interpreter
     /// </summary>
     public sealed class PegAstResult : PegParseResult
     {
-        public object AstNode { get; }
+        public GeneratedPtr AstNode { get; }
 
-        public PegAstResult(object astNode, int endPosition)
+        public PegAstResult(GeneratedPtr astNode, int endPosition)
             : base(true, endPosition)
         {
             AstNode = astNode ?? throw new ArgumentNullException(nameof(astNode));
@@ -131,9 +132,9 @@ namespace SharpPy.PegGenerator.Interpreter
     /// </summary>
     public sealed class PegActionResult : PegParseResult
     {
-        public object ActionResult { get; }
+        public GeneratedPtr ActionResult { get; }
 
-        public PegActionResult(object actionResult, int endPosition)
+        public PegActionResult(GeneratedPtr actionResult, int endPosition)
             : base(true, endPosition)
         {
             ActionResult = actionResult ?? throw new ArgumentNullException(nameof(actionResult));

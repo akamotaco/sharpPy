@@ -395,6 +395,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
         private void GenerateParserClass()
         {
+            WriteLine("using SharpPy.Tokenizer;");
+            WriteLine();
             WriteLine("namespace SharpPy.Generated");
             WriteLine("{");
             Indent();
@@ -435,7 +437,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("private readonly PegInterpreter _interpreter;");
             WriteLine();
             WriteLine("// Override base class abstract property");
-            WriteLine("protected override object? InterpreterObject => _interpreter;");
+            WriteLine("protected override GeneratedPtr? InterpreterObject => _interpreter;");
             WriteLine();
 
             WriteLine("public GeneratedPyParser(List<GeneratedTokenInfo> tokens, string filename = \"<string>\")");
@@ -661,14 +663,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             // Add TryParseGrammarItems method for pattern parsing
-            WriteLine("private object? TryParseGrammarItems(string[] items)");
+            WriteLine("private GeneratedPtr? TryParseGrammarItems(string[] items)");
             WriteLine("{");
             Indent();
             WriteLine("// Parse sequence of grammar items");
             // WriteLine("Console.WriteLine($\"[DEBUG] TryParseGrammarItems: {string.Join(\", \", items)}\");");
             WriteLine("var startPos = _position;");
-            WriteLine("var results = new List<object?>();");
-            WriteLine("var variables = new Dictionary<string, object?>();");
+            WriteLine("var results = new List<GeneratedPtr?>();");
+            WriteLine("var variables = new Dictionary<string, GeneratedPtr?>();");
             WriteLine();
             WriteLine("foreach (var item in items)");
             WriteLine("{");
@@ -694,7 +696,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             // Add ParseGrammarItem helper method
-            WriteLine("private object? ParseGrammarItem(string item, Dictionary<string, object?> variables)");
+            WriteLine("private GeneratedPtr? ParseGrammarItem(string item, Dictionary<string, GeneratedPtr?> variables)");
             WriteLine("{");
             Indent();
             WriteLine("// Handle variable assignments (e.g., \"a=statements\")");
@@ -717,7 +719,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             // Add ParsePattern method
-            WriteLine("private object? ParsePattern(string pattern)");
+            WriteLine("private GeneratedPtr? ParsePattern(string pattern)");
             WriteLine("{");
             Indent();
             WriteLine("// Remove optional markers");
@@ -769,7 +771,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("var basePattern = pattern.Substring(0, pattern.Length - 1);");
-            WriteLine("var results = new List<object?>();");
+            WriteLine("var results = new List<GeneratedPtr?>();");
             WriteLine("while (true)");
             WriteLine("{");
             Indent();
@@ -793,7 +795,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("var basePattern = pattern.Substring(0, pattern.Length - 1);");
-            WriteLine("var results = new List<object?>();");
+            WriteLine("var results = new List<GeneratedPtr?>();");
             WriteLine("while (true)");
             WriteLine("{");
             Indent();
@@ -820,7 +822,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             // Add ParseStringLiteral helper
-            WriteLine("private object? ParseStringLiteral(string literal)");
+            WriteLine("private GeneratedPtr? ParseStringLiteral(string literal)");
             WriteLine("{");
             Indent();
             WriteLine("// Handle operators");
@@ -838,7 +840,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             // Add ParseRuleReference method
-            WriteLine("private object? ParseRuleReference(string ruleName)");
+            WriteLine("private GeneratedPtr? ParseRuleReference(string ruleName)");
             WriteLine("{");
             Indent();
             WriteLine("// Map rule names to method calls");
@@ -862,7 +864,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             // Add CreateResultFromItems method
-            WriteLine("private object? CreateResultFromItems(string[] items, List<object?> results, Dictionary<string, object?> variables)");
+            WriteLine("private GeneratedPtr? CreateResultFromItems(string[] items, List<GeneratedPtr?> results, Dictionary<string, GeneratedPtr?> variables)");
             WriteLine("{");
             Indent();
             WriteLine("// Create appropriate result based on the pattern context");
@@ -1619,7 +1621,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 "asdl_stmt_seq*" => "GeneratedStmtSeq?",
                 "asdl_expr_seq*" => "GeneratedExprSeq?",
                 "asdl_identifier_seq*" => "GeneratedIdentifierSeq?",
-                _ => "object?"
+                _ => "GeneratedPtr?"  // CPython 3.12: void* equivalent for untyped rules
             };
         }
 
@@ -1657,7 +1659,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GenerateRuleMethod(Rule rule)
         {
             Console.WriteLine($"[DEBUG] GenerateRuleMethod called for rule: '{rule.Name}'");
-            var returnType = TranslateCTypeToCS(rule.ReturnType ?? "object?");
+            var returnType = GetRuleReturnType(rule);  // Use GetRuleReturnType instead of direct translation
             var methodName = ToCSharpMethodName(rule.Name);
 
             // Skip methods that are already implemented manually or separately
@@ -3019,6 +3021,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 source = System.Text.RegularExpressions.Regex.Replace(source, $@"(\sis\s+|\sas\s+){oldType}(\s|\))", m => m.Groups[1].Value + newType + m.Groups[2].Value);
             }
 
+            // CPython 3.12: object → GeneratedPtr conversion is done in source files directly
+            // No regex replacement needed - source files already use GeneratedPtr
+
             // Write PegParseResult types header (ITokenInfo already defined in PyTokenizer.cs)
             WriteLine("// ========================================");
             WriteLine("// PegParseResult Types - from IPegParseResult.cs");
@@ -3038,6 +3043,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 parseResultSource = parseResultSource.Replace("using System;", "");
                 parseResultSource = parseResultSource.Replace("using System.Collections.Generic;", "");
                 parseResultSource = parseResultSource.Replace("namespace SharpPy.PegGenerator.Interpreter", "// Part of SharpPy.Generated namespace");
+
+                // CPython 3.12: object → GeneratedPtr conversion is done in source file directly
+                // No regex replacement needed - IPegParseResult.cs already uses GeneratedPtr
 
                 // Extract only the class/interface definitions
                 var parseResultStartIdx = parseResultSource.IndexOf("/// <summary>");
