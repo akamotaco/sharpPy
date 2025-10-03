@@ -53,18 +53,77 @@ namespace SharpPy.PegGenerator.Interpreter
     public class PegStmt : PegNode
     {
         public string? Type { get; set; }
-        public PegNode? Data { get; set; }
+        public IPegParseResult? Data { get; set; }
     }
 
     public class PegExpr : PegNode
     {
         public string? Type { get; set; }
-        public PegNode? Data { get; set; }
+        public IPegParseResult? Data { get; set; }
     }
 
     public class PegModule : PegNode
     {
         public List<PegNode>? Body { get; set; }
+    }
+
+    public class PegAnnAssign : PegNode
+    {
+        public IPegParseResult? Target { get; set; }
+        public IPegParseResult? Annotation { get; set; }
+        public IPegParseResult? Value { get; set; }
+        public int Simple { get; set; }
+    }
+
+    public class PegTry : PegNode
+    {
+        public IPegParseResult? Body { get; set; }
+        public IPegParseResult? Handlers { get; set; }
+        public IPegParseResult? Orelse { get; set; }
+        public IPegParseResult? Finalbody { get; set; }
+    }
+
+    public class PegExceptHandler : PegNode
+    {
+        public IPegParseResult? Type { get; set; }
+        public IPegParseResult? Name { get; set; }
+        public IPegParseResult? Body { get; set; }
+    }
+
+    public class PegAssignment : PegNode
+    {
+        public IPegParseResult? Targets { get; set; }
+        public IPegParseResult? Value { get; set; }
+    }
+
+    public class PegBinOp : PegNode
+    {
+        public IPegParseResult? Left { get; set; }
+        public IPegParseResult? Op { get; set; }
+        public IPegParseResult? Right { get; set; }
+    }
+
+    public class PegTypeAlias : PegNode
+    {
+        public IPegParseResult? Name { get; set; }
+        public IPegParseResult? TypeParams { get; set; }
+        public IPegParseResult? Value { get; set; }
+    }
+
+    public class PegAsyncFunctionDef : PegNode
+    {
+        public IPegParseResult? Name { get; set; }
+        public IPegParseResult? Params { get; set; }
+        public IPegParseResult? Body { get; set; }
+        public IPegParseResult? TypeParams { get; set; }
+        public IPegParseResult? Returns { get; set; }
+    }
+
+    public class PegUnhandledAction : PegNode
+    {
+        public string? Action { get; set; }
+        public Dictionary<string, IPegParseResult>? Variables { get; set; }
+        public List<IPegParseResult>? Results { get; set; }
     }
 
 
@@ -993,90 +1052,59 @@ namespace SharpPy.PegGenerator.Interpreter
 #endif
 
                 // For now, always allow version checks and return the actual AST construction
-                if (action.Contains("_PyAST_AnnAssign"))
-                {
-                    // Annotated Assignment: a=NAME ':' b=expression c=['=' d=annotated_rhs { d }]
-                    var stmt = new PegStmt
-                    {
-                        Type = "ann_assign",
-                        Data = new {
-                            Target = variables.ContainsKey("a") ? variables["a"] : null,
-                            Annotation = variables.ContainsKey("b") ? variables["b"] : null,
-                            Value = variables.ContainsKey("c") ? variables["c"] : null,
-                            Simple = 1 // Always 1 for NAME annotations as per CPython
-                        }
-                    };
-#if DEBUG_LOG
-                    Console.WriteLine($"[DEBUG] PEG: Created ann_assign statement");
-#endif
-                    return new PegAstResult(stmt, _position);
-                }
-
                 // For other version checks, continue with normal processing
                 return results.FirstOrDefault() ?? new PegSuccess(_position);
             }
             else if (action.Contains("_PyAST_AnnAssign"))
             {
                 // Annotated Assignment: a=NAME ':' b=expression c=['=' d=annotated_rhs { d }]
-                var stmt = new PegStmt
+                var annAssign = new PegAnnAssign
                 {
-                    Type = "ann_assign",
-                    Data = new {
-                        Target = variables.ContainsKey("a") ? variables["a"] : null,
-                        Annotation = variables.ContainsKey("b") ? variables["b"] : null,
-                        Value = variables.ContainsKey("c") ? variables["c"] : null,
-                        Simple = 1 // Always 1 for NAME annotations as per CPython
-                    }
+                    Target = variables.ContainsKey("a") ? variables["a"] : null,
+                    Annotation = variables.ContainsKey("b") ? variables["b"] : null,
+                    Value = variables.ContainsKey("c") ? variables["c"] : null,
+                    Simple = 1 // Always 1 for NAME annotations as per CPython
                 };
-                return new PegAstResult(stmt, _position);
+                return new PegAstResult(annAssign, _position);
             }
             else if (action.Contains("_PyAST_TryStar"))
             {
                 // Try statement with except* handlers (Python 3.11+ Exception Groups)
-                var stmt = new PegStmt
+                var tryStar = new PegTry
                 {
-                    Type = "try_star",
-                    Data = new {
-                        body = variables.ContainsKey("b") ? variables["b"] : null,
-                        handlers = variables.ContainsKey("ex") ? variables["ex"] : null,
-                        orelse = variables.ContainsKey("el") ? variables["el"] : null,
-                        finalbody = variables.ContainsKey("f") ? variables["f"] : null
-                    }
+                    Body = variables.ContainsKey("b") ? variables["b"] : null,
+                    Handlers = variables.ContainsKey("ex") ? variables["ex"] : null,
+                    Orelse = variables.ContainsKey("el") ? variables["el"] : null,
+                    Finalbody = variables.ContainsKey("f") ? variables["f"] : null
                 };
 #if DEBUG_LOG
                 Console.WriteLine($"[DEBUG] PEG: Created try_star statement");
 #endif
-                return new PegAstResult(stmt, _position);
+                return new PegAstResult(tryStar, _position);
             }
             else if (action.Contains("_PyAST_Try"))
             {
                 // Regular try statement
-                var stmt = new PegStmt
+                var tryStmt = new PegTry
                 {
-                    Type = "try",
-                    Data = new {
-                        body = variables.ContainsKey("b") ? variables["b"] : null,
-                        handlers = variables.ContainsKey("ex") ? variables["ex"] : null,
-                        orelse = variables.ContainsKey("el") ? variables["el"] : null,
-                        finalbody = variables.ContainsKey("f") ? variables["f"] : null
-                    }
+                    Body = variables.ContainsKey("b") ? variables["b"] : null,
+                    Handlers = variables.ContainsKey("ex") ? variables["ex"] : null,
+                    Orelse = variables.ContainsKey("el") ? variables["el"] : null,
+                    Finalbody = variables.ContainsKey("f") ? variables["f"] : null
                 };
 #if DEBUG_LOG
                 Console.WriteLine($"[DEBUG] PEG: Created try statement");
 #endif
-                return new PegAstResult(stmt, _position);
+                return new PegAstResult(tryStmt, _position);
             }
             else if (action.Contains("_PyAST_ExceptHandler"))
             {
                 // Exception handler: 'except' [expression ['as' NAME]] ':' block
-                var handler = new PegStmt
+                var handler = new PegExceptHandler
                 {
-                    Type = "except_handler",
-                    Data = new {
-                        type = variables.ContainsKey("e") ? variables["e"] : null,
-                        name = variables.ContainsKey("t") ? variables["t"] : null,
-                        body = variables.ContainsKey("b") ? variables["b"] : null
-                    }
+                    Type = variables.ContainsKey("e") ? variables["e"] : null,
+                    Name = variables.ContainsKey("t") ? variables["t"] : null,
+                    Body = variables.ContainsKey("b") ? variables["b"] : null
                 };
 #if DEBUG_LOG
                 Console.WriteLine($"[DEBUG] PEG: Created except_handler");
@@ -1086,15 +1114,12 @@ namespace SharpPy.PegGenerator.Interpreter
             else if (action.Contains("_PyAST_Assign"))
             {
                 // Assignment: a[asdl_expr_seq*]=(z=star_targets '=' { z })+ b=(yield_expr | star_expressions)
-                var stmt = new PegStmt
+                var assignment = new PegAssignment
                 {
-                    Type = "assignment",
-                    Data = new {
-                        Targets = variables.ContainsKey("a") ? variables["a"] : null,
-                        Value = variables.ContainsKey("b") ? variables["b"] : null
-                    }
+                    Targets = variables.ContainsKey("a") ? variables["a"] : null,
+                    Value = variables.ContainsKey("b") ? variables["b"] : null
                 };
-                return new PegAstResult(stmt, _position);
+                return new PegAstResult(assignment, _position);
             }
             else if (action.Contains("_PyAST_Module"))
             {
@@ -1128,46 +1153,37 @@ namespace SharpPy.PegGenerator.Interpreter
             else if (action.Contains("_PyAST_BinOp"))
             {
                 // Binary operation: left op right
-                var expr = new PegExpr
+                var binOp = new PegBinOp
                 {
-                    Type = "binop",
-                    Data = new {
-                        Left = variables.ContainsKey("left") ? variables["left"] : null,
-                        Op = variables.ContainsKey("op") ? variables["op"] : null,
-                        Right = variables.ContainsKey("right") ? variables["right"] : null
-                    }
+                    Left = variables.ContainsKey("left") ? variables["left"] : null,
+                    Op = variables.ContainsKey("op") ? variables["op"] : null,
+                    Right = variables.ContainsKey("right") ? variables["right"] : null
                 };
-                return new PegAstResult(expr, _position);
+                return new PegAstResult(binOp, _position);
             }
             else if (action.Contains("_PyAST_TypeAlias"))
             {
                 // Type alias: "type" n=NAME t=[type_params] '=' b=expression
-                var stmt = new PegStmt
+                var typeAlias = new PegTypeAlias
                 {
-                    Type = "type_alias",
-                    Data = new {
-                        Name = variables.ContainsKey("n") ? variables["n"] : null,
-                        TypeParams = variables.ContainsKey("t") ? variables["t"] : null,
-                        Value = variables.ContainsKey("b") ? variables["b"] : null
-                    }
+                    Name = variables.ContainsKey("n") ? variables["n"] : null,
+                    TypeParams = variables.ContainsKey("t") ? variables["t"] : null,
+                    Value = variables.ContainsKey("b") ? variables["b"] : null
                 };
-                return new PegAstResult(stmt, _position);
+                return new PegAstResult(typeAlias, _position);
             }
             else if (action.Contains("_PyAST_AsyncFunctionDef"))
             {
                 // Async function definition: ASYNC 'def' n=NAME params=[params] b=block
-                var stmt = new PegStmt
+                var asyncFunc = new PegAsyncFunctionDef
                 {
-                    Type = "async_function_def",
-                    Data = new {
-                        Name = variables.ContainsKey("n") ? variables["n"] : null,
-                        Params = variables.ContainsKey("params") ? variables["params"] : null,
-                        Body = variables.ContainsKey("b") ? variables["b"] : null,
-                        TypeParams = variables.ContainsKey("t") ? variables["t"] : null,
-                        Returns = variables.ContainsKey("a") ? variables["a"] : null
-                    }
+                    Name = variables.ContainsKey("n") ? variables["n"] : null,
+                    Params = variables.ContainsKey("params") ? variables["params"] : null,
+                    Body = variables.ContainsKey("b") ? variables["b"] : null,
+                    TypeParams = variables.ContainsKey("t") ? variables["t"] : null,
+                    Returns = variables.ContainsKey("a") ? variables["a"] : null
                 };
-                return new PegAstResult(stmt, _position);
+                return new PegAstResult(asyncFunc, _position);
             }
             else if (action.Contains("_PyAST_Break"))
             {
@@ -1192,7 +1208,12 @@ namespace SharpPy.PegGenerator.Interpreter
 
             // Default: return generic success marker for now
             Console.WriteLine($"[DEBUG] Unhandled action pattern: {action}");
-            var defaultResult = new { Action = action, Variables = variables, Results = results };
+            var defaultResult = new PegUnhandledAction
+            {
+                Action = action,
+                Variables = variables,
+                Results = results
+            };
             return new PegActionResult(defaultResult, _position);
         }
 
