@@ -1,0 +1,16 @@
+# Simple test grammar
+# Test basic PEG parser functionality
+
+start[object]: expr
+
+expr[object]:
+    | a=term '+' b=expr { new BinaryOp(a, "+", b) }
+    | term
+
+term[object]:
+    | a=factor '*' b=term { new BinaryOp(a, "*", b) }
+    | factor
+
+factor[object]:
+    | NUMBER
+    | '(' expr ')'

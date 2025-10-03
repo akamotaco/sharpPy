@@ -15723,7 +15723,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = null; // _tmp0 is not GeneratedAstNode
                 if (_res != null) goto done;
             } while (false);
 
@@ -15748,7 +15748,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = null; // _tmp0 is not GeneratedAstNode
                 if (_res != null) goto done;
             } while (false);
 
@@ -15773,7 +15773,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = null; // _tmp0 is not GeneratedAstNode
                 if (_res != null) goto done;
             } while (false);
 
@@ -15798,7 +15798,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = null; // _tmp0 is not GeneratedAstNode
                 if (_res != null) goto done;
             } while (false);
 
@@ -15823,7 +15823,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = null; // _tmp0 is not GeneratedAstNode
                 if (_res != null) goto done;
             } while (false);
 
@@ -15848,7 +15848,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = null; // _tmp0 is not GeneratedAstNode
                 if (_res != null) goto done;
             } while (false);
 
@@ -15873,7 +15873,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = null; // _tmp0 is not GeneratedAstNode
                 if (_res != null) goto done;
             } while (false);
 
@@ -15898,7 +15898,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = null; // _tmp0 is not GeneratedAstNode
                 if (_res != null) goto done;
             } while (false);
 
@@ -15923,7 +15923,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = null; // _tmp0 is not GeneratedAstNode
                 if (_res != null) goto done;
             } while (false);
 
@@ -15948,7 +15948,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = null; // _tmp0 is not GeneratedAstNode
                 if (_res != null) goto done;
             } while (false);
 
@@ -21838,7 +21838,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = null; // _tmp0 is not GeneratedAstNode
                 if (_res != null) goto done;
             } while (false);
 
@@ -26470,7 +26470,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = null; // _tmp0 is not GeneratedAstNode
                 if (_res != null) goto done;
             } while (false);
 

@@ -423,13 +423,13 @@ namespace SharpPy.Generated
         /// CPython 3.12: Create AugAssign statement
         /// _PyAST_AugAssign(target, op, value, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedAugAssignStmt _PyAST_AugAssign(object target, string op, object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedAugAssignStmt _PyAST_AugAssign(GeneratedExpr target, string op, GeneratedExpr value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             return new GeneratedAugAssignStmt
             {
-                Target = ASTHelpers.ExtractExpr(target),
+                Target = target,
                 Op = op,
-                Value = ASTHelpers.ExtractExpr(value),
+                Value = value,
                 LineNo = lineno,
                 ColOffset = col_offset,
                 EndLineNo = end_lineno,
@@ -441,9 +441,9 @@ namespace SharpPy.Generated
         /// CPython 3.12: Set expression context recursively (Store, Load, Del)
         /// Equivalent to _PyPegen_set_expr_context in CPython's pegen
         /// </summary>
-        protected void SetExprContextRecursive(List<object> exprs, string context)
+        protected void SetExprContextRecursive(GeneratedExprSeq exprs, string context)
         {
-            foreach (var expr in exprs)
+            foreach (var expr in exprs.AsEnumerable())
             {
                 SetExprContext(expr, context);
             }
@@ -452,58 +452,55 @@ namespace SharpPy.Generated
         /// <summary>
         /// CPython 3.12: Set expression context on a single expression
         /// </summary>
-        protected void SetExprContext(object expr, string context)
+        protected void SetExprContext(GeneratedExpr expr, string context)
         {
-            if (expr is GeneratedExpr genExpr)
+            expr.Context = context;
+
+            // Handle Name expression - leaf node, no recursion needed
+            if (expr is GeneratedNameExpr)
             {
-                genExpr.Context = context;
+                return;
+            }
 
-                // Handle Name expression - leaf node, no recursion needed
-                if (genExpr is GeneratedNameExpr)
+            // Handle List elements
+            if (expr is GeneratedListExpr listExpr)
+            {
+                foreach (var elem in listExpr.Elements.AsEnumerable())
                 {
-                    return;
+                    SetExprContext(elem, context);
                 }
+                return;
+            }
 
-                // Handle List elements
-                if (genExpr is GeneratedListExpr listExpr)
+            // Handle Tuple elements
+            if (expr is GeneratedTupleExpr tupleExpr)
+            {
+                foreach (var elem in tupleExpr.Elements.AsEnumerable())
                 {
-                    foreach (var elem in listExpr.Elements)
-                    {
-                        SetExprContext(elem, context);
-                    }
-                    return;
+                    SetExprContext(elem, context);
                 }
+                return;
+            }
 
-                // Handle Tuple elements
-                if (genExpr is GeneratedTupleExpr tupleExpr)
-                {
-                    foreach (var elem in tupleExpr.Elements)
-                    {
-                        SetExprContext(elem, context);
-                    }
-                    return;
-                }
+            // Handle Starred value
+            if (expr is GeneratedStarredExpr starredExpr)
+            {
+                SetExprContext(starredExpr.Value, context);
+                return;
+            }
 
-                // Handle Starred value
-                if (genExpr is GeneratedStarredExpr starredExpr)
-                {
-                    SetExprContext(starredExpr.Value, context);
-                    return;
-                }
+            // Handle Attribute
+            if (expr is GeneratedAttributeExpr attrExpr)
+            {
+                SetExprContext(attrExpr.Value, context);
+                return;
+            }
 
-                // Handle Attribute
-                if (genExpr is GeneratedAttributeExpr attrExpr)
-                {
-                    SetExprContext(attrExpr.Value, context);
-                    return;
-                }
-
-                // Handle Subscript
-                if (genExpr is GeneratedSubscriptExpr subscriptExpr)
-                {
-                    SetExprContext(subscriptExpr.Value, context);
-                    return;
-                }
+            // Handle Subscript
+            if (expr is GeneratedSubscriptExpr subscriptExpr)
+            {
+                SetExprContext(subscriptExpr.Value, context);
+                return;
             }
         }
 
@@ -591,33 +588,25 @@ namespace SharpPy.Generated
         /// _PyAST_FunctionDef - Create function definition AST node
         /// CPython 3.12: _PyAST_FunctionDef(name, arguments, body, decorator_list, returns, type_comment, type_params, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedStmt _PyAST_FunctionDef(object name = null, object? arguments = null, object body = null,
-            object decorator_list = null, object returns = null, object type_comment = null,
-            object? type_params = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedStmt _PyAST_FunctionDef(string name, GeneratedArguments? arguments = null, GeneratedStmtSeq body = null,
+            GeneratedExprSeq decorator_list = null, GeneratedExpr returns = null, string type_comment = null,
+            GeneratedTypeParamSeq? type_params = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            // Extract string from name (could be GeneratedToken with Name.id)
-            string nameStr = ASTHelpers.ExtractStringValue(name);
-
-            Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: Creating function '{nameStr}' with body type: {body?.GetType().Name}");
+            Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: Creating function '{name}' with body type: {body?.GetType().Name}");
             Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: arguments parameter is null: {arguments == null}");
-            if (arguments != null)
-            {
-                Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: arguments type: {arguments.GetType().Name}");
-                Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: arguments value: {arguments}");
-            }
 
-            var finalArguments = (arguments as GeneratedArguments) ?? _PyPegen_empty_arguments();
+            var finalArguments = arguments ?? _PyPegen_empty_arguments();
             Console.WriteLine($"[DEBUG] _PyAST_FunctionDef: Using {(arguments == null ? "empty" : "provided")} arguments");
 
             var funcDef = new GeneratedFunctionDefStmt
             {
-                Name = nameStr,
+                Name = name,
                 Arguments = finalArguments,
-                Body = ASTHelpers.ExtractStmtSeq(body),
-                DecoratorList = ASTHelpers.ExtractExprSeq(decorator_list),
-                Returns = returns as GeneratedExpr,
-                TypeComment = ASTHelpers.ExtractStringValue(type_comment),
-                TypeParams = (type_params as GeneratedTypeParamSeq),
+                Body = body ?? new GeneratedStmtSeq(),
+                DecoratorList = decorator_list ?? new GeneratedExprSeq(),
+                Returns = returns,
+                TypeComment = type_comment,
+                TypeParams = type_params,
                 LineNo = lineno,
                 ColOffset = col_offset,
                 EndLineNo = end_lineno,
@@ -632,21 +621,21 @@ namespace SharpPy.Generated
         /// _PyAST_AsyncFunctionDef - Create async function definition AST node
         /// CPython 3.12: _PyAST_AsyncFunctionDef(name, arguments, body, decorator_list, returns, type_comment, type_params, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedAsyncFunctionDefStmt _PyAST_AsyncFunctionDef(string name, object? arguments = null, object body = null,
-            object decorator_list = null, object returns = null, string type_comment = null,
-            object? type_params = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedAsyncFunctionDefStmt _PyAST_AsyncFunctionDef(string name, GeneratedArguments? arguments = null, GeneratedStmtSeq body = null,
+            GeneratedExprSeq decorator_list = null, GeneratedExpr returns = null, string type_comment = null,
+            GeneratedTypeParamSeq? type_params = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             Console.WriteLine($"[DEBUG] _PyAST_AsyncFunctionDef: Creating async function '{name}' with body type: {body?.GetType().Name}");
 
             var funcDef = new GeneratedAsyncFunctionDefStmt
             {
                 Name = name,
-                Arguments = (arguments as GeneratedArguments) ?? _PyPegen_empty_arguments(),
-                Body = ASTHelpers.ExtractStmtSeq(body),
-                DecoratorList = ASTHelpers.ExtractExprSeq(decorator_list),
-                Returns = returns as GeneratedExpr,
+                Arguments = arguments ?? _PyPegen_empty_arguments(),
+                Body = body ?? new GeneratedStmtSeq(),
+                DecoratorList = decorator_list ?? new GeneratedExprSeq(),
+                Returns = returns,
                 TypeComment = type_comment,
-                TypeParams = (type_params as GeneratedTypeParamSeq),
+                TypeParams = type_params,
                 LineNo = lineno,
                 ColOffset = col_offset,
                 EndLineNo = end_lineno,
@@ -1248,11 +1237,11 @@ namespace SharpPy.Generated
         /// <summary>
         /// _PyAST_Expr - Create expression statement
         /// </summary>
-        protected GeneratedExprStmt _PyAST_Expr(object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedExprStmt _PyAST_Expr(GeneratedExpr value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             return new GeneratedExprStmt
             {
-                Value = ASTHelpers.ExtractExpr(value),
+                Value = value,
                 LineNo = lineno,
                 ColOffset = col_offset,
                 EndLineNo = end_lineno,
@@ -1294,25 +1283,17 @@ namespace SharpPy.Generated
         /// _PyAST_Assign - Create assignment statement (single target)
         /// CPython 3.12: _PyAST_Assign(targets, value, type_comment, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedAssignStmt _PyAST_Assign(object target, object value, object? type_comment = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedAssignStmt _PyAST_Assign(GeneratedExpr target, GeneratedExpr value, string? type_comment = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             // CPython expects targets (plural), so wrap single target in a list
             var targets = new GeneratedExprSeq();
-            if (target is GeneratedExpr expr)
-                targets.Add(expr);
-
-            // Extract type comment string from token (NEW_TYPE_COMMENT macro)
-            string? tcStr = null;
-            if (type_comment != null)
-            {
-                tcStr = ASTHelpers.ExtractStringValue(type_comment);
-            }
+            targets.Add(target);
 
             return new GeneratedAssignStmt
             {
                 Targets = targets,
-                Value = ASTHelpers.ExtractExpr(value),
-                TypeComment = tcStr,
+                Value = value,
+                TypeComment = type_comment,
                 LineNo = lineno,
                 ColOffset = col_offset,
                 EndLineNo = end_lineno,
@@ -1324,19 +1305,12 @@ namespace SharpPy.Generated
         /// _PyAST_Assign - Create assignment statement (multiple targets for chained assignment)
         /// CPython 3.12: a = b = c = value
         /// </summary>
-        protected GeneratedAssignStmt _PyAST_Assign(List<object> targets, object value, string? type_comment = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedAssignStmt _PyAST_Assign(GeneratedExprSeq targets, GeneratedExpr value, string? type_comment = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
-            var targetSeq = new GeneratedExprSeq();
-            foreach (var target in targets)
-            {
-                if (target is GeneratedExpr expr)
-                    targetSeq.Add(expr);
-            }
-
             return new GeneratedAssignStmt
             {
-                Targets = targetSeq,
-                Value = ASTHelpers.ExtractExpr(value),
+                Targets = targets,
+                Value = value,
                 TypeComment = type_comment,
                 LineNo = lineno,
                 ColOffset = col_offset,
@@ -1349,13 +1323,13 @@ namespace SharpPy.Generated
         /// _PyAST_AnnAssign - Create annotated assignment statement (simple version)
         /// CPython 3.12: _PyAST_AnnAssign(target, annotation, value, simple, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedAnnAssignStmt _PyAST_AnnAssign(object target, object annotation, object value = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedAnnAssignStmt _PyAST_AnnAssign(GeneratedExpr target, GeneratedExpr annotation, GeneratedExpr value = null, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             return new GeneratedAnnAssignStmt
             {
-                Target = ASTHelpers.ExtractExpr(target),
-                Annotation = ASTHelpers.ExtractExpr(annotation),
-                Value = value != null ? ASTHelpers.ExtractExpr(value) : null,
+                Target = target,
+                Annotation = annotation,
+                Value = value,
                 Simple = true,  // Default to simple=1
                 LineNo = lineno,
                 ColOffset = col_offset,
@@ -1368,35 +1342,14 @@ namespace SharpPy.Generated
         /// _PyAST_AnnAssign - Create annotated assignment statement (with simple flag)
         /// CPython 3.12: _PyAST_AnnAssign(target, annotation, value, simple, lineno, col_offset, end_lineno, end_col_offset, arena)
         /// </summary>
-        protected GeneratedAnnAssignStmt _PyAST_AnnAssign(object target, object annotation, object value = null, int simple = 1, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
+        protected GeneratedAnnAssignStmt _PyAST_AnnAssign(GeneratedExpr target, GeneratedExpr annotation, GeneratedExpr value = null, int simple = 1, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
         {
             return new GeneratedAnnAssignStmt
             {
-                Target = ASTHelpers.ExtractExpr(target),
-                Annotation = ASTHelpers.ExtractExpr(annotation),
-                Value = value != null ? ASTHelpers.ExtractExpr(value) : null,
+                Target = target,
+                Annotation = annotation,
+                Value = value,
                 Simple = simple != 0,
-                LineNo = lineno,
-                ColOffset = col_offset,
-                EndLineNo = end_lineno,
-                EndColOffset = end_col_offset
-            };
-        }
-
-        /// <summary>
-        /// _PyAST_AugAssign - Create augmented assignment statement (+=, -=, etc.)
-        /// CPython 3.12: _PyAST_AugAssign(target, op, value, lineno, col_offset, end_lineno, end_col_offset, arena)
-        /// </summary>
-        protected GeneratedAugAssignStmt _PyAST_AugAssign(object target, object op, object value, int lineno = 0, int col_offset = 0, int end_lineno = 0, int end_col_offset = 0)
-        {
-            // Extract operator string from object
-            string opStr = op?.ToString() ?? "";
-
-            return new GeneratedAugAssignStmt
-            {
-                Target = ASTHelpers.ExtractExpr(target),
-                Op = opStr,
-                Value = ASTHelpers.ExtractExpr(value),
                 LineNo = lineno,
                 ColOffset = col_offset,
                 EndLineNo = end_lineno,

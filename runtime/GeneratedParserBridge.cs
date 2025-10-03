@@ -48,7 +48,7 @@ namespace SharpPy
         /// Convert generated parser result to SharpPy AST
         /// This is where CPython 3.12 AST compatibility is implemented
         /// </summary>
-        private static List<Statement> ConvertToSharpPyAST(object? parseResult, string filename)
+        private static List<Statement> ConvertToSharpPyAST(GeneratedModule? parseResult, string filename)
         {
             if (parseResult == null)
             {
@@ -62,41 +62,10 @@ namespace SharpPy
         /// <summary>
         /// Core AST conversion logic - converts Generated AST nodes to SharpPy AST
         /// </summary>
-        private static List<Statement> ConvertGeneratedAST(object parseResult, string filename)
+        private static List<Statement> ConvertGeneratedAST(GeneratedModule parseResult, string filename)
         {
-            var statements = new List<Statement>();
-
-            switch (parseResult)
-            {
-                case GeneratedModule module:
-                    // Convert module to statement list
-                    statements.AddRange(ConvertModuleBody(module));
-                    break;
-
-                case GeneratedStmtSeq stmtSeq:
-                    // Convert statement sequence
-                    foreach (var stmt in stmtSeq.AsEnumerable())
-                    {
-                        var converted = ConvertStatement((GeneratedStmt)stmt, false, false);
-                        if (converted != null)
-                            statements.Add(converted);
-                    }
-                    break;
-
-                case GeneratedStmt stmt:
-                    // Single statement
-                    var convertedStmt = ConvertStatement(stmt, false, false);
-                    if (convertedStmt != null)
-                        statements.Add(convertedStmt);
-                    break;
-
-                default:
-                    // Fallback for unhandled types
-                    Console.WriteLine($"[DEBUG] ConvertGeneratedAST: Unhandled type {parseResult.GetType()}");
-                    break;
-            }
-
-            return statements;
+            // Convert module to statement list
+            return ConvertModuleBody(parseResult);
         }
 
         /// <summary>
@@ -212,14 +181,17 @@ namespace SharpPy
                         {
                             // CPython 3.12: Convert all targets with Store context
                             var targetExprs = new List<Expression>();
-                            foreach (var target in targets)
+                            foreach (var target in targets.AsEnumerable())
                             {
-                                var convertedTarget = ConvertAnyExpression(target);
-                                if (convertedTarget != null)
+                                if (target is GeneratedExpr targetExpr)
                                 {
-                                    // CPython 3.12: Assignment targets have Store context
-                                    SetExprContext(convertedTarget, Store.Instance);
-                                    targetExprs.Add(convertedTarget);
+                                    var convertedTarget = ConvertAnyExpression(targetExpr);
+                                    if (convertedTarget != null)
+                                    {
+                                        // CPython 3.12: Assignment targets have Store context
+                                        SetExprContext(convertedTarget, Store.Instance);
+                                        targetExprs.Add(convertedTarget);
+                                    }
                                 }
                             }
 
@@ -875,16 +847,19 @@ namespace SharpPy
                                 Console.WriteLine($"[DEBUG] Function '{name}' has {funcDef.DecoratorList.Count} decorators");
 #endif
                                 // Convert decorators to expressions
-                                foreach (var decorator in funcDef.DecoratorList)
+                                foreach (var decorator in funcDef.DecoratorList.AsEnumerable())
                                 {
-                                    var convertedDecorator = ConvertAnyExpression(decorator);
-                                    if (convertedDecorator != null)
+                                    if (decorator is GeneratedExpr decoratorExpr)
                                     {
-                                        // Wrap the expression in a DecoratorExpression
-                                        decoratorExpressions.Add(new DecoratorExpression(convertedDecorator));
+                                        var convertedDecorator = ConvertAnyExpression(decoratorExpr);
+                                        if (convertedDecorator != null)
+                                        {
+                                            // Wrap the expression in a DecoratorExpression
+                                            decoratorExpressions.Add(new DecoratorExpression(convertedDecorator));
 #if DEBUG_LOG
-                                        Console.WriteLine($"[DEBUG] Added decorator: {convertedDecorator}");
+                                            Console.WriteLine($"[DEBUG] Added decorator: {convertedDecorator}");
 #endif
+                                        }
                                     }
                                 }
                             }
@@ -934,13 +909,16 @@ namespace SharpPy
                         var baseClassExprs = new List<Expression>();
                         if (classDef.Bases != null)
                         {
-                            foreach (var baseClass in classDef.Bases)
+                            foreach (var baseClass in classDef.Bases.AsEnumerable())
                             {
                                 try
                                 {
-                                    var expr = ConvertAnyExpression(baseClass);
-                                    if (expr != null)
-                                        baseClassExprs.Add(expr);
+                                    if (baseClass is GeneratedExpr baseExpr)
+                                    {
+                                        var expr = ConvertAnyExpression(baseExpr);
+                                        if (expr != null)
+                                            baseClassExprs.Add(expr);
+                                    }
                                 }
                                 catch (Exception ex)
                                 {
@@ -1002,10 +980,13 @@ namespace SharpPy
                     // Delete statement (del var)
                     {
                         var targets = new List<Expression>();
-                        foreach (var target in delStmt.Targets)
+                        foreach (var target in delStmt.Targets.AsEnumerable())
                         {
-                            var targetExpr = ConvertAnyExpression(target);
-                            targets.Add(targetExpr);
+                            if (target is GeneratedExpr targetGenExpr)
+                            {
+                                var targetExpr = ConvertAnyExpression(targetGenExpr);
+                                targets.Add(targetExpr);
+                            }
                         }
                         if (targets.Count > 0)
                         {
@@ -1369,7 +1350,7 @@ namespace SharpPy
 
             // Extract comparators array and convert each
             object[] comparators = (object[])chainedCompareOp.comparators;
-            Expression[] comparatorExprs = comparators.Select(comp => ConvertAnyExpression(comp)).ToArray();
+            Expression[] comparatorExprs = comparators.Select(comp => ConvertAnyExpressionDynamic(comp)).ToArray();
 
             // Create ChainedCompareExpression for CPython-compatible bytecode generation
             return new ChainedCompareExpression(
@@ -1478,9 +1459,25 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Convert any dynamic expression object to Expression
+        /// Convert GeneratedExpr to Expression
         /// </summary>
-        private static Expression ConvertAnyExpression(dynamic expr)
+        private static Expression ConvertAnyExpression(GeneratedExpr expr)
+        {
+            if (expr == null)
+            {
+                throw new ArgumentNullException(nameof(expr), "Expression cannot be null");
+            }
+
+            // Handle GeneratedExpr objects (modern parser output)
+            return ConvertGeneratedExpression(expr);
+        }
+
+        /// <summary>
+        /// Legacy method for backward compatibility - converts dynamic to Expression
+        /// This should be phased out
+        /// </summary>
+        [Obsolete("Use ConvertAnyExpression(GeneratedExpr) instead")]
+        private static Expression ConvertAnyExpressionDynamic(dynamic expr)
         {
             if (expr == null)
             {
@@ -1765,123 +1762,79 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Convert keyword argument from anonymous object to KeywordExpression
+        /// Convert GeneratedKeyword to KeywordExpression
         /// </summary>
-        private static KeywordExpression ConvertKeyword(object kwObj)
+        private static KeywordExpression ConvertKeyword(GeneratedKeyword keyword)
         {
-            var kwType = kwObj.GetType();
-            var argProperty = kwType.GetProperty("arg");
-            var valueProperty = kwType.GetProperty("value");
-
-            if (argProperty == null || valueProperty == null)
+            if (keyword == null)
             {
-                throw new InvalidOperationException("Keyword object missing required properties");
+                throw new ArgumentNullException(nameof(keyword));
             }
 
-            var arg = argProperty.GetValue(kwObj)?.ToString();
-            var value = valueProperty.GetValue(kwObj);
-
-            if (value == null)
+            if (keyword.Value == null)
             {
                 throw new InvalidOperationException("Keyword value cannot be null");
             }
 
-            return new KeywordExpression(arg, ConvertAnyExpression(value));
+            return new KeywordExpression(keyword.Arg, ConvertAnyExpression(keyword.Value));
         }
 
         /// <summary>
-        /// Convert comprehension from anonymous object to Comprehension
+        /// Convert GeneratedComprehension to Comprehension
         /// </summary>
-        private static Comprehension ConvertComprehension(object compObj)
+        private static Comprehension ConvertComprehension(GeneratedComprehension comp)
         {
-            var compType = compObj.GetType();
-            var targetProperty = compType.GetProperty("target");
-            var iterProperty = compType.GetProperty("iter");
-            var ifsProperty = compType.GetProperty("ifs");
-            var isAsyncProperty = compType.GetProperty("is_async");
-
-            if (targetProperty == null || iterProperty == null)
+            if (comp == null)
             {
-                throw new InvalidOperationException("Comprehension object missing required properties");
+                throw new ArgumentNullException(nameof(comp));
             }
 
-            var target = targetProperty.GetValue(compObj);
-            var iter = iterProperty.GetValue(compObj);
-            var ifs = ifsProperty?.GetValue(compObj) as IEnumerable<object>;
-            var isAsync = isAsyncProperty?.GetValue(compObj) as int? ?? 0;
+            var target = ConvertAnyExpression(comp.Target);
+            var iter = ConvertAnyExpression(comp.Iter);
+            var ifs = comp.Ifs?.AsEnumerable().Select(ifExpr => ConvertAnyExpression(ifExpr)).ToList() ?? new List<Expression>();
 
-            if (target == null || iter == null)
-            {
-                throw new InvalidOperationException("Comprehension target or iter cannot be null");
-            }
-
-            var targetExpr = ConvertAnyExpression(target);
-            var iterExpr = ConvertAnyExpression(iter);
-            var ifsList = ifs?.AsEnumerable().Select(i => ConvertAnyExpression(i)).ToList() ?? new List<Expression>();
-
-            // Note: isAsync is tracked separately in GeneratedAsyncForStmt, not in Comprehension itself
-            return new Comprehension(targetExpr, iterExpr, ifsList);
+            // Note: isAsync is tracked in comp.IsAsync but not used in Comprehension constructor
+            return new Comprehension(target, iter, ifs);
         }
 
         /// <summary>
-        /// Convert arguments from anonymous object to FunctionArguments
+        /// Convert GeneratedArguments to FunctionArguments
         /// </summary>
-        private static FunctionArguments ConvertArguments(object argsObj)
+        private static FunctionArguments ConvertArguments(GeneratedArguments argsObj)
         {
-            var argsType = argsObj.GetType();
-
-            // Extract all argument components
-            var posonlyargsProperty = argsType.GetProperty("posonlyargs");
-            var argsProperty = argsType.GetProperty("args");
-            var varargannotationProperty = argsType.GetProperty("vararg");
-            var kwonlyargsProperty = argsType.GetProperty("kwonlyargs");
-            var kwargannotationProperty = argsType.GetProperty("kwarg");
-            var defaultsProperty = argsType.GetProperty("defaults");
-            var kw_defaultsProperty = argsType.GetProperty("kw_defaults");
-
-            var posonlyargs = posonlyargsProperty?.GetValue(argsObj) as IEnumerable<object> ?? new List<object>();
-            var args = argsProperty?.GetValue(argsObj) as IEnumerable<object> ?? new List<object>();
-            var vararg = varargannotationProperty?.GetValue(argsObj);
-            var kwonlyargs = kwonlyargsProperty?.GetValue(argsObj) as IEnumerable<object> ?? new List<object>();
-            var kwarg = kwargannotationProperty?.GetValue(argsObj);
-            var defaults = defaultsProperty?.GetValue(argsObj) as IEnumerable<object> ?? new List<object>();
-            var kw_defaults = kw_defaultsProperty?.GetValue(argsObj) as IEnumerable<object> ?? new List<object>();
+            if (argsObj == null)
+            {
+                throw new ArgumentNullException(nameof(argsObj));
+            }
 
             return new FunctionArguments
             {
-                PosOnlyArgs = posonlyargs.Select(a => ConvertArg(a)).ToList(),
-                Args = args.Select(a => ConvertArg(a)).ToList(),
-                VarArg = vararg != null ? ConvertArg(vararg) : null,
-                KwOnlyArgs = kwonlyargs.Select(a => ConvertArg(a)).ToList(),
-                KwArg = kwarg != null ? ConvertArg(kwarg) : null,
-                Defaults = defaults.Select(d => ConvertAnyExpression(d)).ToList(),
-                KwDefaults = kw_defaults.Select(d => d != null ? ConvertAnyExpression(d) : null).ToList()
+                PosOnlyArgs = argsObj.PosOnlyArgs?.Select(a => ConvertArg(a)).ToList() ?? new List<Arg>(),
+                Args = argsObj.Args?.Select(a => ConvertArg(a)).ToList() ?? new List<Arg>(),
+                VarArg = argsObj.VarArg != null ? ConvertArg(argsObj.VarArg) : null,
+                KwOnlyArgs = argsObj.KwOnlyArgs?.Select(a => ConvertArg(a)).ToList() ?? new List<Arg>(),
+                KwArg = argsObj.KwArg != null ? ConvertArg(argsObj.KwArg) : null,
+                Defaults = argsObj.Defaults?.AsEnumerable().Select(d => ConvertAnyExpression(d)).ToList() ?? new List<Expression?>(),
+                KwDefaults = argsObj.KwDefaults?.AsEnumerable().Select(d => d != null ? ConvertAnyExpression(d) : null).ToList() ?? new List<Expression?>()
             };
         }
 
         /// <summary>
-        /// Convert argument from anonymous object to Arg
+        /// Convert GeneratedArg to Arg
         /// </summary>
-        private static Arg ConvertArg(object argObj)
+        private static Arg ConvertArg(GeneratedArg argObj)
         {
-            var argType = argObj.GetType();
-            var argProperty = argType.GetProperty("arg");
-            var annotationProperty = argType.GetProperty("annotation");
-
-            if (argProperty == null)
+            if (argObj == null)
             {
-                throw new InvalidOperationException("Arg object missing arg property");
+                throw new ArgumentNullException(nameof(argObj));
             }
 
-            var arg = argProperty.GetValue(argObj)?.ToString();
-            var annotation = annotationProperty?.GetValue(argObj);
-
-            if (string.IsNullOrEmpty(arg))
+            if (string.IsNullOrEmpty(argObj.Arg))
             {
                 throw new InvalidOperationException("Arg name cannot be null or empty");
             }
 
-            return new Arg(arg!, annotation != null ? ConvertAnyExpression(annotation) : null);
+            return new Arg(argObj.Arg, argObj.Annotation != null ? ConvertAnyExpression(argObj.Annotation) : null);
         }
 
         // OBSOLETE METHODS REMOVED - These used .Value property which no longer exists
@@ -2446,9 +2399,9 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Convert FunctionArguments to a simple list of parameter names for lambda expressions
+        /// Convert GeneratedArguments to a simple list of parameter names for lambda expressions
         /// </summary>
-        private static List<string> ConvertFunctionArgumentsToNames(object argumentsData)
+        private static List<string> ConvertFunctionArgumentsToNames(GeneratedArguments argumentsData)
         {
             var funcArgs = ConvertFunctionArguments(argumentsData);
             var names = new List<string>();

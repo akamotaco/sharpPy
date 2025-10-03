@@ -26,6 +26,11 @@
     <DefineConstants>TRACE</DefineConstants>
   </PropertyGroup>
 
+  <!-- Exclude build tools Program.cs to avoid duplicate Main entry point -->
+  <ItemGroup>
+    <Compile Remove="SharpPy.Tokenizer\Program.cs" />
+  </ItemGroup>
+
   <!-- Tokenizer and PegGenerator are build-time tools only, not runtime dependencies -->
   <!-- They generate PyTokenizer.cs and PyParser.cs which are directly included in the build -->
 
@@ -40,7 +45,7 @@
   <!-- PEG Parser Generation (Phase 2) -->
   <Target Name="GenerateParser" BeforeTargets="BeforeBuild">
     <Message Text="Generating PEG parser from Grammar/python.gram..." Importance="high" />
-    <Exec Command="dotnet run --project ../SharpPy.PegGenerator --grammar Grammar/python.gram --tokens Grammar/Tokens --parser-output Generated/PyParser.cs"
+    <Exec Command="dotnet run --project SharpPy.PegGenerator --grammar Grammar/python.gram --tokens Grammar/Tokens --parser-output Generated/PyParser.cs"
           ContinueOnError="false"
           WorkingDirectory="$(ProjectDir)" />
   </Target>
