@@ -19,17 +19,24 @@ namespace SharpPy
         /// </summary>
         public static List<Statement> ParseSource(string source, string filename = "<string>")
         {
+            Console.WriteLine($"[DEBUG] GeneratedParserBridge.ParseSource START for {filename}");
 #if DEBUG_LOG
             Console.WriteLine($"[DEBUG] GeneratedParserBridge: Using auto-generated CPython 3.12 tokenizer + parser for {filename}");
 #endif
 
+            Console.WriteLine("[DEBUG] Creating tokenizer...");
             // Use generated tokenizer
             var tokenizer = new GeneratedPyTokenizer(source, filename);
+            Console.WriteLine("[DEBUG] Calling tokenizer.Tokenize()...");
             var generatedTokens = tokenizer.Tokenize();
+            Console.WriteLine($"[DEBUG] Tokenize returned {generatedTokens.Count} tokens");
 
+            Console.WriteLine("[DEBUG] Creating parser...");
             // Use generated parser
             var parser = new GeneratedPyParser(generatedTokens, filename);
+            Console.WriteLine("[DEBUG] Calling parser.ParseFile()...");
             var parseResult = parser.ParseFile();
+            Console.WriteLine($"[DEBUG] ParseFile returned: {parseResult?.GetType()?.Name ?? "null"}");
 
 #if DEBUG_LOG
             Console.WriteLine($"[DEBUG] Parse result type: {parseResult?.GetType()?.Name ?? "null"}");
@@ -50,13 +57,24 @@ namespace SharpPy
         /// </summary>
         private static List<Statement> ConvertToSharpPyAST(GeneratedModule? parseResult, string filename)
         {
+            Console.WriteLine($"[DEBUG] ConvertToSharpPyAST: parseResult is {(parseResult == null ? "null" : "not null")}");
             if (parseResult == null)
             {
+                Console.WriteLine("[DEBUG] ConvertToSharpPyAST: returning empty list (parseResult is null)");
                 return new List<Statement>();
             }
 
+            Console.WriteLine($"[DEBUG] ConvertToSharpPyAST: parseResult.Body is {(parseResult.Body == null ? "null" : "not null")}");
+            if (parseResult.Body != null)
+            {
+                Console.WriteLine($"[DEBUG] ConvertToSharpPyAST: parseResult.Body.Count = {parseResult.Body.Count}");
+            }
+
             // Phase 2: Start implementing AST conversion
-            return ConvertGeneratedAST(parseResult, filename);
+            Console.WriteLine("[DEBUG] ConvertToSharpPyAST: Calling ConvertGeneratedAST...");
+            var result = ConvertGeneratedAST(parseResult, filename);
+            Console.WriteLine($"[DEBUG] ConvertToSharpPyAST: ConvertGeneratedAST returned {result.Count} statements");
+            return result;
         }
 
         /// <summary>

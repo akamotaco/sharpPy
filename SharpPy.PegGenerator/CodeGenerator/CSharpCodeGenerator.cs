@@ -53,6 +53,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private int _groupCounter;
         private readonly List<PegRule> _pegRules = new();
 
+        // CPython 3.12: artificial_rule_from_repeat - Loop rule 레지스트리
+        private readonly Dictionary<string, string> _loopRules = new(); // pattern -> rule name (e.g., "_Loop1_4")
+        private int _loopRuleCounter = 0;
+
         public CSharpCodeGenerator(Grammar.Grammar grammar, List<TokenDefinition> tokens)
         {
             _grammar = grammar;
@@ -469,6 +473,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 Console.WriteLine($"[DEBUG] Processing rule: {rule.Name}");
                 GenerateRuleMethod(rule);
             }
+
+            // CPython 3.12: Generate loop rules after all main rules
+            // This is the artificial_rule_from_repeat mechanism
+            GenerateLoopRuleMethods();
         }
 
         private void GenerateHelperMethods()
@@ -1461,12 +1469,23 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 var reason = isLeftRecursive ? "left-recursive" : "memoized";
                 Console.WriteLine($"[CODEGEN] Rule '{rule.Name}' is {reason} - generating wrapper + inner method");
 
-                // Generate public wrapper that calls TryLeftRecursive
+                // Generate public wrapper
                 WriteLine($"public {returnType} {methodName}()");
                 WriteLine("{");
                 Indent();
-                WriteLine($"// CPython 3.12: Left recursion - use Warth et al. algorithm");
-                WriteLine($"return TryLeftRecursive<{returnType}>(\"{methodName}\", _{methodName});");
+
+                if (isLeftRecursive)
+                {
+                    WriteLine($"// CPython 3.12: Left recursion - use Warth et al. algorithm");
+                    WriteLine($"return TryLeftRecursive<{returnType}>(\"{methodName}\", _{methodName});");
+                }
+                else
+                {
+                    WriteLine($"// CPython 3.12: Memoized (non-left-recursive) - simple memoization");
+                    WriteLine($"// Pattern: CHECK CACHE → PARSE → UPDATE CACHE");
+                    WriteLine($"return TryMemoized<{returnType}>(\"{methodName}\", _{methodName});");
+                }
+
                 Dedent();
                 WriteLine("}");
                 WriteLine();
@@ -8459,7 +8478,173 @@ namespace SharpPy.PegGenerator.CodeGenerator
         // ParseAssignment is now implemented in PyParserBase.cs (CPython 3.12 compatible)
         // This avoids code generation confusion and ensures proper context handling
 
+        /// <summary>
+        /// CPython 3.12: Get or create a loop rule
+        /// Called by ItemCodeGenerator when it encounters Repeat0/Repeat1
+        /// Returns the rule name (e.g., "_Loop1_4")
+        /// </summary>
+        public string GetOrCreateLoopRule(string loopType, string returnType, string innerPattern)
+        {
+            var pattern = $"{loopType}:{returnType}:{innerPattern}";
 
+            if (_loopRules.TryGetValue(pattern, out var existingRule))
+            {
+                return existingRule;
+            }
+
+            // Create new loop rule
+            var ruleName = $"_{loopType}_{_loopRuleCounter++}";
+            _loopRules[pattern] = ruleName;
+            Console.WriteLine($"[CODEGEN] Registered loop rule: {ruleName} for pattern: {pattern}");
+            return ruleName;
+        }
+
+        /// <summary>
+        /// CPython 3.12: artificial_rule_from_repeat mechanism
+        /// Generate all loop rule methods (_Loop0_N, _Loop1_N)
+        /// </summary>
+        private void GenerateLoopRuleMethods()
+        {
+            WriteLine();
+            WriteLine("// ========================================");
+            WriteLine("// CPython 3.12: Loop Rules (artificial_rule_from_repeat)");
+            WriteLine("// Generated from Repeat0/Repeat1 patterns");
+            WriteLine("// ========================================");
+            WriteLine();
+
+            Console.WriteLine($"[CODEGEN] GenerateLoopRuleMethods: Total loop rules = {_loopRules.Count}");
+            // Loop rules are populated by ItemCodeGenerator during rule generation
+            // Now we generate the actual methods
+            foreach (var (pattern, ruleName) in _loopRules)
+            {
+                Console.WriteLine($"[CODEGEN] Generating loop rule: {ruleName} for pattern: {pattern}");
+                // Pattern format: "Loop0:ReturnType:InnerPattern" or "Loop1:ReturnType:InnerPattern"
+                var parts = pattern.Split(':', 3);
+                if (parts.Length < 3)
+                {
+                    Console.WriteLine($"[CODEGEN] WARNING: Skipping invalid pattern: {pattern}");
+                    continue;
+                }
+
+                var loopType = parts[0]; // "Loop0" or "Loop1"
+                var returnType = parts[1];
+                var innerPattern = parts[2];
+
+                Console.WriteLine($"[CODEGEN] Loop type: {loopType}, return type: {returnType}, inner: {innerPattern}");
+                if (loopType == "Loop0")
+                {
+                    GenerateLoop0Rule(ruleName, returnType, innerPattern);
+                }
+                else if (loopType == "Loop1")
+                {
+                    GenerateLoop1Rule(ruleName, returnType, innerPattern);
+                }
+                Console.WriteLine($"[CODEGEN] Successfully generated loop rule: {ruleName}");
+            }
+            Console.WriteLine($"[CODEGEN] GenerateLoopRuleMethods: DONE");
+        }
+
+        /// <summary>
+        /// Generate _Loop0_N rule (zero or more)
+        /// CPython: while ((_item = rule()) != NULL) { _mark = p->mark; ... }
+        /// Returns NULL if no items (totalSize == 0)
+        /// returnType is already List<InnerType> from DetermineSequenceType
+        /// </summary>
+        private void GenerateLoop0Rule(string ruleName, string returnType, string innerPattern)
+        {
+            WriteLine($"private {returnType}? {ruleName}()");
+            WriteLine("{");
+            Indent();
+
+            // CPython pattern: Save mark after each success, restore on failure
+            WriteLine($"var _items = new {returnType.TrimEnd('?')}();");
+            WriteLine("int _loop_mark = _position;  // CPython: int _mark = p->mark");
+            WriteLine("while (true)");
+            WriteLine("{");
+            Indent();
+            WriteLine($"var _item = {innerPattern};");
+            WriteLine("if (_item == null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("// CPython: p->mark = _mark (restore to last success position)");
+            WriteLine("_position = _loop_mark;");
+            WriteLine("break;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("_items.Add(_item);");
+            WriteLine("// CPython: _mark = p->mark (save position after success)");
+            WriteLine("_loop_mark = _position;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("// CPython: Returns NULL if totalSize == 0");
+            WriteLine("if (_items.Count == 0) return null;");
+            WriteLine("return _items;");
+
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        /// <summary>
+        /// Generate _Loop1_N rule (one or more)
+        /// CPython: if ((_item = rule()) == NULL) return NULL;
+        /// while ((_item = rule()) != NULL) { ... }
+        /// Returns NULL if no items (totalSize == 0)
+        /// returnType is already List<InnerType> from DetermineSequenceType
+        /// </summary>
+        private void GenerateLoop1Rule(string ruleName, string returnType, string innerPattern)
+        {
+            WriteLine($"private {returnType}? {ruleName}()");
+            WriteLine("{");
+            Indent();
+
+            // CPython pattern: Save mark after each success, restore on failure
+            WriteLine($"Console.WriteLine($\"[DEBUG] {ruleName}() START: position={{_position}}\");");
+            WriteLine($"var _items = new {returnType.TrimEnd('?')}();");
+            WriteLine("// CPython: First element required");
+            WriteLine($"Console.WriteLine($\"[DEBUG] {ruleName}(): Calling first {innerPattern}...\");");
+            WriteLine($"var _first = {innerPattern};");
+            WriteLine($"Console.WriteLine($\"[DEBUG] {ruleName}(): _first = {{(_first == null ? \"null\" : \"not null\")}}, position={{_position}}\");");
+            WriteLine("if (_first == null)");
+            WriteLine("{");
+            Indent();
+            WriteLine($"Console.WriteLine($\"[DEBUG] {ruleName}(): First element null, returning null\");");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("_items.Add(_first);");
+            WriteLine("int _loop_mark = _position;  // CPython: int _mark = p->mark");
+            WriteLine("int _loop_iteration = 0;");
+            WriteLine("while (true)");
+            WriteLine("{");
+            Indent();
+            WriteLine("_loop_iteration++;");
+            WriteLine($"Console.WriteLine($\"[DEBUG] {ruleName}(): Loop iteration {{_loop_iteration}}, position={{_position}}\");");
+            WriteLine($"if (_loop_iteration > 100) {{ Console.WriteLine($\"[DEBUG] {ruleName}(): WARNING - Too many iterations!\"); break; }}");
+            WriteLine($"var _item = {innerPattern};");
+            WriteLine($"Console.WriteLine($\"[DEBUG] {ruleName}(): _item = {{(_item == null ? \"null\" : \"not null\")}}, position={{_position}}\");");
+            WriteLine("if (_item == null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("// CPython: p->mark = _mark (restore to last success position)");
+            WriteLine($"Console.WriteLine($\"[DEBUG] {ruleName}(): Restoring position from {{_position}} to {{_loop_mark}}\");");
+            WriteLine("_position = _loop_mark;");
+            WriteLine("break;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("_items.Add(_item);");
+            WriteLine("// CPython: _mark = p->mark (save position after success)");
+            WriteLine("_loop_mark = _position;");
+            Dedent();
+            WriteLine("}");
+            WriteLine($"Console.WriteLine($\"[DEBUG] {ruleName}(): Returning {{_items.Count}} items\");");
+            WriteLine("// CPython: Always has at least 1 item");
+            WriteLine("return _items;");
+
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
 
     }
 }

@@ -99,6 +99,25 @@ namespace SharpPy.Tokenizer
 
         private void GenerateTokenInfoClass()
         {
+            // Generate MemoEntry first - CPython 3.12: struct _memo
+            WriteLine("/// <summary>");
+            WriteLine("/// CPython 3.12: Memoization entry for PEG parser");
+            WriteLine("/// Equivalent to: typedef struct _memo { int type; void *node; int mark; struct _memo *next; } Memo;");
+            WriteLine("/// </summary>");
+            WriteLine("public class MemoEntry");
+            WriteLine("{");
+            Indent();
+            WriteLine("/// <summary>Rule type name (CPython uses int type ID, we use string for clarity)</summary>");
+            WriteLine("public string RuleType { get; set; } = \"\";");
+            WriteLine("/// <summary>Parsed result node (can be null for failed parse)</summary>");
+            WriteLine("public object? Node { get; set; }");
+            WriteLine("/// <summary>Parser mark (position) after parsing this rule</summary>");
+            WriteLine("public int Mark { get; set; }");
+            WriteLine("// Note: CPython uses linked list (next pointer), we use List<MemoEntry> in Token");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
             // Generate ITokenInfo interface first (for PegInterpreter compatibility)
             WriteLine("/// <summary>");
             WriteLine("/// Token information interface for PegInterpreter compatibility");
@@ -118,6 +137,7 @@ namespace SharpPy.Tokenizer
             WriteLine("/// <summary>");
             WriteLine("/// CPython 3.12 compatible token info");
             WriteLine("/// Inherits GeneratedPtr for void* compatibility");
+            WriteLine("/// Equivalent to: typedef struct { int type; PyObject *bytes; int lineno, col_offset; ...; Memo *memo; } Token;");
             WriteLine("/// </summary>");
             WriteLine("public class GeneratedTokenInfo : GeneratedPtr, ITokenInfo");
             WriteLine("{");
@@ -131,6 +151,12 @@ namespace SharpPy.Tokenizer
             WriteLine("public int EndColumn { get; set; }");
             WriteLine("public int Start { get; set; }");
             WriteLine("public int End { get; set; }");
+            WriteLine();
+            WriteLine("/// <summary>");
+            WriteLine("/// CPython 3.12: Memoization cache for this token");
+            WriteLine("/// Each token owns its memoization entries (like Token.memo linked list in C)");
+            WriteLine("/// </summary>");
+            WriteLine("public List<MemoEntry>? Memo { get; set; }");
             WriteLine();
 
             WriteLine("public GeneratedTokenInfo(GeneratedTokenType type, string value, int line, int column, int start = 0, int end = 0, int endLine = 0, int endColumn = 0)");

@@ -96,6 +96,21 @@ namespace SharpPy.Generated
     }
 
     /// <summary>
+    /// CPython 3.12: Memoization entry for PEG parser
+    /// Equivalent to: typedef struct _memo { int type; void *node; int mark; struct _memo *next; } Memo;
+    /// </summary>
+    public class MemoEntry
+    {
+        /// <summary>Rule type name (CPython uses int type ID, we use string for clarity)</summary>
+        public string RuleType { get; set; } = "";
+        /// <summary>Parsed result node (can be null for failed parse)</summary>
+        public object? Node { get; set; }
+        /// <summary>Parser mark (position) after parsing this rule</summary>
+        public int Mark { get; set; }
+        // Note: CPython uses linked list (next pointer), we use List<MemoEntry> in Token
+    }
+
+    /// <summary>
     /// Token information interface for PegInterpreter compatibility
     /// </summary>
     public interface ITokenInfo
@@ -109,6 +124,7 @@ namespace SharpPy.Generated
     /// <summary>
     /// CPython 3.12 compatible token info
     /// Inherits GeneratedPtr for void* compatibility
+    /// Equivalent to: typedef struct { int type; PyObject *bytes; int lineno, col_offset; ...; Memo *memo; } Token;
     /// </summary>
     public class GeneratedTokenInfo : GeneratedPtr, ITokenInfo
     {
@@ -120,6 +136,12 @@ namespace SharpPy.Generated
         public int EndColumn { get; set; }
         public int Start { get; set; }
         public int End { get; set; }
+
+        /// <summary>
+        /// CPython 3.12: Memoization cache for this token
+        /// Each token owns its memoization entries (like Token.memo linked list in C)
+        /// </summary>
+        public List<MemoEntry>? Memo { get; set; }
 
         public GeneratedTokenInfo(GeneratedTokenType type, string value, int line, int column, int start = 0, int end = 0, int endLine = 0, int endColumn = 0)
         {

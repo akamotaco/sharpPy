@@ -33,6 +33,19 @@ namespace SharpPy.Generated
         protected int _errorIndicator = 0;  // Error state flag
         protected const int MAX_RECURSION_DEPTH = 1000;  // Python's recursion limit
 
+        // Left-recursion handling (Warth et al. algorithm)
+        protected class LREntry
+        {
+            public object? Result { get; set; }
+            public int EndPos { get; set; }
+            public bool IsGrowing { get; set; }
+        }
+        protected Dictionary<(int, string), LREntry> _lrCache = new();
+
+        // CPython 3.12: Token-based memoization
+        // Each Token owns its Memo list - no global cache needed
+        // MemoEntry is defined in GeneratedTokenInfo (PyTokenizer.cs)
+
         protected PyParserBase(List<GeneratedTokenInfo> tokens, string filename)
         {
             _tokens = tokens;
@@ -88,6 +101,7 @@ namespace SharpPy.Generated
         /// <summary>
         /// Handle left-recursive rules using memoization
         /// CPython 3.12: Implements Warth et al. 'Packrat Parsers Can Support Left Recursion'
+        /// Algorithm: SEED (FAIL) → BASE CASE → GROW → TERMINATE
         /// </summary>
         protected T? TryLeftRecursive<T>(string ruleName, Func<T?> ruleFunc) where T : class
         {
@@ -97,17 +111,128 @@ namespace SharpPy.Generated
                 throw new StackOverflowException($"Maximum recursion depth exceeded in rule {ruleName}");
             }
 
+            var key = (_position, ruleName);
+
+            // Recursive call - return current seed
+            if (_lrCache.TryGetValue(key, out var lrEntry) && lrEntry.IsGrowing)
+            {
+                _position = lrEntry.EndPos;
+                return lrEntry.Result as T;
+            }
+
             _level++;
             try
             {
-                // Simple implementation - call rule directly
-                // TODO: Full memoization with left-recursion handling
-                return ruleFunc();
+                // SEED PHASE: Start with FAIL seed
+                _lrCache[key] = new LREntry { Result = null, EndPos = _position, IsGrowing = true };
+
+                // First attempt - base case should execute
+                var result = ruleFunc();
+
+                if (result == null)
+                {
+                    // Real failure - base case also failed
+                    _lrCache.Remove(key);
+                    return null;
+                }
+
+                // GROWTH PHASE: Seed succeeded, now grow
+                T? lastResult = result;
+                int lastEndPos = _position;
+                _lrCache[key] = new LREntry { Result = result, EndPos = _position, IsGrowing = true };
+
+                while (true)
+                {
+                    // Reset to start position for next growth attempt
+                    _position = key.Item1;
+                    var newResult = ruleFunc();
+
+                    // Termination: no progress made
+                    if (newResult == null || _position <= lastEndPos)
+                    {
+                        _position = lastEndPos;
+                        _lrCache.Remove(key);
+                        return lastResult;
+                    }
+
+                    // Grow: update seed with new result
+                    lastResult = newResult;
+                    lastEndPos = _position;
+                    _lrCache[key] = new LREntry { Result = newResult, EndPos = _position, IsGrowing = true };
+                }
             }
             finally
             {
                 _level--;
             }
+        }
+
+        /// <summary>
+        /// Handle memoized (non-left-recursive) rules with token-based caching
+        /// CPython 3.12: Implements _PyPegen_is_memoized() + _PyPegen_update_memo() pattern
+        /// Pattern:
+        ///   1. Get current token: Token *t = p->tokens[p->mark]
+        ///   2. Check cache: for (Memo *m = t->memo; m != NULL; m = m->next)
+        ///   3. If hit: p->mark = m->mark; return m->node
+        ///   4. If miss: parse, then update token's memo list
+        /// </summary>
+        protected T? TryMemoized<T>(string ruleName, Func<T?> ruleFunc) where T : class
+        {
+            // STEP 1: Get current token (CPython: Token *t = p->tokens[p->mark])
+            if (_position >= _tokens.Count)
+            {
+                // ENDMARKER or beyond - don't memoize, just parse
+                return ruleFunc();
+            }
+
+            var token = _tokens[_position];
+            int startMark = _position;
+
+            // STEP 2: CHECK CACHE - _PyPegen_is_memoized(p, type, &res)
+            if (token.Memo != null)
+            {
+                // CPython: for (Memo *m = t->memo; m != NULL; m = m->next)
+                var cached = token.Memo.FirstOrDefault(m => m.RuleType == ruleName);
+                if (cached != null)
+                {
+                    // Cache HIT - restore mark and return cached result
+                    // CPython: p->mark = m->mark; *(void**)(pres) = m->node; return 1;
+                    _position = cached.Mark;
+                    return cached.Node as T;
+                }
+            }
+
+            // STEP 3: Cache MISS - parse the rule
+            var result = ruleFunc();
+            int endMark = _position;
+
+            // STEP 4: UPDATE CACHE - _PyPegen_update_memo(p, mark, type, node)
+            if (token.Memo == null)
+            {
+                token.Memo = new List<MemoEntry>();
+            }
+
+            // CPython: Search for existing entry and update, or insert new
+            var existing = token.Memo.FirstOrDefault(m => m.RuleType == ruleName);
+            if (existing != null)
+            {
+                // Update existing entry (shouldn't happen in normal flow, but CPython does this)
+                existing.Node = result;
+                existing.Mark = endMark;
+            }
+            else
+            {
+                // Insert new memo entry
+                // CPython: _PyPegen_insert_memo() adds to front of linked list
+                token.Memo.Add(new MemoEntry
+                {
+                    RuleType = ruleName,
+                    Node = result,
+                    Mark = endMark  // Position AFTER parsing (can be same as start if failed)
+                });
+            }
+
+            return result;
         }
 
         /// <summary>
@@ -1590,9 +1715,24 @@ namespace SharpPy.Generated
     {
         // CPython: _PyPegen_seq_flatten
         // Flatten list of sequences into single sequence
-        public static GeneratedStmtSeq _PyPegen_seq_flatten(System.Collections.Generic.List<GeneratedStmtSeq> sequences)
+        // CPython 3.12: Returns NULL if total size is 0 (assert fails in CPython)
+        public static GeneratedStmtSeq? _PyPegen_seq_flatten(System.Collections.Generic.List<GeneratedStmtSeq> sequences)
         {
-            var result = new GeneratedStmtSeq();
+            // CPython: Calculate flattened size
+            int totalSize = 0;
+            foreach (var seq in sequences)
+            {
+                totalSize += seq.Count;
+            }
+
+            // CPython: assert(flattened_seq_size > 0)
+            if (totalSize == 0)
+            {
+                return null;  // CPython would assert fail
+            }
+
+            // CPython: Allocate and flatten
+            var result = new GeneratedStmtSeq(totalSize);
             foreach (var seq in sequences)
             {
                 result.AddRange(seq);

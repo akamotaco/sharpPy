@@ -230,6 +230,16 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     // _PyPegen_alias_for_star(p, EXTRA) → creates alias for 'import *'
                     // Arguments are EXTRA (position info)
                     return "_res = _PyPegen_alias_for_star(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset);";
+
+                case "_PyPegen_make_module":
+                    // _PyPegen_make_module(p, statements) → creates module with statements
+                    // CPython 3.12: file[mod_ty]: a=[statements] ENDMARKER { _PyPegen_make_module(p, a) }
+                    if (filteredArgs.Count >= 1)
+                    {
+                        var body = TranslateToCSharp(filteredArgs[0].Trim(), variables);
+                        return $"_res = _PyPegen_make_module({body});";
+                    }
+                    break;
             }
 
             // Unknown _PyPegen_ function

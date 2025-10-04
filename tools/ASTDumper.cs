@@ -21,13 +21,16 @@ namespace SharpPy.Tools
         {
             try
             {
+                Console.WriteLine("[DEBUG] ASTDumper.DumpAST START");
                 if (string.IsNullOrEmpty(pythonFile) || !File.Exists(pythonFile))
                 {
                     Console.WriteLine("Error: Python file not found.");
                     return;
                 }
 
+                Console.WriteLine($"[DEBUG] Reading file: {pythonFile}");
                 var source = File.ReadAllText(pythonFile);
+                Console.WriteLine($"[DEBUG] File content length: {source.Length}");
 
                 // QuietMode가 아닐 때만 헤더 출력
                 if (!SharpPyConfig.QuietMode)
@@ -36,7 +39,9 @@ namespace SharpPy.Tools
                     Console.WriteLine("========================================");
                 }
 
+                Console.WriteLine("[DEBUG] Calling GeneratedParserBridge.ParseSource...");
                 var statements = GeneratedParserBridge.ParseSource(source, pythonFile);
+                Console.WriteLine($"[DEBUG] ParseSource returned {statements?.Count ?? 0} statements");
 
                 // CPython 3.12 스타일: Module(body=[...], type_ignores=[])
                 Console.WriteLine("Module(");

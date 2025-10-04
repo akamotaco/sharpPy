@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using SharpPy.PegGenerator.Grammar;
 
 namespace SharpPy.PegGenerator.CodeGenerator
@@ -14,6 +15,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private readonly string _varName;
         private readonly string _labelPrefix;
         private readonly bool _insideRepeater;
+        private readonly bool _insideOptional;
         private static int _lookaheadCounter = 0;
 
         public ItemCodeGenerator(
@@ -21,13 +23,15 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Item item,
             string varName,
             string labelPrefix,
-            bool insideRepeater = false)
+            bool insideRepeater = false,
+            bool insideOptional = false)
         {
             _parent = parent ?? throw new ArgumentNullException(nameof(parent));
             _item = item ?? throw new ArgumentNullException(nameof(item));
             _varName = varName ?? throw new ArgumentNullException(nameof(varName));
             _labelPrefix = labelPrefix ?? "item";
             _insideRepeater = insideRepeater;
+            _insideOptional = insideOptional;
         }
 
         /// <summary>
@@ -90,14 +94,19 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // CPython 3.12 pattern: Expect exact token match and store result
             _parent.WriteLine($"// Expect '{escaped}'");
             _parent.WriteLine($"var {_varName} = Expect(\"{escaped}\");");
-            _parent.WriteLine($"if ({_varName} == null)");
-            _parent.WriteLine("{");
-            _parent.Indent();
-            _parent.WriteLine("_position = _mark;");
-            _parent.WriteLine("_res = null;");
-            _parent.WriteLine("break;  // Exit this alternative");
-            _parent.Dedent();
-            _parent.WriteLine("}");
+
+            // CPython 3.12: Only add null check if NOT inside a repeater
+            if (!_insideRepeater)
+            {
+                _parent.WriteLine($"if ({_varName} == null)");
+                _parent.WriteLine("{");
+                _parent.Indent();
+                _parent.WriteLine("_position = _mark;");
+                _parent.WriteLine("_res = null;");
+                _parent.WriteLine("break;  // Exit this alternative");
+                _parent.Dedent();
+                _parent.WriteLine("}");
+            }
         }
 
         private void GenerateRuleRef(RuleRef ruleRef)
@@ -122,14 +131,19 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 {
                     // Store token temporarily, then convert to AST
                     _parent.WriteLine($"var _token_{_varName} = ExpectToken(GeneratedTokenType.{tokenName});");
-                    _parent.WriteLine($"if (_token_{_varName} == null)");
-                    _parent.WriteLine("{");
-                    _parent.Indent();
-                    _parent.WriteLine("_position = _mark;");
-                    _parent.WriteLine("_res = null;");
-                    _parent.WriteLine("break;  // Exit this alternative");
-                    _parent.Dedent();
-                    _parent.WriteLine("}");
+
+                    // CPython 3.12: Only add null check if NOT inside a repeater
+                    if (!_insideRepeater)
+                    {
+                        _parent.WriteLine($"if (_token_{_varName} == null)");
+                        _parent.WriteLine("{");
+                        _parent.Indent();
+                        _parent.WriteLine("_position = _mark;");
+                        _parent.WriteLine("_res = null;");
+                        _parent.WriteLine("break;  // Exit this alternative");
+                        _parent.Dedent();
+                        _parent.WriteLine("}");
+                    }
 
                     // Convert token to AST node (CPython pattern)
                     string conversionMethod = tokenName switch
@@ -145,14 +159,19 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 {
                     // Other tokens - no conversion needed
                     _parent.WriteLine($"var {_varName} = ExpectToken(GeneratedTokenType.{tokenName});");
-                    _parent.WriteLine($"if ({_varName} == null)");
-                    _parent.WriteLine("{");
-                    _parent.Indent();
-                    _parent.WriteLine("_position = _mark;");
-                    _parent.WriteLine("_res = null;");
-                    _parent.WriteLine("break;  // Exit this alternative");
-                    _parent.Dedent();
-                    _parent.WriteLine("}");
+
+                    // CPython 3.12: Only add null check if NOT inside a repeater
+                    if (!_insideRepeater)
+                    {
+                        _parent.WriteLine($"if ({_varName} == null)");
+                        _parent.WriteLine("{");
+                        _parent.Indent();
+                        _parent.WriteLine("_position = _mark;");
+                        _parent.WriteLine("_res = null;");
+                        _parent.WriteLine("break;  // Exit this alternative");
+                        _parent.Dedent();
+                        _parent.WriteLine("}");
+                    }
                 }
 
                 _parent.WriteLine($"Console.WriteLine($\"[DEBUG] ExpectToken({ruleRef.Name}): result={{({_varName} != null ? \"SUCCESS\" : \"FAIL\")}}, newPos={{_position}}\");");
@@ -183,14 +202,19 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     _parent.WriteLine($"var {_varName} = {methodName}();");
                 }
 
-                _parent.WriteLine($"if ({_varName} == null)");
-                _parent.WriteLine("{");
-                _parent.Indent();
-                _parent.WriteLine("_position = _mark;");
-                _parent.WriteLine("_res = null;");
-                _parent.WriteLine("break;  // Exit this alternative");
-                _parent.Dedent();
-                _parent.WriteLine("}");
+                // CPython 3.12: Only add null check if NOT inside a repeater
+                // Repeaters (OneOrMore/ZeroOrMore) handle null checks themselves
+                if (!_insideRepeater)
+                {
+                    _parent.WriteLine($"if ({_varName} == null)");
+                    _parent.WriteLine("{");
+                    _parent.Indent();
+                    _parent.WriteLine("_position = _mark;");
+                    _parent.WriteLine("_res = null;");
+                    _parent.WriteLine("break;  // Exit this alternative");
+                    _parent.Dedent();
+                    _parent.WriteLine("}");
+                }
             }
         }
 
@@ -203,7 +227,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // Generate code for the inner expression - it will declare its own variable
             var innerVarName = $"_opt_{_varName}";
             var innerItem = new Item { Atom = opt.Expression, Name = null };
-            var innerGen = new ItemCodeGenerator(_parent, innerItem, innerVarName, _labelPrefix);
+            var innerGen = new ItemCodeGenerator(_parent, innerItem, innerVarName, _labelPrefix, insideRepeater: false, insideOptional: true);
             innerGen.Generate();
 
             // Determine type of optional result based on inner expression
@@ -227,86 +251,127 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
         private void GenerateZeroOrMore(ZeroOrMore zm)
         {
-            // CPython 3.12 pattern: Loop until parsing fails (always succeeds, may return empty list)
-            _parent.WriteLine($"// Zero or more: {zm.Expression}*");
+            // CPython 3.12: For simple patterns (RuleRef, StringLiteral), use loop rules
+            // For complex patterns (Group, etc.), use inline loops
+            if (zm.Expression is RuleRef || zm.Expression is StringLiteral)
+            {
+                // CPython 3.12: artificial_rule_from_repeat - generate separate loop rule
+                _parent.WriteLine($"// Zero or more: {zm.Expression}* (CPython: _Loop0_N rule)");
 
-            // Determine the appropriate sequence type based on inner expression
-            string seqType = DetermineSequenceType(zm.Expression);
-            _parent.WriteLine($"var {_varName} = new {seqType}();");
+                // Get the inner pattern as a callable string
+                string innerPattern = GetInnerPatternCall(zm.Expression);
+                string seqType = DetermineSequenceType(zm.Expression);
 
-            _parent.WriteLine($"while (true)");
-            _parent.WriteLine("{");
-            _parent.Indent();
-            _parent.WriteLine($"int _loop_mark = _position;");
+                // Register loop rule and get its name
+                string loopRuleName = _parent.GetOrCreateLoopRule("Loop0", seqType, innerPattern);
 
-            // Generate code for the inner expression
-            var innerItem = new Item { Atom = zm.Expression, Name = null };
-            var innerVarName = $"_loop_elem_{_varName}";
-            var innerGen = new ItemCodeGenerator(_parent, innerItem, innerVarName, _labelPrefix, insideRepeater: true);
-            innerGen.Generate();
+                // Call the loop rule instead of inline loop
+                _parent.WriteLine($"var {_varName} = {loopRuleName}();");
+            }
+            else
+            {
+                // Complex pattern - use inline loop (CPython also does this)
+                _parent.WriteLine($"// Zero or more: {zm.Expression}* (inline loop for complex pattern)");
 
-            // If parsing failed, break the loop
-            _parent.WriteLine($"if ({innerVarName} == null)");
-            _parent.WriteLine("{");
-            _parent.Indent();
-            _parent.WriteLine($"_position = _loop_mark; // Reset to before failed attempt");
-            _parent.WriteLine("break;");
-            _parent.Dedent();
-            _parent.WriteLine("}");
+                string seqType = DetermineSequenceType(zm.Expression);
+                _parent.WriteLine($"var {_varName} = new {seqType}();");
 
-            // Add successful result to list
-            _parent.WriteLine($"{_varName}.Add({innerVarName});");
+                _parent.WriteLine($"while (true)");
+                _parent.WriteLine("{");
+                _parent.Indent();
+                _parent.WriteLine($"int _loop_mark = _position;");
 
-            _parent.Dedent();
-            _parent.WriteLine("}");
-            _parent.WriteLine($"// Collected {_varName}.Count items (may be 0)");
+                var innerItem = new Item { Atom = zm.Expression, Name = null };
+                var innerVarName = $"_loop_elem_{_varName}";
+                var innerGen = new ItemCodeGenerator(_parent, innerItem, innerVarName, _labelPrefix, insideRepeater: true);
+                innerGen.Generate();
+
+                _parent.WriteLine($"if ({innerVarName} == null)");
+                _parent.WriteLine("{");
+                _parent.Indent();
+                _parent.WriteLine($"_position = _loop_mark;");
+                _parent.WriteLine("break;");
+                _parent.Dedent();
+                _parent.WriteLine("}");
+
+                _parent.WriteLine($"{_varName}.Add({innerVarName});");
+
+                _parent.Dedent();
+                _parent.WriteLine("}");
+                _parent.WriteLine($"// Collected {_varName}.Count items (may be 0)");
+            }
         }
 
         private void GenerateOneOrMore(OneOrMore om)
         {
-            // CPython 3.12 pattern: Must match at least once (fails if zero matches)
-            _parent.WriteLine($"// One or more: {om.Expression}+");
+            // CPython 3.12: For simple patterns (RuleRef, StringLiteral), use loop rules
+            // For complex patterns (Group, etc.), use inline loops
+            if (om.Expression is RuleRef || om.Expression is StringLiteral)
+            {
+                // CPython 3.12: artificial_rule_from_repeat - generate separate loop rule
+                _parent.WriteLine($"// One or more: {om.Expression}+ (CPython: _Loop1_N rule)");
 
-            // Determine the appropriate sequence type based on inner expression
-            string seqType = DetermineSequenceType(om.Expression);
-            _parent.WriteLine($"var {_varName} = new {seqType}();");
+                // Get the inner pattern as a callable string
+                string innerPattern = GetInnerPatternCall(om.Expression);
+                string seqType = DetermineSequenceType(om.Expression);
 
-            _parent.WriteLine($"while (true)");
-            _parent.WriteLine("{");
-            _parent.Indent();
-            _parent.WriteLine($"int _loop_mark = _position;");
+                // Register loop rule and get its name
+                string loopRuleName = _parent.GetOrCreateLoopRule("Loop1", seqType, innerPattern);
 
-            // Generate code for the inner expression
-            var innerItem = new Item { Atom = om.Expression, Name = null };
-            var innerVarName = $"_loop_elem_{_varName}";
-            var innerGen = new ItemCodeGenerator(_parent, innerItem, innerVarName, _labelPrefix, insideRepeater: true);
-            innerGen.Generate();
+                // Call the loop rule instead of inline loop
+                _parent.WriteLine($"var {_varName} = {loopRuleName}();");
 
-            // If parsing failed, break the loop
-            _parent.WriteLine($"if ({innerVarName} == null)");
-            _parent.WriteLine("{");
-            _parent.Indent();
-            _parent.WriteLine($"_position = _loop_mark; // Reset to before failed attempt");
-            _parent.WriteLine("break;");
-            _parent.Dedent();
-            _parent.WriteLine("}");
+                // CPython 3.12: Loop1 rules return null on failure (0 elements)
+                _parent.WriteLine($"if ({_varName} == null)");
+                _parent.WriteLine("{");
+                _parent.Indent();
+                _parent.WriteLine($"_position = _mark;");
+                _parent.WriteLine($"_res = null;");
+                _parent.WriteLine("break;  // Exit this alternative");
+                _parent.Dedent();
+                _parent.WriteLine("}");
+            }
+            else
+            {
+                // Complex pattern - use inline loop (CPython also does this)
+                _parent.WriteLine($"// One or more: {om.Expression}+ (inline loop for complex pattern)");
 
-            // Add successful result to list
-            _parent.WriteLine($"{_varName}.Add({innerVarName});");
+                string seqType = DetermineSequenceType(om.Expression);
+                _parent.WriteLine($"var {_varName} = new {seqType}();");
 
-            _parent.Dedent();
-            _parent.WriteLine("}");
+                _parent.WriteLine($"while (true)");
+                _parent.WriteLine("{");
+                _parent.Indent();
+                _parent.WriteLine($"int _loop_mark = _position;");
 
-            // CPython 3.12: OneOrMore must have at least one element
-            _parent.WriteLine($"if ({_varName}.Count == 0)");
-            _parent.WriteLine("{");
-            _parent.Indent();
-            _parent.WriteLine($"// One or more requires at least one match");
-            _parent.WriteLine($"_position = _mark;");
-            _parent.WriteLine($"_res = null;");
-            _parent.WriteLine("break;  // Exit this alternative");
-            _parent.Dedent();
-            _parent.WriteLine("}");
+                var innerItem = new Item { Atom = om.Expression, Name = null };
+                var innerVarName = $"_loop_elem_{_varName}";
+                var innerGen = new ItemCodeGenerator(_parent, innerItem, innerVarName, _labelPrefix, insideRepeater: true);
+                innerGen.Generate();
+
+                _parent.WriteLine($"if ({innerVarName} == null)");
+                _parent.WriteLine("{");
+                _parent.Indent();
+                _parent.WriteLine($"_position = _loop_mark;");
+                _parent.WriteLine("break;");
+                _parent.Dedent();
+                _parent.WriteLine("}");
+
+                _parent.WriteLine($"{_varName}.Add({innerVarName});");
+
+                _parent.Dedent();
+                _parent.WriteLine("}");
+
+                // CPython 3.12: OneOrMore must have at least one element
+                _parent.WriteLine($"if ({_varName}.Count == 0)");
+                _parent.WriteLine("{");
+                _parent.Indent();
+                _parent.WriteLine($"_position = _mark;");
+                _parent.WriteLine($"_res = null;");
+                _parent.WriteLine("break;  // Exit this alternative");
+                _parent.Dedent();
+                _parent.WriteLine("}");
+            }
         }
 
         /// <summary>
@@ -538,14 +603,18 @@ namespace SharpPy.PegGenerator.CodeGenerator
             }
 
             // If all alternatives failed, this group fails the rule alternative
-            _parent.WriteLine($"if ({_varName} == null)");
-            _parent.WriteLine("{");
-            _parent.Indent();
-            _parent.WriteLine($"_position = _mark;");
-            _parent.WriteLine($"_res = null;");
-            _parent.WriteLine("break;  // Exit this alternative");
-            _parent.Dedent();
-            _parent.WriteLine("}");
+            // UNLESS we're inside an Optional or Repeater - they will handle the null
+            if (!_insideOptional && !_insideRepeater)
+            {
+                _parent.WriteLine($"if ({_varName} == null)");
+                _parent.WriteLine("{");
+                _parent.Indent();
+                _parent.WriteLine($"_position = _mark;");
+                _parent.WriteLine($"_res = null;");
+                _parent.WriteLine("break;  // Exit this alternative");
+                _parent.Dedent();
+                _parent.WriteLine("}");
+            }
         }
 
         private void GenerateGroupAlternativeItems(Alternative alt, string altVarName, int altIndex)
@@ -1230,6 +1299,71 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             // Default: All AST types derive from GeneratedAstNode
             return "GeneratedAstNode?";
+        }
+
+        /// <summary>
+        /// CPython 3.12: Convert inner expression to a callable pattern string
+        /// Used for loop rule registration
+        /// </summary>
+        private string GetInnerPatternCall(Atom expression)
+        {
+            switch (expression)
+            {
+                case RuleRef ruleRef:
+                    // CPython PEG convention: Uppercase = Token, lowercase = Rule
+                    bool isToken = char.IsUpper(ruleRef.Name[0]);
+
+                    if (isToken)
+                    {
+                        // Token: Use ExpectToken
+                        return $"ExpectToken(GeneratedTokenType.{ruleRef.Name})";
+                    }
+                    else
+                    {
+                        // Rule: Call the rule method - convert snake_case to PascalCase
+                        string methodName = ToPascalCase(ruleRef.Name);
+                        return $"{methodName}()";
+                    }
+
+                case StringLiteral lit:
+                    // Expect the literal string
+                    return $"Expect(\"{lit.Value}\")";
+
+                case Group group:
+                    // CPython 3.12: Groups in loops are common (e.g., ('.' | '...')*)
+                    // We need to generate inline code for the group
+                    // For now, generate a simple call pattern - the actual logic is in the loop rule
+                    // Generate unique variable name based on group content
+                    var groupHash = group.GetHashCode().ToString().Replace("-", "N");
+                    return $"ParseGroupInLoop_{groupHash}()";
+
+                default:
+                    Console.WriteLine($"[WARNING] Unsupported loop inner pattern: {expression.GetType().Name}");
+                    return "/* Unsupported pattern */";
+            }
+        }
+
+        /// <summary>
+        /// Convert snake_case to PascalCase for method names
+        /// </summary>
+        private string ToPascalCase(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return name;
+
+            var parts = name.Split('_');
+            var result = new StringBuilder();
+            foreach (var part in parts)
+            {
+                if (part.Length > 0)
+                {
+                    result.Append(char.ToUpper(part[0]));
+                    if (part.Length > 1)
+                    {
+                        result.Append(part.Substring(1));
+                    }
+                }
+            }
+            return result.ToString();
         }
     }
 }
