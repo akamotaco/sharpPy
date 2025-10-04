@@ -8940,7 +8940,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: except_block+
-                var ex = new GeneratedExceptHandlerSeq();
+                var ex = new GeneratedExcepthandlerSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -9057,7 +9057,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: except_star_block+
-                var ex = new GeneratedExceptHandlerSeq();
+                var ex = new GeneratedExcepthandlerSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -9844,7 +9844,7 @@ namespace SharpPy.Generated
                     values = null; // Optional not present
                 }
                 // Action: _PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, value, values)), Load, EXTRA)
-                _res = _PyAST_Tuple(_PyPegen_seq_insert_in_front(value, values), Load, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Tuple(_PyPegen_seq_insert_in_front(value, values), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -11080,7 +11080,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(real, Add, imag, EXTRA)
-                _res = _PyAST_BinOp(real, Add, imag, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_BinOp(real, GeneratedAdd.Instance, imag, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -11122,7 +11122,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(real, Sub, imag, EXTRA)
-                _res = _PyAST_BinOp(real, Sub, imag, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_BinOp(real, GeneratedSub.Instance, imag, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -11212,7 +11212,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_UnaryOp(USub, number, EXTRA)
-                _res = _PyAST_UnaryOp(USub, number, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_UnaryOp(GeneratedUSub.Instance, number, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -11297,7 +11297,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_UnaryOp(USub, real, EXTRA)
-                _res = _PyAST_UnaryOp(USub, real, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_UnaryOp(GeneratedUSub.Instance, real, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -11534,7 +11534,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_set_expr_context(p, name, Store)
-                _res = _PyPegen_set_expr_context(name, Store);
+                _res = _PyPegen_set_expr_context(name, GeneratedStore.Instance);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11720,7 +11720,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Attribute(value, attr->v.Name.id, Load, EXTRA)
-                _res = _PyAST_Attribute(value, ASTHelpers.ExtractStringValue(attr), Load, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Attribute(value, ASTHelpers.ExtractStringValue(attr), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -11927,7 +11927,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                GeneratedSeq? patterns = _opt_patterns;
+                GeneratedMixedSeq? patterns = _opt_patterns;
                 if (patterns == null)
                 {
                     _position = _opt_mark_patterns; // Reset position
@@ -11977,7 +11977,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                GeneratedSeq? patterns = _opt_patterns;
+                GeneratedMixedSeq? patterns = _opt_patterns;
                 if (patterns == null)
                 {
                     _position = _opt_mark_patterns; // Reset position
@@ -12010,11 +12010,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: open_sequence_pattern from python.gram
-        public GeneratedSeq OpenSequencePattern()
+        public GeneratedMixedSeq OpenSequencePattern()
         {
             // CPython 3.12 PEG: open_sequence_pattern
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedMixedSeq _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -12061,7 +12061,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                GeneratedSeq? patterns = _opt_patterns;
+                GeneratedMixedSeq? patterns = _opt_patterns;
                 if (patterns == null)
                 {
                     _position = _opt_mark_patterns; // Reset position
@@ -12085,11 +12085,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: maybe_sequence_pattern from python.gram
-        public GeneratedSeq MaybeSequencePattern()
+        public GeneratedMixedSeq MaybeSequencePattern()
         {
             // CPython 3.12 PEG: maybe_sequence_pattern
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedMixedSeq _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -12177,7 +12177,7 @@ namespace SharpPy.Generated
                     _tmp0 = null; // Optional not present
                 }
                 // Action: patterns
-                _res = (GeneratedSeq)((GeneratedPtr?)patterns);
+                _res = (GeneratedMixedSeq)((GeneratedPtr?)patterns);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12630,11 +12630,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: items_pattern from python.gram
-        public GeneratedSeq ItemsPattern()
+        public GeneratedMixedSeq ItemsPattern()
         {
             // CPython 3.12 PEG: items_pattern
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedMixedSeq _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -12706,7 +12706,7 @@ namespace SharpPy.Generated
                     _tmp0.Add(_loop_elem__tmp0);
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)_tmp0;
+                _res = (GeneratedMixedSeq)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -13288,11 +13288,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: keyword_patterns from python.gram
-        public GeneratedSeq KeywordPatterns()
+        public GeneratedMixedSeq KeywordPatterns()
         {
             // CPython 3.12 PEG: keyword_patterns
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedMixedSeq _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -13364,7 +13364,7 @@ namespace SharpPy.Generated
                     _tmp0.Add(_loop_elem__tmp0);
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)_tmp0;
+                _res = (GeneratedMixedSeq)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -14176,7 +14176,7 @@ namespace SharpPy.Generated
                     _tmp0 = null; // Optional not present
                 }
                 // Action: _PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, a, b)), Load, EXTRA)
-                _res = _PyAST_Tuple(_PyPegen_seq_insert_in_front(a, b), Load, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Tuple(_PyPegen_seq_insert_in_front(a, b), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -14210,7 +14210,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_singleton_seq(p, a)), Load, EXTRA)
-                _res = _PyAST_Tuple(Load, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Tuple(GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -14674,7 +14674,7 @@ namespace SharpPy.Generated
                     _tmp0 = null; // Optional not present
                 }
                 // Action: _PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, a, b)), Load, EXTRA)
-                _res = _PyAST_Tuple(_PyPegen_seq_insert_in_front(a, b), Load, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Tuple(_PyPegen_seq_insert_in_front(a, b), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -14708,7 +14708,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_singleton_seq(p, a)), Load, EXTRA)
-                _res = _PyAST_Tuple(Load, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Tuple(GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -14799,7 +14799,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Starred(a, Load, EXTRA)
-                _res = _PyAST_Starred(a, Load, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Starred(a, GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -15003,7 +15003,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Starred(a, Load, EXTRA)
-                _res = _PyAST_Starred(a, Load, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Starred(a, GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -15321,7 +15321,7 @@ namespace SharpPy.Generated
                 //   Or,
                 //   CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, a, b)),
                 //   EXTRA)
-                _res = _PyAST_BoolOp(Or, _PyPegen_seq_insert_in_front(a, b), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_BoolOp(GeneratedOr.Instance, _PyPegen_seq_insert_in_front(a, b), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -15449,7 +15449,7 @@ namespace SharpPy.Generated
                 //   And,
                 //   CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, a, b)),
                 //   EXTRA)
-                _res = _PyAST_BoolOp(And, _PyPegen_seq_insert_in_front(a, b), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_BoolOp(GeneratedAnd.Instance, _PyPegen_seq_insert_in_front(a, b), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -15540,7 +15540,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_UnaryOp(Not, a, EXTRA)
-                _res = _PyAST_UnaryOp(Not, a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_UnaryOp(GeneratedNot.Instance, a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -16650,7 +16650,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, BitOr, b, EXTRA)
-                _res = _PyAST_BinOp(a, BitOr, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_BinOp(a, GeneratedBitOr.Instance, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -16749,7 +16749,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, BitXor, b, EXTRA)
-                _res = _PyAST_BinOp(a, BitXor, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_BinOp(a, GeneratedBitXor.Instance, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -16848,7 +16848,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, BitAnd, b, EXTRA)
-                _res = _PyAST_BinOp(a, BitAnd, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_BinOp(a, GeneratedBitAnd.Instance, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -16947,7 +16947,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, LShift, b, EXTRA)
-                _res = _PyAST_BinOp(a, LShift, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_BinOp(a, GeneratedLShift.Instance, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -16989,7 +16989,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, RShift, b, EXTRA)
-                _res = _PyAST_BinOp(a, RShift, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_BinOp(a, GeneratedRShift.Instance, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -17088,7 +17088,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, Add, b, EXTRA)
-                _res = _PyAST_BinOp(a, Add, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_BinOp(a, GeneratedAdd.Instance, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -17130,7 +17130,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, Sub, b, EXTRA)
-                _res = _PyAST_BinOp(a, Sub, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_BinOp(a, GeneratedSub.Instance, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -17229,7 +17229,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, Mult, b, EXTRA)
-                _res = _PyAST_BinOp(a, Mult, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_BinOp(a, GeneratedMult.Instance, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -17271,7 +17271,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, Div, b, EXTRA)
-                _res = _PyAST_BinOp(a, Div, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_BinOp(a, GeneratedDiv.Instance, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -17313,7 +17313,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, FloorDiv, b, EXTRA)
-                _res = _PyAST_BinOp(a, FloorDiv, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_BinOp(a, GeneratedFloorDiv.Instance, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -17355,7 +17355,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, Mod, b, EXTRA)
-                _res = _PyAST_BinOp(a, Mod, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_BinOp(a, GeneratedMod.Instance, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -17488,7 +17488,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_UnaryOp(UAdd, a, EXTRA)
-                _res = _PyAST_UnaryOp(UAdd, a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_UnaryOp(GeneratedUAdd.Instance, a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -17522,7 +17522,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_UnaryOp(USub, a, EXTRA)
-                _res = _PyAST_UnaryOp(USub, a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_UnaryOp(GeneratedUSub.Instance, a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -17556,7 +17556,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_UnaryOp(Invert, a, EXTRA)
-                _res = _PyAST_UnaryOp(Invert, a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_UnaryOp(GeneratedInvert.Instance, a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -17649,7 +17649,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, Pow, b, EXTRA)
-                _res = _PyAST_BinOp(a, Pow, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_BinOp(a, GeneratedPow.Instance, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -17843,7 +17843,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Attribute(a, b->v.Name.id, Load, EXTRA)
-                _res = _PyAST_Attribute(a, ASTHelpers.ExtractStringValue(b), Load, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Attribute(a, ASTHelpers.ExtractStringValue(b), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -17999,7 +17999,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Subscript(a, b, Load, EXTRA)
-                _res = _PyAST_Subscript(a, b, Load, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Subscript(a, b, GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -18219,7 +18219,7 @@ namespace SharpPy.Generated
                     _tmp0 = null; // Optional not present
                 }
                 // Action: _PyAST_Tuple(a, Load, EXTRA)
-                _res = _PyAST_Tuple(a, Load, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Tuple(a, GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -21313,7 +21313,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_List(a, Load, EXTRA)
-                _res = _PyAST_List(a, Load, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_List(a, GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -21432,7 +21432,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Tuple(a, Load, EXTRA)
-                _res = _PyAST_Tuple(a, Load, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Tuple(a, GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -21554,12 +21554,12 @@ namespace SharpPy.Generated
                 // Optional: [(double_starred_kvpairs)]
                 int _opt_mark_a = _position;
                 // Group: (double_starred_kvpairs)
-                GeneratedSeq? _opt_a = null;
+                GeneratedMixedSeq? _opt_a = null;
                 int _group_mark__opt_a = _position;
                 // Try group alternative 1: double_starred_kvpairs
                 {
                     _position = _group_mark__opt_a;
-                    GeneratedSeq _group_alt0__opt_a_item0 = DoubleStarredKvpairs();
+                    GeneratedMixedSeq _group_alt0__opt_a_item0 = DoubleStarredKvpairs();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -21571,7 +21571,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                GeneratedSeq? a = _opt_a;
+                GeneratedMixedSeq? a = _opt_a;
                 if (a == null)
                 {
                     _position = _opt_mark_a; // Reset position
@@ -21654,11 +21654,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: double_starred_kvpairs from python.gram
-        public GeneratedSeq DoubleStarredKvpairs()
+        public GeneratedMixedSeq DoubleStarredKvpairs()
         {
             // CPython 3.12 PEG: double_starred_kvpairs
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedMixedSeq _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -21756,7 +21756,7 @@ namespace SharpPy.Generated
                     _tmp0 = null; // Optional not present
                 }
                 // Action: a
-                _res = (GeneratedSeq)((GeneratedPtr?)a);
+                _res = (GeneratedMixedSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23044,7 +23044,7 @@ namespace SharpPy.Generated
                 // Optional: [(',' k=kwargs { k })]
                 int _opt_mark_b = _position;
                 // Group: (',' k=kwargs { k })
-                GeneratedSeq? _opt_b = null;
+                GeneratedMixedSeq? _opt_b = null;
                 int _group_mark__opt_b = _position;
                 // Try group alternative 1: ',' k=kwargs { k }
                 {
@@ -23052,7 +23052,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__opt_b_item0 = Expect(",");
                     if (_group_alt0__opt_b_item0 != null)
                     {
-                        GeneratedSeq _group_alt0__opt_b_item1 = Kwargs();
+                        GeneratedMixedSeq _group_alt0__opt_b_item1 = Kwargs();
                         if (_group_alt0__opt_b_item1 != null)
                         {
                             _opt_b = _group_alt0__opt_b_item1;
@@ -23065,7 +23065,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                GeneratedSeq? b = _opt_b;
+                GeneratedMixedSeq? b = _opt_b;
                 if (b == null)
                 {
                     _position = _opt_mark_b; // Reset position
@@ -23120,11 +23120,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: kwargs from python.gram
-        public GeneratedSeq Kwargs()
+        public GeneratedMixedSeq Kwargs()
         {
             // CPython 3.12 PEG: kwargs
             int _mark = _position;
-            GeneratedSeq _res = null;
+            GeneratedMixedSeq _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -23255,7 +23255,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyPegen_join_sequences(p, a, b)
                 // Unknown AST function: _PyPegen_join_sequences
-                _res = default(GeneratedSeq);
+                _res = default(GeneratedMixedSeq);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23322,7 +23322,7 @@ namespace SharpPy.Generated
                     _tmp0.Add(_loop_elem__tmp0);
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)_tmp0;
+                _res = (GeneratedMixedSeq)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -23389,7 +23389,7 @@ namespace SharpPy.Generated
                     _tmp0.Add(_loop_elem__tmp0);
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq)_tmp0;
+                _res = (GeneratedMixedSeq)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -23478,7 +23478,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Starred(a, Load, EXTRA)
-                _res = _PyAST_Starred(a, Load, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Starred(a, GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -23914,7 +23914,7 @@ namespace SharpPy.Generated
                     _tmp0 = null; // Optional not present
                 }
                 // Action: _PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, a, b)), Store, EXTRA)
-                _res = _PyAST_Tuple(_PyPegen_seq_insert_in_front(a, b), Store, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Tuple(_PyPegen_seq_insert_in_front(a, b), GeneratedStore.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -24275,7 +24275,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Starred(CHECK(expr_ty, _PyPegen_set_expr_context(p, a, Store)), Store, EXTRA)
-                _res = _PyAST_Starred(_PyPegen_set_expr_context(a, Store), Store, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Starred(_PyPegen_set_expr_context(a, GeneratedStore.Instance), GeneratedStore.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -24386,7 +24386,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Attribute(a, b->v.Name.id, Store, EXTRA)
-                _res = _PyAST_Attribute(a, ASTHelpers.ExtractStringValue(b), Store, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Attribute(a, ASTHelpers.ExtractStringValue(b), GeneratedStore.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -24446,7 +24446,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Subscript(a, b, Store, EXTRA)
-                _res = _PyAST_Subscript(a, b, Store, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Subscript(a, b, GeneratedStore.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -24525,7 +24525,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_set_expr_context(p, a, Store)
-                _res = _PyPegen_set_expr_context(a, Store);
+                _res = _PyPegen_set_expr_context(a, GeneratedStore.Instance);
                 if (_res != null) goto done;
             } while (false);
 
@@ -24566,7 +24566,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_set_expr_context(p, a, Store)
-                _res = _PyPegen_set_expr_context(a, Store);
+                _res = _PyPegen_set_expr_context(a, GeneratedStore.Instance);
                 if (_res != null) goto done;
             } while (false);
 
@@ -24625,7 +24625,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Tuple(a, Store, EXTRA)
-                _res = _PyAST_Tuple(a, Store, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Tuple(a, GeneratedStore.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -24685,7 +24685,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_List(a, Store, EXTRA)
-                _res = _PyAST_List(a, Store, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_List(a, GeneratedStore.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -24764,7 +24764,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_set_expr_context(p, a, Store)
-                _res = _PyPegen_set_expr_context(a, Store);
+                _res = _PyPegen_set_expr_context(a, GeneratedStore.Instance);
                 if (_res != null) goto done;
             } while (false);
 
@@ -24884,7 +24884,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Attribute(a, b->v.Name.id, Store, EXTRA)
-                _res = _PyAST_Attribute(a, ASTHelpers.ExtractStringValue(b), Store, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Attribute(a, ASTHelpers.ExtractStringValue(b), GeneratedStore.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -24944,7 +24944,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Subscript(a, b, Store, EXTRA)
-                _res = _PyAST_Subscript(a, b, Store, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Subscript(a, b, GeneratedStore.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -25024,7 +25024,7 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for RuleRef
                 _position = _lookahead_mark_64; // Restore position
                 // Action: _PyAST_Attribute(a, b->v.Name.id, Load, EXTRA)
-                _res = _PyAST_Attribute(a, ASTHelpers.ExtractStringValue(b), Load, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Attribute(a, ASTHelpers.ExtractStringValue(b), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -25078,7 +25078,7 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for RuleRef
                 _position = _lookahead_mark_65; // Restore position
                 // Action: _PyAST_Subscript(a, b, Load, EXTRA)
-                _res = _PyAST_Subscript(a, b, Load, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Subscript(a, b, GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -25527,7 +25527,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Attribute(a, b->v.Name.id, Del, EXTRA)
-                _res = _PyAST_Attribute(a, ASTHelpers.ExtractStringValue(b), Del, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Attribute(a, ASTHelpers.ExtractStringValue(b), GeneratedDel.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -25587,7 +25587,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Subscript(a, b, Del, EXTRA)
-                _res = _PyAST_Subscript(a, b, Del, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Subscript(a, b, GeneratedDel.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -25666,7 +25666,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_set_expr_context(p, a, Del)
-                _res = _PyPegen_set_expr_context(a, Del);
+                _res = _PyPegen_set_expr_context(a, GeneratedDel.Instance);
                 if (_res != null) goto done;
             } while (false);
 
@@ -25707,7 +25707,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_set_expr_context(p, a, Del)
-                _res = _PyPegen_set_expr_context(a, Del);
+                _res = _PyPegen_set_expr_context(a, GeneratedDel.Instance);
                 if (_res != null) goto done;
             } while (false);
 
@@ -25766,7 +25766,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Tuple(a, Del, EXTRA)
-                _res = _PyAST_Tuple(a, Del, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Tuple(a, GeneratedDel.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -25826,7 +25826,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_List(a, Del, EXTRA)
-                _res = _PyAST_List(a, Del, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_List(a, GeneratedDel.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -26516,13 +26516,13 @@ namespace SharpPy.Generated
                 }
 
                 // Group: ((','.(starred_expression | (assignment_expression | expression !':=') !'=')+ ',' kwargs) | kwargs)
-                GeneratedSeq? _tmp0 = null;
+                GeneratedMixedSeq? _tmp0 = null;
                 int _group_mark__tmp0 = _position;
                 // Try group alternative 1: (','.(starred_expression | (assignment_expression | expression !':=') !'=')+ ',' kwargs)
                 {
                     _position = _group_mark__tmp0;
                     // Group: (','.(starred_expression | (assignment_expression | expression !':=') !'=')+ ',' kwargs)
-                    GeneratedSeq? _group_alt0__tmp0_item0 = null;
+                    GeneratedMixedSeq? _group_alt0__tmp0_item0 = null;
                     int _group_mark__group_alt0__tmp0_item0 = _position;
                     // Try group alternative 1: ','.(starred_expression | (assignment_expression | expression !':=') !'=')+ ',' kwargs
                     {
@@ -26736,7 +26736,7 @@ namespace SharpPy.Generated
                             GeneratedTokenInfo? _group_alt0__group_alt0__tmp0_item0_item1 = Expect(",");
                             if (_group_alt0__group_alt0__tmp0_item0_item1 != null)
                             {
-                                GeneratedSeq _group_alt0__group_alt0__tmp0_item0_item2 = Kwargs();
+                                GeneratedMixedSeq _group_alt0__group_alt0__tmp0_item0_item2 = Kwargs();
                                 if (_group_alt0__group_alt0__tmp0_item0_item2 != null)
                                 {
                                     _group_alt0__tmp0_item0 = _group_alt0__group_alt0__tmp0_item0_item2;
@@ -26759,7 +26759,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _group_mark__tmp0;
-                    GeneratedSeq _group_alt1__tmp0_item0 = Kwargs();
+                    GeneratedMixedSeq _group_alt1__tmp0_item0 = Kwargs();
                     if (_group_alt1__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt1__tmp0_item0;
@@ -32766,7 +32766,7 @@ namespace SharpPy.Generated
                 }
                 // Collected _tmp2.Count items (may be 0)
                 // One or more: except_block+
-                var _tmp3 = new GeneratedExceptHandlerSeq();
+                var _tmp3 = new GeneratedExcepthandlerSeq();
                 while (true)
                 {
                     int _loop_mark = _position;
@@ -32874,7 +32874,7 @@ namespace SharpPy.Generated
                 }
                 // Collected _tmp2.Count items (may be 0)
                 // One or more: except_star_block+
-                var _tmp3 = new GeneratedExceptHandlerSeq();
+                var _tmp3 = new GeneratedExcepthandlerSeq();
                 while (true)
                 {
                     int _loop_mark = _position;

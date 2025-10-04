@@ -1030,7 +1030,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
                 case "excepthandler_ty":
                 case "GeneratedExceptHandler":
-                    return "GeneratedExceptHandlerSeq";
+                    return "GeneratedExcepthandlerSeq";
 
                 case "withitem_ty":
                 case "GeneratedWithitem":

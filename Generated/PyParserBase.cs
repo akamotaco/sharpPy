@@ -21,7 +21,7 @@ namespace SharpPy.Generated
         protected List<GeneratedTokenInfo> _tokens;
         protected int _position = 0;  // CPython: mark
         protected string _filename;
-        protected Exception? _pendingSyntaxError = null;
+        protected string? _pendingSyntaxError = null;
         protected int _pendingErrorPosition = -1;
         protected bool _callInvalidRules = true;
         protected Dictionary<string, Dictionary<int, object?>> _memoCache = new();

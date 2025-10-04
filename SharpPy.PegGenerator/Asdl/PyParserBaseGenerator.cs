@@ -68,7 +68,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("protected List<GeneratedTokenInfo> _tokens;");
             WriteLine("protected int _position = 0;  // CPython: mark");
             WriteLine("protected string _filename;");
-            WriteLine("protected Exception? _pendingSyntaxError = null;");
+            WriteLine("protected string? _pendingSyntaxError = null;");
             WriteLine("protected int _pendingErrorPosition = -1;");
             WriteLine("protected bool _callInvalidRules = true;");
             WriteLine("protected Dictionary<string, Dictionary<int, object?>> _memoCache = new();");

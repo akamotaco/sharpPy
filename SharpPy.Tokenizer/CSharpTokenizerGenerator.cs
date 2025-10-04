@@ -117,8 +117,9 @@ namespace SharpPy.Tokenizer
             // Generate GeneratedTokenInfo implementing ITokenInfo
             WriteLine("/// <summary>");
             WriteLine("/// CPython 3.12 compatible token info");
+            WriteLine("/// Inherits GeneratedPtr for void* compatibility");
             WriteLine("/// </summary>");
-            WriteLine("public class GeneratedTokenInfo : ITokenInfo");
+            WriteLine("public class GeneratedTokenInfo : GeneratedPtr, ITokenInfo");
             WriteLine("{");
             Indent();
 

@@ -243,11 +243,15 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 expr == "_end_lineno" || expr == "_end_col_offset")
                 return expr;
 
-            // CPython constants: Or, And, Eq, Lt, Gt, etc. - keep as-is
-            var constants = new[] { "Or", "And", "Eq", "NotEq", "Lt", "LtE", "Gt", "GtE",
-                                   "Is", "IsNot", "In", "NotIn", "Load", "Store", "Del" };
-            if (constants.Contains(expr))
-                return expr;
+            // CPython constants: Or, And, Eq, Lt, Gt, etc. - singleton pattern
+            // CPython 3.12: These are singleton types, use .Instance
+            var singletons = new[] { "Or", "And", "Eq", "NotEq", "Lt", "LtE", "Gt", "GtE",
+                                   "Is", "IsNot", "In", "NotIn", "Load", "Store", "Del",
+                                   "Add", "Sub", "Mult", "MatMult", "Div", "Mod", "Pow",
+                                   "LShift", "RShift", "BitOr", "BitXor", "BitAnd", "FloorDiv",
+                                   "Invert", "Not", "UAdd", "USub" };
+            if (singletons.Contains(expr))
+                return $"Generated{expr}.Instance";
 
             // CPython ternary operator with complex expressions - CHECK BEFORE field access
             // This must come BEFORE the ->v. check because ternary may contain ->v.
@@ -651,7 +655,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     return "GeneratedArgSeq";
 
                 case "asdl_excepthandler_seq":
-                    return "GeneratedExceptHandlerSeq";
+                    return "GeneratedExcepthandlerSeq";
 
                 case "asdl_withitem_seq":
                     return "GeneratedWithitemSeq";

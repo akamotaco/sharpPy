@@ -108,8 +108,9 @@ namespace SharpPy.Generated
 
     /// <summary>
     /// CPython 3.12 compatible token info
+    /// Inherits GeneratedPtr for void* compatibility
     /// </summary>
-    public class GeneratedTokenInfo : ITokenInfo
+    public class GeneratedTokenInfo : GeneratedPtr, ITokenInfo
     {
         public GeneratedTokenType Type { get; set; }
         public string Value { get; set; } = "";

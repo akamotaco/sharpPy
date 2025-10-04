@@ -201,6 +201,14 @@ namespace SharpPy.PegGenerator.Asdl
                 }
             }
 
+            // Base class for all sequence types - CPython void* compatibility
+            WriteLine("/// <summary>");
+            WriteLine("/// Base class for all sequence types");
+            WriteLine("/// CPython 3.12: All asdl_seq types inherit from this for void* compatibility");
+            WriteLine("/// </summary>");
+            WriteLine("public abstract class GeneratedSeq : GeneratedPtr { }");
+            WriteLine();
+
             foreach (var typeName in typeNames.OrderBy(x => x))
             {
                 var pascalName = ToPascalCase(typeName);
@@ -211,16 +219,35 @@ namespace SharpPy.PegGenerator.Asdl
 
                 WriteLine($"/// <summary>");
                 WriteLine($"/// Sequence of {typeName} - CPython: asdl_{typeName}_seq");
-                WriteLine($"/// C# GC optimized: List<T> with Empty singleton");
+                WriteLine($"/// C# GC optimized: List<T> with GeneratedSeq inheritance");
                 WriteLine($"/// </summary>");
-                WriteLine($"public class {seqClassName} : List<{itemType}>");
+                WriteLine($"public class {seqClassName} : GeneratedSeq, System.Collections.Generic.IList<{itemType}>");
                 WriteLine("{");
                 _indentLevel++;
+                WriteLine($"private readonly List<{itemType}> _items = new();");
                 WriteLine($"public static readonly {seqClassName} Empty = new();");
                 WriteLine();
                 WriteLine($"public {seqClassName}() {{ }}");
-                WriteLine($"public {seqClassName}(int capacity) : base(capacity) {{ }}");
-                WriteLine($"public {seqClassName}(IEnumerable<{itemType}> collection) : base(collection) {{ }}");
+                WriteLine($"public {seqClassName}(int capacity) {{ _items = new List<{itemType}>(capacity); }}");
+                WriteLine($"public {seqClassName}(IEnumerable<{itemType}> collection) {{ _items = new List<{itemType}>(collection); }}");
+                WriteLine();
+                WriteLine($"// IList<T> implementation");
+                WriteLine($"public {itemType} this[int index] {{ get => _items[index]; set => _items[index] = value; }}");
+                WriteLine($"public int Count => _items.Count;");
+                WriteLine($"public bool IsReadOnly => false;");
+                WriteLine($"public void Add({itemType} item) => _items.Add(item);");
+                WriteLine($"public void Clear() => _items.Clear();");
+                WriteLine($"public bool Contains({itemType} item) => _items.Contains(item);");
+                WriteLine($"public void CopyTo({itemType}[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);");
+                WriteLine($"public System.Collections.Generic.IEnumerator<{itemType}> GetEnumerator() => _items.GetEnumerator();");
+                WriteLine($"System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();");
+                WriteLine($"public int IndexOf({itemType} item) => _items.IndexOf(item);");
+                WriteLine($"public void Insert(int index, {itemType} item) => _items.Insert(index, item);");
+                WriteLine($"public bool Remove({itemType} item) => _items.Remove(item);");
+                WriteLine($"public void RemoveAt(int index) => _items.RemoveAt(index);");
+                WriteLine();
+                WriteLine($"// Additional List<T> methods for compatibility");
+                WriteLine($"public void AddRange(System.Collections.Generic.IEnumerable<{itemType}> collection) => _items.AddRange(collection);");
                 _indentLevel--;
                 WriteLine("}");
                 WriteLine();
@@ -306,16 +333,37 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("}");
             WriteLine();
 
-            // GeneratedSeq (non-generic) - object list
+            // GeneratedMixedSeq (non-generic) - GeneratedPtr list
             WriteLine("/// <summary>");
-            WriteLine("/// Non-generic sequence for mixed types");
+            WriteLine("/// Non-generic sequence for mixed types - parser intermediate");
+            WriteLine("/// CPython 3.12: asdl_seq* equivalent - no boxing/unboxing");
             WriteLine("/// </summary>");
-            WriteLine("public class GeneratedSeq : List<object>");
+            WriteLine("public class GeneratedMixedSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedPtr>");
             WriteLine("{");
             _indentLevel++;
-            WriteLine("public GeneratedSeq() { }");
-            WriteLine("public GeneratedSeq(int capacity) : base(capacity) { }");
-            WriteLine("public GeneratedSeq(IEnumerable<object> collection) : base(collection) { }");
+            WriteLine("private readonly List<GeneratedPtr> _items = new();");
+            WriteLine();
+            WriteLine("public GeneratedMixedSeq() { }");
+            WriteLine("public GeneratedMixedSeq(int capacity) { _items = new List<GeneratedPtr>(capacity); }");
+            WriteLine("public GeneratedMixedSeq(IEnumerable<GeneratedPtr> collection) { _items = new List<GeneratedPtr>(collection); }");
+            WriteLine();
+            WriteLine("// IList<GeneratedPtr> implementation");
+            WriteLine("public GeneratedPtr this[int index] { get => _items[index]; set => _items[index] = value; }");
+            WriteLine("public int Count => _items.Count;");
+            WriteLine("public bool IsReadOnly => false;");
+            WriteLine("public void Add(GeneratedPtr item) => _items.Add(item);");
+            WriteLine("public void Clear() => _items.Clear();");
+            WriteLine("public bool Contains(GeneratedPtr item) => _items.Contains(item);");
+            WriteLine("public void CopyTo(GeneratedPtr[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);");
+            WriteLine("public System.Collections.Generic.IEnumerator<GeneratedPtr> GetEnumerator() => _items.GetEnumerator();");
+            WriteLine("System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();");
+            WriteLine("public int IndexOf(GeneratedPtr item) => _items.IndexOf(item);");
+            WriteLine("public void Insert(int index, GeneratedPtr item) => _items.Insert(index, item);");
+            WriteLine("public bool Remove(GeneratedPtr item) => _items.Remove(item);");
+            WriteLine("public void RemoveAt(int index) => _items.RemoveAt(index);");
+            WriteLine();
+            WriteLine("// Additional List<T> methods for compatibility");
+            WriteLine("public void AddRange(System.Collections.Generic.IEnumerable<GeneratedPtr> collection) => _items.AddRange(collection);");
             _indentLevel--;
             WriteLine("}");
             WriteLine();
@@ -323,15 +371,35 @@ namespace SharpPy.PegGenerator.Asdl
             // GeneratedAstNodeSeq - AST node list
             WriteLine("/// <summary>");
             WriteLine("/// Sequence of GeneratedAstNode for mixed AST types");
+            WriteLine("/// CPython 3.12: Used for sequences that can contain any AST node type");
             WriteLine("/// </summary>");
-            WriteLine("public class GeneratedAstNodeSeq : List<GeneratedAstNode>");
+            WriteLine("public class GeneratedAstNodeSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedAstNode>");
             WriteLine("{");
             _indentLevel++;
+            WriteLine("private readonly List<GeneratedAstNode> _items = new();");
             WriteLine("public static readonly GeneratedAstNodeSeq Empty = new();");
             WriteLine();
             WriteLine("public GeneratedAstNodeSeq() { }");
-            WriteLine("public GeneratedAstNodeSeq(int capacity) : base(capacity) { }");
-            WriteLine("public GeneratedAstNodeSeq(IEnumerable<GeneratedAstNode> collection) : base(collection) { }");
+            WriteLine("public GeneratedAstNodeSeq(int capacity) { _items = new List<GeneratedAstNode>(capacity); }");
+            WriteLine("public GeneratedAstNodeSeq(IEnumerable<GeneratedAstNode> collection) { _items = new List<GeneratedAstNode>(collection); }");
+            WriteLine();
+            WriteLine("// IList<GeneratedAstNode> implementation");
+            WriteLine("public GeneratedAstNode this[int index] { get => _items[index]; set => _items[index] = value; }");
+            WriteLine("public int Count => _items.Count;");
+            WriteLine("public bool IsReadOnly => false;");
+            WriteLine("public void Add(GeneratedAstNode item) => _items.Add(item);");
+            WriteLine("public void Clear() => _items.Clear();");
+            WriteLine("public bool Contains(GeneratedAstNode item) => _items.Contains(item);");
+            WriteLine("public void CopyTo(GeneratedAstNode[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);");
+            WriteLine("public System.Collections.Generic.IEnumerator<GeneratedAstNode> GetEnumerator() => _items.GetEnumerator();");
+            WriteLine("System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();");
+            WriteLine("public int IndexOf(GeneratedAstNode item) => _items.IndexOf(item);");
+            WriteLine("public void Insert(int index, GeneratedAstNode item) => _items.Insert(index, item);");
+            WriteLine("public bool Remove(GeneratedAstNode item) => _items.Remove(item);");
+            WriteLine("public void RemoveAt(int index) => _items.RemoveAt(index);");
+            WriteLine();
+            WriteLine("// Additional List<T> methods for compatibility");
+            WriteLine("public void AddRange(System.Collections.Generic.IEnumerable<GeneratedAstNode> collection) => _items.AddRange(collection);");
             _indentLevel--;
             WriteLine("}");
             WriteLine();
