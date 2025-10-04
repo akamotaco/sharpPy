@@ -389,6 +389,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("using System.Collections.Generic;");
             WriteLine("using System.Linq;");
             WriteLine();
+            WriteLine("using static SharpPy.Generated.PegenHelpers;");
+            WriteLine("using static SharpPy.Generated.AstFactory;");
+            WriteLine();
         }
 
         // GenerateTokenEnum method removed - tokens now generated in tokenizer only

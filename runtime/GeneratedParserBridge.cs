@@ -106,11 +106,11 @@ namespace SharpPy
             // Use pattern matching with concrete types instead of string-based type checks
             switch (stmt)
             {
-                case GeneratedPassStmt:
+                case GeneratedPass:
                     // Pass statement - represented as expression statement with None
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
-                case GeneratedBreakStmt:
+                case GeneratedBreak:
                     // Break statement - only valid inside loops
                     if (!insideLoop)
                     {
@@ -118,7 +118,7 @@ namespace SharpPy
                     }
                     return new BreakStatement();
 
-                case GeneratedContinueStmt:
+                case GeneratedContinue:
                     // Continue statement - only valid inside loops
                     if (!insideLoop)
                     {

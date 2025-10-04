@@ -53,13 +53,29 @@ namespace SharpPy.Tokenizer
             WriteLine("{");
             Indent();
 
-            // GeneratedPtr is now defined in GeneratedAstTypes.cs
+            GenerateGeneratedPtrClass(); // CPython 3.12: void* equivalent base class
             GenerateTokenTypeEnum(); // Generate enum from Grammar/Tokens
             GenerateTokenInfoClass();
             GenerateGeneratedTokenizerClass();
 
             Dedent();
             WriteLine("}"); // Close namespace
+        }
+
+        private void GenerateGeneratedPtrClass()
+        {
+            WriteLine("/// <summary>");
+            WriteLine("/// CPython 3.12: Equivalent of C's void* - base class for all generated types");
+            WriteLine("/// This replaces object type usage to maintain type safety");
+            WriteLine("/// All AST nodes, tokens, and helper types inherit from this");
+            WriteLine("/// </summary>");
+            WriteLine("public abstract class GeneratedPtr");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Minimal base class - just provides type hierarchy");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
         }
 
         private void GenerateTokenTypeEnum()
@@ -110,17 +126,21 @@ namespace SharpPy.Tokenizer
             WriteLine("public string Value { get; set; } = \"\";");
             WriteLine("public int Line { get; set; }");
             WriteLine("public int Column { get; set; }");
+            WriteLine("public int EndLine { get; set; }");
+            WriteLine("public int EndColumn { get; set; }");
             WriteLine("public int Start { get; set; }");
             WriteLine("public int End { get; set; }");
             WriteLine();
 
-            WriteLine("public GeneratedTokenInfo(GeneratedTokenType type, string value, int line, int column, int start = 0, int end = 0)");
+            WriteLine("public GeneratedTokenInfo(GeneratedTokenType type, string value, int line, int column, int start = 0, int end = 0, int endLine = 0, int endColumn = 0)");
             WriteLine("{");
             Indent();
             WriteLine("Type = type;");
             WriteLine("Value = value;");
             WriteLine("Line = line;");
             WriteLine("Column = column;");
+            WriteLine("EndLine = endLine == 0 ? line : endLine;");
+            WriteLine("EndColumn = endColumn == 0 ? column : endColumn;");
             WriteLine("Start = start;");
             WriteLine("End = end;");
             Dedent();

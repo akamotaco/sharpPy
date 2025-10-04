@@ -119,10 +119,26 @@ namespace SharpPy.PegGenerator.Asdl
                 else
                 {
                     // Sum type: 일반 constructor
-                    var constructor = ParseConstructor(constructorStr);
-                    if (constructor != null)
+                    // CPython 3.12: 한 줄에 여러 singleton (Load | Store | Del)
+                    if (!constructorStr.Contains("("))
                     {
-                        type.Constructors.Add(constructor);
+                        var singletons = constructorStr.Split('|', StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var singleton in singletons)
+                        {
+                            var singletonConstructor = ParseConstructor(singleton.Trim());
+                            if (singletonConstructor != null)
+                            {
+                                type.Constructors.Add(singletonConstructor);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var constructor = ParseConstructor(constructorStr);
+                        if (constructor != null)
+                        {
+                            type.Constructors.Add(constructor);
+                        }
                     }
                 }
             }
@@ -151,10 +167,29 @@ namespace SharpPy.PegGenerator.Asdl
                 // | 제거하고 생성자 파싱 (다중 라인 가능)
                 var constructorStart = line.TrimStart().Substring(1).Trim();
                 var constructorStr = CollectConstructorLines(constructorStart);
-                var constructor = ParseConstructor(constructorStr);
-                if (constructor != null)
+
+                // CPython 3.12: 한 줄에 여러 singleton이 있을 수 있음 (| Pass | Break | Continue)
+                // 괄호가 없으면 | 로 split
+                if (!constructorStr.Contains("("))
                 {
-                    type.Constructors.Add(constructor);
+                    var singletons = constructorStr.Split('|', StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var singleton in singletons)
+                    {
+                        var singletonConstructor = ParseConstructor(singleton.Trim());
+                        if (singletonConstructor != null)
+                        {
+                            type.Constructors.Add(singletonConstructor);
+                        }
+                    }
+                }
+                else
+                {
+                    // 괄호가 있으면 하나의 constructor
+                    var constructor = ParseConstructor(constructorStr);
+                    if (constructor != null)
+                    {
+                        type.Constructors.Add(constructor);
+                    }
                 }
 
                 _lineIndex++;

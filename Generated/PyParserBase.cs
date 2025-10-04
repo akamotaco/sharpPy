@@ -1,0 +1,1787 @@
+// Generated PyParserBase from Python.asdl
+// CPython 3.12 compatible - Auto-generated, DO NOT EDIT
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using SharpPy.Tokenizer;
+
+namespace SharpPy.Generated
+{
+    // ============================================================
+    // PyParserBase - Base parser class
+    // ============================================================
+
+    /// <summary>
+    /// Base class for generated parser - provides common parsing logic
+    /// CPython 3.12: Parser/pegen.c equivalent
+    /// </summary>
+    public abstract class PyParserBase<TResult>
+    {
+        protected List<GeneratedTokenInfo> _tokens;
+        protected int _position = 0;  // CPython: mark
+        protected string _filename;
+        protected Exception? _pendingSyntaxError = null;
+        protected int _pendingErrorPosition = -1;
+        protected bool _callInvalidRules = true;
+        protected Dictionary<string, Dictionary<int, object?>> _memoCache = new();
+
+        // CPython Parser fields for recursion and error tracking
+        protected int _level = 0;  // Nesting depth for recursion limit
+        protected GeneratedTokenInfo? _knownErrToken = null;  // Error location tracking
+        protected int _errorIndicator = 0;  // Error state flag
+        protected const int MAX_RECURSION_DEPTH = 1000;  // Python's recursion limit
+
+        protected PyParserBase(List<GeneratedTokenInfo> tokens, string filename)
+        {
+            _tokens = tokens;
+            _filename = filename;
+        }
+
+        protected GeneratedTokenInfo? CurrentToken
+        {
+            get => _position < _tokens.Count ? _tokens[_position] : null;
+        }
+
+        public abstract TResult Parse();
+
+        protected virtual GeneratedModule ParseFile()
+        {
+            // Override in generated parser
+            throw new NotImplementedException("ParseFile must be overridden");
+        }
+
+        protected GeneratedTokenInfo? ExpectToken(GeneratedTokenType type)
+        {
+            var token = CurrentToken;
+            if (token != null && token.Type == type)
+            {
+                _position++;
+                return token;
+            }
+            return null;
+        }
+
+        protected GeneratedTokenInfo? Expect(GeneratedTokenType type, string value)
+        {
+            var token = CurrentToken;
+            if (token != null && token.Type == type && token.Value == value)
+            {
+                _position++;
+                return token;
+            }
+            return null;
+        }
+
+        protected GeneratedTokenInfo? ExpectName()
+        {
+            var token = CurrentToken;
+            if (token != null && token.Type == GeneratedTokenType.NAME)
+            {
+                _position++;
+                return token;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Handle left-recursive rules using memoization
+        /// CPython 3.12: Implements Warth et al. 'Packrat Parsers Can Support Left Recursion'
+        /// </summary>
+        protected T? TryLeftRecursive<T>(string ruleName, Func<T?> ruleFunc) where T : class
+        {
+            // Check recursion depth
+            if (_level >= MAX_RECURSION_DEPTH)
+            {
+                throw new StackOverflowException($"Maximum recursion depth exceeded in rule {ruleName}");
+            }
+
+            _level++;
+            try
+            {
+                // Simple implementation - call rule directly
+                // TODO: Full memoization with left-recursion handling
+                return ruleFunc();
+            }
+            finally
+            {
+                _level--;
+            }
+        }
+
+        /// <summary>
+        /// Convert NAME token to AST Name expression
+        /// CPython 3.12: Used in grammar actions
+        /// </summary>
+        protected GeneratedName? NameToken(GeneratedTokenInfo? token)
+        {
+            if (token == null) return null;
+            var name = new GeneratedName();
+            name.Id = token.Value ?? "";
+            name.Ctx = GeneratedLoad.Instance;  // Default context
+            name.LineNo = token.Line;
+            name.ColOffset = token.Column;
+            name.EndLineNo = token.EndLine;
+            name.EndColOffset = token.EndColumn;
+            return name;
+        }
+
+        /// <summary>
+        /// Convert NUMBER token to AST Constant expression
+        /// CPython 3.12: Numbers are represented as Constant nodes
+        /// </summary>
+        protected GeneratedConstant? NumberToken(GeneratedTokenInfo? token)
+        {
+            if (token == null) return null;
+            var constant = new GeneratedConstant();
+            // Parse number value - simplified for now
+            constant.Value = token.Value;
+            constant.LineNo = token.Line;
+            constant.ColOffset = token.Column;
+            constant.EndLineNo = token.EndLine;
+            constant.EndColOffset = token.EndColumn;
+            return constant;
+        }
+
+        /// <summary>
+        /// Convert STRING token to AST Constant expression
+        /// CPython 3.12: Strings are represented as Constant nodes
+        /// </summary>
+        protected GeneratedConstant? StringToken(GeneratedTokenInfo? token)
+        {
+            if (token == null) return null;
+            var constant = new GeneratedConstant();
+            // Parse string value - simplified for now
+            constant.Value = token.Value;
+            constant.LineNo = token.Line;
+            constant.ColOffset = token.Column;
+            constant.EndLineNo = token.EndLine;
+            constant.EndColOffset = token.EndColumn;
+            return constant;
+        }
+
+    }
+
+    // ============================================================
+    // _PyAST_* Helper Functions
+    // ============================================================
+
+    /// <summary>
+    /// AST node factory functions - CPython 3.12: Python-ast.c
+    /// </summary>
+    public static partial class AstFactory
+    {
+        public static GeneratedMod _PyAST_Module(GeneratedStmtSeq body, GeneratedTypeIgnoreSeq type_ignores)
+        {
+            var node = new GeneratedModule();
+            node.Body = body;
+            node.TypeIgnores = type_ignores;
+            return node;
+        }
+
+        public static GeneratedMod _PyAST_Interactive(GeneratedStmtSeq body)
+        {
+            var node = new GeneratedInteractive();
+            node.Body = body;
+            return node;
+        }
+
+        public static GeneratedMod _PyAST_Expression(GeneratedExpr body)
+        {
+            var node = new GeneratedExpression();
+            node.Body = body;
+            return node;
+        }
+
+        public static GeneratedMod _PyAST_FunctionType(GeneratedExprSeq argtypes, GeneratedExpr returns)
+        {
+            var node = new GeneratedFunctionType();
+            node.Argtypes = argtypes;
+            node.Returns = returns;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_FunctionDef(string name, GeneratedArguments args, GeneratedStmtSeq body, GeneratedExprSeq decorator_list, GeneratedExpr? returns, string? type_comment, GeneratedTypeParamSeq type_params, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedFunctionDef();
+            node.Name = name;
+            node.Args = args;
+            node.Body = body;
+            node.DecoratorList = decorator_list;
+            node.Returns = returns;
+            node.TypeComment = type_comment;
+            node.TypeParams = type_params;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_FunctionDef(string name, GeneratedArguments args, GeneratedStmtSeq body, GeneratedExprSeq decorator_list, GeneratedTypeParamSeq type_params, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_FunctionDef(name, args, body, decorator_list, null, null, type_params, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt _PyAST_AsyncFunctionDef(string name, GeneratedArguments args, GeneratedStmtSeq body, GeneratedExprSeq decorator_list, GeneratedExpr? returns, string? type_comment, GeneratedTypeParamSeq type_params, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedAsyncFunctionDef();
+            node.Name = name;
+            node.Args = args;
+            node.Body = body;
+            node.DecoratorList = decorator_list;
+            node.Returns = returns;
+            node.TypeComment = type_comment;
+            node.TypeParams = type_params;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_AsyncFunctionDef(string name, GeneratedArguments args, GeneratedStmtSeq body, GeneratedExprSeq decorator_list, GeneratedTypeParamSeq type_params, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_AsyncFunctionDef(name, args, body, decorator_list, null, null, type_params, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt _PyAST_ClassDef(string name, GeneratedExprSeq bases, GeneratedKeywordSeq keywords, GeneratedStmtSeq body, GeneratedExprSeq decorator_list, GeneratedTypeParamSeq type_params, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedClassDef();
+            node.Name = name;
+            node.Bases = bases;
+            node.Keywords = keywords;
+            node.Body = body;
+            node.DecoratorList = decorator_list;
+            node.TypeParams = type_params;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_Return(GeneratedExpr? value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedReturn();
+            node.Value = value;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_Return(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_Return(null, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt _PyAST_Delete(GeneratedExprSeq targets, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedDelete();
+            node.Targets = targets;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_Assign(GeneratedExprSeq targets, GeneratedExpr value, string? type_comment, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedAssign();
+            node.Targets = targets;
+            node.Value = value;
+            node.TypeComment = type_comment;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_Assign(GeneratedExprSeq targets, GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_Assign(targets, value, null, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt _PyAST_TypeAlias(GeneratedExpr name, GeneratedTypeParamSeq type_params, GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedTypeAlias();
+            node.Name = name;
+            node.TypeParams = type_params;
+            node.Value = value;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_AugAssign(GeneratedExpr target, GeneratedOperator op, GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedAugAssign();
+            node.Target = target;
+            node.Op = op;
+            node.Value = value;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_AnnAssign(GeneratedExpr target, GeneratedExpr annotation, GeneratedExpr? value, int simple, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedAnnAssign();
+            node.Target = target;
+            node.Annotation = annotation;
+            node.Value = value;
+            node.Simple = simple;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_AnnAssign(GeneratedExpr target, GeneratedExpr annotation, int simple, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_AnnAssign(target, annotation, null, simple, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt _PyAST_For(GeneratedExpr target, GeneratedExpr iter, GeneratedStmtSeq body, GeneratedStmtSeq orelse, string? type_comment, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedFor();
+            node.Target = target;
+            node.Iter = iter;
+            node.Body = body;
+            node.Orelse = orelse;
+            node.TypeComment = type_comment;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_For(GeneratedExpr target, GeneratedExpr iter, GeneratedStmtSeq body, GeneratedStmtSeq orelse, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_For(target, iter, body, orelse, null, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt _PyAST_AsyncFor(GeneratedExpr target, GeneratedExpr iter, GeneratedStmtSeq body, GeneratedStmtSeq orelse, string? type_comment, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedAsyncFor();
+            node.Target = target;
+            node.Iter = iter;
+            node.Body = body;
+            node.Orelse = orelse;
+            node.TypeComment = type_comment;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_AsyncFor(GeneratedExpr target, GeneratedExpr iter, GeneratedStmtSeq body, GeneratedStmtSeq orelse, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_AsyncFor(target, iter, body, orelse, null, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt _PyAST_While(GeneratedExpr test, GeneratedStmtSeq body, GeneratedStmtSeq orelse, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedWhile();
+            node.Test = test;
+            node.Body = body;
+            node.Orelse = orelse;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_If(GeneratedExpr test, GeneratedStmtSeq body, GeneratedStmtSeq orelse, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedIf();
+            node.Test = test;
+            node.Body = body;
+            node.Orelse = orelse;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_With(GeneratedWithitemSeq items, GeneratedStmtSeq body, string? type_comment, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedWith();
+            node.Items = items;
+            node.Body = body;
+            node.TypeComment = type_comment;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_With(GeneratedWithitemSeq items, GeneratedStmtSeq body, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_With(items, body, null, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt _PyAST_AsyncWith(GeneratedWithitemSeq items, GeneratedStmtSeq body, string? type_comment, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedAsyncWith();
+            node.Items = items;
+            node.Body = body;
+            node.TypeComment = type_comment;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_AsyncWith(GeneratedWithitemSeq items, GeneratedStmtSeq body, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_AsyncWith(items, body, null, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt _PyAST_Match(GeneratedExpr subject, GeneratedMatchCaseSeq cases, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedMatch();
+            node.Subject = subject;
+            node.Cases = cases;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_Raise(GeneratedExpr? exc, GeneratedExpr? cause, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedRaise();
+            node.Exc = exc;
+            node.Cause = cause;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_Raise(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_Raise(null, null, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt _PyAST_Try(GeneratedStmtSeq body, GeneratedExcepthandlerSeq handlers, GeneratedStmtSeq orelse, GeneratedStmtSeq finalbody, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedTry();
+            node.Body = body;
+            node.Handlers = handlers;
+            node.Orelse = orelse;
+            node.Finalbody = finalbody;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_TryStar(GeneratedStmtSeq body, GeneratedExcepthandlerSeq handlers, GeneratedStmtSeq orelse, GeneratedStmtSeq finalbody, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedTryStar();
+            node.Body = body;
+            node.Handlers = handlers;
+            node.Orelse = orelse;
+            node.Finalbody = finalbody;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_Assert(GeneratedExpr test, GeneratedExpr? msg, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedAssert();
+            node.Test = test;
+            node.Msg = msg;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_Assert(GeneratedExpr test, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_Assert(test, null, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt _PyAST_Import(GeneratedAliasSeq names, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedImport();
+            node.Names = names;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_ImportFrom(string? module, GeneratedAliasSeq names, int? level, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedImportFrom();
+            node.Module = module;
+            node.Names = names;
+            node.Level = level;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_ImportFrom(GeneratedAliasSeq names, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_ImportFrom(null, names, null, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt _PyAST_Global(GeneratedIdentifierSeq names, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedGlobal();
+            node.Names = names;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_Nonlocal(GeneratedIdentifierSeq names, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedNonlocal();
+            node.Names = names;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_Expr(GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedExprStmt();
+            node.Value = value;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_Pass(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedPass.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_Break(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedBreak.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedStmt _PyAST_Continue(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedContinue.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_BoolOp(GeneratedBoolop op, GeneratedExprSeq values, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedBoolOp();
+            node.Op = op;
+            node.Values = values;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_NamedExpr(GeneratedExpr target, GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedNamedExpr();
+            node.Target = target;
+            node.Value = value;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_BinOp(GeneratedExpr left, GeneratedOperator op, GeneratedExpr right, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedBinOp();
+            node.Left = left;
+            node.Op = op;
+            node.Right = right;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_UnaryOp(GeneratedUnaryop op, GeneratedExpr operand, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedUnaryOp();
+            node.Op = op;
+            node.Operand = operand;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_Lambda(GeneratedArguments args, GeneratedExpr body, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedLambda();
+            node.Args = args;
+            node.Body = body;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_IfExp(GeneratedExpr test, GeneratedExpr body, GeneratedExpr orelse, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedIfExp();
+            node.Test = test;
+            node.Body = body;
+            node.Orelse = orelse;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_Dict(GeneratedExprSeq keys, GeneratedExprSeq values, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedDict();
+            node.Keys = keys;
+            node.Values = values;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_Set(GeneratedExprSeq elts, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedSet();
+            node.Elts = elts;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_ListComp(GeneratedExpr elt, GeneratedComprehensionSeq generators, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedListComp();
+            node.Elt = elt;
+            node.Generators = generators;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_SetComp(GeneratedExpr elt, GeneratedComprehensionSeq generators, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedSetComp();
+            node.Elt = elt;
+            node.Generators = generators;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_DictComp(GeneratedExpr key, GeneratedExpr value, GeneratedComprehensionSeq generators, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedDictComp();
+            node.Key = key;
+            node.Value = value;
+            node.Generators = generators;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_GeneratorExp(GeneratedExpr elt, GeneratedComprehensionSeq generators, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedGeneratorExp();
+            node.Elt = elt;
+            node.Generators = generators;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_Await(GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedAwait();
+            node.Value = value;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_Yield(GeneratedExpr? value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedYield();
+            node.Value = value;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_Yield(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_Yield(null, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr _PyAST_YieldFrom(GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedYieldFrom();
+            node.Value = value;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_Compare(GeneratedExpr left, GeneratedCmpopSeq ops, GeneratedExprSeq comparators, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedCompare();
+            node.Left = left;
+            node.Ops = ops;
+            node.Comparators = comparators;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_Call(GeneratedExpr func, GeneratedExprSeq args, GeneratedKeywordSeq keywords, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedCall();
+            node.Func = func;
+            node.Args = args;
+            node.Keywords = keywords;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_FormattedValue(GeneratedExpr value, int conversion, GeneratedExpr? format_spec, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedFormattedValue();
+            node.Value = value;
+            node.Conversion = conversion;
+            node.FormatSpec = format_spec;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_FormattedValue(GeneratedExpr value, int conversion, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_FormattedValue(value, conversion, null, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr _PyAST_JoinedStr(GeneratedExprSeq values, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedJoinedStr();
+            node.Values = values;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_Constant(object value, string? kind, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedConstant();
+            node.Value = value;
+            node.Kind = kind;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_Constant(object value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_Constant(value, null, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr _PyAST_Attribute(GeneratedExpr value, string attr, GeneratedExprContext ctx, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedAttribute();
+            node.Value = value;
+            node.Attr = attr;
+            node.Ctx = ctx;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_Subscript(GeneratedExpr value, GeneratedExpr slice, GeneratedExprContext ctx, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedSubscript();
+            node.Value = value;
+            node.Slice = slice;
+            node.Ctx = ctx;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_Starred(GeneratedExpr value, GeneratedExprContext ctx, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedStarred();
+            node.Value = value;
+            node.Ctx = ctx;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_Name(string id, GeneratedExprContext ctx, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedName();
+            node.Id = id;
+            node.Ctx = ctx;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_List(GeneratedExprSeq elts, GeneratedExprContext ctx, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedList();
+            node.Elts = elts;
+            node.Ctx = ctx;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_Tuple(GeneratedExprSeq elts, GeneratedExprContext ctx, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedTuple();
+            node.Elts = elts;
+            node.Ctx = ctx;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_Slice(GeneratedExpr? lower, GeneratedExpr? upper, GeneratedExpr? step, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedSlice();
+            node.Lower = lower;
+            node.Upper = upper;
+            node.Step = step;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExpr _PyAST_Slice(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_Slice(null, null, null, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExprContext _PyAST_Load(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedLoad.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExprContext _PyAST_Store(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedStore.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExprContext _PyAST_Del(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedDel.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedBoolop _PyAST_And(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedAnd.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedBoolop _PyAST_Or(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedOr.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedOperator _PyAST_Add(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedAdd.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedOperator _PyAST_Sub(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedSub.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedOperator _PyAST_Mult(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedMult.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedOperator _PyAST_MatMult(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedMatMult.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedOperator _PyAST_Div(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedDiv.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedOperator _PyAST_Mod(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedModOp.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedOperator _PyAST_Pow(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedPow.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedOperator _PyAST_LShift(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedLShift.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedOperator _PyAST_RShift(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedRShift.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedOperator _PyAST_BitOr(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedBitOr.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedOperator _PyAST_BitXor(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedBitXor.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedOperator _PyAST_BitAnd(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedBitAnd.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedOperator _PyAST_FloorDiv(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedFloorDiv.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedUnaryop _PyAST_Invert(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedInvert.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedUnaryop _PyAST_Not(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedNot.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedUnaryop _PyAST_UAdd(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedUAdd.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedUnaryop _PyAST_USub(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedUSub.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedCmpop _PyAST_Eq(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedEq.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedCmpop _PyAST_NotEq(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedNotEq.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedCmpop _PyAST_Lt(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedLt.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedCmpop _PyAST_LtE(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedLtE.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedCmpop _PyAST_Gt(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedGt.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedCmpop _PyAST_GtE(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedGtE.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedCmpop _PyAST_Is(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedIs.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedCmpop _PyAST_IsNot(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedIsNot.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedCmpop _PyAST_In(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedIn.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedCmpop _PyAST_NotIn(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = GeneratedNotIn.Instance;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedComprehension _PyAST_comprehension(GeneratedExpr target, GeneratedExpr iter, GeneratedExprSeq ifs, int is_async)
+        {
+            var node = new GeneratedComprehension();
+            node.Target = target;
+            node.Iter = iter;
+            node.Ifs = ifs;
+            node.IsAsync = is_async;
+            return node;
+        }
+
+        public static GeneratedExcepthandler _PyAST_ExceptHandler(GeneratedExpr? type, string? name, GeneratedStmtSeq body, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedExceptHandler();
+            node.Type = type;
+            node.Name = name;
+            node.Body = body;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedExcepthandler _PyAST_ExceptHandler(GeneratedStmtSeq body, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_ExceptHandler(null, null, body, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedArguments _PyAST_arguments(GeneratedArgSeq posonlyargs, GeneratedArgSeq args, GeneratedArg? vararg, GeneratedArgSeq kwonlyargs, GeneratedExprSeq kw_defaults, GeneratedArg? kwarg, GeneratedExprSeq defaults)
+        {
+            var node = new GeneratedArguments();
+            node.Posonlyargs = posonlyargs;
+            node.Args = args;
+            node.Vararg = vararg;
+            node.Kwonlyargs = kwonlyargs;
+            node.KwDefaults = kw_defaults;
+            node.Kwarg = kwarg;
+            node.Defaults = defaults;
+            return node;
+        }
+
+        public static GeneratedArguments _PyAST_arguments(GeneratedArgSeq posonlyargs, GeneratedArgSeq args, GeneratedArgSeq kwonlyargs, GeneratedExprSeq kw_defaults, GeneratedExprSeq defaults)
+        {
+            return _PyAST_arguments(posonlyargs, args, null, kwonlyargs, kw_defaults, null, defaults);
+        }
+
+        public static GeneratedArg _PyAST_arg(string arg, GeneratedExpr? annotation, string? type_comment, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedArg();
+            node.Arg = arg;
+            node.Annotation = annotation;
+            node.TypeComment = type_comment;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedArg _PyAST_arg(string arg, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_arg(arg, null, null, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedKeyword _PyAST_keyword(string? arg, GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedKeyword();
+            node.Arg = arg;
+            node.Value = value;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedKeyword _PyAST_keyword(GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_keyword(null, value, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedAlias _PyAST_alias(string name, string? asname, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedAlias();
+            node.Name = name;
+            node.Asname = asname;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedAlias _PyAST_alias(string name, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_alias(name, null, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedWithitem _PyAST_withitem(GeneratedExpr context_expr, GeneratedExpr? optional_vars)
+        {
+            var node = new GeneratedWithitem();
+            node.ContextExpr = context_expr;
+            node.OptionalVars = optional_vars;
+            return node;
+        }
+
+        public static GeneratedWithitem _PyAST_withitem(GeneratedExpr context_expr)
+        {
+            return _PyAST_withitem(context_expr, null);
+        }
+
+        public static GeneratedMatchCase _PyAST_match_case(GeneratedPattern pattern, GeneratedExpr? guard, GeneratedStmtSeq body)
+        {
+            var node = new GeneratedMatchCase();
+            node.Pattern = pattern;
+            node.Guard = guard;
+            node.Body = body;
+            return node;
+        }
+
+        public static GeneratedMatchCase _PyAST_match_case(GeneratedPattern pattern, GeneratedStmtSeq body)
+        {
+            return _PyAST_match_case(pattern, null, body);
+        }
+
+        public static GeneratedPattern _PyAST_MatchValue(GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedMatchValue();
+            node.Value = value;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedPattern _PyAST_MatchSingleton(object value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedMatchSingleton();
+            node.Value = value;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedPattern _PyAST_MatchSequence(GeneratedPatternSeq patterns, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedMatchSequence();
+            node.Patterns = patterns;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedPattern _PyAST_MatchMapping(GeneratedExprSeq keys, GeneratedPatternSeq patterns, string? rest, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedMatchMapping();
+            node.Keys = keys;
+            node.Patterns = patterns;
+            node.Rest = rest;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedPattern _PyAST_MatchMapping(GeneratedExprSeq keys, GeneratedPatternSeq patterns, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_MatchMapping(keys, patterns, null, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedPattern _PyAST_MatchClass(GeneratedExpr cls, GeneratedPatternSeq patterns, GeneratedIdentifierSeq kwd_attrs, GeneratedPatternSeq kwd_patterns, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedMatchClass();
+            node.Cls = cls;
+            node.Patterns = patterns;
+            node.KwdAttrs = kwd_attrs;
+            node.KwdPatterns = kwd_patterns;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedPattern _PyAST_MatchStar(string? name, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedMatchStar();
+            node.Name = name;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedPattern _PyAST_MatchStar(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_MatchStar(null, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedPattern _PyAST_MatchAs(GeneratedPattern? pattern, string? name, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedMatchAs();
+            node.Pattern = pattern;
+            node.Name = name;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedPattern _PyAST_MatchAs(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_MatchAs(null, null, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedPattern _PyAST_MatchOr(GeneratedPatternSeq patterns, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedMatchOr();
+            node.Patterns = patterns;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedTypeIgnore _PyAST_TypeIgnore(int lineno, string tag)
+        {
+            var node = new GeneratedTypeIgnoreNode();
+            node.Lineno = lineno;
+            node.Tag = tag;
+            return node;
+        }
+
+        public static GeneratedTypeParam _PyAST_TypeVar(string name, GeneratedExpr? bound, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedTypeVar();
+            node.Name = name;
+            node.Bound = bound;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedTypeParam _PyAST_TypeVar(string name, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return _PyAST_TypeVar(name, null, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedTypeParam _PyAST_ParamSpec(string name, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedParamSpec();
+            node.Name = name;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+        public static GeneratedTypeParam _PyAST_TypeVarTuple(string name, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var node = new GeneratedTypeVarTuple();
+            node.Name = name;
+            node.LineNo = lineno;
+            node.ColOffset = col_offset;
+            node.EndLineNo = end_lineno ?? 0;
+            node.EndColOffset = end_col_offset ?? 0;
+            return node;
+        }
+
+
+    }
+
+    // ============================================================
+    // _PyPegen_* Helper Functions
+    // ============================================================
+
+    /// <summary>
+    /// PEG parser helper functions - CPython 3.12: Parser/pegen.c
+    /// </summary>
+    public static partial class PegenHelpers
+    {
+        // CPython: _PyPegen_seq_flatten
+        public static GeneratedStmtSeq _PyPegen_seq_flatten(GeneratedStmtSeq seq)
+        {
+            // Already flat in C# - just return the sequence
+            return seq ?? GeneratedStmtSeq.Empty;
+        }
+
+        // CPython: _PyPegen_singleton_seq
+        public static GeneratedStmtSeq _PyPegen_singleton_seq(GeneratedStmt item)
+        {
+            var seq = new GeneratedStmtSeq(1);
+            seq.Add(item);
+            return seq;
+        }
+
+        public static GeneratedExprSeq _PyPegen_singleton_seq(GeneratedExpr item)
+        {
+            var seq = new GeneratedExprSeq(1);
+            seq.Add(item);
+            return seq;
+        }
+
+        public static GeneratedAliasSeq _PyPegen_singleton_seq(GeneratedAlias item)
+        {
+            var seq = new GeneratedAliasSeq(1);
+            seq.Add(item);
+            return seq;
+        }
+
+        // CPython: _PyPegen_seq_insert_in_front
+        public static GeneratedExprSeq _PyPegen_seq_insert_in_front(GeneratedExpr item, GeneratedExprSeq seq)
+        {
+            var newSeq = new GeneratedExprSeq(seq.Count + 1);
+            newSeq.Add(item);
+            newSeq.AddRange(seq);
+            return newSeq;
+        }
+
+        public static GeneratedPatternSeq _PyPegen_seq_insert_in_front(GeneratedPattern item, GeneratedPatternSeq seq)
+        {
+            var newSeq = new GeneratedPatternSeq(seq.Count + 1);
+            newSeq.Add(item);
+            newSeq.AddRange(seq);
+            return newSeq;
+        }
+
+        // CPython: _PyPegen_seq_count_dots
+        public static int _PyPegen_seq_count_dots(GeneratedIdentifierSeq? seq)
+        {
+            return seq?.Count ?? 0;
+        }
+
+        // CPython: _PyPegen_map_names_to_ids
+        public static GeneratedIdentifierSeq _PyPegen_map_names_to_ids(GeneratedExprSeq names)
+        {
+            var ids = new GeneratedIdentifierSeq(names.Count);
+            foreach (var name in names)
+            {
+                if (name is GeneratedName nameExpr)
+                {
+                    ids.Add(nameExpr.Id);
+                }
+            }
+            return ids;
+        }
+
+        // CPython: _PyPegen_alias_for_star
+        public static GeneratedAlias _PyPegen_alias_for_star(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            var alias = new GeneratedAlias();
+            alias.Name = "*";
+            alias.Asname = null;
+            alias.LineNo = lineno;
+            alias.ColOffset = col_offset;
+            alias.EndLineNo = end_lineno ?? 0;
+            alias.EndColOffset = end_col_offset ?? 0;
+            return alias;
+        }
+
+        // CPython: _PyPegen_empty_arguments
+        public static GeneratedArguments _PyPegen_empty_arguments()
+        {
+            var args = new GeneratedArguments();
+            args.Posonlyargs = GeneratedArgSeq.Empty;
+            args.Args = GeneratedArgSeq.Empty;
+            args.Kwonlyargs = GeneratedArgSeq.Empty;
+            args.KwDefaults = GeneratedExprSeq.Empty;
+            args.Defaults = GeneratedExprSeq.Empty;
+            return args;
+        }
+
+        // CPython: _PyPegen_set_expr_context
+        public static GeneratedExpr _PyPegen_set_expr_context(GeneratedExpr expr, GeneratedExprContext ctx)
+        {
+            // Update expr context based on type
+            switch (expr)
+            {
+                case GeneratedName name:
+                    name.Ctx = ctx;
+                    break;
+                case GeneratedAttribute attr:
+                    attr.Ctx = ctx;
+                    break;
+                case GeneratedSubscript subscript:
+                    subscript.Ctx = ctx;
+                    break;
+                case GeneratedList list:
+                    list.Ctx = ctx;
+                    foreach (var elt in list.Elts)
+                    {
+                        _PyPegen_set_expr_context(elt, ctx);
+                    }
+                    break;
+                case GeneratedTuple tuple:
+                    tuple.Ctx = ctx;
+                    foreach (var elt in tuple.Elts)
+                    {
+                        _PyPegen_set_expr_context(elt, ctx);
+                    }
+                    break;
+                case GeneratedStarred starred:
+                    starred.Ctx = ctx;
+                    _PyPegen_set_expr_context(starred.Value, ctx);
+                    break;
+            }
+            return expr;
+        }
+
+        // CPython: _PyPegen_make_module
+        public static GeneratedModule _PyPegen_make_module(GeneratedStmtSeq? body)
+        {
+            var module = new GeneratedModule();
+            module.Body = body ?? GeneratedStmtSeq.Empty;
+            module.TypeIgnores = GeneratedTypeIgnoreSeq.Empty;
+            return module;
+        }
+
+        // CPython: _PyPegen_seq_append_to_end
+        public static GeneratedExprSeq _PyPegen_seq_append_to_end(GeneratedExprSeq seq, GeneratedExpr item)
+        {
+            var newSeq = new GeneratedExprSeq(seq.Count + 1);
+            newSeq.AddRange(seq);
+            newSeq.Add(item);
+            return newSeq;
+        }
+
+        // CPython: Py_None, Py_True, Py_False, Py_Ellipsis
+        public static GeneratedConstant Py_None => new GeneratedConstant { Value = null };
+        public static GeneratedConstant Py_True => new GeneratedConstant { Value = true };
+        public static GeneratedConstant Py_False => new GeneratedConstant { Value = false };
+        public static GeneratedConstant Py_Ellipsis => new GeneratedConstant { Value = "..." };
+
+        // CPython: _PyPegen_dummy_name
+        public static GeneratedName _PyPegen_dummy_name()
+        {
+            return new GeneratedName { Id = "_", Ctx = GeneratedStore.Instance };
+        }
+
+    }
+
+    // ============================================================
+    // ASTHelpers - Utility functions
+    // ============================================================
+
+    /// <summary>
+    /// Helper functions for AST manipulation
+    /// </summary>
+    public static class ASTHelpers
+    {
+        public static string ExtractStringValue(GeneratedExpr expr)
+        {
+            if (expr is GeneratedName name)
+            {
+                return name.Id;
+            }
+            throw new InvalidOperationException("Expected Name expression");
+        }
+
+        public static GeneratedOperator ExtractOpKind(object op)
+        {
+            // TODO: Implement operator extraction
+            return GeneratedAdd.Instance;
+        }
+
+        public static GeneratedExprSeq ExtractCallArgs(GeneratedExpr call)
+        {
+            if (call is GeneratedCall callExpr)
+            {
+                return callExpr.Args;
+            }
+            return GeneratedExprSeq.Empty;
+        }
+
+        public static GeneratedKeywordSeq ExtractCallKeywords(GeneratedExpr call)
+        {
+            if (call is GeneratedCall callExpr)
+            {
+                return callExpr.Keywords;
+            }
+            return GeneratedKeywordSeq.Empty;
+        }
+
+    }
+
+}

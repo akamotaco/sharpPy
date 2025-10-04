@@ -64,11 +64,20 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("{");
             _indentLevel++;
 
-            // Fields
+            // Fields - CPython 3.12 Parser struct equivalent
             WriteLine("protected List<GeneratedTokenInfo> _tokens;");
-            WriteLine("protected int _position = 0;");
+            WriteLine("protected int _position = 0;  // CPython: mark");
             WriteLine("protected string _filename;");
             WriteLine("protected Exception? _pendingSyntaxError = null;");
+            WriteLine("protected int _pendingErrorPosition = -1;");
+            WriteLine("protected bool _callInvalidRules = true;");
+            WriteLine("protected Dictionary<string, Dictionary<int, object?>> _memoCache = new();");
+            WriteLine();
+            WriteLine("// CPython Parser fields for recursion and error tracking");
+            WriteLine("protected int _level = 0;  // Nesting depth for recursion limit");
+            WriteLine("protected GeneratedTokenInfo? _knownErrToken = null;  // Error location tracking");
+            WriteLine("protected int _errorIndicator = 0;  // Error state flag");
+            WriteLine("protected const int MAX_RECURSION_DEPTH = 1000;  // Python's recursion limit");
             WriteLine();
 
             // Constructor
@@ -138,6 +147,121 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("}");
             WriteLine();
 
+            // ExpectName method - expect NAME token
+            WriteLine("protected GeneratedTokenInfo? ExpectName()");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("var token = CurrentToken;");
+            WriteLine("if (token != null && token.Type == GeneratedTokenType.NAME)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("_position++;");
+            WriteLine("return token;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine("return null;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // TryLeftRecursive - Warth et al. algorithm for left recursion
+            WriteLine("/// <summary>");
+            WriteLine("/// Handle left-recursive rules using memoization");
+            WriteLine("/// CPython 3.12: Implements Warth et al. 'Packrat Parsers Can Support Left Recursion'");
+            WriteLine("/// </summary>");
+            WriteLine("protected T? TryLeftRecursive<T>(string ruleName, Func<T?> ruleFunc) where T : class");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("// Check recursion depth");
+            WriteLine("if (_level >= MAX_RECURSION_DEPTH)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("throw new StackOverflowException($\"Maximum recursion depth exceeded in rule {ruleName}\");");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+            WriteLine("_level++;");
+            WriteLine("try");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("// Simple implementation - call rule directly");
+            WriteLine("// TODO: Full memoization with left-recursion handling");
+            WriteLine("return ruleFunc();");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine("finally");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("_level--;");
+            _indentLevel--;
+            WriteLine("}");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // Token conversion helpers
+            WriteLine("/// <summary>");
+            WriteLine("/// Convert NAME token to AST Name expression");
+            WriteLine("/// CPython 3.12: Used in grammar actions");
+            WriteLine("/// </summary>");
+            WriteLine("protected GeneratedName? NameToken(GeneratedTokenInfo? token)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("if (token == null) return null;");
+            WriteLine("var name = new GeneratedName();");
+            WriteLine("name.Id = token.Value ?? \"\";");
+            WriteLine("name.Ctx = GeneratedLoad.Instance;  // Default context");
+            WriteLine("name.LineNo = token.Line;");
+            WriteLine("name.ColOffset = token.Column;");
+            WriteLine("name.EndLineNo = token.EndLine ?? token.Line;");
+            WriteLine("name.EndColOffset = token.EndColumn ?? token.Column;");
+            WriteLine("return name;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // NumberToken helper
+            WriteLine("/// <summary>");
+            WriteLine("/// Convert NUMBER token to AST Constant expression");
+            WriteLine("/// CPython 3.12: Numbers are represented as Constant nodes");
+            WriteLine("/// </summary>");
+            WriteLine("protected GeneratedConstant? NumberToken(GeneratedTokenInfo? token)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("if (token == null) return null;");
+            WriteLine("var constant = new GeneratedConstant();");
+            WriteLine("// Parse number value - simplified for now");
+            WriteLine("constant.Value = token.Value;");
+            WriteLine("constant.LineNo = token.Line;");
+            WriteLine("constant.ColOffset = token.Column;");
+            WriteLine("constant.EndLineNo = token.EndLine ?? token.Line;");
+            WriteLine("constant.EndColOffset = token.EndColumn ?? token.Column;");
+            WriteLine("return constant;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // StringToken helper
+            WriteLine("/// <summary>");
+            WriteLine("/// Convert STRING token to AST Constant expression");
+            WriteLine("/// CPython 3.12: Strings are represented as Constant nodes");
+            WriteLine("/// </summary>");
+            WriteLine("protected GeneratedConstant? StringToken(GeneratedTokenInfo? token)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("if (token == null) return null;");
+            WriteLine("var constant = new GeneratedConstant();");
+            WriteLine("// Parse string value - simplified for now");
+            WriteLine("constant.Value = token.Value;");
+            WriteLine("constant.LineNo = token.Line;");
+            WriteLine("constant.ColOffset = token.Column;");
+            WriteLine("constant.EndLineNo = token.EndLine ?? token.Line;");
+            WriteLine("constant.EndColOffset = token.EndColumn ?? token.Column;");
+            WriteLine("return constant;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
             _indentLevel--;
             WriteLine("}");
             WriteLine();
@@ -165,6 +289,10 @@ namespace SharpPy.PegGenerator.Asdl
                 }
             }
 
+            WriteLine();
+            // CPython 3.12: Singleton constructors (Pass, Break, Continue) are auto-generated
+            // by GenerateAstFactoryMethod when constructor.Fields.Count == 0
+
             _indentLevel--;
             WriteLine("}");
             WriteLine();
@@ -182,6 +310,10 @@ namespace SharpPy.PegGenerator.Asdl
             else if (typeName == "type_ignore" && constructorName == "TypeIgnore")
             {
                 constructorName = "TypeIgnoreNode";
+            }
+            else if (typeName == "operator" && constructorName == "Mod")
+            {
+                constructorName = "ModOp";
             }
 
             var className = $"Generated{constructorName}";
@@ -259,10 +391,14 @@ namespace SharpPy.PegGenerator.Asdl
                     requiredParams.Add($"{csharpType} {field.Name}");
                 }
 
-                requiredParams.Add("int lineno");
-                requiredParams.Add("int col_offset");
-                requiredParams.Add("int? end_lineno");
-                requiredParams.Add("int? end_col_offset");
+                // Only add position params if attributes exist
+                if (attributes != null && attributes.Fields.Count > 0)
+                {
+                    requiredParams.Add("int lineno");
+                    requiredParams.Add("int col_offset");
+                    requiredParams.Add("int? end_lineno");
+                    requiredParams.Add("int? end_col_offset");
+                }
 
                 WriteLine($"public static {returnType} _PyAST_{constructor.Name}({string.Join(", ", requiredParams)})");
                 WriteLine("{");
@@ -280,10 +416,15 @@ namespace SharpPy.PegGenerator.Asdl
                         allParams.Add(field.Name);
                     }
                 }
-                allParams.Add("lineno");
-                allParams.Add("col_offset");
-                allParams.Add("end_lineno");
-                allParams.Add("end_col_offset");
+
+                // Only add position params if attributes exist
+                if (attributes != null && attributes.Fields.Count > 0)
+                {
+                    allParams.Add("lineno");
+                    allParams.Add("col_offset");
+                    allParams.Add("end_lineno");
+                    allParams.Add("end_col_offset");
+                }
 
                 WriteLine($"return _PyAST_{constructor.Name}({string.Join(", ", allParams)});");
                 _indentLevel--;
@@ -493,6 +634,50 @@ namespace SharpPy.PegGenerator.Asdl
             _indentLevel--;
             WriteLine("}");
             WriteLine("return expr;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // make_module
+            WriteLine("// CPython: _PyPegen_make_module");
+            WriteLine("public static GeneratedModule _PyPegen_make_module(GeneratedStmtSeq? body)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("var module = new GeneratedModule();");
+            WriteLine("module.Body = body ?? GeneratedStmtSeq.Empty;");
+            WriteLine("module.TypeIgnores = GeneratedTypeIgnoreSeq.Empty;");
+            WriteLine("return module;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // seq_append_to_end
+            WriteLine("// CPython: _PyPegen_seq_append_to_end");
+            WriteLine("public static GeneratedExprSeq _PyPegen_seq_append_to_end(GeneratedExprSeq seq, GeneratedExpr item)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("var newSeq = new GeneratedExprSeq(seq.Count + 1);");
+            WriteLine("newSeq.AddRange(seq);");
+            WriteLine("newSeq.Add(item);");
+            WriteLine("return newSeq;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // Constant singletons
+            WriteLine("// CPython: Py_None, Py_True, Py_False, Py_Ellipsis");
+            WriteLine("public static GeneratedConstant Py_None => new GeneratedConstant { Value = null };");
+            WriteLine("public static GeneratedConstant Py_True => new GeneratedConstant { Value = true };");
+            WriteLine("public static GeneratedConstant Py_False => new GeneratedConstant { Value = false };");
+            WriteLine("public static GeneratedConstant Py_Ellipsis => new GeneratedConstant { Value = \"...\" };");
+            WriteLine();
+
+            // dummy_name
+            WriteLine("// CPython: _PyPegen_dummy_name");
+            WriteLine("public static GeneratedName _PyPegen_dummy_name()");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("return new GeneratedName { Id = \"_\", Ctx = GeneratedStore.Instance };");
             _indentLevel--;
             WriteLine("}");
             WriteLine();

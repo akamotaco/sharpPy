@@ -119,6 +119,7 @@ namespace SharpPy.PegGenerator.Asdl
             // CPython 3.12: 이름 충돌 처리
             // stmt.Expr vs expr base type → ExprStmt
             // type_ignore.TypeIgnore vs type_ignore base → TypeIgnoreNode
+            // operator.Mod vs mod base type → ModOp
             if (typeName == "stmt" && constructorName == "Expr")
             {
                 constructorName = "ExprStmt";
@@ -126,6 +127,10 @@ namespace SharpPy.PegGenerator.Asdl
             else if (typeName == "type_ignore" && constructorName == "TypeIgnore")
             {
                 constructorName = "TypeIgnoreNode";
+            }
+            else if (typeName == "operator" && constructorName == "Mod")
+            {
+                constructorName = "ModOp";
             }
 
             var className = $"Generated{constructorName}";

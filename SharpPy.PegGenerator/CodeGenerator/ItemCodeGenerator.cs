@@ -130,7 +130,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 // Declare variable outside if block to avoid scope issues
                 if (isInvalidRule)
                 {
-                    _parent.WriteLine($"GeneratedPtr? {_varName} = null;");
+                    var ruleReturnType = _parent.GetRuleReturnType(ruleRef.Name);
+                    _parent.WriteLine($"{ruleReturnType} {_varName} = null;");
                     _parent.WriteLine($"if (_callInvalidRules)");
                     _parent.WriteLine("{");
                     _parent.Indent();
@@ -673,7 +674,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             var testVar = $"_lookahead_test_{_lookaheadCounter++}";
 
             _parent.WriteLine($"// Negative lookahead: !({nla.Expression})");
-            _parent.WriteLine($"GeneratedPtr? {testVar} = null;");
+            _parent.WriteLine($"GeneratedTokenInfo? {testVar} = null;");
 
             // Generate code to test the expression - only check current token position
             switch (nla.Expression)

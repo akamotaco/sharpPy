@@ -109,21 +109,25 @@ namespace SharpPy.Generated
     /// <summary>
     /// CPython 3.12 compatible token info
     /// </summary>
-    public class GeneratedTokenInfo : GeneratedPtr, ITokenInfo
+    public class GeneratedTokenInfo : ITokenInfo
     {
         public GeneratedTokenType Type { get; set; }
         public string Value { get; set; } = "";
         public int Line { get; set; }
         public int Column { get; set; }
+        public int EndLine { get; set; }
+        public int EndColumn { get; set; }
         public int Start { get; set; }
         public int End { get; set; }
 
-        public GeneratedTokenInfo(GeneratedTokenType type, string value, int line, int column, int start = 0, int end = 0)
+        public GeneratedTokenInfo(GeneratedTokenType type, string value, int line, int column, int start = 0, int end = 0, int endLine = 0, int endColumn = 0)
         {
             Type = type;
             Value = value;
             Line = line;
             Column = column;
+            EndLine = endLine == 0 ? line : endLine;
+            EndColumn = endColumn == 0 ? column : endColumn;
             Start = start;
             End = end;
         }
