@@ -1,17 +1,20 @@
 using System;
+using Py_int_t = System.Int64;
 
 namespace SharpPy
 {
     /// <summary>
-    /// Python int 타입 구현 - C# int를 기반으로 한 정수
+    /// Python int 타입 구현 - C# long을 기반으로 한 정수
+    /// Python int는 임의 정밀도이지만, 기본적으로 long (64-bit)을 사용
+    /// Py_int_t = System.Int64 (CPython의 PyLong 호환)
     /// </summary>
     public class PyInt : PyObject
     {
         #region Core Properties
 
-        public int Value { get; }
+        public Py_int_t Value { get; }
 
-        public PyInt(int value) => Value = value;
+        public PyInt(Py_int_t value) => Value = value;
 
         public override PyType GetPyType() => PyType.IntType;
         public override string GetTypeName() => "int";
@@ -191,7 +194,7 @@ namespace SharpPy
 
         public override PyObject Power(PyObject other)
         {
-            int otherValue;
+            Py_int_t otherValue;
             if (other is PyInt otherInt)
                 otherValue = otherInt.Value;
             else if (other is PyBool otherBool)
@@ -205,11 +208,8 @@ namespace SharpPy
                 return new PyFloat(Math.Pow(Value, otherValue));
             }
 
-            var intResult = (long)Math.Pow(Value, otherValue);
-            if (intResult > int.MaxValue)
-                return new PyFloat(intResult);
-            
-            return new PyInt((int)intResult);
+            var result = (Py_int_t)Math.Pow(Value, otherValue);
+            return new PyInt(result);
         }
 
         #endregion
@@ -247,22 +247,22 @@ namespace SharpPy
         {
             if (!(other is PyInt otherInt))
                 throw PyTypeError.Create($"unsupported operand type(s) for <<: 'int' and '{other.GetTypeName()}'");
-            
+
             if (otherInt.Value < 0)
                 throw PyValueError.Create("negative shift count");
-            
-            return new PyInt(Value << otherInt.Value);
+
+            return new PyInt(Value << (int)otherInt.Value);
         }
 
         public override PyObject RightShift(PyObject other)
         {
             if (!(other is PyInt otherInt))
                 throw PyTypeError.Create($"unsupported operand type(s) for >>: 'int' and '{other.GetTypeName()}'");
-            
+
             if (otherInt.Value < 0)
                 throw PyValueError.Create("negative shift count");
-            
-            return new PyInt(Value >> otherInt.Value);
+
+            return new PyInt(Value >> (int)otherInt.Value);
         }
 
         #endregion
@@ -283,7 +283,7 @@ namespace SharpPy
         /// <summary>
         /// CPython PyLong_AsLong 호환: PyInt에서 C# int 값 추출
         /// </summary>
-        public override int ToInt() => Value;
+        public override int ToInt() => (int)Value;
         
         /// <summary>
         /// CPython PyLong_AsDouble 호환: PyInt에서 C# double 값 추출  
@@ -356,7 +356,7 @@ namespace SharpPy
         /// </summary>
         public PyInt BitCount()
         {
-            var count = 0;
+            Py_int_t count = 0;
             var n = Math.Abs(Value);
             while (n > 0)
             {
@@ -375,7 +375,7 @@ namespace SharpPy
             try
             {
                 s = s.Trim();
-                
+
                 // 진법 접두사 처리
                 if (baseValue == 0)
                 {
@@ -400,7 +400,7 @@ namespace SharpPy
                     }
                 }
 
-                var result = Convert.ToInt32(s, baseValue);
+                Py_int_t result = Convert.ToInt64(s, baseValue);
                 return new PyInt(result);
             }
             catch (Exception)
@@ -414,7 +414,7 @@ namespace SharpPy
             if (obj is PyInt pyInt)
                 return pyInt;
             if (obj is PyFloat pyFloat)
-                return new PyInt((int)Math.Truncate(pyFloat.Value));
+                return new PyInt((Py_int_t)Math.Truncate(pyFloat.Value));
             if (obj is PyBool pyBool)
                 return new PyInt(pyBool.Value ? 1 : 0);
             throw PyTypeError.Create($"int() argument must be a string, a bytes-like object or a number, not '{obj.GetTypeName()}'");

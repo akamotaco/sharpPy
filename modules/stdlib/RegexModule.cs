@@ -184,14 +184,14 @@ namespace SharpPy.Modules.Stdlib
             var pattern = args[0].ToStr();
             var repl = args[1].ToStr();
             var text = args[2].ToStr();
-            var count = args.Length > 3 && args[3] is PyInt countInt ? countInt.Value : int.MaxValue;
+            var count = args.Length > 3 && args[3] is PyInt countInt ? (int)countInt.Value : int.MaxValue;
             var flags = args.Length > 4 ? GetFlags(args[4]) : RegexOptions.None;
 
             try
             {
                 var regex = new Regex(pattern, flags);
-                var result = count == int.MaxValue ? 
-                    regex.Replace(text, repl) : 
+                var result = count == int.MaxValue ?
+                    regex.Replace(text, repl) :
                     regex.Replace(text, repl, count);
 
                 return new PyString(result);
@@ -210,15 +210,15 @@ namespace SharpPy.Modules.Stdlib
             var pattern = args[0].ToStr();
             var repl = args[1].ToStr();
             var text = args[2].ToStr();
-            var count = args.Length > 3 && args[3] is PyInt countInt ? countInt.Value : int.MaxValue;
+            var count = args.Length > 3 && args[3] is PyInt countInt ? (int)countInt.Value : int.MaxValue;
             var flags = args.Length > 4 ? GetFlags(args[4]) : RegexOptions.None;
 
             try
             {
                 var regex = new Regex(pattern, flags);
                 var matches = regex.Matches(text).Count;
-                var result = count == int.MaxValue ? 
-                    regex.Replace(text, repl) : 
+                var result = count == int.MaxValue ?
+                    regex.Replace(text, repl) :
                     regex.Replace(text, repl, count);
 
                 var actualSubstitutions = Math.Min(matches, count == int.MaxValue ? matches : count);
@@ -237,14 +237,14 @@ namespace SharpPy.Modules.Stdlib
 
             var pattern = args[0].ToStr();
             var text = args[1].ToStr();
-            var maxsplit = args.Length > 2 && args[2] is PyInt maxInt ? maxInt.Value + 1 : 0;
+            var maxsplit = args.Length > 2 && args[2] is PyInt maxInt ? (int)maxInt.Value + 1 : 0;
             var flags = args.Length > 3 ? GetFlags(args[3]) : RegexOptions.None;
 
             try
             {
                 var regex = new Regex(pattern, flags);
-                var parts = maxsplit > 0 ? 
-                    regex.Split(text, maxsplit) : 
+                var parts = maxsplit > 0 ?
+                    regex.Split(text, maxsplit) :
                     regex.Split(text);
 
                 var result = new List<PyObject>();
@@ -406,10 +406,10 @@ namespace SharpPy.Modules.Stdlib
 
             var repl = args[0].ToStr();
             var text = args[1].ToStr();
-            var count = args.Length > 2 && args[2] is PyInt countInt ? countInt.Value : int.MaxValue;
+            var count = args.Length > 2 && args[2] is PyInt countInt ? (int)countInt.Value : int.MaxValue;
 
-            var result = count == int.MaxValue ? 
-                _regex.Replace(text, repl) : 
+            var result = count == int.MaxValue ?
+                _regex.Replace(text, repl) :
                 _regex.Replace(text, repl, count);
 
             return new PyString(result);
@@ -422,11 +422,11 @@ namespace SharpPy.Modules.Stdlib
 
             var repl = args[0].ToStr();
             var text = args[1].ToStr();
-            var count = args.Length > 2 && args[2] is PyInt countInt ? countInt.Value : int.MaxValue;
+            var count = args.Length > 2 && args[2] is PyInt countInt ? (int)countInt.Value : int.MaxValue;
 
             var matches = _regex.Matches(text).Count;
-            var result = count == int.MaxValue ? 
-                _regex.Replace(text, repl) : 
+            var result = count == int.MaxValue ?
+                _regex.Replace(text, repl) :
                 _regex.Replace(text, repl, count);
 
             var actualSubstitutions = Math.Min(matches, count == int.MaxValue ? matches : count);
@@ -439,10 +439,10 @@ namespace SharpPy.Modules.Stdlib
                 throw PyTypeError.Create("split() missing 1 required positional argument: 'string'");
 
             var text = args[0].ToStr();
-            var maxsplit = args.Length > 1 && args[1] is PyInt maxInt ? maxInt.Value + 1 : 0;
+            var maxsplit = args.Length > 1 && args[1] is PyInt maxInt ? (int)maxInt.Value + 1 : 0;
 
-            var parts = maxsplit > 0 ? 
-                _regex.Split(text, maxsplit) : 
+            var parts = maxsplit > 0 ?
+                _regex.Split(text, maxsplit) :
                 _regex.Split(text);
 
             var result = new List<PyObject>();
@@ -515,7 +515,7 @@ namespace SharpPy.Modules.Stdlib
                 {
                     if (groupNum.Value < 0 || groupNum.Value >= _match.Groups.Count)
                         throw PyIndexError.Create("no such group");
-                    return new PyString(_match.Groups[groupNum.Value].Value);
+                    return new PyString(_match.Groups[(int)groupNum.Value].Value);
                 }
                 else if (args[0] is PyString groupName)
                 {
@@ -539,7 +539,7 @@ namespace SharpPy.Modules.Stdlib
                 {
                     if (groupNum.Value < 0 || groupNum.Value >= _match.Groups.Count)
                         throw PyIndexError.Create("no such group");
-                    result.Add(new PyString(_match.Groups[groupNum.Value].Value));
+                    result.Add(new PyString(_match.Groups[(int)groupNum.Value].Value));
                 }
                 else if (arg is PyString groupName)
                 {
@@ -595,8 +595,8 @@ namespace SharpPy.Modules.Stdlib
 
         private PyObject Start(PyObject[] args)
         {
-            var groupNum = args.Length > 0 && args[0] is PyInt groupInt ? groupInt.Value : 0;
-            
+            var groupNum = args.Length > 0 && args[0] is PyInt groupInt ? (int)groupInt.Value : 0;
+
             if (groupNum < 0 || groupNum >= _match.Groups.Count)
                 throw PyIndexError.Create("no such group");
 
@@ -605,8 +605,8 @@ namespace SharpPy.Modules.Stdlib
 
         private PyObject End(PyObject[] args)
         {
-            var groupNum = args.Length > 0 && args[0] is PyInt groupInt ? groupInt.Value : 0;
-            
+            var groupNum = args.Length > 0 && args[0] is PyInt groupInt ? (int)groupInt.Value : 0;
+
             if (groupNum < 0 || groupNum >= _match.Groups.Count)
                 throw PyIndexError.Create("no such group");
 
@@ -616,8 +616,8 @@ namespace SharpPy.Modules.Stdlib
 
         private PyObject Span(PyObject[] args)
         {
-            var groupNum = args.Length > 0 && args[0] is PyInt groupInt ? groupInt.Value : 0;
-            
+            var groupNum = args.Length > 0 && args[0] is PyInt groupInt ? (int)groupInt.Value : 0;
+
             if (groupNum < 0 || groupNum >= _match.Groups.Count)
                 throw PyIndexError.Create("no such group");
 

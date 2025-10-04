@@ -466,7 +466,7 @@ namespace SharpPy
                 var lenMethod = GetAttribute("__len__");
                 var result = lenMethod.Call(new PyObject[] {  }, null);
                 if (result is PyInt pyInt)
-                    return pyInt.Value;
+                    return (int)pyInt.Value;
                 throw PyTypeError.Create("__len__ should return an integer");
             }
             catch (PythonException pe)

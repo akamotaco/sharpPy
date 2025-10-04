@@ -398,7 +398,7 @@ namespace SharpPy.Generated
 
     public class GeneratedConstant : GeneratedExpr
     {
-        public object Value { get; set; } = null!;
+        public GeneratedPyConstant Value { get; set; } = null!;
         public string? Kind { get; set; }
     }
 
@@ -898,7 +898,7 @@ namespace SharpPy.Generated
 
     public class GeneratedMatchSingleton : GeneratedPattern
     {
-        public object Value { get; set; } = null!;
+        public GeneratedPyConstant Value { get; set; } = null!;
     }
 
     public class GeneratedMatchSequence : GeneratedPattern
@@ -1658,6 +1658,59 @@ namespace SharpPy.Generated
     {
         public GeneratedExpr Key { get; set; } = null!;
         public GeneratedExpr Value { get; set; } = null!;
+    }
+
+    /// <summary>
+    /// Represents Python constant values at AST level
+    /// CPython 3.12: Maps to 'constant' type in Python.asdl
+    /// Stores: None, True, False, integers, floats, strings, bytes, Ellipsis
+    /// </summary>
+    public abstract class GeneratedPyConstant
+    {
+        public static readonly GeneratedPyConstantNone None = new();
+        public static readonly GeneratedPyConstantBool True = new(true);
+        public static readonly GeneratedPyConstantBool False = new(false);
+        public static readonly GeneratedPyConstantEllipsis Ellipsis = new();
+    }
+
+    public class GeneratedPyConstantNone : GeneratedPyConstant
+    {
+        internal GeneratedPyConstantNone() { }
+    }
+
+    public class GeneratedPyConstantBool : GeneratedPyConstant
+    {
+        public bool Value { get; }
+        internal GeneratedPyConstantBool(bool value) => Value = value;
+    }
+
+    public class GeneratedPyConstantInt : GeneratedPyConstant
+    {
+        public long Value { get; }
+        public GeneratedPyConstantInt(long value) => Value = value;
+    }
+
+    public class GeneratedPyConstantFloat : GeneratedPyConstant
+    {
+        public double Value { get; }
+        public GeneratedPyConstantFloat(double value) => Value = value;
+    }
+
+    public class GeneratedPyConstantString : GeneratedPyConstant
+    {
+        public string Value { get; }
+        public GeneratedPyConstantString(string value) => Value = value;
+    }
+
+    public class GeneratedPyConstantBytes : GeneratedPyConstant
+    {
+        public byte[] Value { get; }
+        public GeneratedPyConstantBytes(byte[] value) => Value = value;
+    }
+
+    public class GeneratedPyConstantEllipsis : GeneratedPyConstant
+    {
+        internal GeneratedPyConstantEllipsis() { }
     }
 
     /// <summary>

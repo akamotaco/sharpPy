@@ -2446,7 +2446,7 @@ namespace SharpPy
                         if (subscriptObj is PyList subscriptList && subscriptKey is PyInt keyIntValue)
                         {
                             // List indexing: list[int]
-                            subscriptResult = subscriptList.GetItem(keyIntValue.Value);
+                            subscriptResult = subscriptList.GetItem((int)keyIntValue.Value);
                         }
                         else if (subscriptObj is PyList subscriptList2 && subscriptKey is PySlice sliceKey)
                         {
@@ -5417,13 +5417,13 @@ namespace SharpPy
             var weeks = 0;
 
             // Process positional arguments first
-            if (positionalArgs.Length > 0 && positionalArgs[0] is PyInt daysArg) days = daysArg.Value;
-            if (positionalArgs.Length > 1 && positionalArgs[1] is PyInt secondsArg) seconds = secondsArg.Value;
-            if (positionalArgs.Length > 2 && positionalArgs[2] is PyInt microsecondsArg) microseconds = microsecondsArg.Value;
-            if (positionalArgs.Length > 3 && positionalArgs[3] is PyInt millisecondsArg) milliseconds = millisecondsArg.Value;
-            if (positionalArgs.Length > 4 && positionalArgs[4] is PyInt minutesArg) minutes = minutesArg.Value;
-            if (positionalArgs.Length > 5 && positionalArgs[5] is PyInt hoursArg) hours = hoursArg.Value;
-            if (positionalArgs.Length > 6 && positionalArgs[6] is PyInt weeksArg) weeks = weeksArg.Value;
+            if (positionalArgs.Length > 0 && positionalArgs[0] is PyInt daysArg) days = (int)daysArg.Value;
+            if (positionalArgs.Length > 1 && positionalArgs[1] is PyInt secondsArg) seconds = (int)secondsArg.Value;
+            if (positionalArgs.Length > 2 && positionalArgs[2] is PyInt microsecondsArg) microseconds = (int)microsecondsArg.Value;
+            if (positionalArgs.Length > 3 && positionalArgs[3] is PyInt millisecondsArg) milliseconds = (int)millisecondsArg.Value;
+            if (positionalArgs.Length > 4 && positionalArgs[4] is PyInt minutesArg) minutes = (int)minutesArg.Value;
+            if (positionalArgs.Length > 5 && positionalArgs[5] is PyInt hoursArg) hours = (int)hoursArg.Value;
+            if (positionalArgs.Length > 6 && positionalArgs[6] is PyInt weeksArg) weeks = (int)weeksArg.Value;
 
             // Process keyword arguments
             foreach (var kvp in keywordArgs)
@@ -5432,13 +5432,13 @@ namespace SharpPy
                 {
                     switch (kvp.Key)
                     {
-                        case "days": days = intVal.Value; break;
-                        case "seconds": seconds = intVal.Value; break;
-                        case "microseconds": microseconds = intVal.Value; break;
-                        case "milliseconds": milliseconds = intVal.Value; break;
-                        case "minutes": minutes = intVal.Value; break;
-                        case "hours": hours = intVal.Value; break;
-                        case "weeks": weeks = intVal.Value; break;
+                        case "days": days = (int)intVal.Value; break;
+                        case "seconds": seconds = (int)intVal.Value; break;
+                        case "microseconds": microseconds = (int)intVal.Value; break;
+                        case "milliseconds": milliseconds = (int)intVal.Value; break;
+                        case "minutes": minutes = (int)intVal.Value; break;
+                        case "hours": hours = (int)intVal.Value; break;
+                        case "weeks": weeks = (int)intVal.Value; break;
                     }
                 }
             }

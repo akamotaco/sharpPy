@@ -480,7 +480,7 @@ namespace SharpPy.Modules
 
             if (args[0] is PyInt a && args[1] is PyInt b)
             {
-                return new PyInt(GcdHelper(Math.Abs(a.Value), Math.Abs(b.Value)));
+                return new PyInt(GcdHelper((int)Math.Abs(a.Value), (int)Math.Abs(b.Value)));
             }
             else
             {
@@ -495,7 +495,7 @@ namespace SharpPy.Modules
 
             if (args[0] is PyInt a && args[1] is PyInt b)
             {
-                var gcd = GcdHelper(Math.Abs(a.Value), Math.Abs(b.Value));
+                var gcd = GcdHelper((int)Math.Abs(a.Value), (int)Math.Abs(b.Value));
                 return new PyInt(Math.Abs(a.Value * b.Value) / gcd);
             }
             else

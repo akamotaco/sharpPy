@@ -133,9 +133,9 @@ namespace SharpPy
         {
             return other switch
             {
-                PyInt count => count.Value <= 0 
-                    ? new PyTuple() 
-                    : new PyTuple(Enumerable.Range(0, count.Value).SelectMany(_ => Items).ToArray()),
+                PyInt count => count.Value <= 0
+                    ? new PyTuple()
+                    : new PyTuple(Enumerable.Range(0, (int)count.Value).SelectMany(_ => Items).ToArray()),
                 _ => throw PyTypeError.Create($"can't multiply sequence by non-int of type '{other.GetTypeName()}'")
             };
         }
@@ -161,7 +161,7 @@ namespace SharpPy
         {
             return key switch
             {
-                PyInt index => GetItem(index.Value),
+                PyInt index => GetItem((int)index.Value),
                 PySlice slice => throw PyNotImplementedError.Create("tuple slicing not yet implemented"),
                 _ => throw PyTypeError.Create($"tuple indices must be integers or slices, not {key.GetTypeName()}")
             };

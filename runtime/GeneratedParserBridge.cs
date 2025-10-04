@@ -1567,9 +1567,9 @@ namespace SharpPy
                     formattedValue.FormatSpec != null ? ConvertAnyExpression(formattedValue.FormatSpec) : null
                 ),
 
-                // Basic expressions - CPython 3.12: Convert value to PyObject if needed
+                // Basic expressions - CPython 3.12: Convert GeneratedPyConstant to PyObject
                 GeneratedConstant constant => new ConstantExpression(
-                    constant.Value is PyObject pyObj ? pyObj : ParseConstantValue(constant.Value, constant.Kind)
+                    ConvertGeneratedPyConstantToPyObject(constant.Value)
                 ),
 
                 GeneratedName name => new NameExpression(name.Id),
@@ -2399,14 +2399,18 @@ namespace SharpPy
                 var value = constantExpr.Value;
                 Console.WriteLine($"[DEBUG] GeneratedConstant value: {value} (Type: {value?.GetType().Name})");
 
-                // CPython 3.12: Value is now PyObject
-                if (value == null || value is PyNone) return "None";
-                if (value is PyString pyStr) return $"\"{pyStr.Value}\"";
-                if (value is PyInt pyInt) return pyInt.Value.ToString();
-                if (value is PyFloat pyFloat) return pyFloat.Value.ToString();
-                if (value is PyBool pyBool) return pyBool.Value ? "True" : "False";
-
-                return value.ToString() ?? "None";
+                // CPython 3.12: Value is now GeneratedPyConstant (AST layer)
+                return value switch
+                {
+                    GeneratedPyConstantNone => "None",
+                    GeneratedPyConstantBool b => b.Value ? "True" : "False",
+                    GeneratedPyConstantInt i => i.Value.ToString(),
+                    GeneratedPyConstantFloat f => f.Value.ToString(),
+                    GeneratedPyConstantString s => $"\"{s.Value}\"",
+                    GeneratedPyConstantBytes bytes => $"b\"{System.Text.Encoding.UTF8.GetString(bytes.Value)}\"",
+                    GeneratedPyConstantEllipsis => "...",
+                    _ => value.ToString() ?? "None"
+                };
             }
 
             // Handle other GeneratedExpr types (recurse through conversion)
@@ -2476,6 +2480,25 @@ namespace SharpPy
                 names.Add("**" + funcArgs.KwArg.Name);
 
             return names;
+        }
+
+        /// <summary>
+        /// Convert GeneratedPyConstant (AST layer) to PyObject (Runtime layer)
+        /// CPython 3.12: Bridges AST constant values to runtime objects
+        /// </summary>
+        private static PyObject ConvertGeneratedPyConstantToPyObject(GeneratedPyConstant value)
+        {
+            return value switch
+            {
+                GeneratedPyConstantNone => PyNone.Instance,
+                GeneratedPyConstantBool b => b.Value ? PyBool.True : PyBool.False,
+                GeneratedPyConstantInt i => new PyInt(i.Value),
+                GeneratedPyConstantFloat f => new PyFloat(f.Value),
+                GeneratedPyConstantString s => new PyString(s.Value),
+                GeneratedPyConstantBytes bytes => new PyBytes(bytes.Value),
+                GeneratedPyConstantEllipsis => PyNone.Instance,  // TODO: Implement PyEllipsis
+                _ => throw new NotImplementedException($"Unknown GeneratedPyConstant type: {value.GetType().Name}")
+            };
         }
 
         /// <summary>

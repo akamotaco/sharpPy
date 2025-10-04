@@ -212,13 +212,13 @@ namespace SharpPy.Modules.Stdlib
             var tzinfo = _timeZone;
 
             // 키워드 인자는 간단화된 순서로 처리
-            if (args.Length > 0 && args[0] is PyInt yearArg) year = yearArg.Value;
-            if (args.Length > 1 && args[1] is PyInt monthArg) month = monthArg.Value;
-            if (args.Length > 2 && args[2] is PyInt dayArg) day = dayArg.Value;
-            if (args.Length > 3 && args[3] is PyInt hourArg) hour = hourArg.Value;
-            if (args.Length > 4 && args[4] is PyInt minuteArg) minute = minuteArg.Value;
-            if (args.Length > 5 && args[5] is PyInt secondArg) second = secondArg.Value;
-            if (args.Length > 6 && args[6] is PyInt microsecondArg) microsecond = microsecondArg.Value;
+            if (args.Length > 0 && args[0] is PyInt yearArg) year = (int)yearArg.Value;
+            if (args.Length > 1 && args[1] is PyInt monthArg) month = (int)monthArg.Value;
+            if (args.Length > 2 && args[2] is PyInt dayArg) day = (int)dayArg.Value;
+            if (args.Length > 3 && args[3] is PyInt hourArg) hour = (int)hourArg.Value;
+            if (args.Length > 4 && args[4] is PyInt minuteArg) minute = (int)minuteArg.Value;
+            if (args.Length > 5 && args[5] is PyInt secondArg) second = (int)secondArg.Value;
+            if (args.Length > 6 && args[6] is PyInt microsecondArg) microsecond = (int)microsecondArg.Value;
 
             return new PyDateTime(year, month, day, hour, minute, second, microsecond, tzinfo);
         }
@@ -409,9 +409,9 @@ namespace SharpPy.Modules.Stdlib
             var month = _date.Month;
             var day = _date.Day;
 
-            if (args.Length > 0 && args[0] is PyInt yearArg) year = yearArg.Value;
-            if (args.Length > 1 && args[1] is PyInt monthArg) month = monthArg.Value;
-            if (args.Length > 2 && args[2] is PyInt dayArg) day = dayArg.Value;
+            if (args.Length > 0 && args[0] is PyInt yearArg) year = (int)yearArg.Value;
+            if (args.Length > 1 && args[1] is PyInt monthArg) month = (int)monthArg.Value;
+            if (args.Length > 2 && args[2] is PyInt dayArg) day = (int)dayArg.Value;
 
             return new PyDate(year, month, day);
         }
@@ -524,10 +524,10 @@ namespace SharpPy.Modules.Stdlib
             var second = _time.Seconds;
             var microsecond = _time.Milliseconds * 1000;
 
-            if (args.Length > 0 && args[0] is PyInt hourArg) hour = hourArg.Value;
-            if (args.Length > 1 && args[1] is PyInt minuteArg) minute = minuteArg.Value;
-            if (args.Length > 2 && args[2] is PyInt secondArg) second = secondArg.Value;
-            if (args.Length > 3 && args[3] is PyInt microsecondArg) microsecond = microsecondArg.Value;
+            if (args.Length > 0 && args[0] is PyInt hourArg) hour = (int)hourArg.Value;
+            if (args.Length > 1 && args[1] is PyInt minuteArg) minute = (int)minuteArg.Value;
+            if (args.Length > 2 && args[2] is PyInt secondArg) second = (int)secondArg.Value;
+            if (args.Length > 3 && args[3] is PyInt microsecondArg) microsecond = (int)microsecondArg.Value;
 
             return new PyTime(hour, minute, second, microsecond);
         }
@@ -721,13 +721,13 @@ namespace SharpPy.Modules.Stdlib
             if (args.Length < 3)
                 throw PyTypeError.Create("datetime() missing required arguments");
 
-            var year = ((PyInt)args[0]).Value;
-            var month = ((PyInt)args[1]).Value;
-            var day = ((PyInt)args[2]).Value;
-            var hour = args.Length > 3 ? ((PyInt)args[3]).Value : 0;
-            var minute = args.Length > 4 ? ((PyInt)args[4]).Value : 0;
-            var second = args.Length > 5 ? ((PyInt)args[5]).Value : 0;
-            var microsecond = args.Length > 6 ? ((PyInt)args[6]).Value : 0;
+            var year = (int)((PyInt)args[0]).Value;
+            var month = (int)((PyInt)args[1]).Value;
+            var day = (int)((PyInt)args[2]).Value;
+            var hour = args.Length > 3 ? (int)((PyInt)args[3]).Value : 0;
+            var minute = args.Length > 4 ? (int)((PyInt)args[4]).Value : 0;
+            var second = args.Length > 5 ? (int)((PyInt)args[5]).Value : 0;
+            var microsecond = args.Length > 6 ? (int)((PyInt)args[6]).Value : 0;
 
             return new PyDateTime(year, month, day, hour, minute, second, microsecond);
         }
@@ -779,9 +779,9 @@ namespace SharpPy.Modules.Stdlib
             if (args.Length < 3)
                 throw PyTypeError.Create("date() missing required arguments");
 
-            var year = ((PyInt)args[0]).Value;
-            var month = ((PyInt)args[1]).Value;
-            var day = ((PyInt)args[2]).Value;
+            var year = (int)((PyInt)args[0]).Value;
+            var month = (int)((PyInt)args[1]).Value;
+            var day = (int)((PyInt)args[2]).Value;
 
             return new PyDate(year, month, day);
         }
@@ -814,10 +814,10 @@ namespace SharpPy.Modules.Stdlib
 
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
-            var hour = args.Length > 0 ? ((PyInt)args[0]).Value : 0;
-            var minute = args.Length > 1 ? ((PyInt)args[1]).Value : 0;
-            var second = args.Length > 2 ? ((PyInt)args[2]).Value : 0;
-            var microsecond = args.Length > 3 ? ((PyInt)args[3]).Value : 0;
+            var hour = args.Length > 0 ? (int)((PyInt)args[0]).Value : 0;
+            var minute = args.Length > 1 ? (int)((PyInt)args[1]).Value : 0;
+            var second = args.Length > 2 ? (int)((PyInt)args[2]).Value : 0;
+            var microsecond = args.Length > 3 ? (int)((PyInt)args[3]).Value : 0;
 
             return new PyTime(hour, minute, second, microsecond);
         }
@@ -857,13 +857,13 @@ namespace SharpPy.Modules.Stdlib
                     {
                         switch (i)
                         {
-                            case 0: days = val.Value; break;
-                            case 1: seconds = val.Value; break;
-                            case 2: microseconds = val.Value; break;
-                            case 3: milliseconds = val.Value; break;
-                            case 4: minutes = val.Value; break;
-                            case 5: hours = val.Value; break;
-                            case 6: weeks = val.Value; break;
+                            case 0: days = (int)val.Value; break;
+                            case 1: seconds = (int)val.Value; break;
+                            case 2: microseconds = (int)val.Value; break;
+                            case 3: milliseconds = (int)val.Value; break;
+                            case 4: minutes = (int)val.Value; break;
+                            case 5: hours = (int)val.Value; break;
+                            case 6: weeks = (int)val.Value; break;
                         }
                     }
                 }
@@ -878,13 +878,13 @@ namespace SharpPy.Modules.Stdlib
                     {
                         switch (kwName)
                         {
-                            case "days": days = intVal.Value; break;
-                            case "seconds": seconds = intVal.Value; break;
-                            case "microseconds": microseconds = intVal.Value; break;
-                            case "milliseconds": milliseconds = intVal.Value; break;
-                            case "minutes": minutes = intVal.Value; break;
-                            case "hours": hours = intVal.Value; break;
-                            case "weeks": weeks = intVal.Value; break;
+                            case "days": days = (int)intVal.Value; break;
+                            case "seconds": seconds = (int)intVal.Value; break;
+                            case "microseconds": microseconds = (int)intVal.Value; break;
+                            case "milliseconds": milliseconds = (int)intVal.Value; break;
+                            case "minutes": minutes = (int)intVal.Value; break;
+                            case "hours": hours = (int)intVal.Value; break;
+                            case "weeks": weeks = (int)intVal.Value; break;
                         }
                     }
                 }
@@ -892,13 +892,13 @@ namespace SharpPy.Modules.Stdlib
             else
             {
                 // 순서대로 인자 처리 (위치 인자만 있는 경우)
-                if (args.Length > 0 && args[0] is PyInt daysArg) days = daysArg.Value;
-                if (args.Length > 1 && args[1] is PyInt secondsArg) seconds = secondsArg.Value;
-                if (args.Length > 2 && args[2] is PyInt microsecondsArg) microseconds = microsecondsArg.Value;
-                if (args.Length > 3 && args[3] is PyInt millisecondsArg) milliseconds = millisecondsArg.Value;
-                if (args.Length > 4 && args[4] is PyInt minutesArg) minutes = minutesArg.Value;
-                if (args.Length > 5 && args[5] is PyInt hoursArg) hours = hoursArg.Value;
-                if (args.Length > 6 && args[6] is PyInt weeksArg) weeks = weeksArg.Value;
+                if (args.Length > 0 && args[0] is PyInt daysArg) days = (int)daysArg.Value;
+                if (args.Length > 1 && args[1] is PyInt secondsArg) seconds = (int)secondsArg.Value;
+                if (args.Length > 2 && args[2] is PyInt microsecondsArg) microseconds = (int)microsecondsArg.Value;
+                if (args.Length > 3 && args[3] is PyInt millisecondsArg) milliseconds = (int)millisecondsArg.Value;
+                if (args.Length > 4 && args[4] is PyInt minutesArg) minutes = (int)minutesArg.Value;
+                if (args.Length > 5 && args[5] is PyInt hoursArg) hours = (int)hoursArg.Value;
+                if (args.Length > 6 && args[6] is PyInt weeksArg) weeks = (int)weeksArg.Value;
             }
 
             return new PyTimeDelta(days, seconds, microseconds, milliseconds, minutes, hours, weeks);

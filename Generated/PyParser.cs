@@ -36675,13 +36675,13 @@ namespace SharpPy.Generated
 
         private void Reset(int mark) => _position = mark;
 
-        private T? GetMemo<T>(string ruleName)
+        private T? GetMemo<T>(string ruleName) where T : GeneratedAstNode
         {
             var key = (_position, ruleName);
-            return _memoCache.TryGetValue(key, out var value) ? (T?)value : default;
+            return _memoCache.TryGetValue(key, out var value) ? value as T : default;
         }
 
-        private void SetMemo<T>(string ruleName, T? value)
+        private void SetMemo<T>(string ruleName, T? value) where T : GeneratedAstNode
         {
             var key = (_position, ruleName);
             _memoCache[key] = value;
@@ -36771,7 +36771,7 @@ namespace SharpPy.Generated
         /// type_params[asdl_type_param_seq*]: '[' t=type_param_seq ']'
         /// Parse optional type parameters for PEP 695
         /// </summary>
-        public List<object>? ParseTypeParams()
+        public List<GeneratedTypeParam>? ParseTypeParams()
         {
             // Check for '[' - if not present, return null (no type parameters)
             if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != "[")
@@ -36782,7 +36782,7 @@ namespace SharpPy.Generated
             var startPos = _position;
             Advance(); // consume '['
 
-            var typeParams = new List<object>();
+            var typeParams = new List<GeneratedTypeParam>();
 
             // Parse type_param_seq: comma-separated type parameters
             while (CurrentToken != null)
@@ -36831,7 +36831,7 @@ namespace SharpPy.Generated
         /// type_param[type_param_ty]: TypeVar | TypeVarTuple | ParamSpec
         /// Parse individual type parameter (T, *Ts, **P)
         /// </summary>
-        public object? ParseTypeParam()
+        public GeneratedTypeParam? ParseTypeParam()
         {
             var startPos = _position;
             var _start_lineno = _tokens[startPos].Line;

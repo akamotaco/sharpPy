@@ -175,9 +175,9 @@ namespace SharpPy.Modules
             int exitCode = 0;
             if (args.Length > 0 && args[0] is PyInt code)
             {
-                exitCode = code.Value;
+                exitCode = (int)code.Value;
             }
-            
+
             throw PySystemExit.Create(exitCode);
         }
 

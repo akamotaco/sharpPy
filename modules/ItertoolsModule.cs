@@ -624,23 +624,23 @@ namespace SharpPy
             {
                 // islice(iterable, stop)
                 _start = 0;
-                _stop = ((PyInt)args[1]).Value;
+                _stop = (int?)((PyInt)args[1]).Value;
                 _step = 1;
             }
             else if (args.Length == 3)
             {
                 // islice(iterable, start, stop)
-                _start = ((PyInt)args[1]).Value;
-                _stop = ((PyInt)args[2]).Value;
+                _start = (int)((PyInt)args[1]).Value;
+                _stop = (int?)((PyInt)args[2]).Value;
                 _step = 1;
             }
             else
             {
                 // islice(iterable, start, stop, step)
-                _start = ((PyInt)args[1]).Value;
-                _stop = ((PyInt)args[2]).Value;
-                _step = ((PyInt)args[3]).Value;
-                
+                _start = (int)((PyInt)args[1]).Value;
+                _stop = (int?)((PyInt)args[2]).Value;
+                _step = (int)((PyInt)args[3]).Value;
+
                 if (_step <= 0)
                     throw PyValueError.Create("Step for islice() must be a positive integer or None.");
             }

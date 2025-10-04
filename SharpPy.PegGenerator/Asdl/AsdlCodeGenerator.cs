@@ -309,6 +309,85 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("}");
             WriteLine();
 
+            // PyConstant - Python constant values
+            // CPython 3.12: Represents constant type in ASDL (None, True, False, int, float, str, bytes, Ellipsis)
+            WriteLine("/// <summary>");
+            WriteLine("/// Represents Python constant values at AST level");
+            WriteLine("/// CPython 3.12: Maps to 'constant' type in Python.asdl");
+            WriteLine("/// Stores: None, True, False, integers, floats, strings, bytes, Ellipsis");
+            WriteLine("/// </summary>");
+            WriteLine("public abstract class GeneratedPyConstant");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("public static readonly GeneratedPyConstantNone None = new();");
+            WriteLine("public static readonly GeneratedPyConstantBool True = new(true);");
+            WriteLine("public static readonly GeneratedPyConstantBool False = new(false);");
+            WriteLine("public static readonly GeneratedPyConstantEllipsis Ellipsis = new();");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("public class GeneratedPyConstantNone : GeneratedPyConstant");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("internal GeneratedPyConstantNone() { }");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("public class GeneratedPyConstantBool : GeneratedPyConstant");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("public bool Value { get; }");
+            WriteLine("internal GeneratedPyConstantBool(bool value) => Value = value;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("public class GeneratedPyConstantInt : GeneratedPyConstant");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("public long Value { get; }");
+            WriteLine("public GeneratedPyConstantInt(long value) => Value = value;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("public class GeneratedPyConstantFloat : GeneratedPyConstant");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("public double Value { get; }");
+            WriteLine("public GeneratedPyConstantFloat(double value) => Value = value;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("public class GeneratedPyConstantString : GeneratedPyConstant");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("public string Value { get; }");
+            WriteLine("public GeneratedPyConstantString(string value) => Value = value;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("public class GeneratedPyConstantBytes : GeneratedPyConstant");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("public byte[] Value { get; }");
+            WriteLine("public GeneratedPyConstantBytes(byte[] value) => Value = value;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("public class GeneratedPyConstantEllipsis : GeneratedPyConstant");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("internal GeneratedPyConstantEllipsis() { }");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
             // StarEtc - arguments 파싱용
             // CPython 3.12: Inherits from GeneratedPtr for void* compatibility
             WriteLine("/// <summary>");
@@ -528,7 +607,7 @@ namespace SharpPy.PegGenerator.Asdl
                 "identifier" => "string",
                 "int" => "int",
                 "string" => "string",
-                "constant" => "object",
+                "constant" => "GeneratedPyConstant",
                 "singleton" => "bool?",
                 _ => "object"
             };

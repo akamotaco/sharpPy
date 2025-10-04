@@ -25,7 +25,7 @@ namespace SharpPy.Generated
         protected int _pendingErrorPosition = -1;
         protected bool _callInvalidRules = true;
         // CPython 3.12: Memo cache uses (position, rule_name) tuple keys
-        protected Dictionary<(int, string), object?> _memoCache = new();
+        protected Dictionary<(int, string), GeneratedAstNode?> _memoCache = new();
 
         // CPython Parser fields for recursion and error tracking
         protected int _level = 0;  // Nesting depth for recursion limit
@@ -135,8 +135,15 @@ namespace SharpPy.Generated
         {
             if (token == null) return null;
             var constant = new GeneratedConstant();
-            // Parse number value - simplified for now
-            constant.Value = token.Value;
+            // Parse number value
+            if (token.Value.Contains(".") || token.Value.Contains("e") || token.Value.Contains("E"))
+            {
+                constant.Value = new GeneratedPyConstantFloat(double.Parse(token.Value));
+            }
+            else
+            {
+                constant.Value = new GeneratedPyConstantInt(long.Parse(token.Value));
+            }
             constant.LineNo = token.Line;
             constant.ColOffset = token.Column;
             constant.EndLineNo = token.EndLine;
@@ -152,8 +159,8 @@ namespace SharpPy.Generated
         {
             if (token == null) return null;
             var constant = new GeneratedConstant();
-            // Parse string value - simplified for now
-            constant.Value = token.Value;
+            // Parse string value
+            constant.Value = new GeneratedPyConstantString(token.Value);
             constant.LineNo = token.Line;
             constant.ColOffset = token.Column;
             constant.EndLineNo = token.EndLine;
@@ -859,7 +866,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_Constant(object value, string? kind, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr _PyAST_Constant(GeneratedPyConstant value, string? kind, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedConstant();
             node.Value = value;
@@ -871,7 +878,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_Constant(object value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr _PyAST_Constant(GeneratedPyConstant value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             return _PyAST_Constant(value, null, lineno, col_offset, end_lineno, end_col_offset);
         }
@@ -1424,7 +1431,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedPattern _PyAST_MatchSingleton(object value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedPattern _PyAST_MatchSingleton(GeneratedPyConstant value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedMatchSingleton();
             node.Value = value;
@@ -1795,10 +1802,11 @@ namespace SharpPy.Generated
         }
 
         // CPython: Py_None, Py_True, Py_False, Py_Ellipsis
-        public static GeneratedConstant Py_None => new GeneratedConstant { Value = null };
-        public static GeneratedConstant Py_True => new GeneratedConstant { Value = true };
-        public static GeneratedConstant Py_False => new GeneratedConstant { Value = false };
-        public static GeneratedConstant Py_Ellipsis => new GeneratedConstant { Value = "..." };
+        // Note: These are constant VALUES for AST construction, not runtime PyObjects
+        public static GeneratedPyConstant Py_None => GeneratedPyConstant.None;
+        public static GeneratedPyConstant Py_True => GeneratedPyConstant.True;
+        public static GeneratedPyConstant Py_False => GeneratedPyConstant.False;
+        public static GeneratedPyConstant Py_Ellipsis => GeneratedPyConstant.Ellipsis;
 
         // CPython: _PyPegen_dummy_name
         public static GeneratedName _PyPegen_dummy_name()
@@ -1964,9 +1972,11 @@ namespace SharpPy.Generated
             throw new InvalidOperationException("Expected Name expression");
         }
 
-        public static GeneratedOperator ExtractOpKind(object op)
+        public static GeneratedOperator ExtractOpKind(GeneratedAstNode op)
         {
-            // TODO: Implement operator extraction
+            // Extract operator kind from AST node
+            if (op is GeneratedOperator opNode) return opNode;
+            // TODO: Implement more comprehensive operator extraction
             return GeneratedAdd.Instance;
         }
 

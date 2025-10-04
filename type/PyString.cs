@@ -205,9 +205,9 @@ namespace SharpPy
         {
             return other switch
             {
-                PyInt count => count.Value <= 0 
-                    ? new PyString("") 
-                    : new PyString(string.Concat(Enumerable.Repeat(Value, count.Value))),
+                PyInt count => count.Value <= 0
+                    ? new PyString("")
+                    : new PyString(string.Concat(Enumerable.Repeat(Value, (int)count.Value))),
                 _ => throw PyTypeError.Create($"can't multiply sequence by non-int of type '{other.GetTypeName()}'")
             };
         }
@@ -233,7 +233,7 @@ namespace SharpPy
         {
             if (index is PyInt pyInt)
             {
-                return GetItem(pyInt.Value);
+                return GetItem((int)pyInt.Value);
             }
             else if (index is PySlice slice)
             {
@@ -739,8 +739,8 @@ namespace SharpPy
                 sep = sepStr.Value;
             
             if (args.Length >= 2 && args[1] is PyInt maxsplitInt)
-                maxsplit = maxsplitInt.Value;
-            
+                maxsplit = (int)maxsplitInt.Value;
+
             return Split(sep, maxsplit);
         }
 
@@ -812,13 +812,13 @@ namespace SharpPy
             
             int start = 0;
             int end = Value.Length;
-            
+
             if (args.Length >= 2 && args[1] is PyInt startInt)
-                start = Math.Max(0, startInt.Value);
-            
+                start = Math.Max(0, (int)startInt.Value);
+
             if (args.Length >= 3 && args[2] is PyInt endInt)
-                end = Math.Min(Value.Length, endInt.Value);
-            
+                end = Math.Min(Value.Length, (int)endInt.Value);
+
             if (start >= end) return new PyInt(-1);
             
             var substring = start == 0 && end == Value.Length 
@@ -842,13 +842,13 @@ namespace SharpPy
             
             int start = 0;
             int end = Value.Length;
-            
+
             if (args.Length >= 2 && args[1] is PyInt startInt)
-                start = Math.Max(0, startInt.Value);
-            
+                start = Math.Max(0, (int)startInt.Value);
+
             if (args.Length >= 3 && args[2] is PyInt endInt)
-                end = Math.Min(Value.Length, endInt.Value);
-            
+                end = Math.Min(Value.Length, (int)endInt.Value);
+
             if (start >= end || sub.Length == 0) return new PyInt(0);
             
             var substring = start == 0 && end == Value.Length 

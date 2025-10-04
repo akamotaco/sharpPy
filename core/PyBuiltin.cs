@@ -326,17 +326,17 @@ namespace SharpPy
             {
                 1 => args[0] switch
                 {
-                    PyInt stop => PyRange.Create(stop.Value),
+                    PyInt stop => PyRange.Create((int)stop.Value),
                     _ => throw PyTypeError.Create("'int' object cannot be interpreted as an integer")
                 },
                 2 => (args[0], args[1]) switch
                 {
-                    (PyInt start, PyInt stop) => PyRange.Create(start.Value, stop.Value),
+                    (PyInt start, PyInt stop) => PyRange.Create((int)start.Value, (int)stop.Value),
                     _ => throw PyTypeError.Create("'int' object cannot be interpreted as an integer")
                 },
                 3 => (args[0], args[1], args[2]) switch
                 {
-                    (PyInt start, PyInt stop, PyInt step) => PyRange.Create(start.Value, stop.Value, step.Value),
+                    (PyInt start, PyInt stop, PyInt step) => PyRange.Create((int)start.Value, (int)stop.Value, (int)step.Value),
                     _ => throw PyTypeError.Create("'int' object cannot be interpreted as an integer")
                 },
                 _ => throw PyTypeError.Create($"range expected at most 3 arguments, got {args.Length}")
@@ -1069,7 +1069,7 @@ namespace SharpPy
 
             if (number is PyFloat f)
             {
-                var rounded = Math.Round(f.Value, ndigits);
+                var rounded = Math.Round(f.Value, (int)ndigits);
                 return ndigits == 0 ? new PyInt((int)rounded) : new PyFloat(rounded);
             }
             else if (number is PyInt i)
@@ -2041,7 +2041,7 @@ namespace SharpPy
 
             // Process positional arguments
             if (args.Length > 1) mode = args[1].ToStr();
-            if (args.Length > 2) buffering = ((PyInt)args[2]).Value;
+            if (args.Length > 2) buffering = (int)((PyInt)args[2]).Value;
             if (args.Length > 3) encoding = args[3] != PyNone.Instance ? args[3].ToStr() : null;
             if (args.Length > 4) errors = args[4] != PyNone.Instance ? args[4].ToStr() : null;
             if (args.Length > 5) newline = args[5] != PyNone.Instance ? args[5].ToStr() : null;
@@ -2061,7 +2061,7 @@ namespace SharpPy
                 try
                 {
                     var bufferingValue = kwargs.GetItem(new PyString("buffering"));
-                    buffering = ((PyInt)bufferingValue).Value;
+                    buffering = (int)((PyInt)bufferingValue).Value;
                 }
                 catch { }
 

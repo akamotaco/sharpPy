@@ -139,7 +139,7 @@ namespace SharpPy.Modules
             }
             else if (args[0] is PyInt seed)
             {
-                RandomModule.SetSeed(seed.Value);
+                RandomModule.SetSeed((int)seed.Value);
             }
             else if (args[0] == PyNone.Instance)
             {
@@ -183,7 +183,7 @@ namespace SharpPy.Modules
                 if (a.Value > b.Value)
                     throw PyValueError.Create("empty range for randint()");
 
-                return new PyInt(RandomModule.GetRandom().Next(a.Value, b.Value + 1));
+                return new PyInt(RandomModule.GetRandom().Next((int)a.Value, (int)b.Value + 1));
             }
             else
             {
@@ -201,7 +201,7 @@ namespace SharpPy.Modules
                     if (args[0] is PyInt stop1)
                     {
                         start = 0;
-                        stop = stop1.Value;
+                        stop = (int)stop1.Value;
                     }
                     else
                     {
@@ -212,8 +212,8 @@ namespace SharpPy.Modules
                 case 2:
                     if (args[0] is PyInt start2 && args[1] is PyInt stop2)
                     {
-                        start = start2.Value;
-                        stop = stop2.Value;
+                        start = (int)start2.Value;
+                        stop = (int)stop2.Value;
                     }
                     else
                     {
@@ -224,9 +224,9 @@ namespace SharpPy.Modules
                 case 3:
                     if (args[0] is PyInt start3 && args[1] is PyInt stop3 && args[2] is PyInt step3)
                     {
-                        start = start3.Value;
-                        stop = stop3.Value;
-                        step = step3.Value;
+                        start = (int)start3.Value;
+                        stop = (int)stop3.Value;
+                        step = (int)step3.Value;
                     }
                     else
                     {
@@ -264,7 +264,7 @@ namespace SharpPy.Modules
 
                 var random = RandomModule.GetRandom();
                 var result = 0;
-                for (int i = 0; i < k.Value; i++)
+                for (int i = 0; i < (int)k.Value; i++)
                 {
                     result = (result << 1) | random.Next(0, 2);
                 }
@@ -309,7 +309,7 @@ namespace SharpPy.Modules
                 {
                     if (args[i] is PyInt kVal)
                     {
-                        k = kVal.Value;
+                        k = (int)kVal.Value;
                         break;
                     }
                 }

@@ -72,7 +72,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("protected int _pendingErrorPosition = -1;");
             WriteLine("protected bool _callInvalidRules = true;");
             WriteLine("// CPython 3.12: Memo cache uses (position, rule_name) tuple keys");
-            WriteLine("protected Dictionary<(int, string), object?> _memoCache = new();");
+            WriteLine("protected Dictionary<(int, string), GeneratedAstNode?> _memoCache = new();");
             WriteLine();
             WriteLine("// CPython Parser fields for recursion and error tracking");
             WriteLine("protected int _level = 0;  // Nesting depth for recursion limit");
@@ -231,8 +231,15 @@ namespace SharpPy.PegGenerator.Asdl
             _indentLevel++;
             WriteLine("if (token == null) return null;");
             WriteLine("var constant = new GeneratedConstant();");
-            WriteLine("// Parse number value - simplified for now");
-            WriteLine("constant.Value = token.Value;");
+            WriteLine("// Parse number value");
+            WriteLine("if (token.Value.Contains(\".\") || token.Value.Contains(\"e\") || token.Value.Contains(\"E\"))");
+            WriteLine("{");
+            WriteLine("    constant.Value = new GeneratedPyConstantFloat(double.Parse(token.Value));");
+            WriteLine("}");
+            WriteLine("else");
+            WriteLine("{");
+            WriteLine("    constant.Value = new GeneratedPyConstantInt(long.Parse(token.Value));");
+            WriteLine("}");
             WriteLine("constant.LineNo = token.Line;");
             WriteLine("constant.ColOffset = token.Column;");
             WriteLine("constant.EndLineNo = token.EndLine;");
@@ -252,8 +259,8 @@ namespace SharpPy.PegGenerator.Asdl
             _indentLevel++;
             WriteLine("if (token == null) return null;");
             WriteLine("var constant = new GeneratedConstant();");
-            WriteLine("// Parse string value - simplified for now");
-            WriteLine("constant.Value = token.Value;");
+            WriteLine("// Parse string value");
+            WriteLine("constant.Value = new GeneratedPyConstantString(token.Value);");
             WriteLine("constant.LineNo = token.Line;");
             WriteLine("constant.ColOffset = token.Column;");
             WriteLine("constant.EndLineNo = token.EndLine;");
@@ -762,12 +769,13 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("}");
             WriteLine();
 
-            // Constant singletons
+            // Constant singletons - AST layer (not runtime PyObject)
             WriteLine("// CPython: Py_None, Py_True, Py_False, Py_Ellipsis");
-            WriteLine("public static GeneratedConstant Py_None => new GeneratedConstant { Value = null };");
-            WriteLine("public static GeneratedConstant Py_True => new GeneratedConstant { Value = true };");
-            WriteLine("public static GeneratedConstant Py_False => new GeneratedConstant { Value = false };");
-            WriteLine("public static GeneratedConstant Py_Ellipsis => new GeneratedConstant { Value = \"...\" };");
+            WriteLine("// Note: These are constant VALUES for AST construction, not runtime PyObjects");
+            WriteLine("public static GeneratedPyConstant Py_None => GeneratedPyConstant.None;");
+            WriteLine("public static GeneratedPyConstant Py_True => GeneratedPyConstant.True;");
+            WriteLine("public static GeneratedPyConstant Py_False => GeneratedPyConstant.False;");
+            WriteLine("public static GeneratedPyConstant Py_Ellipsis => GeneratedPyConstant.Ellipsis;");
             WriteLine();
 
             // dummy_name
@@ -1019,10 +1027,12 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("}");
             WriteLine();
 
-            WriteLine("public static GeneratedOperator ExtractOpKind(object op)");
+            WriteLine("public static GeneratedOperator ExtractOpKind(GeneratedAstNode op)");
             WriteLine("{");
             _indentLevel++;
-            WriteLine("// TODO: Implement operator extraction");
+            WriteLine("// Extract operator kind from AST node");
+            WriteLine("if (op is GeneratedOperator opNode) return opNode;");
+            WriteLine("// TODO: Implement more comprehensive operator extraction");
             WriteLine("return GeneratedAdd.Instance;");
             _indentLevel--;
             WriteLine("}");
@@ -1082,7 +1092,7 @@ namespace SharpPy.PegGenerator.Asdl
                 "identifier" => "string",
                 "int" => "int",
                 "string" => "string",
-                "constant" => "object",
+                "constant" => "GeneratedPyConstant",
                 "singleton" => "bool?",
                 _ => "object"
             };

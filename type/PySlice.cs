@@ -87,10 +87,10 @@ namespace SharpPy
         {
             if (Step == PyNone.Instance)
                 return 1;
-            
+
             if (Step is PyInt stepInt)
-                return stepInt.Value;
-            
+                return (int)stepInt.Value;
+
             throw PyTypeError.Create("slice indices must be integers or None");
         }
 
@@ -105,7 +105,7 @@ namespace SharpPy
             }
             else if (Start is PyInt startInt)
             {
-                start = startInt.Value;
+                start = (int)startInt.Value;
                 if (start < 0) start += length;
                 start = Math.Max(0, Math.Min(start, length - 1));
             }
@@ -121,7 +121,7 @@ namespace SharpPy
             }
             else if (Stop is PyInt stopInt)
             {
-                stop = stopInt.Value;
+                stop = (int)stopInt.Value;
                 if (stop < 0) stop += length;
                 stop = Math.Max(-1, Math.Min(stop, length));
             }

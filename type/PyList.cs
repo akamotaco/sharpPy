@@ -40,7 +40,7 @@ namespace SharpPy
         {
             if (index is PyInt pyInt)
             {
-                return GetItem(pyInt.Value);
+                return GetItem((int)pyInt.Value);
             }
             else if (index is PySlice slice)
             {
@@ -85,7 +85,7 @@ namespace SharpPy
         {
             if (index is PyInt intIndex)
             {
-                SetItem(intIndex.Value, value);
+                SetItem((int)intIndex.Value, value);
             }
             else if (index is PySlice slice)
             {

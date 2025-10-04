@@ -534,16 +534,16 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             // Memoization methods
-            WriteLine("private T? GetMemo<T>(string ruleName)");
+            WriteLine("private T? GetMemo<T>(string ruleName) where T : GeneratedAstNode");
             WriteLine("{");
             Indent();
             WriteLine("var key = (_position, ruleName);");
-            WriteLine("return _memoCache.TryGetValue(key, out var value) ? (T?)value : default;");
+            WriteLine("return _memoCache.TryGetValue(key, out var value) ? value as T : default;");
             Dedent();
             WriteLine("}");
             WriteLine();
 
-            WriteLine("private void SetMemo<T>(string ruleName, T? value)");
+            WriteLine("private void SetMemo<T>(string ruleName, T? value) where T : GeneratedAstNode");
             WriteLine("{");
             Indent();
             WriteLine("var key = (_position, ruleName);");
@@ -8312,7 +8312,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("/// type_params[asdl_type_param_seq*]: '[' t=type_param_seq ']'");
             WriteLine("/// Parse optional type parameters for PEP 695");
             WriteLine("/// </summary>");
-            WriteLine("public List<object>? ParseTypeParams()");
+            WriteLine("public List<GeneratedTypeParam>? ParseTypeParams()");
             WriteLine("{");
             Indent();
             WriteLine("// Check for '[' - if not present, return null (no type parameters)");
@@ -8324,7 +8324,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("var startPos = _position;");
             WriteLine("Advance(); // consume '['");
             WriteLine();
-            WriteLine("var typeParams = new List<object>();");
+            WriteLine("var typeParams = new List<GeneratedTypeParam>();");
             WriteLine();
             WriteLine("// Parse type_param_seq: comma-separated type parameters");
             WriteLine("while (CurrentToken != null)");
@@ -8376,7 +8376,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("/// type_param[type_param_ty]: TypeVar | TypeVarTuple | ParamSpec");
             WriteLine("/// Parse individual type parameter (T, *Ts, **P)");
             WriteLine("/// </summary>");
-            WriteLine("public object? ParseTypeParam()");
+            WriteLine("public GeneratedTypeParam? ParseTypeParam()");
             WriteLine("{");
             Indent();
             WriteLine("var startPos = _position;");
