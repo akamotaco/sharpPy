@@ -240,6 +240,27 @@ namespace SharpPy.PegGenerator.CodeGenerator
                         return $"_res = _PyPegen_make_module({body});";
                     }
                     break;
+
+                case "_PyPegen_constant_from_string":
+                    // _PyPegen_constant_from_string(p, s) → STRING token to Constant AST node
+                    // CPython 3.12: string[expr_ty]: s=STRING { _PyPegen_constant_from_string(p, s) }
+                    if (filteredArgs.Count >= 1)
+                    {
+                        var stringToken = TranslateToCSharp(filteredArgs[0].Trim(), variables);
+                        return $"_res = _PyPegen_constant_from_string({stringToken});";
+                    }
+                    break;
+
+                case "_PyPegen_concatenate_strings":
+                    // _PyPegen_concatenate_strings(p, strings, EXTRA) → concatenate multiple string literals
+                    // CPython 3.12: strings[expr_ty]: a=(fstring|string)+ { _PyPegen_concatenate_strings(p, a, EXTRA) }
+                    if (filteredArgs.Count >= 1)
+                    {
+                        var strings = TranslateToCSharp(filteredArgs[0].Trim(), variables);
+                        // EXTRA parameters are added separately, extract from remaining args
+                        return $"_res = _PyPegen_concatenate_strings({strings}, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);";
+                    }
+                    break;
             }
 
             // Unknown _PyPegen_ function

@@ -72,6 +72,11 @@ namespace SharpPy.Generated
                     {
                         _opt_a = _group_alt0__opt_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_a;
+                    }
                 }
                 GeneratedStmtSeq? a = _opt_a;
                 if (a == null)
@@ -85,6 +90,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -137,6 +143,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -189,6 +196,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -200,6 +208,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -253,6 +262,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -269,6 +279,11 @@ namespace SharpPy.Generated
                     {
                         _opt_a = _group_alt0__opt_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_a;
+                    }
                 }
                 GeneratedExprSeq? a = _opt_a;
                 if (a == null)
@@ -281,6 +296,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -289,6 +305,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -297,6 +314,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -308,6 +326,7 @@ namespace SharpPy.Generated
                 if (_tmp4 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -361,6 +380,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -412,6 +432,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -437,6 +458,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -488,6 +510,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -497,6 +520,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -523,6 +547,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -549,6 +574,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -578,6 +604,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -631,6 +658,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -641,6 +669,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -650,6 +679,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -679,6 +709,7 @@ namespace SharpPy.Generated
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -692,6 +723,7 @@ namespace SharpPy.Generated
                     if (_sep_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -722,6 +754,11 @@ namespace SharpPy.Generated
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
+                    }
                 }
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
@@ -735,6 +772,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -777,6 +815,8 @@ namespace SharpPy.Generated
             int _end_lineno = 0;
             int _end_col_offset = 0;
 
+            Console.WriteLine($"[SIMPLE_STMT] START at pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+
             // Alternative 1
             do
             {
@@ -794,6 +834,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -814,15 +855,26 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &('"type"')
                 int _lookahead_mark_1 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_1; // Restore position
+                bool _lookahead_test_1 = false;
+                {
+                    if (CurrentToken?.Value == "\"type\"") { _lookahead_test_1 = true; }
+                }
+                _position = _lookahead_mark_1; // Restore position after lookahead
+                if (!_lookahead_test_1)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: type_alias
                 var _tmp1 = TypeAlias();
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -848,6 +900,7 @@ namespace SharpPy.Generated
                 if (e == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -869,15 +922,26 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &('return')
                 int _lookahead_mark_2 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_2; // Restore position
+                bool _lookahead_test_2 = false;
+                {
+                    if (CurrentToken?.Value == "return") { _lookahead_test_2 = true; }
+                }
+                _position = _lookahead_mark_2; // Restore position after lookahead
+                if (!_lookahead_test_2)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: return_stmt
                 var _tmp1 = ReturnStmt();
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -898,15 +962,28 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(('import' | 'from'))
                 int _lookahead_mark_3 = _position;
-                // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_3; // Restore position
+                bool _lookahead_test_3 = false;
+                {
+                    // Test if current token matches any alternative
+                    if (CurrentToken?.Value == "import") { _lookahead_test_3 = true; }
+                    if (CurrentToken?.Value == "from") { _lookahead_test_3 = true; }
+                }
+                _position = _lookahead_mark_3; // Restore position after lookahead
+                if (!_lookahead_test_3)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: import_stmt
                 var _tmp1 = ImportStmt();
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -927,15 +1004,26 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &('raise')
                 int _lookahead_mark_4 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_4; // Restore position
+                bool _lookahead_test_4 = false;
+                {
+                    if (CurrentToken?.Value == "raise") { _lookahead_test_4 = true; }
+                }
+                _position = _lookahead_mark_4; // Restore position after lookahead
+                if (!_lookahead_test_4)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: raise_stmt
                 var _tmp1 = RaiseStmt();
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -961,6 +1049,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -982,15 +1071,26 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &('del')
                 int _lookahead_mark_5 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_5; // Restore position
+                bool _lookahead_test_5 = false;
+                {
+                    if (CurrentToken?.Value == "del") { _lookahead_test_5 = true; }
+                }
+                _position = _lookahead_mark_5; // Restore position after lookahead
+                if (!_lookahead_test_5)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: del_stmt
                 var _tmp1 = DelStmt();
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1011,15 +1111,26 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &('yield')
                 int _lookahead_mark_6 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_6; // Restore position
+                bool _lookahead_test_6 = false;
+                {
+                    if (CurrentToken?.Value == "yield") { _lookahead_test_6 = true; }
+                }
+                _position = _lookahead_mark_6; // Restore position after lookahead
+                if (!_lookahead_test_6)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: yield_stmt
                 var _tmp1 = YieldStmt();
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1040,15 +1151,26 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &('assert')
                 int _lookahead_mark_7 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_7; // Restore position
+                bool _lookahead_test_7 = false;
+                {
+                    if (CurrentToken?.Value == "assert") { _lookahead_test_7 = true; }
+                }
+                _position = _lookahead_mark_7; // Restore position after lookahead
+                if (!_lookahead_test_7)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: assert_stmt
                 var _tmp1 = AssertStmt();
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1074,6 +1196,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1100,6 +1223,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1121,15 +1245,26 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &('global')
                 int _lookahead_mark_8 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_8; // Restore position
+                bool _lookahead_test_8 = false;
+                {
+                    if (CurrentToken?.Value == "global") { _lookahead_test_8 = true; }
+                }
+                _position = _lookahead_mark_8; // Restore position after lookahead
+                if (!_lookahead_test_8)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: global_stmt
                 var _tmp1 = GlobalStmt();
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1150,15 +1285,26 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &('nonlocal')
                 int _lookahead_mark_9 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_9; // Restore position
+                bool _lookahead_test_9 = false;
+                {
+                    if (CurrentToken?.Value == "nonlocal") { _lookahead_test_9 = true; }
+                }
+                _position = _lookahead_mark_9; // Restore position after lookahead
+                if (!_lookahead_test_9)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: nonlocal_stmt
                 var _tmp1 = NonlocalStmt();
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1176,6 +1322,7 @@ namespace SharpPy.Generated
             var _end_token = CurrentToken ?? _start_token;
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
+            Console.WriteLine($"[SIMPLE_STMT] RETURN {(_res == null ? "null" : "not-null")} at pos={_position}");
             return _res;
         }
 
@@ -1205,15 +1352,29 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(('def' | '@' | ASYNC))
                 int _lookahead_mark_10 = _position;
-                // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_10; // Restore position
+                bool _lookahead_test_10 = false;
+                {
+                    // Test if current token matches any alternative
+                    if (CurrentToken?.Value == "def") { _lookahead_test_10 = true; }
+                    if (CurrentToken?.Value == "@") { _lookahead_test_10 = true; }
+                    if (ExpectToken(GeneratedTokenType.ASYNC) != null) { _lookahead_test_10 = true; }
+                }
+                _position = _lookahead_mark_10; // Restore position after lookahead
+                if (!_lookahead_test_10)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: function_def
                 var _tmp1 = FunctionDef();
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1234,15 +1395,26 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &('if')
                 int _lookahead_mark_11 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_11; // Restore position
+                bool _lookahead_test_11 = false;
+                {
+                    if (CurrentToken?.Value == "if") { _lookahead_test_11 = true; }
+                }
+                _position = _lookahead_mark_11; // Restore position after lookahead
+                if (!_lookahead_test_11)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: if_stmt
                 var _tmp1 = IfStmt();
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1263,15 +1435,28 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(('class' | '@'))
                 int _lookahead_mark_12 = _position;
-                // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_12; // Restore position
+                bool _lookahead_test_12 = false;
+                {
+                    // Test if current token matches any alternative
+                    if (CurrentToken?.Value == "class") { _lookahead_test_12 = true; }
+                    if (CurrentToken?.Value == "@") { _lookahead_test_12 = true; }
+                }
+                _position = _lookahead_mark_12; // Restore position after lookahead
+                if (!_lookahead_test_12)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: class_def
                 var _tmp1 = ClassDef();
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1292,15 +1477,28 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(('with' | ASYNC))
                 int _lookahead_mark_13 = _position;
-                // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_13; // Restore position
+                bool _lookahead_test_13 = false;
+                {
+                    // Test if current token matches any alternative
+                    if (CurrentToken?.Value == "with") { _lookahead_test_13 = true; }
+                    if (ExpectToken(GeneratedTokenType.ASYNC) != null) { _lookahead_test_13 = true; }
+                }
+                _position = _lookahead_mark_13; // Restore position after lookahead
+                if (!_lookahead_test_13)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: with_stmt
                 var _tmp1 = WithStmt();
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1321,15 +1519,28 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(('for' | ASYNC))
                 int _lookahead_mark_14 = _position;
-                // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_14; // Restore position
+                bool _lookahead_test_14 = false;
+                {
+                    // Test if current token matches any alternative
+                    if (CurrentToken?.Value == "for") { _lookahead_test_14 = true; }
+                    if (ExpectToken(GeneratedTokenType.ASYNC) != null) { _lookahead_test_14 = true; }
+                }
+                _position = _lookahead_mark_14; // Restore position after lookahead
+                if (!_lookahead_test_14)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: for_stmt
                 var _tmp1 = ForStmt();
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1350,15 +1561,26 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &('try')
                 int _lookahead_mark_15 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_15; // Restore position
+                bool _lookahead_test_15 = false;
+                {
+                    if (CurrentToken?.Value == "try") { _lookahead_test_15 = true; }
+                }
+                _position = _lookahead_mark_15; // Restore position after lookahead
+                if (!_lookahead_test_15)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: try_stmt
                 var _tmp1 = TryStmt();
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1379,15 +1601,26 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &('while')
                 int _lookahead_mark_16 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_16; // Restore position
+                bool _lookahead_test_16 = false;
+                {
+                    if (CurrentToken?.Value == "while") { _lookahead_test_16 = true; }
+                }
+                _position = _lookahead_mark_16; // Restore position after lookahead
+                if (!_lookahead_test_16)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: while_stmt
                 var _tmp1 = WhileStmt();
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1413,6 +1646,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1465,6 +1699,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1475,6 +1710,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1483,6 +1719,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1501,6 +1738,11 @@ namespace SharpPy.Generated
                         if (_group_alt0__opt_c_item1 != null)
                         {
                             _opt_c = _group_alt0__opt_c_item1;
+                        }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__opt_c;
                         }
                     }
                 }
@@ -1551,6 +1793,11 @@ namespace SharpPy.Generated
                             {
                                 a = _group_alt0_a_item1;
                             }
+                            else
+                            {
+                                // CPython 3.12: Group alternative failed, restore position
+                                _position = _group_mark_a;
+                            }
                         }
                     }
                 }
@@ -1563,10 +1810,16 @@ namespace SharpPy.Generated
                     {
                         a = _group_alt1_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_a;
+                    }
                 }
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1575,6 +1828,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1583,6 +1837,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1601,6 +1856,11 @@ namespace SharpPy.Generated
                         if (_group_alt0__opt_c_item1 != null)
                         {
                             _opt_c = _group_alt0__opt_c_item1;
+                        }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__opt_c;
                         }
                     }
                 }
@@ -1633,6 +1893,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1647,6 +1908,11 @@ namespace SharpPy.Generated
                     {
                         b = _group_alt0_b_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_b;
+                    }
                 }
                 // Try group alternative 2: star_expressions
                 if (b == null)
@@ -1657,10 +1923,16 @@ namespace SharpPy.Generated
                     {
                         b = _group_alt1_b_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_b;
+                    }
                 }
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1671,6 +1943,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1686,6 +1959,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_tc_item0 != null)
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_tc;
                     }
                 }
                 GeneratedTokenInfo? tc = _opt_tc;
@@ -1717,6 +1995,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1725,6 +2004,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1741,6 +2021,11 @@ namespace SharpPy.Generated
                     {
                         c = _group_alt0_c_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_c;
+                    }
                 }
                 // Try group alternative 2: star_expressions
                 if (c == null)
@@ -1751,10 +2036,16 @@ namespace SharpPy.Generated
                     {
                         c = _group_alt1_c_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_c;
+                    }
                 }
                 if (c == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1785,6 +2076,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1837,6 +2129,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1862,6 +2155,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1913,6 +2207,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1939,6 +2234,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1965,6 +2261,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -1991,6 +2288,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2017,6 +2315,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2043,6 +2342,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2069,6 +2369,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2095,6 +2396,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2121,6 +2423,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2147,6 +2450,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2173,6 +2477,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2199,6 +2504,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2225,6 +2531,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2277,6 +2584,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2292,6 +2600,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_a;
                     }
                 }
                 GeneratedExpr? a = _opt_a;
@@ -2349,6 +2662,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2357,6 +2671,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2375,6 +2690,11 @@ namespace SharpPy.Generated
                         if (_group_alt0__opt_b_item1 != null)
                         {
                             _opt_b = _group_alt0__opt_b_item1;
+                        }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__opt_b;
                         }
                     }
                 }
@@ -2407,6 +2727,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2459,6 +2780,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2472,6 +2794,7 @@ namespace SharpPy.Generated
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2485,6 +2808,7 @@ namespace SharpPy.Generated
                     if (_sep_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -2553,6 +2877,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2566,6 +2891,7 @@ namespace SharpPy.Generated
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2579,6 +2905,7 @@ namespace SharpPy.Generated
                     if (_sep_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -2647,6 +2974,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2655,13 +2983,26 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &((';' | NEWLINE))
                 int _lookahead_mark_18 = _position;
-                // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_18; // Restore position
+                bool _lookahead_test_18 = false;
+                {
+                    // Test if current token matches any alternative
+                    if (CurrentToken?.Value == ";") { _lookahead_test_18 = true; }
+                    if (ExpectToken(GeneratedTokenType.NEWLINE) != null) { _lookahead_test_18 = true; }
+                }
+                _position = _lookahead_mark_18; // Restore position after lookahead
+                if (!_lookahead_test_18)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: _PyAST_Delete(a, EXTRA)
                 _res = _PyAST_Delete(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
@@ -2689,6 +3030,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2741,6 +3083,7 @@ namespace SharpPy.Generated
                 if (y == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2793,6 +3136,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2801,6 +3145,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2819,6 +3164,11 @@ namespace SharpPy.Generated
                         if (_group_alt0__opt_b_item1 != null)
                         {
                             _opt_b = _group_alt0__opt_b_item1;
+                        }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__opt_b;
                         }
                     }
                 }
@@ -2881,6 +3231,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2907,6 +3258,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2932,6 +3284,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2983,6 +3336,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -2991,6 +3345,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3043,6 +3398,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3053,6 +3409,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3061,6 +3418,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3069,6 +3427,7 @@ namespace SharpPy.Generated
                 if (c == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3095,6 +3454,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3103,6 +3463,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3111,6 +3472,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3119,6 +3481,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3171,6 +3534,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3179,6 +3543,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3195,6 +3560,11 @@ namespace SharpPy.Generated
                     {
                         _opt__tmp1 = _group_alt0__opt__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp1;
+                    }
                 }
                 GeneratedTokenInfo? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
@@ -3207,6 +3577,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3232,6 +3603,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3242,6 +3614,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3267,6 +3640,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3296,6 +3670,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3351,6 +3726,7 @@ namespace SharpPy.Generated
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3364,6 +3740,7 @@ namespace SharpPy.Generated
                     if (_sep_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -3430,6 +3807,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3450,6 +3828,11 @@ namespace SharpPy.Generated
                         if (_group_alt0__opt_b_item1 != null)
                         {
                             _opt_b = _group_alt0__opt_b_item1;
+                        }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__opt_b;
                         }
                     }
                 }
@@ -3514,6 +3897,7 @@ namespace SharpPy.Generated
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3527,6 +3911,7 @@ namespace SharpPy.Generated
                     if (_sep_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -3592,6 +3977,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3610,6 +3996,11 @@ namespace SharpPy.Generated
                         if (_group_alt0__opt_b_item1 != null)
                         {
                             _opt_b = _group_alt0__opt_b_item1;
+                        }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__opt_b;
                         }
                     }
                 }
@@ -3677,6 +4068,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3685,6 +4077,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3694,6 +4087,7 @@ namespace SharpPy.Generated
                 if (_token_b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3723,6 +4117,7 @@ namespace SharpPy.Generated
                 if (_token__tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3785,6 +4180,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3795,6 +4191,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3804,6 +4201,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3813,6 +4211,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3839,6 +4238,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3868,6 +4268,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3920,6 +4321,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3971,6 +4373,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -3979,6 +4382,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4005,6 +4409,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4060,6 +4465,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4086,6 +4492,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4095,6 +4502,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4112,6 +4520,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_t_item0 != null)
                     {
                         _opt_t = _group_alt0__opt_t_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_t;
                     }
                 }
                 GeneratedTypeParamSeq? t = _opt_t;
@@ -4144,6 +4557,11 @@ namespace SharpPy.Generated
                             {
                                 _opt__group_alt0__opt_b_item1 = _group_alt0__opt__group_alt0__opt_b_item1_item0;
                             }
+                            else
+                            {
+                                // CPython 3.12: Group alternative failed, restore position
+                                _position = _group_mark__opt__group_alt0__opt_b_item1;
+                            }
                         }
                         GeneratedExpr? _group_alt0__opt_b_item1 = _opt__group_alt0__opt_b_item1;
                         if (_group_alt0__opt_b_item1 == null)
@@ -4157,6 +4575,11 @@ namespace SharpPy.Generated
                             if (_group_alt0__opt_b_item2 != null)
                             {
                                 _opt_b = _group_alt0__opt_b_item1;
+                            }
+                            else
+                            {
+                                // CPython 3.12: Group alternative failed, restore position
+                                _position = _group_mark__opt_b;
                             }
                         }
                     }
@@ -4172,6 +4595,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4180,6 +4604,7 @@ namespace SharpPy.Generated
                 if (c == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4236,6 +4661,7 @@ namespace SharpPy.Generated
                 if (d == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4244,6 +4670,7 @@ namespace SharpPy.Generated
                 if (f == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4270,6 +4697,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4325,6 +4753,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4351,6 +4780,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4360,6 +4790,7 @@ namespace SharpPy.Generated
                 if (_token_n == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4378,6 +4809,11 @@ namespace SharpPy.Generated
                     {
                         _opt_t = _group_alt0__opt_t_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_t;
+                    }
                 }
                 GeneratedTypeParamSeq? t = _opt_t;
                 if (t == null)
@@ -4385,10 +4821,20 @@ namespace SharpPy.Generated
                     _position = _opt_mark_t; // Reset position
                     t = null; // Optional not present
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(&'(')
                 int _lookahead_mark_20 = _position;
-                // TODO: Parse lookahead content for PositiveLookahead
-                _position = _lookahead_mark_20; // Restore position
+                bool _lookahead_test_20 = false;
+                {
+                    if (CurrentToken?.Value == "(") { _lookahead_test_20 = true; }
+                }
+                _position = _lookahead_mark_20; // Restore position after lookahead
+                if (!_lookahead_test_20)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Optional: [(params)]
                 int _opt_mark_params_ = _position;
                 // Group: (params)
@@ -4402,6 +4848,11 @@ namespace SharpPy.Generated
                     {
                         _opt_params_ = _group_alt0__opt_params__item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_params_;
+                    }
                 }
                 GeneratedArguments? params_ = _opt_params_;
                 if (params_ == null)
@@ -4414,6 +4865,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4433,6 +4885,11 @@ namespace SharpPy.Generated
                         {
                             _opt_a = _group_alt0__opt_a_item1;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__opt_a;
+                        }
                     }
                 }
                 GeneratedExpr? a = _opt_a;
@@ -4441,10 +4898,20 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                     a = null; // Optional not present
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(&':')
                 int _lookahead_mark_21 = _position;
-                // TODO: Parse lookahead content for PositiveLookahead
-                _position = _lookahead_mark_21; // Restore position
+                bool _lookahead_test_21 = false;
+                {
+                    if (CurrentToken?.Value == ":") { _lookahead_test_21 = true; }
+                }
+                _position = _lookahead_mark_21; // Restore position after lookahead
+                if (!_lookahead_test_21)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Optional: [(func_type_comment)]
                 int _opt_mark_tc = _position;
                 // Group: (func_type_comment)
@@ -4458,6 +4925,11 @@ namespace SharpPy.Generated
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_tc;
+                    }
                 }
                 GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
@@ -4470,6 +4942,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4500,6 +4973,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4509,6 +4983,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4518,6 +4993,7 @@ namespace SharpPy.Generated
                 if (_token_n == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4536,6 +5012,11 @@ namespace SharpPy.Generated
                     {
                         _opt_t = _group_alt0__opt_t_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_t;
+                    }
                 }
                 GeneratedTypeParamSeq? t = _opt_t;
                 if (t == null)
@@ -4543,10 +5024,20 @@ namespace SharpPy.Generated
                     _position = _opt_mark_t; // Reset position
                     t = null; // Optional not present
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(&'(')
                 int _lookahead_mark_22 = _position;
-                // TODO: Parse lookahead content for PositiveLookahead
-                _position = _lookahead_mark_22; // Restore position
+                bool _lookahead_test_22 = false;
+                {
+                    if (CurrentToken?.Value == "(") { _lookahead_test_22 = true; }
+                }
+                _position = _lookahead_mark_22; // Restore position after lookahead
+                if (!_lookahead_test_22)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Optional: [(params)]
                 int _opt_mark_params_ = _position;
                 // Group: (params)
@@ -4560,6 +5051,11 @@ namespace SharpPy.Generated
                     {
                         _opt_params_ = _group_alt0__opt_params__item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_params_;
+                    }
                 }
                 GeneratedArguments? params_ = _opt_params_;
                 if (params_ == null)
@@ -4572,6 +5068,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4591,6 +5088,11 @@ namespace SharpPy.Generated
                         {
                             _opt_a = _group_alt0__opt_a_item1;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__opt_a;
+                        }
                     }
                 }
                 GeneratedExpr? a = _opt_a;
@@ -4599,10 +5101,20 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                     a = null; // Optional not present
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(&':')
                 int _lookahead_mark_23 = _position;
-                // TODO: Parse lookahead content for PositiveLookahead
-                _position = _lookahead_mark_23; // Restore position
+                bool _lookahead_test_23 = false;
+                {
+                    if (CurrentToken?.Value == ":") { _lookahead_test_23 = true; }
+                }
+                _position = _lookahead_mark_23; // Restore position after lookahead
+                if (!_lookahead_test_23)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Optional: [(func_type_comment)]
                 int _opt_mark_tc = _position;
                 // Group: (func_type_comment)
@@ -4616,6 +5128,11 @@ namespace SharpPy.Generated
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_tc;
+                    }
                 }
                 GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
@@ -4628,6 +5145,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4692,6 +5210,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4718,6 +5237,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4769,6 +5289,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4788,6 +5309,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_d_item0 != null)
                     {
                         _opt_d = _group_alt0__opt_d_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_d;
                     }
                 }
                 GeneratedStarEtc? d = _opt_d;
@@ -4819,6 +5345,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4836,6 +5363,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_c;
                     }
                 }
                 GeneratedStarEtc? c = _opt_c;
@@ -4867,6 +5399,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4884,6 +5417,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_c;
                     }
                 }
                 GeneratedStarEtc? c = _opt_c;
@@ -4915,6 +5453,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -4930,6 +5469,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_b_item0 != null)
                     {
                         _opt_b = _group_alt0__opt_b_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_b;
                     }
                 }
                 GeneratedStarEtc? b = _opt_b;
@@ -4961,6 +5505,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5013,6 +5558,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5021,6 +5567,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5029,6 +5576,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5054,6 +5602,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5062,13 +5611,24 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(')')
                 int _lookahead_mark_24 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_24; // Restore position
+                bool _lookahead_test_24 = false;
+                {
+                    if (CurrentToken?.Value == ")") { _lookahead_test_24 = true; }
+                }
+                _position = _lookahead_mark_24; // Restore position after lookahead
+                if (!_lookahead_test_24)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: a
                 _res = (GeneratedAstNodeSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
@@ -5119,6 +5679,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5127,6 +5688,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5135,6 +5697,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5163,6 +5726,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5171,13 +5735,24 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(')')
                 int _lookahead_mark_25 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_25; // Restore position
+                bool _lookahead_test_25 = false;
+                {
+                    if (CurrentToken?.Value == ")") { _lookahead_test_25 = true; }
+                }
+                _position = _lookahead_mark_25; // Restore position after lookahead
+                if (!_lookahead_test_25)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)
                 // Unknown AST function: _PyPegen_slash_with_default
                 _res = default(GeneratedSlashWithDefault);
@@ -5231,6 +5806,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5257,6 +5833,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5265,6 +5842,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5282,6 +5860,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_c;
                     }
                 }
                 GeneratedArg? c = _opt_c;
@@ -5313,6 +5896,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5321,6 +5905,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5338,6 +5923,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_c;
                     }
                 }
                 GeneratedArg? c = _opt_c;
@@ -5369,6 +5959,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5377,6 +5968,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5385,6 +5977,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5400,6 +5993,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_c;
                     }
                 }
                 GeneratedArg? c = _opt_c;
@@ -5431,6 +6029,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5487,6 +6086,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5513,6 +6113,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5521,6 +6122,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5572,6 +6174,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5580,6 +6183,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5591,6 +6195,7 @@ namespace SharpPy.Generated
                 if (_opt_tc == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5624,6 +6229,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5635,6 +6241,7 @@ namespace SharpPy.Generated
                 if (_opt_tc == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5645,10 +6252,20 @@ namespace SharpPy.Generated
                     _position = _opt_mark_tc; // Reset position
                     tc = null; // Optional not present
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(')')
                 int _lookahead_mark_26 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_26; // Restore position
+                bool _lookahead_test_26 = false;
+                {
+                    if (CurrentToken?.Value == ")") { _lookahead_test_26 = true; }
+                }
+                _position = _lookahead_mark_26; // Restore position after lookahead
+                if (!_lookahead_test_26)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: _PyPegen_add_type_comment_to_arg(p, a, tc)
                 // Unknown AST function: _PyPegen_add_type_comment_to_arg
                 _res = default(GeneratedArg);
@@ -5698,6 +6315,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5706,6 +6324,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5717,6 +6336,7 @@ namespace SharpPy.Generated
                 if (_opt_tc == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5750,6 +6370,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5761,6 +6382,7 @@ namespace SharpPy.Generated
                 if (_opt_tc == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5771,10 +6393,20 @@ namespace SharpPy.Generated
                     _position = _opt_mark_tc; // Reset position
                     tc = null; // Optional not present
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(')')
                 int _lookahead_mark_27 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_27; // Restore position
+                bool _lookahead_test_27 = false;
+                {
+                    if (CurrentToken?.Value == ")") { _lookahead_test_27 = true; }
+                }
+                _position = _lookahead_mark_27; // Restore position after lookahead
+                if (!_lookahead_test_27)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: _PyPegen_add_type_comment_to_arg(p, a, tc)
                 // Unknown AST function: _PyPegen_add_type_comment_to_arg
                 _res = default(GeneratedArg);
@@ -5824,6 +6456,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5832,6 +6465,7 @@ namespace SharpPy.Generated
                 if (c == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5840,6 +6474,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5851,6 +6486,7 @@ namespace SharpPy.Generated
                 if (_opt_tc == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5884,6 +6520,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5892,6 +6529,7 @@ namespace SharpPy.Generated
                 if (c == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5903,6 +6541,7 @@ namespace SharpPy.Generated
                 if (_opt_tc == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5913,10 +6552,20 @@ namespace SharpPy.Generated
                     _position = _opt_mark_tc; // Reset position
                     tc = null; // Optional not present
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(')')
                 int _lookahead_mark_28 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_28; // Restore position
+                bool _lookahead_test_28 = false;
+                {
+                    if (CurrentToken?.Value == ")") { _lookahead_test_28 = true; }
+                }
+                _position = _lookahead_mark_28; // Restore position after lookahead
+                if (!_lookahead_test_28)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: _PyPegen_name_default_pair(p, a, c, tc)
                 // Unknown AST function: _PyPegen_name_default_pair
                 _res = default(GeneratedAstNode?);
@@ -5966,6 +6615,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5976,6 +6626,7 @@ namespace SharpPy.Generated
                 if (_opt_c == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5990,6 +6641,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6001,6 +6653,7 @@ namespace SharpPy.Generated
                 if (_opt_tc == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6034,6 +6687,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6044,6 +6698,7 @@ namespace SharpPy.Generated
                 if (_opt_c == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6061,6 +6716,7 @@ namespace SharpPy.Generated
                 if (_opt_tc == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6071,10 +6727,20 @@ namespace SharpPy.Generated
                     _position = _opt_mark_tc; // Reset position
                     tc = null; // Optional not present
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(')')
                 int _lookahead_mark_29 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_29; // Restore position
+                bool _lookahead_test_29 = false;
+                {
+                    if (CurrentToken?.Value == ")") { _lookahead_test_29 = true; }
+                }
+                _position = _lookahead_mark_29; // Restore position after lookahead
+                if (!_lookahead_test_29)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: _PyPegen_name_default_pair(p, a, c, tc)
                 // Unknown AST function: _PyPegen_name_default_pair
                 _res = default(GeneratedAstNode?);
@@ -6125,6 +6791,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6137,6 +6804,7 @@ namespace SharpPy.Generated
                 if (_opt_b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6196,6 +6864,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6206,6 +6875,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6258,6 +6928,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6266,6 +6937,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6317,6 +6989,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6325,6 +6998,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6376,6 +7050,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6384,6 +7059,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6413,6 +7089,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6469,6 +7146,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6495,6 +7173,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6503,6 +7182,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6511,6 +7191,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6519,6 +7200,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6527,6 +7209,7 @@ namespace SharpPy.Generated
                 if (c == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6553,6 +7236,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6561,6 +7245,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6569,6 +7254,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6577,6 +7263,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6592,6 +7279,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_c;
                     }
                 }
                 GeneratedStmtSeq? c = _opt_c;
@@ -6653,6 +7345,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6679,6 +7372,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6687,6 +7381,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6695,6 +7390,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6703,6 +7399,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6711,6 +7408,7 @@ namespace SharpPy.Generated
                 if (c == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6737,6 +7435,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6745,6 +7444,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6753,6 +7453,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6761,6 +7462,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6776,6 +7478,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_c;
                     }
                 }
                 GeneratedStmtSeq? c = _opt_c;
@@ -6837,6 +7544,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6863,18 +7571,30 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(&':')
                 int _lookahead_mark_30 = _position;
-                // TODO: Parse lookahead content for PositiveLookahead
-                _position = _lookahead_mark_30; // Restore position
+                bool _lookahead_test_30 = false;
+                {
+                    if (CurrentToken?.Value == ":") { _lookahead_test_30 = true; }
+                }
+                _position = _lookahead_mark_30; // Restore position after lookahead
+                if (!_lookahead_test_30)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: block
                 var b = Block();
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6930,6 +7650,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6956,6 +7677,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6964,6 +7686,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6972,6 +7695,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6980,6 +7704,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6995,6 +7720,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_c;
                     }
                 }
                 GeneratedStmtSeq? c = _opt_c;
@@ -7056,6 +7786,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7082,6 +7813,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7090,6 +7822,7 @@ namespace SharpPy.Generated
                 if (t == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7098,6 +7831,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7108,6 +7842,7 @@ namespace SharpPy.Generated
                 if (ex == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7116,6 +7851,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7132,6 +7868,11 @@ namespace SharpPy.Generated
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_tc;
+                    }
                 }
                 GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
@@ -7144,6 +7885,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7159,6 +7901,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_el_item0 != null)
                     {
                         _opt_el = _group_alt0__opt_el_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_el;
                     }
                 }
                 GeneratedStmtSeq? el = _opt_el;
@@ -7191,6 +7938,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7200,6 +7948,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7208,6 +7957,7 @@ namespace SharpPy.Generated
                 if (t == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7216,6 +7966,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7226,6 +7977,7 @@ namespace SharpPy.Generated
                 if (ex == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7234,6 +7986,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7250,6 +8003,11 @@ namespace SharpPy.Generated
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_tc;
+                    }
                 }
                 GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
@@ -7262,6 +8020,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7277,6 +8036,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_el_item0 != null)
                     {
                         _opt_el = _group_alt0__opt_el_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_el;
                     }
                 }
                 GeneratedStmtSeq? el = _opt_el;
@@ -7312,6 +8076,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7368,6 +8133,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7394,6 +8160,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7402,6 +8169,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7413,6 +8181,7 @@ namespace SharpPy.Generated
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7426,6 +8195,7 @@ namespace SharpPy.Generated
                     if (_sep_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -7450,6 +8220,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7464,6 +8235,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7472,6 +8244,7 @@ namespace SharpPy.Generated
                 if (_tmp4 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7480,6 +8253,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7506,6 +8280,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7517,6 +8292,7 @@ namespace SharpPy.Generated
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7530,6 +8306,7 @@ namespace SharpPy.Generated
                     if (_sep_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -7552,6 +8329,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7568,6 +8346,11 @@ namespace SharpPy.Generated
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_tc;
+                    }
                 }
                 GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
@@ -7580,6 +8363,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7607,6 +8391,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7616,6 +8401,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7624,6 +8410,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7635,6 +8422,7 @@ namespace SharpPy.Generated
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7648,6 +8436,7 @@ namespace SharpPy.Generated
                     if (_sep_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -7672,6 +8461,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7686,6 +8476,7 @@ namespace SharpPy.Generated
                 if (_tmp4 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7694,6 +8485,7 @@ namespace SharpPy.Generated
                 if (_tmp5 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7702,6 +8494,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7729,6 +8522,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7738,6 +8532,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7749,6 +8544,7 @@ namespace SharpPy.Generated
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7762,6 +8558,7 @@ namespace SharpPy.Generated
                     if (_sep_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -7784,6 +8581,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7800,6 +8598,11 @@ namespace SharpPy.Generated
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_tc;
+                    }
                 }
                 GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
@@ -7812,6 +8615,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7842,6 +8646,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7894,6 +8699,7 @@ namespace SharpPy.Generated
                 if (e == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7902,6 +8708,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7910,13 +8717,27 @@ namespace SharpPy.Generated
                 if (t == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &((',' | ')' | ':'))
                 int _lookahead_mark_31 = _position;
-                // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_31; // Restore position
+                bool _lookahead_test_31 = false;
+                {
+                    // Test if current token matches any alternative
+                    if (CurrentToken?.Value == ",") { _lookahead_test_31 = true; }
+                    if (CurrentToken?.Value == ")") { _lookahead_test_31 = true; }
+                    if (CurrentToken?.Value == ":") { _lookahead_test_31 = true; }
+                }
+                _position = _lookahead_mark_31; // Restore position after lookahead
+                if (!_lookahead_test_31)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: _PyAST_withitem(e, t, p->arena)
                 // Unknown AST function: _PyAST_withitem
                 _res = default(GeneratedWithitem);
@@ -7944,6 +8765,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -7970,6 +8792,7 @@ namespace SharpPy.Generated
                 if (e == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8026,6 +8849,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8052,18 +8876,30 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(&':')
                 int _lookahead_mark_32 = _position;
-                // TODO: Parse lookahead content for PositiveLookahead
-                _position = _lookahead_mark_32; // Restore position
+                bool _lookahead_test_32 = false;
+                {
+                    if (CurrentToken?.Value == ":") { _lookahead_test_32 = true; }
+                }
+                _position = _lookahead_mark_32; // Restore position after lookahead
+                if (!_lookahead_test_32)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: block
                 var b = Block();
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8072,6 +8908,7 @@ namespace SharpPy.Generated
                 if (f == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8098,18 +8935,30 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(&':')
                 int _lookahead_mark_33 = _position;
-                // TODO: Parse lookahead content for PositiveLookahead
-                _position = _lookahead_mark_33; // Restore position
+                bool _lookahead_test_33 = false;
+                {
+                    if (CurrentToken?.Value == ":") { _lookahead_test_33 = true; }
+                }
+                _position = _lookahead_mark_33; // Restore position after lookahead
+                if (!_lookahead_test_33)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: block
                 var b = Block();
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8118,6 +8967,7 @@ namespace SharpPy.Generated
                 if (ex == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8133,6 +8983,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_el_item0 != null)
                     {
                         _opt_el = _group_alt0__opt_el_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_el;
                     }
                 }
                 GeneratedStmtSeq? el = _opt_el;
@@ -8153,6 +9008,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_f_item0 != null)
                     {
                         _opt_f = _group_alt0__opt_f_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_f;
                     }
                 }
                 GeneratedStmtSeq? f = _opt_f;
@@ -8184,18 +9044,30 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(&':')
                 int _lookahead_mark_34 = _position;
-                // TODO: Parse lookahead content for PositiveLookahead
-                _position = _lookahead_mark_34; // Restore position
+                bool _lookahead_test_34 = false;
+                {
+                    if (CurrentToken?.Value == ":") { _lookahead_test_34 = true; }
+                }
+                _position = _lookahead_mark_34; // Restore position after lookahead
+                if (!_lookahead_test_34)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: block
                 var b = Block();
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8204,6 +9076,7 @@ namespace SharpPy.Generated
                 if (ex == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8219,6 +9092,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_el_item0 != null)
                     {
                         _opt_el = _group_alt0__opt_el_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_el;
                     }
                 }
                 GeneratedStmtSeq? el = _opt_el;
@@ -8239,6 +9117,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_f_item0 != null)
                     {
                         _opt_f = _group_alt0__opt_f_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_f;
                     }
                 }
                 GeneratedStmtSeq? f = _opt_f;
@@ -8302,6 +9185,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8328,6 +9212,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8336,6 +9221,7 @@ namespace SharpPy.Generated
                 if (e == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8355,6 +9241,11 @@ namespace SharpPy.Generated
                         {
                             _opt_t = _group_alt0__opt_t_item1;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__opt_t;
+                        }
                     }
                 }
                 GeneratedTokenInfo? t = _opt_t;
@@ -8368,6 +9259,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8376,6 +9268,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8402,6 +9295,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8410,6 +9304,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8418,6 +9313,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8448,6 +9344,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8504,6 +9401,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8530,6 +9428,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8538,6 +9437,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8546,6 +9446,7 @@ namespace SharpPy.Generated
                 if (e == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8565,6 +9466,11 @@ namespace SharpPy.Generated
                         {
                             _opt_t = _group_alt0__opt_t_item1;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__opt_t;
+                        }
                     }
                 }
                 GeneratedTokenInfo? t = _opt_t;
@@ -8578,6 +9484,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8586,6 +9493,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8616,6 +9524,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8672,6 +9581,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8698,18 +9608,30 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(&':')
                 int _lookahead_mark_35 = _position;
-                // TODO: Parse lookahead content for PositiveLookahead
-                _position = _lookahead_mark_35; // Restore position
+                bool _lookahead_test_35 = false;
+                {
+                    if (CurrentToken?.Value == ":") { _lookahead_test_35 = true; }
+                }
+                _position = _lookahead_mark_35; // Restore position after lookahead
+                if (!_lookahead_test_35)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: block
                 var a = Block();
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8761,6 +9683,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8769,6 +9692,7 @@ namespace SharpPy.Generated
                 if (subject == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8777,6 +9701,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8786,6 +9711,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8796,6 +9722,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8805,6 +9732,7 @@ namespace SharpPy.Generated
                 if (cases == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8814,6 +9742,7 @@ namespace SharpPy.Generated
                 if (_tmp4 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8845,6 +9774,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8897,6 +9827,7 @@ namespace SharpPy.Generated
                 if (value == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8905,6 +9836,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8915,6 +9847,7 @@ namespace SharpPy.Generated
                 if (_opt_values == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -8947,6 +9880,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9002,6 +9936,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9028,6 +9963,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9036,6 +9972,7 @@ namespace SharpPy.Generated
                 if (pattern == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9046,6 +9983,7 @@ namespace SharpPy.Generated
                 if (_opt_guard == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9060,6 +9998,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9068,6 +10007,7 @@ namespace SharpPy.Generated
                 if (body == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9120,6 +10060,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9128,6 +10069,7 @@ namespace SharpPy.Generated
                 if (guard == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9179,6 +10121,7 @@ namespace SharpPy.Generated
                 if (patterns == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9205,6 +10148,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9256,6 +10200,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9281,6 +10226,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9332,6 +10278,7 @@ namespace SharpPy.Generated
                 if (pattern == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9340,6 +10287,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9348,6 +10296,7 @@ namespace SharpPy.Generated
                 if (target == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9378,6 +10327,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9433,6 +10383,7 @@ namespace SharpPy.Generated
                 if (_first_patterns == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9446,6 +10397,7 @@ namespace SharpPy.Generated
                     if (_sep_patterns == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -9519,6 +10471,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9544,6 +10497,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9569,6 +10523,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9594,6 +10549,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9619,6 +10575,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9644,6 +10601,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9669,6 +10627,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9694,6 +10653,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9745,6 +10705,7 @@ namespace SharpPy.Generated
                 if (value == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9757,6 +10718,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9783,6 +10745,7 @@ namespace SharpPy.Generated
                 if (value == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9809,6 +10772,7 @@ namespace SharpPy.Generated
                 if (value == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9835,6 +10799,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9861,6 +10826,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9887,6 +10853,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9939,6 +10906,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9951,6 +10919,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9976,6 +10945,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10001,6 +10971,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10026,6 +10997,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10052,6 +11024,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10078,6 +11051,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10130,6 +11104,7 @@ namespace SharpPy.Generated
                 if (real == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10138,6 +11113,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10146,6 +11122,7 @@ namespace SharpPy.Generated
                 if (imag == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10172,6 +11149,7 @@ namespace SharpPy.Generated
                 if (real == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10180,6 +11158,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10188,6 +11167,7 @@ namespace SharpPy.Generated
                 if (imag == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10241,6 +11221,7 @@ namespace SharpPy.Generated
                 if (_token__tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10269,6 +11250,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10278,6 +11260,7 @@ namespace SharpPy.Generated
                 if (_token_number == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10332,6 +11315,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10357,6 +11341,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10365,6 +11350,7 @@ namespace SharpPy.Generated
                 if (real == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10418,6 +11404,7 @@ namespace SharpPy.Generated
                 if (_token_real == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10473,6 +11460,7 @@ namespace SharpPy.Generated
                 if (_token_imag == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10527,6 +11515,7 @@ namespace SharpPy.Generated
                 if (target == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10581,6 +11570,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10590,6 +11580,7 @@ namespace SharpPy.Generated
                 if (_token_name == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10605,6 +11596,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10656,6 +11648,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10708,6 +11701,7 @@ namespace SharpPy.Generated
                 if (attr == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10721,6 +11715,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10773,6 +11768,7 @@ namespace SharpPy.Generated
                 if (value == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10781,6 +11777,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10790,6 +11787,7 @@ namespace SharpPy.Generated
                 if (_token_attr == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10844,6 +11842,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10870,6 +11869,7 @@ namespace SharpPy.Generated
                 if (_token__tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10924,6 +11924,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10932,6 +11933,7 @@ namespace SharpPy.Generated
                 if (pattern == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10940,6 +11942,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10991,6 +11994,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11001,6 +12005,7 @@ namespace SharpPy.Generated
                 if (_opt_patterns == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11015,6 +12020,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11041,6 +12047,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11051,6 +12058,7 @@ namespace SharpPy.Generated
                 if (_opt_patterns == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11065,6 +12073,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11117,6 +12126,7 @@ namespace SharpPy.Generated
                 if (pattern == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11125,6 +12135,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11135,6 +12146,7 @@ namespace SharpPy.Generated
                 if (_opt_patterns == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11195,6 +12207,7 @@ namespace SharpPy.Generated
                 if (_first_patterns == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11208,6 +12221,7 @@ namespace SharpPy.Generated
                     if (_sep_patterns == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -11232,6 +12246,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11289,6 +12304,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11314,6 +12330,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11372,6 +12389,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11380,6 +12398,7 @@ namespace SharpPy.Generated
                 if (target == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11406,6 +12425,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11414,6 +12434,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11466,6 +12487,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11474,6 +12496,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11500,6 +12523,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11508,6 +12532,7 @@ namespace SharpPy.Generated
                 if (rest == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11518,6 +12543,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11532,6 +12558,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11558,6 +12585,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11566,6 +12594,7 @@ namespace SharpPy.Generated
                 if (items == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11574,6 +12603,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11582,6 +12612,7 @@ namespace SharpPy.Generated
                 if (rest == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11592,6 +12623,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11606,6 +12638,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11637,6 +12670,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11645,6 +12679,7 @@ namespace SharpPy.Generated
                 if (items == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11655,6 +12690,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11669,6 +12705,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11729,6 +12766,7 @@ namespace SharpPy.Generated
                 if (_first__tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11742,6 +12780,7 @@ namespace SharpPy.Generated
                     if (_sep__tmp0 == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -11813,6 +12852,11 @@ namespace SharpPy.Generated
                     {
                         key = _group_alt0_key_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_key;
+                    }
                 }
                 // Try group alternative 2: attr
                 if (key == null)
@@ -11823,10 +12867,16 @@ namespace SharpPy.Generated
                     {
                         key = _group_alt1_key_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_key;
+                    }
                 }
                 if (key == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11835,6 +12885,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11843,6 +12894,7 @@ namespace SharpPy.Generated
                 if (pattern == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11895,6 +12947,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11903,6 +12956,7 @@ namespace SharpPy.Generated
                 if (target == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11954,6 +13008,7 @@ namespace SharpPy.Generated
                 if (cls == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11962,6 +13017,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11970,6 +13026,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -11996,6 +13053,7 @@ namespace SharpPy.Generated
                 if (cls == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12004,6 +13062,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12012,6 +13071,7 @@ namespace SharpPy.Generated
                 if (patterns == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12022,6 +13082,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12036,6 +13097,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12062,6 +13124,7 @@ namespace SharpPy.Generated
                 if (cls == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12070,6 +13133,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12078,6 +13142,7 @@ namespace SharpPy.Generated
                 if (keywords == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12088,6 +13153,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12102,6 +13168,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12134,6 +13201,7 @@ namespace SharpPy.Generated
                 if (cls == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12142,6 +13210,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12150,6 +13219,7 @@ namespace SharpPy.Generated
                 if (patterns == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12158,6 +13228,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12166,6 +13237,7 @@ namespace SharpPy.Generated
                 if (keywords == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12176,6 +13248,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12190,6 +13263,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12227,6 +13301,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12282,6 +13357,7 @@ namespace SharpPy.Generated
                 if (_first_args == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12295,6 +13371,7 @@ namespace SharpPy.Generated
                     if (_sep_args == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -12363,6 +13440,7 @@ namespace SharpPy.Generated
                 if (_first__tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12376,6 +13454,7 @@ namespace SharpPy.Generated
                     if (_sep__tmp0 == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -12442,6 +13521,7 @@ namespace SharpPy.Generated
                 if (_token_arg == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12452,6 +13532,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12460,6 +13541,7 @@ namespace SharpPy.Generated
                 if (value == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12512,6 +13594,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12521,6 +13604,7 @@ namespace SharpPy.Generated
                 if (_token_n == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12539,6 +13623,11 @@ namespace SharpPy.Generated
                     {
                         _opt_t = _group_alt0__opt_t_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_t;
+                    }
                 }
                 GeneratedTypeParamSeq? t = _opt_t;
                 if (t == null)
@@ -12551,6 +13640,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12559,6 +13649,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12613,6 +13704,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12621,6 +13713,7 @@ namespace SharpPy.Generated
                 if (t == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12629,6 +13722,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12684,6 +13778,7 @@ namespace SharpPy.Generated
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12697,6 +13792,7 @@ namespace SharpPy.Generated
                     if (_sep_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -12726,6 +13822,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
                     }
                 }
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
@@ -12790,6 +13891,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12807,6 +13909,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_b_item0 != null)
                     {
                         _opt_b = _group_alt0__opt_b_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_b;
                     }
                 }
                 GeneratedExpr? b = _opt_b;
@@ -12838,6 +13945,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12847,6 +13955,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12857,6 +13966,7 @@ namespace SharpPy.Generated
                 if (colon == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12865,6 +13975,7 @@ namespace SharpPy.Generated
                 if (e == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12896,6 +14007,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12905,6 +14017,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12933,6 +14046,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12942,6 +14056,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12952,6 +14067,7 @@ namespace SharpPy.Generated
                 if (colon == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12960,6 +14076,7 @@ namespace SharpPy.Generated
                 if (e == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12991,6 +14108,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13000,6 +14118,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13054,6 +14173,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13062,6 +14182,7 @@ namespace SharpPy.Generated
                 if (e == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13113,6 +14234,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13121,6 +14243,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13136,6 +14259,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
                     }
                 }
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
@@ -13167,6 +14295,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13175,6 +14304,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13201,6 +14331,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13242,14 +14373,19 @@ namespace SharpPy.Generated
             int _end_lineno = 0;
             int _end_col_offset = 0;
 
+            Console.WriteLine($"[EXPRESSION] START at pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+
             // Alternative 1
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[EXPRESSION-ALT1] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
+                Console.WriteLine($"[EXPRESSION-ALT1] pendingSyntaxError={(_pendingSyntaxError == null ? "null" : "SET")}");
                 if (_pendingSyntaxError != null)
                 {
+                    Console.WriteLine($"[EXPRESSION-ALT1] SKIP due to pendingSyntaxError");
                     _res = null;
                     break;
                 }
@@ -13263,6 +14399,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13276,10 +14413,13 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[EXPRESSION-ALT2] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
+                Console.WriteLine($"[EXPRESSION-ALT2] pendingSyntaxError={(_pendingSyntaxError == null ? "null" : "SET")}");
                 if (_pendingSyntaxError != null)
                 {
+                    Console.WriteLine($"[EXPRESSION-ALT2] SKIP due to pendingSyntaxError");
                     _res = null;
                     break;
                 }
@@ -13293,6 +14433,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13306,10 +14447,13 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[EXPRESSION-ALT3] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
+                Console.WriteLine($"[EXPRESSION-ALT3] pendingSyntaxError={(_pendingSyntaxError == null ? "null" : "SET")}");
                 if (_pendingSyntaxError != null)
                 {
+                    Console.WriteLine($"[EXPRESSION-ALT3] SKIP due to pendingSyntaxError");
                     _res = null;
                     break;
                 }
@@ -13319,6 +14463,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13327,6 +14472,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13335,6 +14481,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13343,6 +14490,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13351,6 +14499,7 @@ namespace SharpPy.Generated
                 if (c == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13364,10 +14513,13 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[EXPRESSION-ALT4] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
+                Console.WriteLine($"[EXPRESSION-ALT4] pendingSyntaxError={(_pendingSyntaxError == null ? "null" : "SET")}");
                 if (_pendingSyntaxError != null)
                 {
+                    Console.WriteLine($"[EXPRESSION-ALT4] SKIP due to pendingSyntaxError");
                     _res = null;
                     break;
                 }
@@ -13377,6 +14529,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13389,10 +14542,13 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[EXPRESSION-ALT5] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
+                Console.WriteLine($"[EXPRESSION-ALT5] pendingSyntaxError={(_pendingSyntaxError == null ? "null" : "SET")}");
                 if (_pendingSyntaxError != null)
                 {
+                    Console.WriteLine($"[EXPRESSION-ALT5] SKIP due to pendingSyntaxError");
                     _res = null;
                     break;
                 }
@@ -13402,6 +14558,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13419,6 +14576,7 @@ namespace SharpPy.Generated
             var _end_token = CurrentToken ?? _start_token;
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
+            Console.WriteLine($"[EXPRESSION] RETURN {(_res == null ? "null" : "not-null")} at pos={_position}");
             return _res;
         }
 
@@ -13453,6 +14611,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13461,6 +14620,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13469,6 +14629,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13495,6 +14656,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13510,6 +14672,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_a;
                     }
                 }
                 GeneratedExpr? a = _opt_a;
@@ -13567,6 +14734,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13575,6 +14743,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13590,6 +14759,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
                     }
                 }
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
@@ -13621,6 +14795,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13629,6 +14804,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13655,6 +14831,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13713,6 +14890,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13721,6 +14899,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13747,6 +14926,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13801,6 +14981,7 @@ namespace SharpPy.Generated
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13814,6 +14995,7 @@ namespace SharpPy.Generated
                     if (_sep_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -13843,6 +15025,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
                     }
                 }
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
@@ -13899,6 +15086,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13907,6 +15095,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13933,6 +15122,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13985,6 +15175,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -13995,6 +15186,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14005,6 +15197,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14059,6 +15252,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14088,6 +15282,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14114,6 +15309,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14124,6 +15320,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14182,6 +15379,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14190,6 +15388,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14220,6 +15419,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14278,6 +15478,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14286,6 +15487,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14316,6 +15518,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14374,6 +15577,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14382,6 +15586,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14408,6 +15613,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14459,6 +15665,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14467,6 +15674,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14498,6 +15706,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14549,6 +15758,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14574,6 +15784,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14599,6 +15810,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14624,6 +15836,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14649,6 +15862,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14674,6 +15888,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14699,6 +15914,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14724,6 +15940,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14749,6 +15966,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14774,6 +15992,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14825,6 +16044,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14833,6 +16053,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14891,10 +16112,16 @@ namespace SharpPy.Generated
                     {
                         _tmp0 = _group_alt0__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp0;
+                    }
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14903,6 +16130,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14955,6 +16183,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -14963,6 +16192,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15015,6 +16245,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15023,6 +16254,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15075,6 +16307,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15083,6 +16316,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15135,6 +16369,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15143,6 +16378,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15195,6 +16431,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15203,6 +16440,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15211,6 +16449,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15263,6 +16502,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15271,6 +16511,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15323,6 +16564,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15331,6 +16573,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15339,6 +16582,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15391,6 +16635,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15399,6 +16644,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15457,6 +16703,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15465,6 +16712,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15473,6 +16721,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15499,6 +16748,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15556,6 +16806,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15564,6 +16815,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15572,6 +16824,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15598,6 +16851,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15655,6 +16909,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15663,6 +16918,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15671,6 +16927,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15697,6 +16954,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15754,6 +17012,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15762,6 +17021,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15770,6 +17030,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15796,6 +17057,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15804,6 +17066,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15812,6 +17075,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15838,6 +17102,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15895,6 +17160,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15903,6 +17169,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15911,6 +17178,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15937,6 +17205,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15945,6 +17214,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15953,6 +17223,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -15979,6 +17250,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16036,6 +17308,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16044,6 +17317,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16052,6 +17326,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16078,6 +17353,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16086,6 +17362,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16094,6 +17371,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16120,6 +17398,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16128,6 +17407,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16136,6 +17416,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16162,6 +17443,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16170,6 +17452,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16178,6 +17461,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16204,6 +17488,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16212,6 +17497,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16220,6 +17506,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16246,6 +17533,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16304,6 +17592,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16312,6 +17601,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16338,6 +17628,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16346,6 +17637,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16372,6 +17664,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16380,6 +17673,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16406,6 +17700,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16457,6 +17752,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16465,6 +17761,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16473,6 +17770,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16499,6 +17797,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16558,6 +17857,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16567,6 +17867,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16593,6 +17894,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16650,6 +17952,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16658,6 +17961,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16667,6 +17971,7 @@ namespace SharpPy.Generated
                 if (_token_b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16695,6 +18000,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16703,6 +18009,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16729,6 +18036,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16737,6 +18045,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16753,6 +18062,11 @@ namespace SharpPy.Generated
                     {
                         _opt_b = _group_alt0__opt_b_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_b;
+                    }
                 }
                 GeneratedExpr? b = _opt_b;
                 if (b == null)
@@ -16765,6 +18079,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16795,6 +18110,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16803,6 +18119,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16811,6 +18128,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16819,6 +18137,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16845,6 +18164,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16896,6 +18216,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16906,6 +18227,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16940,6 +18262,11 @@ namespace SharpPy.Generated
                     {
                         _first_a = _group_alt0__first_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__first_a;
+                    }
                 }
                 // Try group alternative 2: starred_expression
                 if (_first_a == null)
@@ -16950,16 +18277,23 @@ namespace SharpPy.Generated
                     {
                         _first_a = _group_alt1__first_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__first_a;
+                    }
                 }
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -16973,6 +18307,7 @@ namespace SharpPy.Generated
                     if (_sep_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -16992,6 +18327,11 @@ namespace SharpPy.Generated
                         {
                             _loop_elem_a = _group_alt0__loop_elem_a_item0;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__loop_elem_a;
+                        }
                     }
                     // Try group alternative 2: starred_expression
                     if (_loop_elem_a == null)
@@ -17002,10 +18342,16 @@ namespace SharpPy.Generated
                         {
                             _loop_elem_a = _group_alt1__loop_elem_a_item0;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__loop_elem_a;
+                        }
                     }
                     if (_loop_elem_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -17028,6 +18374,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
                     }
                 }
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
@@ -17093,6 +18444,11 @@ namespace SharpPy.Generated
                     {
                         _opt_a = _group_alt0__opt_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_a;
+                    }
                 }
                 GeneratedExpr? a = _opt_a;
                 if (a == null)
@@ -17105,6 +18461,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17120,6 +18477,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_b_item0 != null)
                     {
                         _opt_b = _group_alt0__opt_b_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_b;
                     }
                 }
                 GeneratedExpr? b = _opt_b;
@@ -17152,6 +18514,11 @@ namespace SharpPy.Generated
                             {
                                 _opt__group_alt0__opt_c_item1 = _group_alt0__opt__group_alt0__opt_c_item1_item0;
                             }
+                            else
+                            {
+                                // CPython 3.12: Group alternative failed, restore position
+                                _position = _group_mark__opt__group_alt0__opt_c_item1;
+                            }
                         }
                         GeneratedExpr? _group_alt0__opt_c_item1 = _opt__group_alt0__opt_c_item1;
                         if (_group_alt0__opt_c_item1 == null)
@@ -17162,6 +18529,11 @@ namespace SharpPy.Generated
                         if (_group_alt0__opt_c_item1 != null)
                         {
                             _opt_c = _group_alt0__opt_c_item1;
+                        }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__opt_c;
                         }
                     }
                 }
@@ -17194,6 +18566,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17246,6 +18619,7 @@ namespace SharpPy.Generated
                 if (_token__tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17274,6 +18648,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17300,6 +18675,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17326,6 +18702,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17347,15 +18724,28 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &((STRING | FSTRING_START))
                 int _lookahead_mark_43 = _position;
-                // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_43; // Restore position
+                bool _lookahead_test_43 = false;
+                {
+                    // Test if current token matches any alternative
+                    if (ExpectToken(GeneratedTokenType.STRING) != null) { _lookahead_test_43 = true; }
+                    if (ExpectToken(GeneratedTokenType.FSTRING_START) != null) { _lookahead_test_43 = true; }
+                }
+                _position = _lookahead_mark_43; // Restore position after lookahead
+                if (!_lookahead_test_43)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Call rule: strings
                 var _tmp1 = Strings();
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17382,6 +18772,7 @@ namespace SharpPy.Generated
                 if (_token__tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17405,10 +18796,20 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &('(')
                 int _lookahead_mark_44 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_44; // Restore position
+                bool _lookahead_test_44 = false;
+                {
+                    if (CurrentToken?.Value == "(") { _lookahead_test_44 = true; }
+                }
+                _position = _lookahead_mark_44; // Restore position after lookahead
+                if (!_lookahead_test_44)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Group: (tuple | group | genexp)
                 GeneratedExpr? _tmp1 = null;
                 int _group_mark__tmp1 = _position;
@@ -17420,6 +18821,11 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 // Try group alternative 2: group
                 if (_tmp1 == null)
@@ -17429,6 +18835,11 @@ namespace SharpPy.Generated
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
                     }
                 }
                 // Try group alternative 3: genexp
@@ -17440,10 +18851,16 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt2__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17464,10 +18881,20 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &('[')
                 int _lookahead_mark_45 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_45; // Restore position
+                bool _lookahead_test_45 = false;
+                {
+                    if (CurrentToken?.Value == "[") { _lookahead_test_45 = true; }
+                }
+                _position = _lookahead_mark_45; // Restore position after lookahead
+                if (!_lookahead_test_45)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Group: (list | listcomp)
                 GeneratedExpr? _tmp1 = null;
                 int _group_mark__tmp1 = _position;
@@ -17479,6 +18906,11 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 // Try group alternative 2: listcomp
                 if (_tmp1 == null)
@@ -17489,10 +18921,16 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17513,10 +18951,20 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &('{')
                 int _lookahead_mark_46 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_46; // Restore position
+                bool _lookahead_test_46 = false;
+                {
+                    if (CurrentToken?.Value == "{") { _lookahead_test_46 = true; }
+                }
+                _position = _lookahead_mark_46; // Restore position after lookahead
+                if (!_lookahead_test_46)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Group: (dict | set | dictcomp | setcomp)
                 GeneratedExpr? _tmp1 = null;
                 int _group_mark__tmp1 = _position;
@@ -17528,6 +18976,11 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 // Try group alternative 2: set
                 if (_tmp1 == null)
@@ -17537,6 +18990,11 @@ namespace SharpPy.Generated
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
                     }
                 }
                 // Try group alternative 3: dictcomp
@@ -17548,6 +19006,11 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt2__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 // Try group alternative 4: setcomp
                 if (_tmp1 == null)
@@ -17558,10 +19021,16 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt3__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17587,6 +19056,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17639,6 +19109,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17653,6 +19124,11 @@ namespace SharpPy.Generated
                     {
                         a = _group_alt0_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_a;
+                    }
                 }
                 // Try group alternative 2: named_expression
                 if (a == null)
@@ -17663,10 +19139,16 @@ namespace SharpPy.Generated
                     {
                         a = _group_alt1_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_a;
+                    }
                 }
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17675,6 +19157,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17704,6 +19187,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17756,6 +19240,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17772,6 +19257,11 @@ namespace SharpPy.Generated
                     {
                         _opt_a = _group_alt0__opt_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_a;
+                    }
                 }
                 GeneratedArguments? a = _opt_a;
                 if (a == null)
@@ -17784,6 +19274,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17792,6 +19283,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17848,6 +19340,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17874,6 +19367,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17925,6 +19419,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17944,6 +19439,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_d_item0 != null)
                     {
                         _opt_d = _group_alt0__opt_d_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_d;
                     }
                 }
                 GeneratedStarEtc? d = _opt_d;
@@ -17975,6 +19475,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -17992,6 +19493,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_c;
                     }
                 }
                 GeneratedStarEtc? c = _opt_c;
@@ -18023,6 +19529,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18040,6 +19547,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_c;
                     }
                 }
                 GeneratedStarEtc? c = _opt_c;
@@ -18071,6 +19583,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18086,6 +19599,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_b_item0 != null)
                     {
                         _opt_b = _group_alt0__opt_b_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_b;
                     }
                 }
                 GeneratedStarEtc? b = _opt_b;
@@ -18117,6 +19635,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18169,6 +19688,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18177,6 +19697,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18185,6 +19706,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18210,6 +19732,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18218,13 +19741,24 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(':')
                 int _lookahead_mark_47 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_47; // Restore position
+                bool _lookahead_test_47 = false;
+                {
+                    if (CurrentToken?.Value == ":") { _lookahead_test_47 = true; }
+                }
+                _position = _lookahead_mark_47; // Restore position after lookahead
+                if (!_lookahead_test_47)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: a
                 _res = (GeneratedAstNodeSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
@@ -18275,6 +19809,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18283,6 +19818,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18291,6 +19827,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18319,6 +19856,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18327,13 +19865,24 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(':')
                 int _lookahead_mark_48 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_48; // Restore position
+                bool _lookahead_test_48 = false;
+                {
+                    if (CurrentToken?.Value == ":") { _lookahead_test_48 = true; }
+                }
+                _position = _lookahead_mark_48; // Restore position after lookahead
+                if (!_lookahead_test_48)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)
                 // Unknown AST function: _PyPegen_slash_with_default
                 _res = default(GeneratedSlashWithDefault);
@@ -18387,6 +19936,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18413,6 +19963,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18421,6 +19972,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18438,6 +19990,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_c;
                     }
                 }
                 GeneratedArg? c = _opt_c;
@@ -18469,6 +20026,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18477,6 +20035,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18485,6 +20044,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18500,6 +20060,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_c;
                     }
                 }
                 GeneratedArg? c = _opt_c;
@@ -18531,6 +20096,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18587,6 +20153,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18613,6 +20180,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18621,6 +20189,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18672,6 +20241,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18680,6 +20250,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18705,13 +20276,24 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(':')
                 int _lookahead_mark_49 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_49; // Restore position
+                bool _lookahead_test_49 = false;
+                {
+                    if (CurrentToken?.Value == ":") { _lookahead_test_49 = true; }
+                }
+                _position = _lookahead_mark_49; // Restore position after lookahead
+                if (!_lookahead_test_49)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: a
                 _res = (GeneratedArg)((GeneratedPtr?)a);
                 if (_res != null) goto done;
@@ -18760,6 +20342,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18768,6 +20351,7 @@ namespace SharpPy.Generated
                 if (c == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18776,6 +20360,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18802,6 +20387,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18810,13 +20396,24 @@ namespace SharpPy.Generated
                 if (c == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(':')
                 int _lookahead_mark_50 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_50; // Restore position
+                bool _lookahead_test_50 = false;
+                {
+                    if (CurrentToken?.Value == ":") { _lookahead_test_50 = true; }
+                }
+                _position = _lookahead_mark_50; // Restore position after lookahead
+                if (!_lookahead_test_50)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: _PyPegen_name_default_pair(p, a, c, NULL)
                 // Unknown AST function: _PyPegen_name_default_pair
                 _res = default(GeneratedAstNode?);
@@ -18866,6 +20463,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18876,6 +20474,7 @@ namespace SharpPy.Generated
                 if (_opt_c == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18890,6 +20489,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18916,6 +20516,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18926,6 +20527,7 @@ namespace SharpPy.Generated
                 if (_opt_c == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -18935,10 +20537,20 @@ namespace SharpPy.Generated
                     _position = _opt_mark_c; // Reset position
                     c = null; // Optional not present
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(':')
                 int _lookahead_mark_51 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_51; // Restore position
+                bool _lookahead_test_51 = false;
+                {
+                    if (CurrentToken?.Value == ":") { _lookahead_test_51 = true; }
+                }
+                _position = _lookahead_mark_51; // Restore position after lookahead
+                if (!_lookahead_test_51)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: _PyPegen_name_default_pair(p, a, c, NULL)
                 // Unknown AST function: _PyPegen_name_default_pair
                 _res = default(GeneratedAstNode?);
@@ -18989,6 +20601,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19043,6 +20656,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19069,6 +20683,7 @@ namespace SharpPy.Generated
                 if (t == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19122,6 +20737,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19136,6 +20752,11 @@ namespace SharpPy.Generated
                     {
                         a = _group_alt0_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_a;
+                    }
                 }
                 // Try group alternative 2: star_expressions
                 if (a == null)
@@ -19146,10 +20767,16 @@ namespace SharpPy.Generated
                     {
                         a = _group_alt1_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_a;
+                    }
                 }
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19160,6 +20787,7 @@ namespace SharpPy.Generated
                 if (_opt_debug_expr == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19182,6 +20810,11 @@ namespace SharpPy.Generated
                     {
                         _opt_conversion = _group_alt0__opt_conversion_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_conversion;
+                    }
                 }
                 GeneratedAstNode? conversion = _opt_conversion;
                 if (conversion == null)
@@ -19202,6 +20835,11 @@ namespace SharpPy.Generated
                     {
                         _opt_format = _group_alt0__opt_format_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_format;
+                    }
                 }
                 GeneratedAstNode? format = _opt_format;
                 if (format == null)
@@ -19214,6 +20852,7 @@ namespace SharpPy.Generated
                 if (rbrace == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19244,6 +20883,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19296,6 +20936,7 @@ namespace SharpPy.Generated
                 if (conv_token == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19305,6 +20946,7 @@ namespace SharpPy.Generated
                 if (_token_conv == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19359,6 +21001,7 @@ namespace SharpPy.Generated
                 if (colon == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19414,6 +21057,7 @@ namespace SharpPy.Generated
                 if (t == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19441,6 +21085,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19493,6 +21138,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19505,6 +21151,7 @@ namespace SharpPy.Generated
                 if (c == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19565,14 +21212,14 @@ namespace SharpPy.Generated
                 if (_token_s == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
                 var s = StringToken(_token_s);
                 Console.WriteLine($"[DEBUG] ExpectToken(STRING): result={(s != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_constant_from_string(p, s)
-                // Unknown AST function: _PyPegen_constant_from_string
-                _res = default(GeneratedExpr);
+                _res = _PyPegen_constant_from_string(s);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19626,12 +21273,12 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_concatenate_strings(p, a, EXTRA)
-                // Unknown AST function: _PyPegen_concatenate_strings
-                _res = default(GeneratedExpr);
+                _res = _PyPegen_concatenate_strings(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19678,6 +21325,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19694,6 +21342,11 @@ namespace SharpPy.Generated
                     {
                         _opt_a = _group_alt0__opt_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_a;
+                    }
                 }
                 GeneratedExprSeq? a = _opt_a;
                 if (a == null)
@@ -19706,6 +21359,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19758,6 +21412,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19788,6 +21443,11 @@ namespace SharpPy.Generated
                                 {
                                     _opt__group_alt0__opt_a_item2 = _group_alt0__opt__group_alt0__opt_a_item2_item0;
                                 }
+                                else
+                                {
+                                    // CPython 3.12: Group alternative failed, restore position
+                                    _position = _group_mark__opt__group_alt0__opt_a_item2;
+                                }
                             }
                             GeneratedExprSeq? _group_alt0__opt_a_item2 = _opt__group_alt0__opt_a_item2;
                             if (_group_alt0__opt_a_item2 == null)
@@ -19798,6 +21458,11 @@ namespace SharpPy.Generated
                             if (_group_alt0__opt_a_item2 != null)
                             {
                                 _opt_a = _group_alt0__opt_a_item2;
+                            }
+                            else
+                            {
+                                // CPython 3.12: Group alternative failed, restore position
+                                _position = _group_mark__opt_a;
                             }
                         }
                     }
@@ -19813,6 +21478,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19865,6 +21531,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19873,6 +21540,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19881,6 +21549,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19933,6 +21602,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19949,6 +21619,11 @@ namespace SharpPy.Generated
                     {
                         _opt_a = _group_alt0__opt_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_a;
+                    }
                 }
                 GeneratedMixedSeq? a = _opt_a;
                 if (a == null)
@@ -19961,6 +21636,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -19991,6 +21667,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20003,6 +21680,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20011,6 +21689,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20066,6 +21745,7 @@ namespace SharpPy.Generated
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20079,6 +21759,7 @@ namespace SharpPy.Generated
                     if (_sep_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -20108,6 +21789,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
                     }
                 }
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
@@ -20164,6 +21850,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20172,6 +21859,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20198,6 +21886,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20249,6 +21938,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20257,6 +21947,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20265,6 +21956,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20317,6 +22009,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20369,6 +22062,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20378,6 +22072,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20386,6 +22081,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20394,6 +22090,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20404,6 +22101,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20432,6 +22130,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20440,6 +22139,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20448,6 +22148,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20458,6 +22159,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20490,6 +22192,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20542,6 +22245,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20550,6 +22254,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20558,6 +22263,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20566,6 +22272,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20596,6 +22303,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20648,6 +22356,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20656,6 +22365,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20664,6 +22374,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20672,6 +22383,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20702,6 +22414,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20754,6 +22467,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20767,6 +22481,11 @@ namespace SharpPy.Generated
                     if (_group_alt0_a_item0 != null)
                     {
                         a = _group_alt0_a_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_a;
                     }
                 }
                 // Try group alternative 2: expression !':='
@@ -20784,6 +22503,7 @@ namespace SharpPy.Generated
                         {
                             // Negative lookahead matched - fail this alternative
                             _position = _mark;
+                            _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                             _res = null;
                             break;  // Exit this alternative
                         }
@@ -20792,11 +22512,17 @@ namespace SharpPy.Generated
                         {
                             a = _group_alt1_a_item0;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark_a;
+                        }
                     }
                 }
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20805,6 +22531,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20813,6 +22540,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20843,6 +22571,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20895,6 +22624,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20903,6 +22633,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20911,6 +22642,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20919,6 +22651,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -20949,6 +22682,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21008,6 +22742,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21024,6 +22759,11 @@ namespace SharpPy.Generated
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
+                    }
                 }
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
@@ -21031,10 +22771,20 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                     _tmp0 = null; // Optional not present
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(')')
                 int _lookahead_mark_53 = _position;
-                // TODO: Parse lookahead content for StringLiteral
-                _position = _lookahead_mark_53; // Restore position
+                bool _lookahead_test_53 = false;
+                {
+                    if (CurrentToken?.Value == ")") { _lookahead_test_53 = true; }
+                }
+                _position = _lookahead_mark_53; // Restore position after lookahead
+                if (!_lookahead_test_53)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: a
                 _res = (GeneratedExpr)((GeneratedPtr?)a);
                 if (_res != null) goto done;
@@ -21061,6 +22811,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21122,6 +22873,11 @@ namespace SharpPy.Generated
                     {
                         _first_a = _group_alt0__first_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__first_a;
+                    }
                 }
                 // Try group alternative 2: (assignment_expression | expression !':=') !'='
                 if (_first_a == null)
@@ -21137,6 +22893,11 @@ namespace SharpPy.Generated
                         if (_group_alt0__group_alt1__first_a_item0_item0 != null)
                         {
                             _group_alt1__first_a_item0 = _group_alt0__group_alt1__first_a_item0_item0;
+                        }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__group_alt1__first_a_item0;
                         }
                     }
                     // Try group alternative 2: expression !':='
@@ -21154,6 +22915,7 @@ namespace SharpPy.Generated
                             {
                                 // Negative lookahead matched - fail this alternative
                                 _position = _mark;
+                                _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                                 _res = null;
                                 break;  // Exit this alternative
                             }
@@ -21162,11 +22924,17 @@ namespace SharpPy.Generated
                             {
                                 _group_alt1__first_a_item0 = _group_alt1__group_alt1__first_a_item0_item0;
                             }
+                            else
+                            {
+                                // CPython 3.12: Group alternative failed, restore position
+                                _position = _group_mark__group_alt1__first_a_item0;
+                            }
                         }
                     }
                     if (_group_alt1__first_a_item0 == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -21180,6 +22948,7 @@ namespace SharpPy.Generated
                         {
                             // Negative lookahead matched - fail this alternative
                             _position = _mark;
+                            _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                             _res = null;
                             break;  // Exit this alternative
                         }
@@ -21188,17 +22957,24 @@ namespace SharpPy.Generated
                         {
                             _first_a = _group_alt1__first_a_item0;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__first_a;
+                        }
                     }
                 }
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21212,6 +22988,7 @@ namespace SharpPy.Generated
                     if (_sep_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -21231,6 +23008,11 @@ namespace SharpPy.Generated
                         {
                             _loop_elem_a = _group_alt0__loop_elem_a_item0;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__loop_elem_a;
+                        }
                     }
                     // Try group alternative 2: (assignment_expression | expression !':=') !'='
                     if (_loop_elem_a == null)
@@ -21246,6 +23028,11 @@ namespace SharpPy.Generated
                             if (_group_alt0__group_alt1__loop_elem_a_item0_item0 != null)
                             {
                                 _group_alt1__loop_elem_a_item0 = _group_alt0__group_alt1__loop_elem_a_item0_item0;
+                            }
+                            else
+                            {
+                                // CPython 3.12: Group alternative failed, restore position
+                                _position = _group_mark__group_alt1__loop_elem_a_item0;
                             }
                         }
                         // Try group alternative 2: expression !':='
@@ -21263,6 +23050,7 @@ namespace SharpPy.Generated
                                 {
                                     // Negative lookahead matched - fail this alternative
                                     _position = _mark;
+                                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                                     _res = null;
                                     break;  // Exit this alternative
                                 }
@@ -21271,11 +23059,17 @@ namespace SharpPy.Generated
                                 {
                                     _group_alt1__loop_elem_a_item0 = _group_alt1__group_alt1__loop_elem_a_item0_item0;
                                 }
+                                else
+                                {
+                                    // CPython 3.12: Group alternative failed, restore position
+                                    _position = _group_mark__group_alt1__loop_elem_a_item0;
+                                }
                             }
                         }
                         if (_group_alt1__loop_elem_a_item0 == null)
                         {
                             _position = _mark;
+                            _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                             _res = null;
                             break;  // Exit this alternative
                         }
@@ -21289,6 +23083,7 @@ namespace SharpPy.Generated
                             {
                                 // Negative lookahead matched - fail this alternative
                                 _position = _mark;
+                                _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                                 _res = null;
                                 break;  // Exit this alternative
                             }
@@ -21297,11 +23092,17 @@ namespace SharpPy.Generated
                             {
                                 _loop_elem_a = _group_alt1__loop_elem_a_item0;
                             }
+                            else
+                            {
+                                // CPython 3.12: Group alternative failed, restore position
+                                _position = _group_mark__loop_elem_a;
+                            }
                         }
                     }
                     if (_loop_elem_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -21327,6 +23128,11 @@ namespace SharpPy.Generated
                         if (_group_alt0__opt_b_item1 != null)
                         {
                             _opt_b = _group_alt0__opt_b_item1;
+                        }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__opt_b;
                         }
                     }
                 }
@@ -21359,6 +23165,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21418,6 +23225,7 @@ namespace SharpPy.Generated
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21431,6 +23239,7 @@ namespace SharpPy.Generated
                     if (_sep_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -21453,6 +23262,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21464,6 +23274,7 @@ namespace SharpPy.Generated
                 if (_first_b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21477,6 +23288,7 @@ namespace SharpPy.Generated
                     if (_sep_b == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -21520,6 +23332,7 @@ namespace SharpPy.Generated
                 if (_first__tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21533,6 +23346,7 @@ namespace SharpPy.Generated
                     if (_sep__tmp0 == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -21575,6 +23389,7 @@ namespace SharpPy.Generated
                 if (_first__tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21588,6 +23403,7 @@ namespace SharpPy.Generated
                     if (_sep__tmp0 == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -21657,6 +23473,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21683,6 +23500,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21691,6 +23509,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21717,6 +23536,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21775,6 +23595,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21802,6 +23623,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21812,6 +23634,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21820,6 +23643,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21846,6 +23670,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21902,6 +23727,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21929,6 +23755,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21939,6 +23766,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21947,6 +23775,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21973,6 +23802,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21981,6 +23811,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22033,6 +23864,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22043,6 +23875,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22068,6 +23901,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22085,6 +23919,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
                     }
                 }
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
@@ -22145,6 +23984,7 @@ namespace SharpPy.Generated
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22158,6 +23998,7 @@ namespace SharpPy.Generated
                     if (_sep_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -22187,6 +24028,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
                     }
                 }
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
@@ -22243,6 +24089,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22251,6 +24098,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22266,6 +24114,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
                     }
                 }
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
@@ -22296,6 +24149,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22304,6 +24158,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22362,6 +24217,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22379,6 +24235,7 @@ namespace SharpPy.Generated
                     {
                         // Negative lookahead matched - fail this alternative
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -22390,11 +24247,17 @@ namespace SharpPy.Generated
                         {
                             a = _group_alt0_a_item1;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark_a;
+                        }
                     }
                 }
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22421,6 +24284,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22479,6 +24343,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22487,6 +24352,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22496,6 +24362,7 @@ namespace SharpPy.Generated
                 if (_token_b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22508,6 +24375,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22534,6 +24402,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22542,6 +24411,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22550,6 +24420,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22558,6 +24429,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22568,6 +24440,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22594,6 +24467,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22646,6 +24520,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22673,6 +24548,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22681,6 +24557,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22689,6 +24566,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22714,6 +24592,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22730,6 +24609,11 @@ namespace SharpPy.Generated
                     {
                         _opt_a = _group_alt0__opt_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_a;
+                    }
                 }
                 GeneratedExprSeq? a = _opt_a;
                 if (a == null)
@@ -22742,6 +24626,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22768,6 +24653,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22784,6 +24670,11 @@ namespace SharpPy.Generated
                     {
                         _opt_a = _group_alt0__opt_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_a;
+                    }
                 }
                 GeneratedExprSeq? a = _opt_a;
                 if (a == null)
@@ -22796,6 +24687,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22848,6 +24740,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22874,6 +24767,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22901,6 +24795,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22909,6 +24804,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22917,6 +24813,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22968,6 +24865,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22976,6 +24874,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22985,6 +24884,7 @@ namespace SharpPy.Generated
                 if (_token_b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -22997,6 +24897,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23023,6 +24924,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23031,6 +24933,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23039,6 +24942,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23047,6 +24951,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23057,6 +24962,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23115,6 +25021,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23123,6 +25030,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23132,15 +25040,26 @@ namespace SharpPy.Generated
                 if (_token_b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
                 var b = NameToken(_token_b);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(t_lookahead)
                 int _lookahead_mark_64 = _position;
-                // TODO: Parse lookahead content for RuleRef
-                _position = _lookahead_mark_64; // Restore position
+                bool _lookahead_test_64 = false;
+                {
+                    if (TLookahead() != null) { _lookahead_test_64 = true; }
+                }
+                _position = _lookahead_mark_64; // Restore position after lookahead
+                if (!_lookahead_test_64)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: _PyAST_Attribute(a, b->v.Name.id, Load, EXTRA)
                 _res = _PyAST_Attribute(a, ASTHelpers.ExtractStringValue(b), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
@@ -23164,6 +25083,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23172,6 +25092,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23180,6 +25101,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23188,13 +25110,24 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(t_lookahead)
                 int _lookahead_mark_65 = _position;
-                // TODO: Parse lookahead content for RuleRef
-                _position = _lookahead_mark_65; // Restore position
+                bool _lookahead_test_65 = false;
+                {
+                    if (TLookahead() != null) { _lookahead_test_65 = true; }
+                }
+                _position = _lookahead_mark_65; // Restore position after lookahead
+                if (!_lookahead_test_65)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: _PyAST_Subscript(a, b, Load, EXTRA)
                 _res = _PyAST_Subscript(a, b, GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
@@ -23218,6 +25151,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23226,13 +25160,24 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(t_lookahead)
                 int _lookahead_mark_66 = _position;
-                // TODO: Parse lookahead content for RuleRef
-                _position = _lookahead_mark_66; // Restore position
+                bool _lookahead_test_66 = false;
+                {
+                    if (TLookahead() != null) { _lookahead_test_66 = true; }
+                }
+                _position = _lookahead_mark_66; // Restore position after lookahead
+                if (!_lookahead_test_66)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: _PyAST_Call(a, CHECK(asdl_expr_seq*, (asdl_expr_seq*)_PyPegen_singleton_seq(p, b)), NULL, EXTRA)
                 _res = _PyAST_Call(a, _PyPegen_singleton_seq(b), null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
@@ -23256,6 +25201,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23264,6 +25210,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23280,6 +25227,11 @@ namespace SharpPy.Generated
                     {
                         _opt_b = _group_alt0__opt_b_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_b;
+                    }
                 }
                 GeneratedExpr? b = _opt_b;
                 if (b == null)
@@ -23292,13 +25244,24 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(t_lookahead)
                 int _lookahead_mark_67 = _position;
-                // TODO: Parse lookahead content for RuleRef
-                _position = _lookahead_mark_67; // Restore position
+                bool _lookahead_test_67 = false;
+                {
+                    if (TLookahead() != null) { _lookahead_test_67 = true; }
+                }
+                _position = _lookahead_mark_67; // Restore position after lookahead
+                if (!_lookahead_test_67)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action (multiline):
                 //   _PyAST_Call(a,
                 //   (b) ? ((expr_ty) b)->v.Call.args : NULL,
@@ -23326,13 +25289,24 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(t_lookahead)
                 int _lookahead_mark_68 = _position;
-                // TODO: Parse lookahead content for RuleRef
-                _position = _lookahead_mark_68; // Restore position
+                bool _lookahead_test_68 = false;
+                {
+                    if (TLookahead() != null) { _lookahead_test_68 = true; }
+                }
+                _position = _lookahead_mark_68; // Restore position after lookahead
+                if (!_lookahead_test_68)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: a
                 _res = (GeneratedExpr)((GeneratedPtr?)a);
                 if (_res != null) goto done;
@@ -23381,6 +25355,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23406,6 +25381,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23431,6 +25407,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23485,6 +25462,7 @@ namespace SharpPy.Generated
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23498,6 +25476,7 @@ namespace SharpPy.Generated
                     if (_sep_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -23527,6 +25506,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
                     }
                 }
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
@@ -23590,6 +25574,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23598,6 +25583,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23607,6 +25593,7 @@ namespace SharpPy.Generated
                 if (_token_b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23619,6 +25606,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23645,6 +25633,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23653,6 +25642,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23661,6 +25651,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23669,6 +25660,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23679,6 +25671,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23705,6 +25698,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23757,6 +25751,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23784,6 +25779,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23792,6 +25788,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23800,6 +25797,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23825,6 +25823,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23841,6 +25840,11 @@ namespace SharpPy.Generated
                     {
                         _opt_a = _group_alt0__opt_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_a;
+                    }
                 }
                 GeneratedExprSeq? a = _opt_a;
                 if (a == null)
@@ -23853,6 +25857,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23879,6 +25884,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23895,6 +25901,11 @@ namespace SharpPy.Generated
                     {
                         _opt_a = _group_alt0__opt_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt_a;
+                    }
                 }
                 GeneratedExprSeq? a = _opt_a;
                 if (a == null)
@@ -23907,6 +25918,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23962,6 +25974,7 @@ namespace SharpPy.Generated
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -23975,6 +25988,7 @@ namespace SharpPy.Generated
                     if (_sep_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -23997,6 +26011,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24005,6 +26020,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24013,6 +26029,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24021,6 +26038,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24029,6 +26047,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24037,6 +26056,7 @@ namespace SharpPy.Generated
                 if (c == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24069,6 +26089,7 @@ namespace SharpPy.Generated
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24082,6 +26103,7 @@ namespace SharpPy.Generated
                     if (_sep_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -24104,6 +26126,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24112,6 +26135,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24120,6 +26144,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24148,6 +26173,7 @@ namespace SharpPy.Generated
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24161,6 +26187,7 @@ namespace SharpPy.Generated
                     if (_sep_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -24183,6 +26210,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24191,6 +26219,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24199,6 +26228,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24224,6 +26254,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24232,6 +26263,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24240,6 +26272,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24248,6 +26281,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24256,6 +26290,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24285,6 +26320,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24293,6 +26329,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24318,6 +26355,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24326,6 +26364,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24354,6 +26393,7 @@ namespace SharpPy.Generated
                 if (_first_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24367,6 +26407,7 @@ namespace SharpPy.Generated
                     if (_sep_a == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -24433,6 +26474,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24443,14 +26485,26 @@ namespace SharpPy.Generated
                 if (t == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(t != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &((NEWLINE INDENT))
                 int _lookahead_mark_71 = _position;
-                // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_71; // Restore position
+                bool _lookahead_test_71 = false;
+                {
+                    // Test if current token matches any alternative
+                    // TODO: Complex group alternative in lookahead
+                }
+                _position = _lookahead_mark_71; // Restore position after lookahead
+                if (!_lookahead_test_71)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: t
                 _res = (GeneratedTokenInfo)((GeneratedPtr?)t);
                 if (_res != null) goto done;
@@ -24477,6 +26531,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24504,6 +26559,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24577,6 +26633,11 @@ namespace SharpPy.Generated
                             {
                                 _first__group_alt0__group_alt0__tmp0_item0_item0 = _group_alt0__first__group_alt0__group_alt0__tmp0_item0_item0_item0;
                             }
+                            else
+                            {
+                                // CPython 3.12: Group alternative failed, restore position
+                                _position = _group_mark__first__group_alt0__group_alt0__tmp0_item0_item0;
+                            }
                         }
                         // Try group alternative 2: (assignment_expression | expression !':=') !'='
                         if (_first__group_alt0__group_alt0__tmp0_item0_item0 == null)
@@ -24592,6 +26653,11 @@ namespace SharpPy.Generated
                                 if (_group_alt0__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 != null)
                                 {
                                     _group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0 = _group_alt0__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0;
+                                }
+                                else
+                                {
+                                    // CPython 3.12: Group alternative failed, restore position
+                                    _position = _group_mark__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0;
                                 }
                             }
                             // Try group alternative 2: expression !':='
@@ -24609,6 +26675,7 @@ namespace SharpPy.Generated
                                     {
                                         // Negative lookahead matched - fail this alternative
                                         _position = _mark;
+                                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                                         _res = null;
                                         break;  // Exit this alternative
                                     }
@@ -24617,11 +26684,17 @@ namespace SharpPy.Generated
                                     {
                                         _group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0 = _group_alt1__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0;
                                     }
+                                    else
+                                    {
+                                        // CPython 3.12: Group alternative failed, restore position
+                                        _position = _group_mark__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0;
+                                    }
                                 }
                             }
                             if (_group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0 == null)
                             {
                                 _position = _mark;
+                                _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                                 _res = null;
                                 break;  // Exit this alternative
                             }
@@ -24635,6 +26708,7 @@ namespace SharpPy.Generated
                                 {
                                     // Negative lookahead matched - fail this alternative
                                     _position = _mark;
+                                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                                     _res = null;
                                     break;  // Exit this alternative
                                 }
@@ -24643,17 +26717,24 @@ namespace SharpPy.Generated
                                 {
                                     _first__group_alt0__group_alt0__tmp0_item0_item0 = _group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0;
                                 }
+                                else
+                                {
+                                    // CPython 3.12: Group alternative failed, restore position
+                                    _position = _group_mark__first__group_alt0__group_alt0__tmp0_item0_item0;
+                                }
                             }
                         }
                         if (_first__group_alt0__group_alt0__tmp0_item0_item0 == null)
                         {
                             _position = _mark;
+                            _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                             _res = null;
                             break;  // Exit this alternative
                         }
                         if (_first__group_alt0__group_alt0__tmp0_item0_item0 == null)
                         {
                             _position = _mark;
+                            _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                             _res = null;
                             break;  // Exit this alternative
                         }
@@ -24667,6 +26748,7 @@ namespace SharpPy.Generated
                             if (_sep__group_alt0__group_alt0__tmp0_item0_item0 == null)
                             {
                                 _position = _mark;
+                                _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                                 _res = null;
                                 break;  // Exit this alternative
                             }
@@ -24686,6 +26768,11 @@ namespace SharpPy.Generated
                                 {
                                     _loop_elem__group_alt0__group_alt0__tmp0_item0_item0 = _group_alt0__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0;
                                 }
+                                else
+                                {
+                                    // CPython 3.12: Group alternative failed, restore position
+                                    _position = _group_mark__loop_elem__group_alt0__group_alt0__tmp0_item0_item0;
+                                }
                             }
                             // Try group alternative 2: (assignment_expression | expression !':=') !'='
                             if (_loop_elem__group_alt0__group_alt0__tmp0_item0_item0 == null)
@@ -24701,6 +26788,11 @@ namespace SharpPy.Generated
                                     if (_group_alt0__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 != null)
                                     {
                                         _group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 = _group_alt0__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0;
+                                    }
+                                    else
+                                    {
+                                        // CPython 3.12: Group alternative failed, restore position
+                                        _position = _group_mark__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0;
                                     }
                                 }
                                 // Try group alternative 2: expression !':='
@@ -24718,6 +26810,7 @@ namespace SharpPy.Generated
                                         {
                                             // Negative lookahead matched - fail this alternative
                                             _position = _mark;
+                                            _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                                             _res = null;
                                             break;  // Exit this alternative
                                         }
@@ -24726,11 +26819,17 @@ namespace SharpPy.Generated
                                         {
                                             _group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 = _group_alt1__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0;
                                         }
+                                        else
+                                        {
+                                            // CPython 3.12: Group alternative failed, restore position
+                                            _position = _group_mark__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0;
+                                        }
                                     }
                                 }
                                 if (_group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 == null)
                                 {
                                     _position = _mark;
+                                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                                     _res = null;
                                     break;  // Exit this alternative
                                 }
@@ -24744,6 +26843,7 @@ namespace SharpPy.Generated
                                     {
                                         // Negative lookahead matched - fail this alternative
                                         _position = _mark;
+                                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                                         _res = null;
                                         break;  // Exit this alternative
                                     }
@@ -24752,11 +26852,17 @@ namespace SharpPy.Generated
                                     {
                                         _loop_elem__group_alt0__group_alt0__tmp0_item0_item0 = _group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0;
                                     }
+                                    else
+                                    {
+                                        // CPython 3.12: Group alternative failed, restore position
+                                        _position = _group_mark__loop_elem__group_alt0__group_alt0__tmp0_item0_item0;
+                                    }
                                 }
                             }
                             if (_loop_elem__group_alt0__group_alt0__tmp0_item0_item0 == null)
                             {
                                 _position = _mark;
+                                _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                                 _res = null;
                                 break;  // Exit this alternative
                             }
@@ -24777,18 +26883,29 @@ namespace SharpPy.Generated
                                 {
                                     _group_alt0__tmp0_item0 = _group_alt0__group_alt0__tmp0_item0_item2;
                                 }
+                                else
+                                {
+                                    // CPython 3.12: Group alternative failed, restore position
+                                    _position = _group_mark__group_alt0__tmp0_item0;
+                                }
                             }
                         }
                     }
                     if (_group_alt0__tmp0_item0 == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
                     if (_group_alt0__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt0__tmp0_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp0;
                     }
                 }
                 // Try group alternative 2: kwargs
@@ -24800,10 +26917,16 @@ namespace SharpPy.Generated
                     {
                         _tmp0 = _group_alt1__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp0;
+                    }
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24812,6 +26935,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24835,6 +26959,7 @@ namespace SharpPy.Generated
                         {
                             // Negative lookahead matched - fail this alternative
                             _position = _mark;
+                            _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                             _res = null;
                             break;  // Exit this alternative
                         }
@@ -24843,17 +26968,24 @@ namespace SharpPy.Generated
                         {
                             _first__tmp1 = _group_alt0__first__tmp1_item0;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__first__tmp1;
+                        }
                     }
                 }
                 if (_first__tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
                 if (_first__tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24867,6 +26999,7 @@ namespace SharpPy.Generated
                     if (_sep__tmp1 == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -24892,6 +27025,7 @@ namespace SharpPy.Generated
                             {
                                 // Negative lookahead matched - fail this alternative
                                 _position = _mark;
+                                _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                                 _res = null;
                                 break;  // Exit this alternative
                             }
@@ -24900,11 +27034,17 @@ namespace SharpPy.Generated
                             {
                                 _loop_elem__tmp1 = _group_alt0__loop_elem__tmp1_item0;
                             }
+                            else
+                            {
+                                // CPython 3.12: Group alternative failed, restore position
+                                _position = _group_mark__loop_elem__tmp1;
+                            }
                         }
                     }
                     if (_loop_elem__tmp1 == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -24940,6 +27080,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24948,6 +27089,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24956,6 +27098,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -24971,6 +27114,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__opt__tmp1_item0 != null)
                     {
                         _opt__tmp1 = _group_alt0__opt__tmp1_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp1;
                     }
                 }
                 GeneratedExpr? _tmp1 = _opt__tmp1;
@@ -25005,6 +27153,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25015,6 +27164,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25023,6 +27173,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25031,6 +27182,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25070,6 +27222,11 @@ namespace SharpPy.Generated
                         {
                             _opt__tmp0 = _group_alt0__opt__tmp0_item1;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__opt__tmp0;
+                        }
                     }
                 }
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
@@ -25084,6 +27241,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25094,13 +27252,26 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &((',' | ')'))
                 int _lookahead_mark_78 = _position;
-                // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_78; // Restore position
+                bool _lookahead_test_78 = false;
+                {
+                    // Test if current token matches any alternative
+                    if (CurrentToken?.Value == ",") { _lookahead_test_78 = true; }
+                    if (CurrentToken?.Value == ")") { _lookahead_test_78 = true; }
+                }
+                _position = _lookahead_mark_78; // Restore position after lookahead
+                if (!_lookahead_test_78)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "expected argument value expression")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected argument value expression";
@@ -25126,6 +27297,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25134,6 +27306,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25160,6 +27333,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25168,6 +27342,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25176,6 +27351,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25184,6 +27360,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25212,6 +27389,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25220,6 +27398,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25228,6 +27407,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25286,6 +27466,11 @@ namespace SharpPy.Generated
                     {
                         a = _group_alt0_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_a;
+                    }
                 }
                 // Try group alternative 2: 'False'
                 if (a == null)
@@ -25295,6 +27480,11 @@ namespace SharpPy.Generated
                     if (_group_alt1_a_item0 != null)
                     {
                         a = _group_alt1_a_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_a;
                     }
                 }
                 // Try group alternative 3: 'None'
@@ -25306,10 +27496,16 @@ namespace SharpPy.Generated
                     {
                         a = _group_alt2_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_a;
+                    }
                 }
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25318,6 +27514,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25347,6 +27544,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25357,6 +27555,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25365,6 +27564,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25373,6 +27573,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25403,6 +27604,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25411,6 +27613,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25419,6 +27622,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25449,6 +27653,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25457,6 +27662,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25465,6 +27671,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25473,6 +27680,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25531,6 +27739,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25539,6 +27748,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25547,6 +27757,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25555,6 +27766,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25563,6 +27775,7 @@ namespace SharpPy.Generated
                 if (c == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25589,6 +27802,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25614,6 +27828,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25667,6 +27882,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25679,6 +27895,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25687,6 +27904,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25745,6 +27963,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25753,6 +27972,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25761,6 +27981,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25791,6 +28012,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25799,6 +28021,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25807,6 +28030,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25819,6 +28043,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25847,6 +28072,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25863,6 +28089,11 @@ namespace SharpPy.Generated
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
+                    }
                 }
                 GeneratedArguments? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
@@ -25875,13 +28106,24 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(FSTRING_MIDDLE)
                 int _lookahead_mark_83 = _position;
-                // TODO: Parse lookahead content for RuleRef
-                _position = _lookahead_mark_83; // Restore position
+                bool _lookahead_test_83 = false;
+                {
+                    if (ExpectToken(GeneratedTokenType.FSTRING_MIDDLE) != null) { _lookahead_test_83 = true; }
+                }
+                _position = _lookahead_mark_83; // Restore position after lookahead
+                if (!_lookahead_test_83)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "f-string: lambda expressions are not allowed without parentheses")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "f-string: lambda expressions are not allowed without parentheses";
@@ -25940,6 +28182,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25948,6 +28191,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25956,6 +28200,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25987,6 +28232,7 @@ namespace SharpPy.Generated
                 if (_token_a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -25997,6 +28243,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26005,6 +28252,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26017,6 +28265,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26050,6 +28299,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26058,6 +28308,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26066,6 +28317,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26074,6 +28326,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26086,6 +28339,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26146,6 +28400,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26154,6 +28409,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26162,6 +28418,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26195,6 +28452,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26203,6 +28461,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26213,6 +28472,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26221,6 +28481,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26249,6 +28510,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26257,6 +28519,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26265,6 +28528,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26295,6 +28559,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26303,6 +28568,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26333,6 +28599,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26341,6 +28608,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26369,6 +28637,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26377,6 +28646,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26391,6 +28661,11 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 // Try group alternative 2: star_expressions
                 if (_tmp1 == null)
@@ -26401,10 +28676,16 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26464,6 +28745,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26489,6 +28771,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26514,6 +28797,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26526,6 +28810,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26534,6 +28819,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26585,6 +28871,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26593,6 +28880,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26648,6 +28936,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26659,6 +28948,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26719,6 +29009,11 @@ namespace SharpPy.Generated
                     {
                         _tmp0 = _group_alt0__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp0;
+                    }
                 }
                 // Try group alternative 2: '('
                 if (_tmp0 == null)
@@ -26728,6 +29023,11 @@ namespace SharpPy.Generated
                     if (_group_alt1__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt1__tmp0_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp0;
                     }
                 }
                 // Try group alternative 3: '{'
@@ -26739,10 +29039,16 @@ namespace SharpPy.Generated
                     {
                         _tmp0 = _group_alt2__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp0;
+                    }
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26751,6 +29057,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26759,6 +29066,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26793,6 +29101,11 @@ namespace SharpPy.Generated
                     {
                         _tmp0 = _group_alt0__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp0;
+                    }
                 }
                 // Try group alternative 2: '{'
                 if (_tmp0 == null)
@@ -26803,10 +29116,16 @@ namespace SharpPy.Generated
                     {
                         _tmp0 = _group_alt1__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp0;
+                    }
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26815,6 +29134,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26823,6 +29143,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26831,6 +29152,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26839,6 +29161,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26875,6 +29198,11 @@ namespace SharpPy.Generated
                     {
                         _tmp0 = _group_alt0__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp0;
+                    }
                 }
                 // Try group alternative 2: '{'
                 if (_tmp0 == null)
@@ -26885,10 +29213,16 @@ namespace SharpPy.Generated
                     {
                         _tmp0 = _group_alt1__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp0;
+                    }
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26897,6 +29231,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26905,6 +29240,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26913,6 +29249,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26967,6 +29304,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26975,6 +29313,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26983,6 +29322,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26991,6 +29331,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -26999,6 +29340,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27053,6 +29395,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27061,6 +29404,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27097,6 +29441,11 @@ namespace SharpPy.Generated
                     {
                         _tmp0 = _group_alt0__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp0;
+                    }
                 }
                 // Try group alternative 2: slash_with_default
                 if (_tmp0 == null)
@@ -27107,10 +29456,16 @@ namespace SharpPy.Generated
                     {
                         _tmp0 = _group_alt1__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp0;
+                    }
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27121,6 +29476,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27151,6 +29507,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27171,6 +29528,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27179,6 +29537,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27209,6 +29568,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27217,6 +29577,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27227,6 +29588,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27241,6 +29603,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27279,6 +29642,11 @@ namespace SharpPy.Generated
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
+                    }
                 }
                 // Try group alternative 2: slash_with_default
                 if (_opt__tmp0 == null)
@@ -27288,6 +29656,11 @@ namespace SharpPy.Generated
                     if (_group_alt1__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt1__opt__tmp0_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
                     }
                 }
                 GeneratedPtr? _tmp0 = _opt__tmp0;
@@ -27303,6 +29676,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27319,6 +29693,11 @@ namespace SharpPy.Generated
                     {
                         _tmp3 = _group_alt0__tmp3_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp3;
+                    }
                 }
                 // Try group alternative 2: param_no_default
                 if (_tmp3 == null)
@@ -27329,10 +29708,16 @@ namespace SharpPy.Generated
                     {
                         _tmp3 = _group_alt1__tmp3_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp3;
+                    }
                 }
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27343,6 +29728,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27371,6 +29757,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27379,6 +29766,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27387,6 +29775,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27441,13 +29830,26 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &((')' | ','))
                 int _lookahead_mark_88 = _position;
-                // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_88; // Restore position
+                bool _lookahead_test_88 = false;
+                {
+                    // Test if current token matches any alternative
+                    if (CurrentToken?.Value == ")") { _lookahead_test_88 = true; }
+                    if (CurrentToken?.Value == ",") { _lookahead_test_88 = true; }
+                }
+                _position = _lookahead_mark_88; // Restore position after lookahead
+                if (!_lookahead_test_88)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "expected default value expression")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected default value expression";
@@ -27499,6 +29901,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27512,6 +29915,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt0__tmp0_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp0;
                     }
                 }
                 // Try group alternative 2: ',' (')' | '**')
@@ -27532,6 +29940,11 @@ namespace SharpPy.Generated
                             {
                                 _group_alt1__tmp0_item1 = _group_alt0__group_alt1__tmp0_item1_item0;
                             }
+                            else
+                            {
+                                // CPython 3.12: Group alternative failed, restore position
+                                _position = _group_mark__group_alt1__tmp0_item1;
+                            }
                         }
                         // Try group alternative 2: '**'
                         if (_group_alt1__tmp0_item1 == null)
@@ -27542,10 +29955,16 @@ namespace SharpPy.Generated
                             {
                                 _group_alt1__tmp0_item1 = _group_alt1__group_alt1__tmp0_item1_item0;
                             }
+                            else
+                            {
+                                // CPython 3.12: Group alternative failed, restore position
+                                _position = _group_mark__group_alt1__tmp0_item1;
+                            }
                         }
                         if (_group_alt1__tmp0_item1 == null)
                         {
                             _position = _mark;
+                            _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                             _res = null;
                             break;  // Exit this alternative
                         }
@@ -27553,11 +29972,17 @@ namespace SharpPy.Generated
                         {
                             _tmp0 = _group_alt1__tmp0_item1;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__tmp0;
+                        }
                     }
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27586,6 +30011,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27594,6 +30020,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27603,6 +30030,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27632,6 +30060,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27640,6 +30069,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27648,6 +30078,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27676,6 +30107,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27692,6 +30124,11 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 // Try group alternative 2: ','
                 if (_tmp1 == null)
@@ -27702,10 +30139,16 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27716,6 +30159,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27732,6 +30176,11 @@ namespace SharpPy.Generated
                     {
                         _tmp3 = _group_alt0__tmp3_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp3;
+                    }
                 }
                 // Try group alternative 2: ','
                 if (_tmp3 == null)
@@ -27742,10 +30191,16 @@ namespace SharpPy.Generated
                     {
                         _tmp3 = _group_alt1__tmp3_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp3;
+                    }
                 }
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27800,6 +30255,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27808,6 +30264,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27816,6 +30273,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27844,6 +30302,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27852,6 +30311,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27860,6 +30320,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27868,6 +30329,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27896,6 +30358,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27904,6 +30367,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27912,6 +30376,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -27926,6 +30391,11 @@ namespace SharpPy.Generated
                     {
                         a = _group_alt0_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_a;
+                    }
                 }
                 // Try group alternative 2: '**'
                 if (a == null)
@@ -27935,6 +30405,11 @@ namespace SharpPy.Generated
                     if (_group_alt1_a_item0 != null)
                     {
                         a = _group_alt1_a_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_a;
                     }
                 }
                 // Try group alternative 3: '/'
@@ -27946,10 +30421,16 @@ namespace SharpPy.Generated
                     {
                         a = _group_alt2_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_a;
+                    }
                 }
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28004,6 +30485,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28029,6 +30511,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28080,6 +30563,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28088,6 +30572,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28124,6 +30609,11 @@ namespace SharpPy.Generated
                     {
                         _tmp0 = _group_alt0__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp0;
+                    }
                 }
                 // Try group alternative 2: lambda_slash_with_default
                 if (_tmp0 == null)
@@ -28134,10 +30624,16 @@ namespace SharpPy.Generated
                     {
                         _tmp0 = _group_alt1__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp0;
+                    }
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28148,6 +30644,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28178,6 +30675,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28198,6 +30696,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28206,6 +30705,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28236,6 +30736,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28247,6 +30748,7 @@ namespace SharpPy.Generated
                 if (_first__tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28260,6 +30762,7 @@ namespace SharpPy.Generated
                     if (_sep__tmp1 == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -28284,6 +30787,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28298,6 +30802,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28336,6 +30841,11 @@ namespace SharpPy.Generated
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
+                    }
                 }
                 // Try group alternative 2: lambda_slash_with_default
                 if (_opt__tmp0 == null)
@@ -28345,6 +30855,11 @@ namespace SharpPy.Generated
                     if (_group_alt1__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt1__opt__tmp0_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
                     }
                 }
                 GeneratedPtr? _tmp0 = _opt__tmp0;
@@ -28360,6 +30875,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28376,6 +30892,11 @@ namespace SharpPy.Generated
                     {
                         _tmp3 = _group_alt0__tmp3_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp3;
+                    }
                 }
                 // Try group alternative 2: lambda_param_no_default
                 if (_tmp3 == null)
@@ -28386,10 +30907,16 @@ namespace SharpPy.Generated
                     {
                         _tmp3 = _group_alt1__tmp3_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp3;
+                    }
                 }
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28400,6 +30927,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28428,6 +30956,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28436,6 +30965,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28444,6 +30974,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28498,6 +31029,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28523,6 +31055,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28574,6 +31107,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28587,6 +31121,11 @@ namespace SharpPy.Generated
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
                     }
                 }
                 // Try group alternative 2: ',' (':' | '**')
@@ -28607,6 +31146,11 @@ namespace SharpPy.Generated
                             {
                                 _group_alt1__tmp1_item1 = _group_alt0__group_alt1__tmp1_item1_item0;
                             }
+                            else
+                            {
+                                // CPython 3.12: Group alternative failed, restore position
+                                _position = _group_mark__group_alt1__tmp1_item1;
+                            }
                         }
                         // Try group alternative 2: '**'
                         if (_group_alt1__tmp1_item1 == null)
@@ -28617,10 +31161,16 @@ namespace SharpPy.Generated
                             {
                                 _group_alt1__tmp1_item1 = _group_alt1__group_alt1__tmp1_item1_item0;
                             }
+                            else
+                            {
+                                // CPython 3.12: Group alternative failed, restore position
+                                _position = _group_mark__group_alt1__tmp1_item1;
+                            }
                         }
                         if (_group_alt1__tmp1_item1 == null)
                         {
                             _position = _mark;
+                            _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                             _res = null;
                             break;  // Exit this alternative
                         }
@@ -28628,11 +31178,17 @@ namespace SharpPy.Generated
                         {
                             _tmp1 = _group_alt1__tmp1_item1;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__tmp1;
+                        }
                     }
                 }
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28661,6 +31217,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28669,6 +31226,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28677,6 +31235,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28705,6 +31264,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28721,6 +31281,11 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 // Try group alternative 2: ','
                 if (_tmp1 == null)
@@ -28731,10 +31296,16 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28745,6 +31316,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28761,6 +31333,11 @@ namespace SharpPy.Generated
                     {
                         _tmp3 = _group_alt0__tmp3_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp3;
+                    }
                 }
                 // Try group alternative 2: ','
                 if (_tmp3 == null)
@@ -28771,10 +31348,16 @@ namespace SharpPy.Generated
                     {
                         _tmp3 = _group_alt1__tmp3_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp3;
+                    }
                 }
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28829,6 +31412,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28837,6 +31421,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28845,6 +31430,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28873,6 +31459,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28881,6 +31468,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28889,6 +31477,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28897,6 +31486,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28925,6 +31515,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28933,6 +31524,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28941,6 +31533,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28955,6 +31548,11 @@ namespace SharpPy.Generated
                     {
                         a = _group_alt0_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_a;
+                    }
                 }
                 // Try group alternative 2: '**'
                 if (a == null)
@@ -28964,6 +31562,11 @@ namespace SharpPy.Generated
                     if (_group_alt1_a_item0 != null)
                     {
                         a = _group_alt1_a_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_a;
                     }
                 }
                 // Try group alternative 3: '/'
@@ -28975,10 +31578,16 @@ namespace SharpPy.Generated
                     {
                         a = _group_alt2_a_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_a;
+                    }
                 }
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29034,6 +31643,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29044,6 +31654,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29054,6 +31665,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29064,6 +31676,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29074,6 +31687,7 @@ namespace SharpPy.Generated
                 if (_tmp4 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29129,6 +31743,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29137,6 +31752,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29145,13 +31761,27 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &((',' | ')' | ':'))
                 int _lookahead_mark_89 = _position;
-                // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_89; // Restore position
+                bool _lookahead_test_89 = false;
+                {
+                    // Test if current token matches any alternative
+                    if (CurrentToken?.Value == ",") { _lookahead_test_89 = true; }
+                    if (CurrentToken?.Value == ")") { _lookahead_test_89 = true; }
+                    if (CurrentToken?.Value == ":") { _lookahead_test_89 = true; }
+                }
+                _position = _lookahead_mark_89; // Restore position after lookahead
+                if (!_lookahead_test_89)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: RAISE_SYNTAX_ERROR_INVALID_TARGET(STAR_TARGETS, a)
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "invalid syntax";
@@ -29206,6 +31836,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29221,6 +31852,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29229,6 +31861,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29283,6 +31916,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29291,6 +31925,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29299,6 +31934,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29327,6 +31963,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29335,6 +31972,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29343,6 +31981,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29351,6 +31990,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29405,6 +32045,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29416,6 +32057,7 @@ namespace SharpPy.Generated
                 if (_first__tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29429,6 +32071,7 @@ namespace SharpPy.Generated
                     if (_sep__tmp0 == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -29451,6 +32094,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29459,6 +32103,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29513,6 +32158,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29521,6 +32167,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29530,6 +32177,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29593,6 +32241,11 @@ namespace SharpPy.Generated
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
+                    }
                 }
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
@@ -29605,6 +32258,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29617,12 +32271,14 @@ namespace SharpPy.Generated
                 if (_first__tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
                 if (_first__tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29636,6 +32292,7 @@ namespace SharpPy.Generated
                     if (_sep__tmp2 == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -29650,6 +32307,7 @@ namespace SharpPy.Generated
                     if (_loop_elem__tmp2 == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -29666,6 +32324,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29703,6 +32362,11 @@ namespace SharpPy.Generated
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
+                    }
                 }
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
@@ -29715,6 +32379,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29723,6 +32388,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29735,12 +32401,14 @@ namespace SharpPy.Generated
                 if (_first__tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
                 if (_first__tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29754,6 +32422,7 @@ namespace SharpPy.Generated
                     if (_sep__tmp3 == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -29768,6 +32437,7 @@ namespace SharpPy.Generated
                     if (_loop_elem__tmp3 == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -29785,6 +32455,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp4 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29799,6 +32470,7 @@ namespace SharpPy.Generated
                 if (_tmp5 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29808,6 +32480,7 @@ namespace SharpPy.Generated
                 if (_tmp6 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29871,6 +32544,11 @@ namespace SharpPy.Generated
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
+                    }
                 }
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
@@ -29883,6 +32561,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29895,12 +32574,14 @@ namespace SharpPy.Generated
                 if (_first__tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
                 if (_first__tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29914,6 +32595,7 @@ namespace SharpPy.Generated
                     if (_sep__tmp1 == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -29928,6 +32610,7 @@ namespace SharpPy.Generated
                     if (_loop_elem__tmp1 == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -29943,6 +32626,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29952,6 +32636,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29963,6 +32648,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29999,6 +32685,11 @@ namespace SharpPy.Generated
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
+                    }
                 }
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
@@ -30011,6 +32702,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30019,6 +32711,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30031,12 +32724,14 @@ namespace SharpPy.Generated
                 if (_first__tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
                 if (_first__tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30050,6 +32745,7 @@ namespace SharpPy.Generated
                     if (_sep__tmp2 == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -30064,6 +32760,7 @@ namespace SharpPy.Generated
                     if (_loop_elem__tmp2 == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -30081,6 +32778,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30095,6 +32793,7 @@ namespace SharpPy.Generated
                 if (_tmp4 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30103,6 +32802,7 @@ namespace SharpPy.Generated
                 if (_tmp5 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30112,6 +32812,7 @@ namespace SharpPy.Generated
                 if (_tmp6 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30123,6 +32824,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30177,6 +32879,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30185,6 +32888,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30194,6 +32898,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30205,6 +32910,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30233,6 +32939,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30241,6 +32948,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30249,6 +32957,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30261,6 +32970,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30289,6 +32999,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30297,6 +33008,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30307,6 +33019,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30315,6 +33028,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30323,6 +33037,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30331,6 +33046,7 @@ namespace SharpPy.Generated
                 if (expression == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30359,6 +33075,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30367,6 +33084,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30377,6 +33095,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30385,6 +33104,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30408,6 +33128,7 @@ namespace SharpPy.Generated
                 if (_tmp5 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30462,6 +33183,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30472,6 +33194,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30486,6 +33209,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30494,6 +33218,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30502,6 +33227,7 @@ namespace SharpPy.Generated
                 if (expressions == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30530,6 +33256,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30540,6 +33267,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30555,6 +33283,7 @@ namespace SharpPy.Generated
                 if (expression == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30584,6 +33313,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30593,6 +33323,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30622,6 +33353,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30630,6 +33362,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30644,6 +33377,11 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 // Try group alternative 2: ':'
                 if (_tmp1 == null)
@@ -30654,10 +33392,16 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30712,6 +33456,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30720,6 +33465,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30729,6 +33475,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30740,6 +33487,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30794,6 +33542,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30802,6 +33551,7 @@ namespace SharpPy.Generated
                 if (expression == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30811,6 +33561,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30822,6 +33573,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30850,6 +33602,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30858,6 +33611,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30867,6 +33621,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30878,6 +33633,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30932,6 +33688,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30940,6 +33697,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30948,6 +33706,7 @@ namespace SharpPy.Generated
                 if (expression == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30957,6 +33716,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30968,6 +33728,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31022,6 +33783,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31030,6 +33792,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31039,6 +33802,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31068,6 +33832,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31076,6 +33841,7 @@ namespace SharpPy.Generated
                 if (subject == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31084,6 +33850,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31093,6 +33860,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31104,6 +33872,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31158,6 +33927,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31166,6 +33936,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31176,6 +33947,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31191,6 +33963,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31220,6 +33993,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31228,6 +34002,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31238,6 +34013,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31252,6 +34028,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31261,6 +34038,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31272,6 +34050,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31326,6 +34105,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31334,6 +34114,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31342,6 +34123,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31370,6 +34152,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31378,6 +34161,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31388,6 +34172,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31396,6 +34181,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31450,6 +34236,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31458,6 +34245,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31470,6 +34258,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31539,6 +34328,11 @@ namespace SharpPy.Generated
                         {
                             _opt__tmp0 = _group_alt0__opt__tmp0_item1;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__opt__tmp0;
+                        }
                     }
                 }
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
@@ -31552,6 +34346,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31560,6 +34355,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31568,6 +34364,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31619,6 +34416,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31627,6 +34425,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31636,6 +34435,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31665,6 +34465,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31673,6 +34474,7 @@ namespace SharpPy.Generated
                 if (a_2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31681,6 +34483,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31690,6 +34493,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31701,6 +34505,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31755,6 +34560,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31763,6 +34569,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31772,6 +34579,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31801,6 +34609,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31809,6 +34618,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31817,6 +34627,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31826,6 +34637,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31837,6 +34649,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31891,6 +34704,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31899,6 +34713,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31908,6 +34723,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31919,6 +34735,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31973,6 +34790,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31981,6 +34799,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -31990,6 +34809,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32019,6 +34839,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32027,6 +34848,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32035,6 +34857,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32044,6 +34867,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32055,6 +34879,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32117,6 +34942,11 @@ namespace SharpPy.Generated
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
+                    }
                 }
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
@@ -32129,6 +34959,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32137,6 +34968,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32145,6 +34977,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32153,6 +34986,7 @@ namespace SharpPy.Generated
                 if (_tmp4 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32162,6 +34996,7 @@ namespace SharpPy.Generated
                 if (_tmp5 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32199,6 +35034,11 @@ namespace SharpPy.Generated
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
+                    }
                 }
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
@@ -32211,6 +35051,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32219,6 +35060,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32227,6 +35069,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32235,6 +35078,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32243,6 +35087,7 @@ namespace SharpPy.Generated
                 if (_tmp4 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32252,6 +35097,7 @@ namespace SharpPy.Generated
                 if (_tmp5 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32263,6 +35109,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32325,6 +35172,11 @@ namespace SharpPy.Generated
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp0;
+                    }
                 }
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
@@ -32337,6 +35189,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32345,6 +35198,7 @@ namespace SharpPy.Generated
                 if (NAME == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32361,6 +35215,11 @@ namespace SharpPy.Generated
                     {
                         _opt__tmp1 = _group_alt0__opt__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__opt__tmp1;
+                    }
                 }
                 GeneratedArguments? _tmp1 = _opt__tmp1;
                 if (_tmp1 == null)
@@ -32373,6 +35232,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32392,6 +35252,11 @@ namespace SharpPy.Generated
                         {
                             _opt__tmp3 = _group_alt0__opt__tmp3_item1;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__opt__tmp3;
+                        }
                     }
                 }
                 GeneratedExpr? _tmp3 = _opt__tmp3;
@@ -32405,6 +35270,7 @@ namespace SharpPy.Generated
                 if (_tmp4 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32414,6 +35280,7 @@ namespace SharpPy.Generated
                 if (_tmp5 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32425,6 +35292,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32479,6 +35347,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32506,6 +35375,11 @@ namespace SharpPy.Generated
                             {
                                 _opt__group_alt0__opt_NAME_item1 = _group_alt0__opt__group_alt0__opt_NAME_item1_item0;
                             }
+                            else
+                            {
+                                // CPython 3.12: Group alternative failed, restore position
+                                _position = _group_mark__opt__group_alt0__opt_NAME_item1;
+                            }
                         }
                         GeneratedExpr? _group_alt0__opt_NAME_item1 = _opt__group_alt0__opt_NAME_item1;
                         if (_group_alt0__opt_NAME_item1 == null)
@@ -32519,6 +35393,11 @@ namespace SharpPy.Generated
                             if (_group_alt0__opt_NAME_item2 != null)
                             {
                                 _opt_NAME = _group_alt0__opt_NAME_item2;
+                            }
+                            else
+                            {
+                                // CPython 3.12: Group alternative failed, restore position
+                                _position = _group_mark__opt_NAME;
                             }
                         }
                     }
@@ -32535,6 +35414,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32564,6 +35444,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32591,6 +35472,11 @@ namespace SharpPy.Generated
                             {
                                 _opt__group_alt0__opt_NAME_item1 = _group_alt0__opt__group_alt0__opt_NAME_item1_item0;
                             }
+                            else
+                            {
+                                // CPython 3.12: Group alternative failed, restore position
+                                _position = _group_mark__opt__group_alt0__opt_NAME_item1;
+                            }
                         }
                         GeneratedExpr? _group_alt0__opt_NAME_item1 = _opt__group_alt0__opt_NAME_item1;
                         if (_group_alt0__opt_NAME_item1 == null)
@@ -32604,6 +35490,11 @@ namespace SharpPy.Generated
                             if (_group_alt0__opt_NAME_item2 != null)
                             {
                                 _opt_NAME = _group_alt0__opt_NAME_item2;
+                            }
+                            else
+                            {
+                                // CPython 3.12: Group alternative failed, restore position
+                                _position = _group_mark__opt_NAME;
                             }
                         }
                     }
@@ -32619,6 +35510,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32628,6 +35520,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32639,6 +35532,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32696,6 +35590,7 @@ namespace SharpPy.Generated
                 if (_first__tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32709,6 +35604,7 @@ namespace SharpPy.Generated
                     if (_sep__tmp0 == null)
                     {
                         _position = _mark;
+                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                         _res = null;
                         break;  // Exit this alternative
                     }
@@ -32731,6 +35627,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32743,6 +35640,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32769,6 +35667,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32777,6 +35676,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32785,6 +35685,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32793,6 +35694,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32821,6 +35723,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32829,13 +35732,26 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(('}' | ','))
                 int _lookahead_mark_108 = _position;
-                // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_108; // Restore position
+                bool _lookahead_test_108 = false;
+                {
+                    // Test if current token matches any alternative
+                    if (CurrentToken?.Value == "}") { _lookahead_test_108 = true; }
+                    if (CurrentToken?.Value == ",") { _lookahead_test_108 = true; }
+                }
+                _position = _lookahead_mark_108; // Restore position after lookahead
+                if (!_lookahead_test_108)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "expression expected after dictionary key and ':'")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expression expected after dictionary key and ':'";
@@ -32887,6 +35803,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32898,6 +35815,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32926,6 +35844,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32934,6 +35853,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32942,6 +35862,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32950,6 +35871,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32978,6 +35900,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -32986,13 +35909,26 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &(('}' | ','))
                 int _lookahead_mark_110 = _position;
-                // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_110; // Restore position
+                bool _lookahead_test_110 = false;
+                {
+                    // Test if current token matches any alternative
+                    if (CurrentToken?.Value == "}") { _lookahead_test_110 = true; }
+                    if (CurrentToken?.Value == ",") { _lookahead_test_110 = true; }
+                }
+                _position = _lookahead_mark_110; // Restore position after lookahead
+                if (!_lookahead_test_110)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(a, "expression expected after dictionary key and ':'")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expression expected after dictionary key and ':'";
@@ -33044,6 +35980,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33052,6 +35989,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33060,6 +35998,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33068,6 +36007,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33122,6 +36062,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33130,6 +36071,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33158,6 +36100,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33166,6 +36109,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33194,6 +36138,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33202,6 +36147,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33230,6 +36176,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33238,6 +36185,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33266,6 +36214,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33276,6 +36225,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33304,6 +36254,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33318,6 +36269,11 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 // Try group alternative 2: star_expressions
                 if (_tmp1 == null)
@@ -33328,10 +36284,16 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33346,6 +36308,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33374,6 +36337,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33388,6 +36352,11 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 // Try group alternative 2: star_expressions
                 if (_tmp1 == null)
@@ -33398,10 +36367,16 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33410,6 +36385,7 @@ namespace SharpPy.Generated
                 if (_tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33423,6 +36399,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33451,6 +36428,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33465,6 +36443,11 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 // Try group alternative 2: star_expressions
                 if (_tmp1 == null)
@@ -33475,10 +36458,16 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33489,6 +36478,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33507,6 +36497,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33533,6 +36524,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33547,6 +36539,11 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 // Try group alternative 2: star_expressions
                 if (_tmp1 == null)
@@ -33557,10 +36554,16 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33571,6 +36574,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33596,6 +36600,11 @@ namespace SharpPy.Generated
                         {
                             _opt__tmp3 = _group_alt0__opt__tmp3_item1;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__opt__tmp3;
+                        }
                     }
                 }
                 GeneratedTokenInfo? _tmp3 = _opt__tmp3;
@@ -33613,6 +36622,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33641,6 +36651,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33655,6 +36666,11 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 // Try group alternative 2: star_expressions
                 if (_tmp1 == null)
@@ -33665,10 +36681,16 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33679,6 +36701,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33704,6 +36727,11 @@ namespace SharpPy.Generated
                         {
                             _opt__tmp3 = _group_alt0__opt__tmp3_item1;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__opt__tmp3;
+                        }
                     }
                 }
                 GeneratedTokenInfo? _tmp3 = _opt__tmp3;
@@ -33717,6 +36745,7 @@ namespace SharpPy.Generated
                 if (_tmp4 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33729,6 +36758,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33757,6 +36787,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33771,6 +36802,11 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 // Try group alternative 2: star_expressions
                 if (_tmp1 == null)
@@ -33781,10 +36817,16 @@ namespace SharpPy.Generated
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__tmp1;
+                    }
                 }
                 if (_tmp1 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33795,6 +36837,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp2 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33820,6 +36863,11 @@ namespace SharpPy.Generated
                         {
                             _opt__tmp3 = _group_alt0__opt__tmp3_item1;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__opt__tmp3;
+                        }
                     }
                 }
                 GeneratedTokenInfo? _tmp3 = _opt__tmp3;
@@ -33835,6 +36883,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33889,13 +36938,26 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead - check without consuming
+                // Positive lookahead: &((':' | '}'))
                 int _lookahead_mark_117 = _position;
-                // TODO: Parse lookahead content for Group
-                _position = _lookahead_mark_117; // Restore position
+                bool _lookahead_test_117 = false;
+                {
+                    // Test if current token matches any alternative
+                    if (CurrentToken?.Value == ":") { _lookahead_test_117 = true; }
+                    if (CurrentToken?.Value == "}") { _lookahead_test_117 = true; }
+                }
+                _position = _lookahead_mark_117; // Restore position after lookahead
+                if (!_lookahead_test_117)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 // Action: RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: missing conversion character")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "f-string: missing conversion character";
@@ -33921,6 +36983,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -33931,6 +36994,7 @@ namespace SharpPy.Generated
                 {
                     // Negative lookahead matched - fail this alternative
                     _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -34030,6 +37094,11 @@ namespace SharpPy.Generated
                     {
                         _first = _group_alt0__first_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__first;
+                    }
                 }
             }
             if (_first == null) return null;
@@ -34050,6 +37119,11 @@ namespace SharpPy.Generated
                         if (_group_alt0__item_item1 != null)
                         {
                             _item = _group_alt0__item_item0;
+                        }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__item;
                         }
                     }
                 }
@@ -34084,6 +37158,11 @@ namespace SharpPy.Generated
                     {
                         _item = _group_alt0__item_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__item;
+                    }
                 }
                 // Try group alternative 2: '...'
                 if (_item == null)
@@ -34093,6 +37172,11 @@ namespace SharpPy.Generated
                     if (_group_alt1__item_item0 != null)
                     {
                         _item = _group_alt1__item_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__item;
                     }
                 }
                 if (_item == null)
@@ -34125,6 +37209,11 @@ namespace SharpPy.Generated
                 {
                     _first = _group_alt0__first_item0;
                 }
+                else
+                {
+                    // CPython 3.12: Group alternative failed, restore position
+                    _position = _group_mark__first;
+                }
             }
             // Try group alternative 2: '...'
             if (_first == null)
@@ -34134,6 +37223,11 @@ namespace SharpPy.Generated
                 if (_group_alt1__first_item0 != null)
                 {
                     _first = _group_alt1__first_item0;
+                }
+                else
+                {
+                    // CPython 3.12: Group alternative failed, restore position
+                    _position = _group_mark__first;
                 }
             }
             if (_first == null) return null;
@@ -34152,6 +37246,11 @@ namespace SharpPy.Generated
                     {
                         _item = _group_alt0__item_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__item;
+                    }
                 }
                 // Try group alternative 2: '...'
                 if (_item == null)
@@ -34161,6 +37260,11 @@ namespace SharpPy.Generated
                     if (_group_alt1__item_item0 != null)
                     {
                         _item = _group_alt1__item_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__item;
                     }
                 }
                 if (_item == null)
@@ -34198,6 +37302,11 @@ namespace SharpPy.Generated
                         {
                             _first = _group_alt0__first_item1;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__first;
+                        }
                     }
                 }
             }
@@ -34222,6 +37331,11 @@ namespace SharpPy.Generated
                             if (_group_alt0__item_item2 != null)
                             {
                                 _item = _group_alt0__item_item1;
+                            }
+                            else
+                            {
+                                // CPython 3.12: Group alternative failed, restore position
+                                _position = _group_mark__item;
                             }
                         }
                     }
@@ -34489,6 +37603,11 @@ namespace SharpPy.Generated
                     {
                         _first = _group_alt0__first_item1;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__first;
+                    }
                 }
             }
             if (_first == null) return null;
@@ -34509,6 +37628,11 @@ namespace SharpPy.Generated
                         if (_group_alt0__item_item1 != null)
                         {
                             _item = _group_alt0__item_item1;
+                        }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__item;
                         }
                     }
                 }
@@ -34544,6 +37668,11 @@ namespace SharpPy.Generated
                     {
                         _first = _group_alt0__first_item1;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__first;
+                    }
                 }
             }
             if (_first == null) return null;
@@ -34564,6 +37693,11 @@ namespace SharpPy.Generated
                         if (_group_alt0__item_item1 != null)
                         {
                             _item = _group_alt0__item_item1;
+                        }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__item;
                         }
                     }
                 }
@@ -34599,6 +37733,11 @@ namespace SharpPy.Generated
                     {
                         _first = _group_alt0__first_item1;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__first;
+                    }
                 }
             }
             if (_first == null) return null;
@@ -34619,6 +37758,11 @@ namespace SharpPy.Generated
                         if (_group_alt0__item_item1 != null)
                         {
                             _item = _group_alt0__item_item1;
+                        }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__item;
                         }
                     }
                 }
@@ -34654,6 +37798,11 @@ namespace SharpPy.Generated
                     {
                         _first = _group_alt0__first_item1;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__first;
+                    }
                 }
             }
             if (_first == null) return null;
@@ -34674,6 +37823,11 @@ namespace SharpPy.Generated
                         if (_group_alt0__item_item1 != null)
                         {
                             _item = _group_alt0__item_item1;
+                        }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__item;
                         }
                     }
                 }
@@ -34929,6 +38083,11 @@ namespace SharpPy.Generated
                 {
                     _first = _group_alt0__first_item0;
                 }
+                else
+                {
+                    // CPython 3.12: Group alternative failed, restore position
+                    _position = _group_mark__first;
+                }
             }
             // Try group alternative 2: string
             if (_first == null)
@@ -34938,6 +38097,11 @@ namespace SharpPy.Generated
                 if (_group_alt1__first_item0 != null)
                 {
                     _first = _group_alt1__first_item0;
+                }
+                else
+                {
+                    // CPython 3.12: Group alternative failed, restore position
+                    _position = _group_mark__first;
                 }
             }
             if (_first == null) return null;
@@ -34956,6 +38120,11 @@ namespace SharpPy.Generated
                     {
                         _item = _group_alt0__item_item0;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__item;
+                    }
                 }
                 // Try group alternative 2: string
                 if (_item == null)
@@ -34965,6 +38134,11 @@ namespace SharpPy.Generated
                     if (_group_alt1__item_item0 != null)
                     {
                         _item = _group_alt1__item_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__item;
                     }
                 }
                 if (_item == null)
@@ -35028,6 +38202,11 @@ namespace SharpPy.Generated
                         {
                             _item = _group_alt0__item_item1;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__item;
+                        }
                     }
                 }
                 if (_item == null)
@@ -35064,6 +38243,11 @@ namespace SharpPy.Generated
                         if (_group_alt0__item_item1 != null)
                         {
                             _item = _group_alt0__item_item1;
+                        }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__item;
                         }
                     }
                 }
@@ -35102,6 +38286,11 @@ namespace SharpPy.Generated
                         {
                             _item = _group_alt0__item_item1;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__item;
+                        }
                     }
                 }
                 if (_item == null)
@@ -35137,6 +38326,11 @@ namespace SharpPy.Generated
                     {
                         _first = _group_alt0__first_item1;
                     }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark__first;
+                    }
                 }
             }
             if (_first == null) return null;
@@ -35157,6 +38351,11 @@ namespace SharpPy.Generated
                         if (_group_alt0__item_item1 != null)
                         {
                             _item = _group_alt0__item_item1;
+                        }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__item;
                         }
                     }
                 }
@@ -35217,6 +38416,11 @@ namespace SharpPy.Generated
                         {
                             _item = _group_alt0__item_item1;
                         }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__item;
+                        }
                     }
                 }
                 if (_item == null)
@@ -35253,6 +38457,11 @@ namespace SharpPy.Generated
                         if (_group_alt0__item_item1 != null)
                         {
                             _item = _group_alt0__item_item1;
+                        }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__item;
                         }
                     }
                 }
@@ -35566,6 +38775,51 @@ namespace SharpPy.Generated
             var _end_lineno2 = _tokens[_position - 1].EndLine;
             var _end_col_offset2 = _tokens[_position - 1].EndColumn;
             return _PyAST_TypeVar(typeVarName, bound, _start_lineno, _start_col_offset, _end_lineno2, _end_col_offset2);
+        }
+
+        // ========== CPython 3.12: String parsing helper methods ==========
+
+        // CPython: _PyPegen_constant_from_string
+        // Convert STRING token to Constant AST node - accepts both token and already-converted constant
+        private GeneratedExpr _PyPegen_constant_from_string(object tokenOrConstant)
+        {
+            // Handle if already converted to constant (from StringToken)
+            if (tokenOrConstant is GeneratedConstant constant)
+                return constant; // Already converted, return as-is
+
+            // Handle raw token
+            if (tokenOrConstant is GeneratedTokenInfo token)
+            {
+                // STRING token value includes quotes (e.g., \"hello\", 'world', r\"raw\")
+                var value = token.Value;
+                // Decode string literal: remove quotes and handle escape sequences
+                var decoded = DecodeStringLiteral(value);
+                var pyConstant = new GeneratedPyConstantString(decoded);
+                return _PyAST_Constant(pyConstant, null, token.Line, token.Column, token.EndLine, token.EndColumn);
+            }
+
+            throw new ArgumentException("Expected GeneratedTokenInfo or GeneratedConstant", nameof(tokenOrConstant));
+        }
+
+        // CPython: _PyPegen_concatenate_strings
+        // Concatenate multiple string literals: \"a\" \"b\" -> \"ab\"
+        private GeneratedExpr _PyPegen_concatenate_strings(GeneratedExprSeq strings, int lineno, int col, int? end_lineno, int? end_col)
+        {
+            // Single string: return as-is
+            if (strings.Count == 1)
+                return strings[0];
+
+            // Multiple strings: concatenate values
+            var concatenated = new System.Text.StringBuilder();
+            foreach (var str in strings)
+            {
+                if (str is GeneratedConstant constant && constant.Value is GeneratedPyConstantString strConst)
+                {
+                    concatenated.Append(strConst.Value);
+                }
+            }
+            var pyConstant = new GeneratedPyConstantString(concatenated.ToString());
+            return _PyAST_Constant(pyConstant, null, lineno, col, end_lineno ?? 0, end_col ?? 0);
         }
 
     }

@@ -45,13 +45,33 @@ namespace SharpPy.PegGenerator.CodeGenerator
             _parent.WriteLine("{");
             _parent.Indent();
             _parent.WriteLine("_position = _mark;");
+
+            // Add debug logging for Expression alternatives
+            if (_rule.Name.Equals("expression", StringComparison.OrdinalIgnoreCase))
+            {
+                _parent.WriteLine($"Console.WriteLine($\"[EXPRESSION-ALT{_alternativeIndex + 1}] START at pos={{_position}}\");");
+            }
+
             _parent.WriteLine();
 
             // CPython 3.12: Check error_indicator at start of each alternative
             _parent.WriteLine("// CPython 3.12: Check error indicator before trying alternative");
+
+            // Add debug logging for Expression error check
+            if (_rule.Name.Equals("expression", StringComparison.OrdinalIgnoreCase))
+            {
+                _parent.WriteLine($"Console.WriteLine($\"[EXPRESSION-ALT{_alternativeIndex + 1}] pendingSyntaxError={{(_pendingSyntaxError == null ? \"null\" : \"SET\")}}\");");
+            }
+
             _parent.WriteLine("if (_pendingSyntaxError != null)");
             _parent.WriteLine("{");
             _parent.Indent();
+
+            if (_rule.Name.Equals("expression", StringComparison.OrdinalIgnoreCase))
+            {
+                _parent.WriteLine($"Console.WriteLine($\"[EXPRESSION-ALT{_alternativeIndex + 1}] SKIP due to pendingSyntaxError\");");
+            }
+
             _parent.WriteLine("_res = null;");
             _parent.WriteLine("break;");
             _parent.Dedent();

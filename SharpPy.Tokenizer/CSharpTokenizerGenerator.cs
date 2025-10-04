@@ -472,7 +472,7 @@ namespace SharpPy.Tokenizer
             WriteLine("if (_position > 0 && _source[_position - 1] != '\\n' && _source[_position - 1] != '\\r')");
             WriteLine("{");
             Indent();
-            WriteLine("AddToken(GeneratedTokenType.NEWLINE, \"\", _line, _column);");
+            WriteLine("AddToken(GeneratedTokenType.NEWLINE, \"\\n\", _line, _column);");
             Dedent();
             WriteLine("}");
             WriteLine();

@@ -48,7 +48,11 @@ namespace SharpPy.Generated
 
         protected PyParserBase(List<GeneratedTokenInfo> tokens, string filename)
         {
-            _tokens = tokens;
+            // CPython 3.12: Filter out COMMENT, NL, TYPE_COMMENT tokens before parsing
+            _tokens = tokens.Where(t => 
+                t.Type != GeneratedTokenType.COMMENT &&
+                t.Type != GeneratedTokenType.NL &&
+                t.Type != GeneratedTokenType.TYPE_COMMENT).ToList();
             _filename = filename;
         }
 
@@ -123,11 +127,17 @@ namespace SharpPy.Generated
             _level++;
             try
             {
+                #if DEBUG_LOG
+                Console.WriteLine($"[LR] {ruleName}: Starting at pos={_position}, seeding with FAIL");
+                #endif
                 // SEED PHASE: Start with FAIL seed
                 _lrCache[key] = new LREntry { Result = null, EndPos = _position, IsGrowing = true };
 
                 // First attempt - base case should execute
                 var result = ruleFunc();
+                #if DEBUG_LOG
+                Console.WriteLine($"[LR] {ruleName}: First attempt result={(result == null ? "null" : "not-null")}, pos={_position}");
+                #endif
 
                 if (result == null)
                 {
@@ -143,18 +153,30 @@ namespace SharpPy.Generated
 
                 while (true)
                 {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"[LR] {ruleName}: Growth attempt, resetting to pos={key.Item1}");
+                    #endif
                     // Reset to start position for next growth attempt
                     _position = key.Item1;
                     var newResult = ruleFunc();
+                    #if DEBUG_LOG
+                    Console.WriteLine($"[LR] {ruleName}: Growth result={(newResult == null ? "null" : "not-null")}, pos={_position}, lastEndPos={lastEndPos}");
+                    #endif
 
                     // Termination: no progress made
                     if (newResult == null || _position <= lastEndPos)
                     {
+                        #if DEBUG_LOG
+                        Console.WriteLine($"[LR] {ruleName}: Terminating, returning lastResult at pos={lastEndPos}");
+                        #endif
                         _position = lastEndPos;
                         _lrCache.Remove(key);
                         return lastResult;
                     }
 
+                    #if DEBUG_LOG
+                    Console.WriteLine($"[LR] {ruleName}: Growth succeeded, updating seed");
+                    #endif
                     // Grow: update seed with new result
                     lastResult = newResult;
                     lastEndPos = _position;
@@ -178,9 +200,15 @@ namespace SharpPy.Generated
         /// </summary>
         protected T? TryMemoized<T>(string ruleName, Func<T?> ruleFunc) where T : class
         {
+            #if DEBUG_LOG
+            Console.WriteLine($"[MEMO] {ruleName} at pos={_position}");
+            #endif
             // STEP 1: Get current token (CPython: Token *t = p->tokens[p->mark])
             if (_position >= _tokens.Count)
             {
+                #if DEBUG_LOG
+                Console.WriteLine($"[MEMO] {ruleName}: Beyond token count, parsing directly");
+                #endif
                 // ENDMARKER or beyond - don't memoize, just parse
                 return ruleFunc();
             }
@@ -195,16 +223,25 @@ namespace SharpPy.Generated
                 var cached = token.Memo.FirstOrDefault(m => m.RuleType == ruleName);
                 if (cached != null)
                 {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"[MEMO] {ruleName}: Cache HIT at pos={_position}, returning cached result (null={cached.Node == null}), newPos={cached.Mark}");
+                    #endif
                     // Cache HIT - restore mark and return cached result
                     // CPython: p->mark = m->mark; *(void**)(pres) = m->node; return 1;
                     _position = cached.Mark;
                     return cached.Node as T;
                 }
             }
+            #if DEBUG_LOG
+            Console.WriteLine($"[MEMO] {ruleName}: Cache MISS at pos={_position}, parsing...");
+            #endif
 
             // STEP 3: Cache MISS - parse the rule
             var result = ruleFunc();
             int endMark = _position;
+            #if DEBUG_LOG
+            Console.WriteLine($"[MEMO] {ruleName}: Parse completed, result={(result == null ? "null" : "not-null")}, pos={startMark}->{endMark}");
+            #endif
 
             // STEP 4: UPDATE CACHE - _PyPegen_update_memo(p, mark, type, node)
             if (token.Memo == null)
@@ -216,12 +253,18 @@ namespace SharpPy.Generated
             var existing = token.Memo.FirstOrDefault(m => m.RuleType == ruleName);
             if (existing != null)
             {
+                #if DEBUG_LOG
+                Console.WriteLine($"[MEMO] {ruleName}: Updating existing cache entry");
+                #endif
                 // Update existing entry (shouldn't happen in normal flow, but CPython does this)
                 existing.Node = result;
                 existing.Mark = endMark;
             }
             else
             {
+                #if DEBUG_LOG
+                Console.WriteLine($"[MEMO] {ruleName}: Adding new cache entry");
+                #endif
                 // Insert new memo entry
                 // CPython: _PyPegen_insert_memo() adds to front of linked list
                 token.Memo.Add(new MemoEntry
@@ -1930,6 +1973,54 @@ namespace SharpPy.Generated
             module.Body = body ?? GeneratedStmtSeq.Empty;
             module.TypeIgnores = GeneratedTypeIgnoreSeq.Empty;
             return module;
+        }
+
+        // Helper: Decode string literal (remove quotes, handle escapes)
+        public static string DecodeStringLiteral(string literal)
+        {
+            if (string.IsNullOrEmpty(literal))
+                return string.Empty;
+
+            // Handle string prefixes: r, b, u, f, etc.
+            var workingLiteral = literal;
+            var isRaw = false;
+            while (workingLiteral.Length > 0 && char.IsLetter(workingLiteral[0]))
+            {
+                var prefix = char.ToLower(workingLiteral[0]);
+                if (prefix == 'r')
+                    isRaw = true;
+                workingLiteral = workingLiteral.Substring(1);
+            }
+
+            // Remove quotes: \"hello\" -> hello, 'world' -> world
+            if (workingLiteral.Length >= 2)
+            {
+                // Triple-quoted strings
+                if (workingLiteral.StartsWith("\"\"\"") || workingLiteral.StartsWith("'''"))
+                {
+                    if (workingLiteral.Length >= 6)
+                        workingLiteral = workingLiteral.Substring(3, workingLiteral.Length - 6);
+                }
+                // Single/double-quoted strings
+                else if (workingLiteral.StartsWith("\"") || workingLiteral.StartsWith("'"))
+                {
+                    workingLiteral = workingLiteral.Substring(1, workingLiteral.Length - 2);
+                }
+            }
+
+            // Handle escape sequences (unless raw string)
+            if (!isRaw && workingLiteral.Contains("\\"))
+            {
+                workingLiteral = workingLiteral
+                    .Replace("\\n", "\n")
+                    .Replace("\\t", "\t")
+                    .Replace("\\r", "\r")
+                    .Replace("\\\\", "\\")
+                    .Replace("\\\"", "\"")
+                    .Replace("\\'", "'");
+            }
+
+            return workingLiteral;
         }
 
         // CPython: _PyPegen_seq_append_to_end

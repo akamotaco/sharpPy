@@ -104,9 +104,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 _parent.WriteLine($"if ({_varName} == null)");
                 _parent.WriteLine("{");
                 _parent.Indent();
-                _parent.WriteLine("_position = _mark;");
-                _parent.WriteLine("_res = null;");
-                _parent.WriteLine("break;  // Exit this alternative");
+                _parent.WriteAlternativeFailure();
                 _parent.Dedent();
                 _parent.WriteLine("}");
             }
@@ -141,9 +139,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                         _parent.WriteLine($"if (_token_{_varName} == null)");
                         _parent.WriteLine("{");
                         _parent.Indent();
-                        _parent.WriteLine("_position = _mark;");
-                        _parent.WriteLine("_res = null;");
-                        _parent.WriteLine("break;  // Exit this alternative");
+                        _parent.WriteAlternativeFailure();
                         _parent.Dedent();
                         _parent.WriteLine("}");
                     }
@@ -170,6 +166,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                         _parent.WriteLine("{");
                         _parent.Indent();
                         _parent.WriteLine("_position = _mark;");
+                _parent.WriteLine("_pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails");
                         _parent.WriteLine("_res = null;");
                         _parent.WriteLine("break;  // Exit this alternative");
                         _parent.Dedent();
@@ -214,6 +211,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     _parent.WriteLine("{");
                     _parent.Indent();
                     _parent.WriteLine("_position = _mark;");
+                _parent.WriteLine("_pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails");
                     _parent.WriteLine("_res = null;");
                     _parent.WriteLine("break;  // Exit this alternative");
                     _parent.Dedent();
@@ -290,6 +288,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             _parent.WriteLine("{");
             _parent.Indent();
             _parent.WriteLine($"_position = _mark;");
+                _parent.WriteLine("_pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails");
             _parent.WriteLine($"_res = null;");
             _parent.WriteLine("break;  // Exit this alternative");
             _parent.Dedent();
@@ -331,6 +330,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 _parent.WriteLine("{");
                 _parent.Indent();
                 _parent.WriteLine($"_position = _mark;");
+                _parent.WriteLine("_pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails");
                 _parent.WriteLine($"_res = null;");
                 _parent.WriteLine("break;  // Exit this alternative");
                 _parent.Dedent();
@@ -533,6 +533,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 _parent.WriteLine("{");
                 _parent.Indent();
                 _parent.WriteLine($"_position = _mark;");
+                _parent.WriteLine("_pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails");
                 _parent.WriteLine($"_res = null;");
                 _parent.WriteLine("break;  // Exit this alternative");
                 _parent.Dedent();
@@ -636,6 +637,17 @@ namespace SharpPy.PegGenerator.CodeGenerator
             _parent.Dedent();
             _parent.WriteLine("}");
 
+            // CPython 3.12: If group alternative failed (last item is null), restore position
+            // This is critical for sequences like "star_targets '='" where star_targets succeeds
+            // but '=' fails - position must be restored to group start
+            _parent.WriteLine($"else");
+            _parent.WriteLine("{");
+            _parent.Indent();
+            _parent.WriteLine($"// CPython 3.12: Group alternative failed, restore position");
+            _parent.WriteLine($"_position = _group_mark_{_varName};");
+            _parent.Dedent();
+            _parent.WriteLine("}");
+
             // Close nested if blocks (one for each item after first)
             for (int i = 1; i < items.Count; i++)
             {
@@ -695,11 +707,38 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GeneratePositiveLookahead(PositiveLookahead pla)
         {
             // CPython 3.12 pattern: Check without consuming
-            var markVar = $"_lookahead_mark_{_lookaheadCounter++}";
-            _parent.WriteLine($"// Positive lookahead - check without consuming");
+            // Positive lookahead: &expr
+            // If expr matches, restore position and continue
+            // If expr doesn't match, fail this alternative
+            var markVar = $"_lookahead_mark_{_lookaheadCounter}";
+            var testVar = $"_lookahead_test_{_lookaheadCounter}";
+            _lookaheadCounter++;
+
+            _parent.WriteLine($"// Positive lookahead: &({pla.Expression})");
             _parent.WriteLine($"int {markVar} = _position;");
-            _parent.WriteLine($"// TODO: Parse lookahead content for {pla.Expression?.GetType().Name}");
-            _parent.WriteLine($"_position = {markVar}; // Restore position");
+
+            // Generate code to parse the lookahead expression
+            _parent.WriteLine($"bool {testVar} = false;");
+            _parent.WriteLine($"{{");
+            _parent.Indent();
+
+            // Parse the expression (actual parsing depends on expression type)
+            GenerateLookaheadExpression(pla.Expression, testVar);
+
+            _parent.Dedent();
+            _parent.WriteLine($"}}");
+            _parent.WriteLine($"_position = {markVar}; // Restore position after lookahead");
+
+            // If lookahead failed, fail this alternative
+            _parent.WriteLine($"if (!{testVar})");
+            _parent.WriteLine($"{{");
+            _parent.Indent();
+            _parent.WriteLine($"_position = _mark;");
+                _parent.WriteLine("_pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails");
+            _parent.WriteLine($"_res = null;");
+            _parent.WriteLine($"break;  // Exit this alternative");
+            _parent.Dedent();
+            _parent.WriteLine($"}}");
         }
 
         private void GenerateNegativeLookahead(NegativeLookahead nla)
@@ -745,10 +784,103 @@ namespace SharpPy.PegGenerator.CodeGenerator
             _parent.Indent();
             _parent.WriteLine($"// Negative lookahead matched - fail this alternative");
             _parent.WriteLine($"_position = _mark;");
+                _parent.WriteLine("_pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails");
             _parent.WriteLine($"_res = null;");
             _parent.WriteLine($"break;  // Exit this alternative");
             _parent.Dedent();
             _parent.WriteLine("}");
+        }
+
+        private void GenerateLookaheadExpression(Atom expr, string testVar)
+        {
+            // CPython 3.12: Generate code to test if expression matches without consuming input
+            // Sets testVar to true if expression matches
+            switch (expr)
+            {
+                case RuleRef ruleRef:
+                    // Check if it's a TOKEN (uppercase) or a rule (lowercase/mixed)
+                    bool isToken = char.IsUpper(ruleRef.Name[0]);
+                    if (isToken)
+                    {
+                        // Token - check using ExpectToken
+                        _parent.WriteLine($"if (ExpectToken(GeneratedTokenType.{ruleRef.Name}) != null) {{ {testVar} = true; }}");
+                    }
+                    else
+                    {
+                        // Rule - call the method (convert snake_case to PascalCase)
+                        var methodName = ToPascalCase(ruleRef.Name);
+                        _parent.WriteLine($"if ({methodName}() != null) {{ {testVar} = true; }}");
+                    }
+                    break;
+
+                case Group grp:
+                    // For group like ('(' | '[' | '.'), test each alternative
+                    _parent.WriteLine($"// Test if current token matches any alternative");
+                    foreach (var alt in grp.Alternatives)
+                    {
+                        if (alt.Items.Count == 1 && alt.Items[0].Atom is StringLiteral lit)
+                        {
+                            var escaped = _parent.EscapeString(lit.Value);
+                            _parent.WriteLine($"if (CurrentToken?.Value == \"{escaped}\") {{ {testVar} = true; }}");
+                        }
+                        else if (alt.Items.Count == 1 && alt.Items[0].Atom is RuleRef rref)
+                        {
+                            // Recursively call this method for nested rules
+                            GenerateLookaheadExpression(rref, testVar);
+                        }
+                        else if (alt.Items.Count == 1 && alt.Items[0].Atom is PositiveLookahead pla)
+                        {
+                            // Nested positive lookahead in group: (&expr | ...) in lookahead context
+                            // Handle simple cases only
+                            if (pla.Expression is StringLiteral nestedLit)
+                            {
+                                var escapedNested = _parent.EscapeString(nestedLit.Value);
+                                _parent.WriteLine($"if (CurrentToken?.Value == \"{escapedNested}\") {{ {testVar} = true; }}");
+                            }
+                            else
+                            {
+                                _parent.WriteLine($"// Nested lookahead in group too complex");
+                            }
+                        }
+                        else
+                        {
+                            // Complex group alternative - skip for now
+                            _parent.WriteLine($"// TODO: Complex group alternative in lookahead");
+                        }
+                    }
+                    break;
+
+                case StringLiteral slit:
+                    // Single string literal
+                    var escapedS = _parent.EscapeString(slit.Value);
+                    _parent.WriteLine($"if (CurrentToken?.Value == \"{escapedS}\") {{ {testVar} = true; }}");
+                    break;
+
+                case PositiveLookahead nestedPla:
+                    // Nested positive lookahead: &(&expr)
+                    // CPython 3.12: This is rare, handle by checking the inner expression
+                    // For now, conservatively check the inner expression without recursion
+                    switch (nestedPla.Expression)
+                    {
+                        case StringLiteral nestedLit:
+                            var escapedNested = _parent.EscapeString(nestedLit.Value);
+                            _parent.WriteLine($"if (CurrentToken?.Value == \"{escapedNested}\") {{ {testVar} = true; }}");
+                            break;
+                        default:
+                            // Too complex, fail for safety
+                            _parent.WriteLine($"// Nested lookahead too complex, defaulting to FAIL");
+                            break;
+                    }
+                    break;
+
+                default:
+                    // For unknown cases, FAIL (don't assume success)
+                    // This is safer than assuming success
+                    _parent.WriteLine($"// TODO: Complex positive lookahead for {expr.GetType().Name}");
+                    _parent.WriteLine($"// Defaulting to FAIL for safety");
+                    // testVar stays false
+                    break;
+            }
         }
 
         private void GenerateCut(Cut cut)

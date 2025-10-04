@@ -414,7 +414,7 @@ namespace SharpPy.Generated
             // Add final NEWLINE if file doesn't end with newline (BEFORE DEDENT for CPython compatibility)
             if (_position > 0 && _source[_position - 1] != '\n' && _source[_position - 1] != '\r')
             {
-                AddToken(GeneratedTokenType.NEWLINE, "", _line, _column);
+                AddToken(GeneratedTokenType.NEWLINE, "\n", _line, _column);
             }
 
             // Generate remaining DEDENT tokens at EOF

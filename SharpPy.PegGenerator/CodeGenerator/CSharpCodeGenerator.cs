@@ -429,6 +429,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             GenerateParserMethods();
             GeneratePythonGrammarMethods();
             GenerateTypeParameterMethods();
+            GenerateStringHelperMethods();
 
             Dedent();
             WriteLine("}");
@@ -1528,6 +1529,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine($"int _end_col_offset = 0;");
             WriteLine();
 
+            // Add debug logging for Expression and SimpleStmt
+            if (rule.Name.Equals("expression", StringComparison.OrdinalIgnoreCase) ||
+                rule.Name.Equals("simple_stmt", StringComparison.OrdinalIgnoreCase))
+            {
+                WriteLine($"Console.WriteLine($\"[{rule.Name.ToUpper()}] START at pos={{_position}}, token={{CurrentToken?.Type}}:'{{CurrentToken?.Value}}'\");");
+                WriteLine();
+            }
+
             // CPython 3.12: Generate alternatives with do-while(false) + break pattern
             for (int i = 0; i < rule.Alternatives.Count; i++)
             {
@@ -1559,6 +1568,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("var _end_token = CurrentToken ?? _start_token;");
             WriteLine("_end_lineno = _end_token?.Line ?? _start_lineno;");
             WriteLine("_end_col_offset = _end_token?.Column ?? _start_col_offset;");
+
+            // Add debug logging for Expression and SimpleStmt before return
+            if (rule.Name.Equals("expression", StringComparison.OrdinalIgnoreCase) ||
+                rule.Name.Equals("simple_stmt", StringComparison.OrdinalIgnoreCase))
+            {
+                WriteLine($"Console.WriteLine($\"[{rule.Name.ToUpper()}] RETURN {{(_res == null ? \"null\" : \"not-null\")}} at pos={{_position}}\");");
+            }
+
             WriteLine("return _res;");
 
             Dedent();
@@ -2436,6 +2453,18 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
         public void Indent() => _indentLevel++;
         public void Dedent() => _indentLevel--;
+
+        /// <summary>
+        /// Generate standard alternative failure code
+        /// CPython 3.12: Clear pending error when alternative fails
+        /// </summary>
+        public void WriteAlternativeFailure()
+        {
+            WriteLine("_position = _mark;");
+            WriteLine("_pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails");
+            WriteLine("_res = null;");
+            WriteLine("break;  // Exit this alternative");
+        }
 
         private string EscapeForCSharp(string value)
         {
@@ -8674,6 +8703,73 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("// CPython: Always has at least 1 item");
             WriteLine("return _items;");
 
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
+        private void GenerateStringHelperMethods()
+        {
+            WriteLine("// ========== CPython 3.12: String parsing helper methods ==========");
+            WriteLine();
+
+            // _PyPegen_constant_from_string
+            WriteLine("// CPython: _PyPegen_constant_from_string");
+            WriteLine("// Convert STRING token to Constant AST node - accepts both token and already-converted constant");
+            WriteLine("private GeneratedExpr _PyPegen_constant_from_string(object tokenOrConstant)");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Handle if already converted to constant (from StringToken)");
+            WriteLine("if (tokenOrConstant is GeneratedConstant constant)");
+            Indent();
+            WriteLine("return constant; // Already converted, return as-is");
+            Dedent();
+            WriteLine();
+            WriteLine("// Handle raw token");
+            WriteLine("if (tokenOrConstant is GeneratedTokenInfo token)");
+            WriteLine("{");
+            Indent();
+            WriteLine("// STRING token value includes quotes (e.g., \\\"hello\\\", 'world', r\\\"raw\\\")");
+            WriteLine("var value = token.Value;");
+            WriteLine("// Decode string literal: remove quotes and handle escape sequences");
+            WriteLine("var decoded = DecodeStringLiteral(value);");
+            WriteLine("var pyConstant = new GeneratedPyConstantString(decoded);");
+            WriteLine("return _PyAST_Constant(pyConstant, null, token.Line, token.Column, token.EndLine, token.EndColumn);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("throw new ArgumentException(\"Expected GeneratedTokenInfo or GeneratedConstant\", nameof(tokenOrConstant));");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // _PyPegen_concatenate_strings
+            WriteLine("// CPython: _PyPegen_concatenate_strings");
+            WriteLine("// Concatenate multiple string literals: \\\"a\\\" \\\"b\\\" -> \\\"ab\\\"");
+            WriteLine("private GeneratedExpr _PyPegen_concatenate_strings(GeneratedExprSeq strings, int lineno, int col, int? end_lineno, int? end_col)");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Single string: return as-is");
+            WriteLine("if (strings.Count == 1)");
+            Indent();
+            WriteLine("return strings[0];");
+            Dedent();
+            WriteLine();
+            WriteLine("// Multiple strings: concatenate values");
+            WriteLine("var concatenated = new System.Text.StringBuilder();");
+            WriteLine("foreach (var str in strings)");
+            WriteLine("{");
+            Indent();
+            WriteLine("if (str is GeneratedConstant constant && constant.Value is GeneratedPyConstantString strConst)");
+            WriteLine("{");
+            Indent();
+            WriteLine("concatenated.Append(strConst.Value);");
+            Dedent();
+            WriteLine("}");
+            Dedent();
+            WriteLine("}");
+            WriteLine("var pyConstant = new GeneratedPyConstantString(concatenated.ToString());");
+            WriteLine("return _PyAST_Constant(pyConstant, null, lineno, col, end_lineno ?? 0, end_col ?? 0);");
             Dedent();
             WriteLine("}");
             WriteLine();
