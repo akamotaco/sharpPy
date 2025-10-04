@@ -55,6 +55,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
         // CPython 3.12: artificial_rule_from_repeat - Loop rule 레지스트리
         private readonly Dictionary<string, string> _loopRules = new(); // pattern -> rule name (e.g., "_Loop1_4")
+        private readonly Dictionary<string, Atom> _loopRuleAtoms = new(); // rule name -> Atom (for complex patterns)
         private int _loopRuleCounter = 0;
 
         public CSharpCodeGenerator(Grammar.Grammar grammar, List<TokenDefinition> tokens)
@@ -8483,7 +8484,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         /// Called by ItemCodeGenerator when it encounters Repeat0/Repeat1
         /// Returns the rule name (e.g., "_Loop1_4")
         /// </summary>
-        public string GetOrCreateLoopRule(string loopType, string returnType, string innerPattern)
+        public string GetOrCreateLoopRule(string loopType, string returnType, string innerPattern, Atom innerAtom = null)
         {
             var pattern = $"{loopType}:{returnType}:{innerPattern}";
 
@@ -8492,9 +8493,16 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 return existingRule;
             }
 
-            // Create new loop rule
+            // Create new loop rule - store both pattern string and Atom for generation
             var ruleName = $"_{loopType}_{_loopRuleCounter++}";
             _loopRules[pattern] = ruleName;
+
+            // Store Atom for complex pattern generation (if provided)
+            if (innerAtom != null)
+            {
+                _loopRuleAtoms[ruleName] = innerAtom;
+            }
+
             Console.WriteLine($"[CODEGEN] Registered loop rule: {ruleName} for pattern: {pattern}");
             return ruleName;
         }
@@ -8562,7 +8570,21 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("while (true)");
             WriteLine("{");
             Indent();
-            WriteLine($"var _item = {innerPattern};");
+
+            // Check if complex pattern (Atom stored)
+            if (_loopRuleAtoms.TryGetValue(ruleName, out var atom))
+            {
+                // Complex pattern: generate inline parsing code
+                var innerItem = new Item { Atom = atom, Name = null };
+                var innerGen = new ItemCodeGenerator(this, innerItem, "_item", "", insideRepeater: false, insideOptional: false, insideLoopRule: true);
+                innerGen.Generate();
+            }
+            else
+            {
+                // Simple pattern: use innerPattern string
+                WriteLine($"var _item = {innerPattern};");
+            }
+
             WriteLine("if (_item == null)");
             WriteLine("{");
             Indent();
@@ -8599,35 +8621,47 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
 
             // CPython pattern: Save mark after each success, restore on failure
-            WriteLine($"Console.WriteLine($\"[DEBUG] {ruleName}() START: position={{_position}}\");");
             WriteLine($"var _items = new {returnType.TrimEnd('?')}();");
             WriteLine("// CPython: First element required");
-            WriteLine($"Console.WriteLine($\"[DEBUG] {ruleName}(): Calling first {innerPattern}...\");");
-            WriteLine($"var _first = {innerPattern};");
-            WriteLine($"Console.WriteLine($\"[DEBUG] {ruleName}(): _first = {{(_first == null ? \"null\" : \"not null\")}}, position={{_position}}\");");
-            WriteLine("if (_first == null)");
-            WriteLine("{");
-            Indent();
-            WriteLine($"Console.WriteLine($\"[DEBUG] {ruleName}(): First element null, returning null\");");
-            WriteLine("return null;");
-            Dedent();
-            WriteLine("}");
+
+            // First element
+            if (_loopRuleAtoms.TryGetValue(ruleName, out var atom))
+            {
+                // Complex pattern: generate inline parsing code
+                var innerItem = new Item { Atom = atom, Name = null };
+                var innerGen = new ItemCodeGenerator(this, innerItem, "_first", "", insideRepeater: false, insideOptional: false, insideLoopRule: true);
+                innerGen.Generate();
+            }
+            else
+            {
+                // Simple pattern: use innerPattern string
+                WriteLine($"var _first = {innerPattern};");
+            }
+
+            WriteLine("if (_first == null) return null;");
             WriteLine("_items.Add(_first);");
             WriteLine("int _loop_mark = _position;  // CPython: int _mark = p->mark");
-            WriteLine("int _loop_iteration = 0;");
             WriteLine("while (true)");
             WriteLine("{");
             Indent();
-            WriteLine("_loop_iteration++;");
-            WriteLine($"Console.WriteLine($\"[DEBUG] {ruleName}(): Loop iteration {{_loop_iteration}}, position={{_position}}\");");
-            WriteLine($"if (_loop_iteration > 100) {{ Console.WriteLine($\"[DEBUG] {ruleName}(): WARNING - Too many iterations!\"); break; }}");
-            WriteLine($"var _item = {innerPattern};");
-            WriteLine($"Console.WriteLine($\"[DEBUG] {ruleName}(): _item = {{(_item == null ? \"null\" : \"not null\")}}, position={{_position}}\");");
+
+            // Loop body
+            if (_loopRuleAtoms.TryGetValue(ruleName, out atom))
+            {
+                // Complex pattern: generate inline parsing code
+                var innerItem = new Item { Atom = atom, Name = null };
+                var innerGen = new ItemCodeGenerator(this, innerItem, "_item", "", insideRepeater: false, insideOptional: false, insideLoopRule: true);
+                innerGen.Generate();
+            }
+            else
+            {
+                // Simple pattern: use innerPattern string
+                WriteLine($"var _item = {innerPattern};");
+            }
             WriteLine("if (_item == null)");
             WriteLine("{");
             Indent();
             WriteLine("// CPython: p->mark = _mark (restore to last success position)");
-            WriteLine($"Console.WriteLine($\"[DEBUG] {ruleName}(): Restoring position from {{_position}} to {{_loop_mark}}\");");
             WriteLine("_position = _loop_mark;");
             WriteLine("break;");
             Dedent();
@@ -8637,7 +8671,6 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("_loop_mark = _position;");
             Dedent();
             WriteLine("}");
-            WriteLine($"Console.WriteLine($\"[DEBUG] {ruleName}(): Returning {{_items.Count}} items\");");
             WriteLine("// CPython: Always has at least 1 item");
             WriteLine("return _items;");
 

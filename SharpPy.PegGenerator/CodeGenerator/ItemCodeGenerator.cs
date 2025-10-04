@@ -16,6 +16,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private readonly string _labelPrefix;
         private readonly bool _insideRepeater;
         private readonly bool _insideOptional;
+        private readonly bool _insideLoopRule;  // CPython 3.12: inside loop rule function
         private static int _lookaheadCounter = 0;
 
         public ItemCodeGenerator(
@@ -24,7 +25,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             string varName,
             string labelPrefix,
             bool insideRepeater = false,
-            bool insideOptional = false)
+            bool insideOptional = false,
+            bool insideLoopRule = false)
         {
             _parent = parent ?? throw new ArgumentNullException(nameof(parent));
             _item = item ?? throw new ArgumentNullException(nameof(item));
@@ -32,6 +34,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             _labelPrefix = labelPrefix ?? "item";
             _insideRepeater = insideRepeater;
             _insideOptional = insideOptional;
+            _insideLoopRule = insideLoopRule;
         }
 
         /// <summary>
@@ -95,8 +98,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             _parent.WriteLine($"// Expect '{escaped}'");
             _parent.WriteLine($"var {_varName} = Expect(\"{escaped}\");");
 
-            // CPython 3.12: Only add null check if NOT inside a repeater
-            if (!_insideRepeater)
+            // CPython 3.12: Only add null check if NOT inside a repeater or loop rule
+            if (!_insideRepeater && !_insideLoopRule)
             {
                 _parent.WriteLine($"if ({_varName} == null)");
                 _parent.WriteLine("{");
@@ -132,8 +135,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     // Store token temporarily, then convert to AST
                     _parent.WriteLine($"var _token_{_varName} = ExpectToken(GeneratedTokenType.{tokenName});");
 
-                    // CPython 3.12: Only add null check if NOT inside a repeater
-                    if (!_insideRepeater)
+                    // CPython 3.12: Only add null check if NOT inside a repeater or loop rule
+                    if (!_insideRepeater && !_insideLoopRule)
                     {
                         _parent.WriteLine($"if (_token_{_varName} == null)");
                         _parent.WriteLine("{");
@@ -160,8 +163,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     // Other tokens - no conversion needed
                     _parent.WriteLine($"var {_varName} = ExpectToken(GeneratedTokenType.{tokenName});");
 
-                    // CPython 3.12: Only add null check if NOT inside a repeater
-                    if (!_insideRepeater)
+                    // CPython 3.12: Only add null check if NOT inside a repeater or loop rule
+                    if (!_insideRepeater && !_insideLoopRule)
                     {
                         _parent.WriteLine($"if ({_varName} == null)");
                         _parent.WriteLine("{");
@@ -202,9 +205,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     _parent.WriteLine($"var {_varName} = {methodName}();");
                 }
 
-                // CPython 3.12: Only add null check if NOT inside a repeater
+                // CPython 3.12: Only add null check if NOT inside a repeater or loop rule
                 // Repeaters (OneOrMore/ZeroOrMore) handle null checks themselves
-                if (!_insideRepeater)
+                // Loop rules also handle null checks themselves
+                if (!_insideRepeater && !_insideLoopRule)
                 {
                     _parent.WriteLine($"if ({_varName} == null)");
                     _parent.WriteLine("{");
@@ -251,127 +255,45 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
         private void GenerateZeroOrMore(ZeroOrMore zm)
         {
-            // CPython 3.12: For simple patterns (RuleRef, StringLiteral), use loop rules
-            // For complex patterns (Group, etc.), use inline loops
-            if (zm.Expression is RuleRef || zm.Expression is StringLiteral)
-            {
-                // CPython 3.12: artificial_rule_from_repeat - generate separate loop rule
-                _parent.WriteLine($"// Zero or more: {zm.Expression}* (CPython: _Loop0_N rule)");
+            // CPython 3.12: ALL loops use separate rule functions (artificial_rule_from_repeat)
+            // This avoids mark restoration issues with complex patterns
+            _parent.WriteLine($"// Zero or more: {zm.Expression}* (CPython: _Loop0_N rule)");
 
-                // Get the inner pattern as a callable string
-                string innerPattern = GetInnerPatternCall(zm.Expression);
-                string seqType = DetermineSequenceType(zm.Expression);
+            // Get the inner pattern as a callable string (handles all patterns)
+            string innerPattern = GetInnerPatternCallForLoop(zm.Expression);
+            string seqType = DetermineSequenceType(zm.Expression);
 
-                // Register loop rule and get its name
-                string loopRuleName = _parent.GetOrCreateLoopRule("Loop0", seqType, innerPattern);
+            // Register loop rule and get its name - pass Atom for complex patterns
+            string loopRuleName = _parent.GetOrCreateLoopRule("Loop0", seqType, innerPattern, zm.Expression);
 
-                // Call the loop rule instead of inline loop
-                _parent.WriteLine($"var {_varName} = {loopRuleName}();");
-            }
-            else
-            {
-                // Complex pattern - use inline loop (CPython also does this)
-                _parent.WriteLine($"// Zero or more: {zm.Expression}* (inline loop for complex pattern)");
-
-                string seqType = DetermineSequenceType(zm.Expression);
-                _parent.WriteLine($"var {_varName} = new {seqType}();");
-
-                _parent.WriteLine($"while (true)");
-                _parent.WriteLine("{");
-                _parent.Indent();
-                _parent.WriteLine($"int _loop_mark = _position;");
-
-                var innerItem = new Item { Atom = zm.Expression, Name = null };
-                var innerVarName = $"_loop_elem_{_varName}";
-                var innerGen = new ItemCodeGenerator(_parent, innerItem, innerVarName, _labelPrefix, insideRepeater: true);
-                innerGen.Generate();
-
-                _parent.WriteLine($"if ({innerVarName} == null)");
-                _parent.WriteLine("{");
-                _parent.Indent();
-                _parent.WriteLine($"_position = _loop_mark;");
-                _parent.WriteLine("break;");
-                _parent.Dedent();
-                _parent.WriteLine("}");
-
-                _parent.WriteLine($"{_varName}.Add({innerVarName});");
-
-                _parent.Dedent();
-                _parent.WriteLine("}");
-                _parent.WriteLine($"// Collected {_varName}.Count items (may be 0)");
-            }
+            // Call the loop rule instead of inline loop
+            _parent.WriteLine($"var {_varName} = {loopRuleName}();");
         }
 
         private void GenerateOneOrMore(OneOrMore om)
         {
-            // CPython 3.12: For simple patterns (RuleRef, StringLiteral), use loop rules
-            // For complex patterns (Group, etc.), use inline loops
-            if (om.Expression is RuleRef || om.Expression is StringLiteral)
-            {
-                // CPython 3.12: artificial_rule_from_repeat - generate separate loop rule
-                _parent.WriteLine($"// One or more: {om.Expression}+ (CPython: _Loop1_N rule)");
+            // CPython 3.12: ALL loops use separate rule functions (artificial_rule_from_repeat)
+            _parent.WriteLine($"// One or more: {om.Expression}+ (CPython: _Loop1_N rule)");
 
-                // Get the inner pattern as a callable string
-                string innerPattern = GetInnerPatternCall(om.Expression);
-                string seqType = DetermineSequenceType(om.Expression);
+            // Get the inner pattern as a callable string (handles all patterns)
+            string innerPattern = GetInnerPatternCallForLoop(om.Expression);
+            string seqType = DetermineSequenceType(om.Expression);
 
-                // Register loop rule and get its name
-                string loopRuleName = _parent.GetOrCreateLoopRule("Loop1", seqType, innerPattern);
+            // Register loop rule and get its name - pass Atom for complex patterns
+            string loopRuleName = _parent.GetOrCreateLoopRule("Loop1", seqType, innerPattern, om.Expression);
 
-                // Call the loop rule instead of inline loop
-                _parent.WriteLine($"var {_varName} = {loopRuleName}();");
+            // Call the loop rule instead of inline loop
+            _parent.WriteLine($"var {_varName} = {loopRuleName}();");
 
-                // CPython 3.12: Loop1 rules return null on failure (0 elements)
-                _parent.WriteLine($"if ({_varName} == null)");
-                _parent.WriteLine("{");
-                _parent.Indent();
-                _parent.WriteLine($"_position = _mark;");
-                _parent.WriteLine($"_res = null;");
-                _parent.WriteLine("break;  // Exit this alternative");
-                _parent.Dedent();
-                _parent.WriteLine("}");
-            }
-            else
-            {
-                // Complex pattern - use inline loop (CPython also does this)
-                _parent.WriteLine($"// One or more: {om.Expression}+ (inline loop for complex pattern)");
-
-                string seqType = DetermineSequenceType(om.Expression);
-                _parent.WriteLine($"var {_varName} = new {seqType}();");
-
-                _parent.WriteLine($"while (true)");
-                _parent.WriteLine("{");
-                _parent.Indent();
-                _parent.WriteLine($"int _loop_mark = _position;");
-
-                var innerItem = new Item { Atom = om.Expression, Name = null };
-                var innerVarName = $"_loop_elem_{_varName}";
-                var innerGen = new ItemCodeGenerator(_parent, innerItem, innerVarName, _labelPrefix, insideRepeater: true);
-                innerGen.Generate();
-
-                _parent.WriteLine($"if ({innerVarName} == null)");
-                _parent.WriteLine("{");
-                _parent.Indent();
-                _parent.WriteLine($"_position = _loop_mark;");
-                _parent.WriteLine("break;");
-                _parent.Dedent();
-                _parent.WriteLine("}");
-
-                _parent.WriteLine($"{_varName}.Add({innerVarName});");
-
-                _parent.Dedent();
-                _parent.WriteLine("}");
-
-                // CPython 3.12: OneOrMore must have at least one element
-                _parent.WriteLine($"if ({_varName}.Count == 0)");
-                _parent.WriteLine("{");
-                _parent.Indent();
-                _parent.WriteLine($"_position = _mark;");
-                _parent.WriteLine($"_res = null;");
-                _parent.WriteLine("break;  // Exit this alternative");
-                _parent.Dedent();
-                _parent.WriteLine("}");
-            }
+            // CPython 3.12: Loop1 rules return null on failure (0 elements)
+            _parent.WriteLine($"if ({_varName} == null)");
+            _parent.WriteLine("{");
+            _parent.Indent();
+            _parent.WriteLine($"_position = _mark;");
+            _parent.WriteLine($"_res = null;");
+            _parent.WriteLine("break;  // Exit this alternative");
+            _parent.Dedent();
+            _parent.WriteLine("}");
         }
 
         /// <summary>
@@ -602,9 +524,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 _parent.WriteLine("}");
             }
 
-            // If all alternatives failed, this group fails the rule alternative
-            // UNLESS we're inside an Optional or Repeater - they will handle the null
-            if (!_insideOptional && !_insideRepeater)
+            // If all alternatives failed, this group fails
+            // UNLESS we're inside an Optional - it will handle the null
+            // OR inside a loop rule - the loop will handle the null check
+            if (!_insideOptional && !_insideLoopRule)
             {
                 _parent.WriteLine($"if ({_varName} == null)");
                 _parent.WriteLine("{");
@@ -750,7 +673,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     // Lookahead should not appear as group item that produces a value
                     // But if it does, generate the lookahead test and set result to true/false
                     _parent.WriteLine($"// WARNING: Lookahead in value position - this is unusual");
-                    var lookaheadGen = new ItemCodeGenerator(_parent, item, $"_lookahead_{varName}", "group_dummy");
+                    // CPython 3.12: Pass along _insideLoopRule flag
+                    var lookaheadGen = new ItemCodeGenerator(_parent, item, $"_lookahead_{varName}", "group_dummy",
+                        insideRepeater: false, insideOptional: false, insideLoopRule: _insideLoopRule);
                     lookaheadGen.Generate();
                     _parent.WriteLine($"bool {varName} = true; // Lookahead succeeded");
                     break;
@@ -758,7 +683,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 default:
                     // For complex atoms (Optional, ZeroOrMore, OneOrMore, Group, etc.)
                     // These generate their own variable declarations
-                    var itemGen = new ItemCodeGenerator(_parent, item, varName, "group_dummy");
+                    // CPython 3.12: Pass along _insideLoopRule flag
+                    var itemGen = new ItemCodeGenerator(_parent, item, varName, "group_dummy",
+                        insideRepeater: false, insideOptional: false, insideLoopRule: _insideLoopRule);
                     itemGen.Generate();
                     // Note: ItemCodeGenerator.Generate() will declare the variable with appropriate type
                     break;
@@ -1305,7 +1232,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
         /// CPython 3.12: Convert inner expression to a callable pattern string
         /// Used for loop rule registration
         /// </summary>
-        private string GetInnerPatternCall(Atom expression)
+        /// <summary>
+        /// CPython 3.12: Get callable pattern string for loop rule generation
+        /// Handles all pattern types: RuleRef, StringLiteral, Group, etc.
+        /// </summary>
+        private string GetInnerPatternCallForLoop(Atom expression)
         {
             switch (expression)
             {

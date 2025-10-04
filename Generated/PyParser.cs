@@ -1628,35 +1628,9 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // One or more: (z=star_targets '=' { z })+ (inline loop for complex pattern)
-                var a = new GeneratedExprSeq();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Group: (z=star_targets '=' { z })
-                    GeneratedExpr? _loop_elem_a = null;
-                    int _group_mark__loop_elem_a = _position;
-                    // Try group alternative 1: z=star_targets '=' { z }
-                    {
-                        _position = _group_mark__loop_elem_a;
-                        GeneratedExpr _group_alt0__loop_elem_a_item0 = StarTargets();
-                        if (_group_alt0__loop_elem_a_item0 != null)
-                        {
-                            GeneratedTokenInfo? _group_alt0__loop_elem_a_item1 = Expect("=");
-                            if (_group_alt0__loop_elem_a_item1 != null)
-                            {
-                                _loop_elem_a = _group_alt0__loop_elem_a_item0;
-                            }
-                        }
-                    }
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark;
-                        break;
-                    }
-                    a.Add(_loop_elem_a);
-                }
-                if (a.Count == 0)
+                // One or more: (z=star_targets '=' { z })+ (CPython: _Loop1_N rule)
+                var a = _Loop1_2();
+                if (a == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -3072,41 +3046,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Zero or more: ('.' | '...')* (inline loop for complex pattern)
-                var a = new List<GeneratedTokenInfo>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Group: ('.' | '...')
-                    GeneratedTokenInfo? _loop_elem_a = null;
-                    int _group_mark__loop_elem_a = _position;
-                    // Try group alternative 1: '.'
-                    {
-                        _position = _group_mark__loop_elem_a;
-                        GeneratedTokenInfo? _group_alt0__loop_elem_a_item0 = Expect(".");
-                        if (_group_alt0__loop_elem_a_item0 != null)
-                        {
-                            _loop_elem_a = _group_alt0__loop_elem_a_item0;
-                        }
-                    }
-                    // Try group alternative 2: '...'
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _group_mark__loop_elem_a;
-                        GeneratedTokenInfo? _group_alt1__loop_elem_a_item0 = Expect("...");
-                        if (_group_alt1__loop_elem_a_item0 != null)
-                        {
-                            _loop_elem_a = _group_alt1__loop_elem_a_item0;
-                        }
-                    }
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark;
-                        break;
-                    }
-                    a.Add(_loop_elem_a);
-                }
-                // Collected a.Count items (may be 0)
+                // Zero or more: ('.' | '...')* (CPython: _Loop0_N rule)
+                var a = _Loop0_3();
                 // Call rule: dotted_name
                 var b = DottedName();
                 if (b == null)
@@ -3157,41 +3098,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // One or more: ('.' | '...')+ (inline loop for complex pattern)
-                var a = new List<GeneratedTokenInfo>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Group: ('.' | '...')
-                    GeneratedTokenInfo? _loop_elem_a = null;
-                    int _group_mark__loop_elem_a = _position;
-                    // Try group alternative 1: '.'
-                    {
-                        _position = _group_mark__loop_elem_a;
-                        GeneratedTokenInfo? _group_alt0__loop_elem_a_item0 = Expect(".");
-                        if (_group_alt0__loop_elem_a_item0 != null)
-                        {
-                            _loop_elem_a = _group_alt0__loop_elem_a_item0;
-                        }
-                    }
-                    // Try group alternative 2: '...'
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _group_mark__loop_elem_a;
-                        GeneratedTokenInfo? _group_alt1__loop_elem_a_item0 = Expect("...");
-                        if (_group_alt1__loop_elem_a_item0 != null)
-                        {
-                            _loop_elem_a = _group_alt1__loop_elem_a_item0;
-                        }
-                    }
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark;
-                        break;
-                    }
-                    a.Add(_loop_elem_a);
-                }
-                if (a.Count == 0)
+                // One or more: ('.' | '...')+ (CPython: _Loop1_N rule)
+                var a = _Loop1_4();
+                if (a == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -4006,39 +3915,9 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // One or more: ('@' f=named_expression NEWLINE { f })+ (inline loop for complex pattern)
-                var a = new GeneratedExprSeq();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Group: ('@' f=named_expression NEWLINE { f })
-                    GeneratedExpr? _loop_elem_a = null;
-                    int _group_mark__loop_elem_a = _position;
-                    // Try group alternative 1: '@' f=named_expression NEWLINE { f }
-                    {
-                        _position = _group_mark__loop_elem_a;
-                        GeneratedTokenInfo? _group_alt0__loop_elem_a_item0 = Expect("@");
-                        if (_group_alt0__loop_elem_a_item0 != null)
-                        {
-                            GeneratedExpr _group_alt0__loop_elem_a_item1 = NamedExpression();
-                            if (_group_alt0__loop_elem_a_item1 != null)
-                            {
-                                GeneratedTokenInfo? _group_alt0__loop_elem_a_item2 = ExpectToken(GeneratedTokenType.NEWLINE);
-                                if (_group_alt0__loop_elem_a_item2 != null)
-                                {
-                                    _loop_elem_a = _group_alt0__loop_elem_a_item1;
-                                }
-                            }
-                        }
-                    }
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark;
-                        break;
-                    }
-                    a.Add(_loop_elem_a);
-                }
-                if (a.Count == 0)
+                // One or more: ('@' f=named_expression NEWLINE { f })+ (CPython: _Loop1_N rule)
+                var a = _Loop1_5();
+                if (a == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -4894,9 +4773,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_no_default* (CPython: _Loop0_N rule)
-                var b = _Loop0_2();
+                var b = _Loop0_6();
                 // Zero or more: param_with_default* (CPython: _Loop0_N rule)
-                var c = _Loop0_3();
+                var c = _Loop0_7();
                 // Optional: [(star_etc)]
                 int _opt_mark_d = _position;
                 // Group: (star_etc)
@@ -4944,7 +4823,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_with_default* (CPython: _Loop0_N rule)
-                var b = _Loop0_3();
+                var b = _Loop0_7();
                 // Optional: [(star_etc)]
                 int _opt_mark_c = _position;
                 // Group: (star_etc)
@@ -4984,7 +4863,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: param_no_default+ (CPython: _Loop1_N rule)
-                var a = _Loop1_4();
+                var a = _Loop1_8();
                 if (a == null)
                 {
                     _position = _mark;
@@ -4992,7 +4871,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_with_default* (CPython: _Loop0_N rule)
-                var b = _Loop0_3();
+                var b = _Loop0_7();
                 // Optional: [(star_etc)]
                 int _opt_mark_c = _position;
                 // Group: (star_etc)
@@ -5032,7 +4911,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: param_with_default+ (CPython: _Loop1_N rule)
-                var a = _Loop1_5();
+                var a = _Loop1_9();
                 if (a == null)
                 {
                     _position = _mark;
@@ -5130,7 +5009,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: param_no_default+ (CPython: _Loop1_N rule)
-                var a = _Loop1_4();
+                var a = _Loop1_8();
                 if (a == null)
                 {
                     _position = _mark;
@@ -5171,7 +5050,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: param_no_default+ (CPython: _Loop1_N rule)
-                var a = _Loop1_4();
+                var a = _Loop1_8();
                 if (a == null)
                 {
                     _position = _mark;
@@ -5234,9 +5113,9 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: param_no_default* (CPython: _Loop0_N rule)
-                var a = _Loop0_2();
+                var a = _Loop0_6();
                 // One or more: param_with_default+ (CPython: _Loop1_N rule)
-                var b = _Loop1_5();
+                var b = _Loop1_9();
                 if (b == null)
                 {
                     _position = _mark;
@@ -5278,9 +5157,9 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: param_no_default* (CPython: _Loop0_N rule)
-                var a = _Loop0_2();
+                var a = _Loop0_6();
                 // One or more: param_with_default+ (CPython: _Loop1_N rule)
-                var b = _Loop1_5();
+                var b = _Loop1_9();
                 if (b == null)
                 {
                     _position = _mark;
@@ -5390,7 +5269,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_maybe_default* (CPython: _Loop0_N rule)
-                var b = _Loop0_6();
+                var b = _Loop0_10();
                 // Optional: [(kwds)]
                 int _opt_mark_c = _position;
                 // Group: (kwds)
@@ -5446,7 +5325,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_maybe_default* (CPython: _Loop0_N rule)
-                var b = _Loop0_6();
+                var b = _Loop0_10();
                 // Optional: [(kwds)]
                 int _opt_mark_c = _position;
                 // Group: (kwds)
@@ -5502,7 +5381,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: param_maybe_default+ (CPython: _Loop1_N rule)
-                var b = _Loop1_7();
+                var b = _Loop1_11();
                 if (b == null)
                 {
                     _position = _mark;
@@ -8235,7 +8114,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: except_block+ (CPython: _Loop1_N rule)
-                var ex = _Loop1_8();
+                var ex = _Loop1_12();
                 if (ex == null)
                 {
                     _position = _mark;
@@ -8321,7 +8200,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: except_star_block+ (CPython: _Loop1_N rule)
-                var ex = _Loop1_9();
+                var ex = _Loop1_13();
                 if (ex == null)
                 {
                     _position = _mark;
@@ -8922,7 +8801,7 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(INDENT): result={(_tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // One or more: case_block+ (CPython: _Loop1_N rule)
-                var cases = _Loop1_10();
+                var cases = _Loop1_14();
                 if (cases == null)
                 {
                     _position = _mark;
@@ -13237,35 +13116,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // One or more: (',' c=expression { c })+ (inline loop for complex pattern)
-                var b = new GeneratedExprSeq();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Group: (',' c=expression { c })
-                    GeneratedExpr? _loop_elem_b = null;
-                    int _group_mark__loop_elem_b = _position;
-                    // Try group alternative 1: ',' c=expression { c }
-                    {
-                        _position = _group_mark__loop_elem_b;
-                        GeneratedTokenInfo? _group_alt0__loop_elem_b_item0 = Expect(",");
-                        if (_group_alt0__loop_elem_b_item0 != null)
-                        {
-                            GeneratedExpr _group_alt0__loop_elem_b_item1 = Expression();
-                            if (_group_alt0__loop_elem_b_item1 != null)
-                            {
-                                _loop_elem_b = _group_alt0__loop_elem_b_item1;
-                            }
-                        }
-                    }
-                    if (_loop_elem_b == null)
-                    {
-                        _position = _loop_mark;
-                        break;
-                    }
-                    b.Add(_loop_elem_b);
-                }
-                if (b.Count == 0)
+                // One or more: (',' c=expression { c })+ (CPython: _Loop1_N rule)
+                var b = _Loop1_15();
+                if (b == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -13717,35 +13570,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // One or more: (',' c=star_expression { c })+ (inline loop for complex pattern)
-                var b = new GeneratedExprSeq();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Group: (',' c=star_expression { c })
-                    GeneratedExpr? _loop_elem_b = null;
-                    int _group_mark__loop_elem_b = _position;
-                    // Try group alternative 1: ',' c=star_expression { c }
-                    {
-                        _position = _group_mark__loop_elem_b;
-                        GeneratedTokenInfo? _group_alt0__loop_elem_b_item0 = Expect(",");
-                        if (_group_alt0__loop_elem_b_item0 != null)
-                        {
-                            GeneratedExpr _group_alt0__loop_elem_b_item1 = StarExpression();
-                            if (_group_alt0__loop_elem_b_item1 != null)
-                            {
-                                _loop_elem_b = _group_alt0__loop_elem_b_item1;
-                            }
-                        }
-                    }
-                    if (_loop_elem_b == null)
-                    {
-                        _position = _loop_mark;
-                        break;
-                    }
-                    b.Add(_loop_elem_b);
-                }
-                if (b.Count == 0)
+                // One or more: (',' c=star_expression { c })+ (CPython: _Loop1_N rule)
+                var b = _Loop1_16();
+                if (b == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -14358,35 +14185,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // One or more: ('or' c=conjunction { c })+ (inline loop for complex pattern)
-                var b = new GeneratedExprSeq();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Group: ('or' c=conjunction { c })
-                    GeneratedExpr? _loop_elem_b = null;
-                    int _group_mark__loop_elem_b = _position;
-                    // Try group alternative 1: 'or' c=conjunction { c }
-                    {
-                        _position = _group_mark__loop_elem_b;
-                        GeneratedTokenInfo? _group_alt0__loop_elem_b_item0 = Expect("or");
-                        if (_group_alt0__loop_elem_b_item0 != null)
-                        {
-                            GeneratedExpr _group_alt0__loop_elem_b_item1 = Conjunction();
-                            if (_group_alt0__loop_elem_b_item1 != null)
-                            {
-                                _loop_elem_b = _group_alt0__loop_elem_b_item1;
-                            }
-                        }
-                    }
-                    if (_loop_elem_b == null)
-                    {
-                        _position = _loop_mark;
-                        break;
-                    }
-                    b.Add(_loop_elem_b);
-                }
-                if (b.Count == 0)
+                // One or more: ('or' c=conjunction { c })+ (CPython: _Loop1_N rule)
+                var b = _Loop1_17();
+                if (b == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -14480,35 +14281,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // One or more: ('and' c=inversion { c })+ (inline loop for complex pattern)
-                var b = new GeneratedExprSeq();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Group: ('and' c=inversion { c })
-                    GeneratedExpr? _loop_elem_b = null;
-                    int _group_mark__loop_elem_b = _position;
-                    // Try group alternative 1: 'and' c=inversion { c }
-                    {
-                        _position = _group_mark__loop_elem_b;
-                        GeneratedTokenInfo? _group_alt0__loop_elem_b_item0 = Expect("and");
-                        if (_group_alt0__loop_elem_b_item0 != null)
-                        {
-                            GeneratedExpr _group_alt0__loop_elem_b_item1 = Inversion();
-                            if (_group_alt0__loop_elem_b_item1 != null)
-                            {
-                                _loop_elem_b = _group_alt0__loop_elem_b_item1;
-                            }
-                        }
-                    }
-                    if (_loop_elem_b == null)
-                    {
-                        _position = _loop_mark;
-                        break;
-                    }
-                    b.Add(_loop_elem_b);
-                }
-                if (b.Count == 0)
+                // One or more: ('and' c=inversion { c })+ (CPython: _Loop1_N rule)
+                var b = _Loop1_18();
+                if (b == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -14688,7 +14463,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: compare_op_bitwise_or_pair+ (CPython: _Loop1_N rule)
-                var b = _Loop1_11();
+                var b = _Loop1_19();
                 if (b == null)
                 {
                     _position = _mark;
@@ -17182,6 +16957,12 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 a.Add(_first_a);
                 // Parse remaining items (separator + item)
                 while (true)
@@ -17221,6 +17002,12 @@ namespace SharpPy.Generated
                         {
                             _loop_elem_a = _group_alt1__loop_elem_a_item0;
                         }
+                    }
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -18142,9 +17929,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_no_default* (CPython: _Loop0_N rule)
-                var b = _Loop0_12();
+                var b = _Loop0_20();
                 // Zero or more: lambda_param_with_default* (CPython: _Loop0_N rule)
-                var c = _Loop0_13();
+                var c = _Loop0_21();
                 // Optional: [(lambda_star_etc)]
                 int _opt_mark_d = _position;
                 // Group: (lambda_star_etc)
@@ -18192,7 +17979,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_with_default* (CPython: _Loop0_N rule)
-                var b = _Loop0_13();
+                var b = _Loop0_21();
                 // Optional: [(lambda_star_etc)]
                 int _opt_mark_c = _position;
                 // Group: (lambda_star_etc)
@@ -18232,7 +18019,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: lambda_param_no_default+ (CPython: _Loop1_N rule)
-                var a = _Loop1_14();
+                var a = _Loop1_22();
                 if (a == null)
                 {
                     _position = _mark;
@@ -18240,7 +18027,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_with_default* (CPython: _Loop0_N rule)
-                var b = _Loop0_13();
+                var b = _Loop0_21();
                 // Optional: [(lambda_star_etc)]
                 int _opt_mark_c = _position;
                 // Group: (lambda_star_etc)
@@ -18280,7 +18067,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: lambda_param_with_default+ (CPython: _Loop1_N rule)
-                var a = _Loop1_15();
+                var a = _Loop1_23();
                 if (a == null)
                 {
                     _position = _mark;
@@ -18378,7 +18165,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: lambda_param_no_default+ (CPython: _Loop1_N rule)
-                var a = _Loop1_14();
+                var a = _Loop1_22();
                 if (a == null)
                 {
                     _position = _mark;
@@ -18419,7 +18206,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: lambda_param_no_default+ (CPython: _Loop1_N rule)
-                var a = _Loop1_14();
+                var a = _Loop1_22();
                 if (a == null)
                 {
                     _position = _mark;
@@ -18482,9 +18269,9 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: lambda_param_no_default* (CPython: _Loop0_N rule)
-                var a = _Loop0_12();
+                var a = _Loop0_20();
                 // One or more: lambda_param_with_default+ (CPython: _Loop1_N rule)
-                var b = _Loop1_15();
+                var b = _Loop1_23();
                 if (b == null)
                 {
                     _position = _mark;
@@ -18526,9 +18313,9 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: lambda_param_no_default* (CPython: _Loop0_N rule)
-                var a = _Loop0_12();
+                var a = _Loop0_20();
                 // One or more: lambda_param_with_default+ (CPython: _Loop1_N rule)
-                var b = _Loop1_15();
+                var b = _Loop1_23();
                 if (b == null)
                 {
                     _position = _mark;
@@ -18638,7 +18425,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_maybe_default* (CPython: _Loop0_N rule)
-                var b = _Loop0_16();
+                var b = _Loop0_24();
                 // Optional: [(lambda_kwds)]
                 int _opt_mark_c = _position;
                 // Group: (lambda_kwds)
@@ -18694,7 +18481,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: lambda_param_maybe_default+ (CPython: _Loop1_N rule)
-                var b = _Loop1_17();
+                var b = _Loop1_25();
                 if (b == null)
                 {
                     _position = _mark;
@@ -19576,7 +19363,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: fstring_format_spec* (CPython: _Loop0_N rule)
-                var spec = _Loop0_18();
+                var spec = _Loop0_26();
                 // Action: _PyPegen_setup_full_format_spec(p, colon, (asdl_expr_seq *) spec, EXTRA)
                 // Unknown AST function: _PyPegen_setup_full_format_spec
                 _res = default(GeneratedAstNode?);
@@ -19711,7 +19498,7 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_START): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Zero or more: fstring_middle* (CPython: _Loop0_N rule)
-                var b = _Loop0_19();
+                var b = _Loop0_27();
                 // Expect token: FSTRING_END
                 Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_END): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var c = ExpectToken(GeneratedTokenType.FSTRING_END);
@@ -19834,41 +19621,9 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // One or more: (fstring | string)+ (inline loop for complex pattern)
-                var a = new GeneratedExprSeq();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Group: (fstring | string)
-                    GeneratedExpr? _loop_elem_a = null;
-                    int _group_mark__loop_elem_a = _position;
-                    // Try group alternative 1: fstring
-                    {
-                        _position = _group_mark__loop_elem_a;
-                        GeneratedExpr _group_alt0__loop_elem_a_item0 = Fstring();
-                        if (_group_alt0__loop_elem_a_item0 != null)
-                        {
-                            _loop_elem_a = _group_alt0__loop_elem_a_item0;
-                        }
-                    }
-                    // Try group alternative 2: string
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _group_mark__loop_elem_a;
-                        GeneratedExpr _group_alt1__loop_elem_a_item0 = String();
-                        if (_group_alt1__loop_elem_a_item0 != null)
-                        {
-                            _loop_elem_a = _group_alt1__loop_elem_a_item0;
-                        }
-                    }
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark;
-                        break;
-                    }
-                    a.Add(_loop_elem_a);
-                }
-                if (a.Count == 0)
+                // One or more: (fstring | string)+ (CPython: _Loop1_N rule)
+                var a = _Loop1_28();
+                if (a == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -20558,7 +20313,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: for_if_clause+ (CPython: _Loop1_N rule)
-                var a = _Loop1_20();
+                var a = _Loop1_29();
                 if (a == null)
                 {
                     _position = _mark;
@@ -20652,35 +20407,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Zero or more: ('if' z=disjunction { z })* (inline loop for complex pattern)
-                var c = new GeneratedExprSeq();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Group: ('if' z=disjunction { z })
-                    GeneratedExpr? _loop_elem_c = null;
-                    int _group_mark__loop_elem_c = _position;
-                    // Try group alternative 1: 'if' z=disjunction { z }
-                    {
-                        _position = _group_mark__loop_elem_c;
-                        GeneratedTokenInfo? _group_alt0__loop_elem_c_item0 = Expect("if");
-                        if (_group_alt0__loop_elem_c_item0 != null)
-                        {
-                            GeneratedExpr _group_alt0__loop_elem_c_item1 = Disjunction();
-                            if (_group_alt0__loop_elem_c_item1 != null)
-                            {
-                                _loop_elem_c = _group_alt0__loop_elem_c_item1;
-                            }
-                        }
-                    }
-                    if (_loop_elem_c == null)
-                    {
-                        _position = _loop_mark;
-                        break;
-                    }
-                    c.Add(_loop_elem_c);
-                }
-                // Collected c.Count items (may be 0)
+                // Zero or more: ('if' z=disjunction { z })* (CPython: _Loop0_N rule)
+                var c = _Loop0_30();
                 // Action: CHECK_VERSION(comprehension_ty, 6, "Async comprehensions are", _PyAST_comprehension(a, b, c, 1, p->arena))
                 // No _PyAST_ or _PyPegen_ function in action: p->arena)
                 _res = default(GeneratedComprehension);
@@ -20733,35 +20461,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Zero or more: ('if' z=disjunction { z })* (inline loop for complex pattern)
-                var c = new GeneratedExprSeq();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Group: ('if' z=disjunction { z })
-                    GeneratedExpr? _loop_elem_c = null;
-                    int _group_mark__loop_elem_c = _position;
-                    // Try group alternative 1: 'if' z=disjunction { z }
-                    {
-                        _position = _group_mark__loop_elem_c;
-                        GeneratedTokenInfo? _group_alt0__loop_elem_c_item0 = Expect("if");
-                        if (_group_alt0__loop_elem_c_item0 != null)
-                        {
-                            GeneratedExpr _group_alt0__loop_elem_c_item1 = Disjunction();
-                            if (_group_alt0__loop_elem_c_item1 != null)
-                            {
-                                _loop_elem_c = _group_alt0__loop_elem_c_item1;
-                            }
-                        }
-                    }
-                    if (_loop_elem_c == null)
-                    {
-                        _position = _loop_mark;
-                        break;
-                    }
-                    c.Add(_loop_elem_c);
-                }
-                // Collected c.Count items (may be 0)
+                // Zero or more: ('if' z=disjunction { z })* (CPython: _Loop0_N rule)
+                var c = _Loop0_31();
                 // Action: _PyAST_comprehension(a, b, c, 0, p->arena)
                 // Unknown AST function: _PyAST_comprehension
                 _res = default(GeneratedComprehension);
@@ -21495,6 +21196,12 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                if (_first_a == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 a.Add(_first_a);
                 // Parse remaining items (separator + item)
                 while (true)
@@ -21591,6 +21298,12 @@ namespace SharpPy.Generated
                                 _loop_elem_a = _group_alt1__loop_elem_a_item0;
                             }
                         }
+                    }
+                    if (_loop_elem_a == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem_a == null)
                     {
@@ -22358,35 +22071,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Zero or more: (',' c=star_target { c })* (inline loop for complex pattern)
-                var b = new GeneratedExprSeq();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Group: (',' c=star_target { c })
-                    GeneratedExpr? _loop_elem_b = null;
-                    int _group_mark__loop_elem_b = _position;
-                    // Try group alternative 1: ',' c=star_target { c }
-                    {
-                        _position = _group_mark__loop_elem_b;
-                        GeneratedTokenInfo? _group_alt0__loop_elem_b_item0 = Expect(",");
-                        if (_group_alt0__loop_elem_b_item0 != null)
-                        {
-                            GeneratedExpr _group_alt0__loop_elem_b_item1 = StarTarget();
-                            if (_group_alt0__loop_elem_b_item1 != null)
-                            {
-                                _loop_elem_b = _group_alt0__loop_elem_b_item1;
-                            }
-                        }
-                    }
-                    if (_loop_elem_b == null)
-                    {
-                        _position = _loop_mark;
-                        break;
-                    }
-                    b.Add(_loop_elem_b);
-                }
-                // Collected b.Count items (may be 0)
+                // Zero or more: (',' c=star_target { c })* (CPython: _Loop0_N rule)
+                var b = _Loop0_32();
                 // Optional: [(',')]
                 int _opt_mark__tmp0 = _position;
                 // Group: (',')
@@ -22560,35 +22246,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // One or more: (',' c=star_target { c })+ (inline loop for complex pattern)
-                var b = new GeneratedExprSeq();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Group: (',' c=star_target { c })
-                    GeneratedExpr? _loop_elem_b = null;
-                    int _group_mark__loop_elem_b = _position;
-                    // Try group alternative 1: ',' c=star_target { c }
-                    {
-                        _position = _group_mark__loop_elem_b;
-                        GeneratedTokenInfo? _group_alt0__loop_elem_b_item0 = Expect(",");
-                        if (_group_alt0__loop_elem_b_item0 != null)
-                        {
-                            GeneratedExpr _group_alt0__loop_elem_b_item1 = StarTarget();
-                            if (_group_alt0__loop_elem_b_item1 != null)
-                            {
-                                _loop_elem_b = _group_alt0__loop_elem_b_item1;
-                            }
-                        }
-                    }
-                    if (_loop_elem_b == null)
-                    {
-                        _position = _loop_mark;
-                        break;
-                    }
-                    b.Add(_loop_elem_b);
-                }
-                if (b.Count == 0)
+                // One or more: (',' c=star_target { c })+ (CPython: _Loop1_N rule)
+                var b = _Loop1_33();
+                if (b == null)
                 {
                     _position = _mark;
                     _res = null;
@@ -24991,6 +24651,12 @@ namespace SharpPy.Generated
                             _res = null;
                             break;  // Exit this alternative
                         }
+                        if (_first__group_alt0__group_alt0__tmp0_item0_item0 == null)
+                        {
+                            _position = _mark;
+                            _res = null;
+                            break;  // Exit this alternative
+                        }
                         _group_alt0__group_alt0__tmp0_item0_item0.Add(_first__group_alt0__group_alt0__tmp0_item0_item0);
                         // Parse remaining items (separator + item)
                         while (true)
@@ -25090,6 +24756,12 @@ namespace SharpPy.Generated
                             }
                             if (_loop_elem__group_alt0__group_alt0__tmp0_item0_item0 == null)
                             {
+                                _position = _mark;
+                                _res = null;
+                                break;  // Exit this alternative
+                            }
+                            if (_loop_elem__group_alt0__group_alt0__tmp0_item0_item0 == null)
+                            {
                                 _position = _loop_mark; // Reset to before separator
                                 break; // No item after separator
                             }
@@ -25179,6 +24851,12 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                if (_first__tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 _tmp1.Add(_first__tmp1);
                 // Parse remaining items (separator + item)
                 while (true)
@@ -25223,6 +24901,12 @@ namespace SharpPy.Generated
                                 _loop_elem__tmp1 = _group_alt0__loop_elem__tmp1_item0;
                             }
                         }
+                    }
+                    if (_loop_elem__tmp1 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
                     }
                     if (_loop_elem__tmp1 == null)
                     {
@@ -26523,7 +26207,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: star_named_expressions* (CPython: _Loop0_N rule)
-                var _tmp1 = _Loop0_21();
+                var _tmp1 = _Loop0_34();
                 // Expect ':'
                 var _tmp2 = Expect(":");
                 if (_tmp2 == null)
@@ -26604,35 +26288,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: (star_targets '=')* (inline loop for complex pattern)
-                var _tmp0 = new List<GeneratedTokenInfo>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Group: (star_targets '=')
-                    GeneratedTokenInfo? _loop_elem__tmp0 = null;
-                    int _group_mark__loop_elem__tmp0 = _position;
-                    // Try group alternative 1: star_targets '='
-                    {
-                        _position = _group_mark__loop_elem__tmp0;
-                        GeneratedExpr _group_alt0__loop_elem__tmp0_item0 = StarTargets();
-                        if (_group_alt0__loop_elem__tmp0_item0 != null)
-                        {
-                            GeneratedTokenInfo? _group_alt0__loop_elem__tmp0_item1 = Expect("=");
-                            if (_group_alt0__loop_elem__tmp0_item1 != null)
-                            {
-                                _loop_elem__tmp0 = _group_alt0__loop_elem__tmp0_item1;
-                            }
-                        }
-                    }
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark;
-                        break;
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
-                }
-                // Collected _tmp0.Count items (may be 0)
+                // Zero or more: (star_targets '=')* (CPython: _Loop0_N rule)
+                var _tmp0 = _Loop0_35();
                 // Call rule: star_expressions
                 var a = StarExpressions();
                 if (a == null)
@@ -26669,35 +26326,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Zero or more: (star_targets '=')* (inline loop for complex pattern)
-                var _tmp0 = new List<GeneratedTokenInfo>();
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Group: (star_targets '=')
-                    GeneratedTokenInfo? _loop_elem__tmp0 = null;
-                    int _group_mark__loop_elem__tmp0 = _position;
-                    // Try group alternative 1: star_targets '='
-                    {
-                        _position = _group_mark__loop_elem__tmp0;
-                        GeneratedExpr _group_alt0__loop_elem__tmp0_item0 = StarTargets();
-                        if (_group_alt0__loop_elem__tmp0_item0 != null)
-                        {
-                            GeneratedTokenInfo? _group_alt0__loop_elem__tmp0_item1 = Expect("=");
-                            if (_group_alt0__loop_elem__tmp0_item1 != null)
-                            {
-                                _loop_elem__tmp0 = _group_alt0__loop_elem__tmp0_item1;
-                            }
-                        }
-                    }
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark;
-                        break;
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
-                }
-                // Collected _tmp0.Count items (may be 0)
+                // Zero or more: (star_targets '=')* (CPython: _Loop0_N rule)
+                var _tmp0 = _Loop0_36();
                 // Call rule: yield_expr
                 var a = YieldExpr();
                 if (a == null)
@@ -27485,7 +27115,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_maybe_default* (CPython: _Loop0_N rule)
-                var _tmp1 = _Loop0_6();
+                var _tmp1 = _Loop0_10();
                 // Expect '/'
                 var a = Expect("/");
                 if (a == null)
@@ -27531,7 +27161,7 @@ namespace SharpPy.Generated
                     _tmp0 = null; // Optional not present
                 }
                 // Zero or more: param_no_default* (CPython: _Loop0_N rule)
-                var _tmp1 = _Loop0_2();
+                var _tmp1 = _Loop0_6();
                 // Call rule: invalid_parameters_helper
                 GeneratedSeq? _tmp2 = null;
                 if (_callInvalidRules)
@@ -27573,7 +27203,7 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: param_no_default* (CPython: _Loop0_N rule)
-                var _tmp0 = _Loop0_2();
+                var _tmp0 = _Loop0_6();
                 // Expect '('
                 var a = Expect("(");
                 if (a == null)
@@ -27583,7 +27213,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: param_no_default+ (CPython: _Loop1_N rule)
-                var _tmp1 = _Loop1_4();
+                var _tmp1 = _Loop1_8();
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -27667,7 +27297,7 @@ namespace SharpPy.Generated
                     _tmp0 = null; // Optional not present
                 }
                 // Zero or more: param_maybe_default* (CPython: _Loop0_N rule)
-                var _tmp1 = _Loop0_6();
+                var _tmp1 = _Loop0_10();
                 // Expect '*'
                 var _tmp2 = Expect("*");
                 if (_tmp2 == null)
@@ -27707,7 +27337,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_maybe_default* (CPython: _Loop0_N rule)
-                var _tmp4 = _Loop0_6();
+                var _tmp4 = _Loop0_10();
                 // Expect '/'
                 var a = Expect("/");
                 if (a == null)
@@ -27737,7 +27367,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: param_maybe_default+ (CPython: _Loop1_N rule)
-                var _tmp0 = _Loop1_7();
+                var _tmp0 = _Loop1_11();
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -28080,7 +27710,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_maybe_default* (CPython: _Loop0_N rule)
-                var _tmp2 = _Loop0_6();
+                var _tmp2 = _Loop0_10();
                 // Expect '*'
                 var a = Expect("*");
                 if (a == null)
@@ -28395,7 +28025,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: param_with_default+ (CPython: _Loop1_N rule)
-                var _tmp0 = _Loop1_5();
+                var _tmp0 = _Loop1_9();
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -28512,7 +28142,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_maybe_default* (CPython: _Loop0_N rule)
-                var _tmp1 = _Loop0_16();
+                var _tmp1 = _Loop0_24();
                 // Expect '/'
                 var a = Expect("/");
                 if (a == null)
@@ -28558,7 +28188,7 @@ namespace SharpPy.Generated
                     _tmp0 = null; // Optional not present
                 }
                 // Zero or more: lambda_param_no_default* (CPython: _Loop0_N rule)
-                var _tmp1 = _Loop0_12();
+                var _tmp1 = _Loop0_20();
                 // Call rule: invalid_lambda_parameters_helper
                 GeneratedSeq? _tmp2 = null;
                 if (_callInvalidRules)
@@ -28600,7 +28230,7 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: lambda_param_no_default* (CPython: _Loop0_N rule)
-                var _tmp0 = _Loop0_12();
+                var _tmp0 = _Loop0_20();
                 // Expect '('
                 var a = Expect("(");
                 if (a == null)
@@ -28724,7 +28354,7 @@ namespace SharpPy.Generated
                     _tmp0 = null; // Optional not present
                 }
                 // Zero or more: lambda_param_maybe_default* (CPython: _Loop0_N rule)
-                var _tmp1 = _Loop0_16();
+                var _tmp1 = _Loop0_24();
                 // Expect '*'
                 var _tmp2 = Expect("*");
                 if (_tmp2 == null)
@@ -28764,7 +28394,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_maybe_default* (CPython: _Loop0_N rule)
-                var _tmp4 = _Loop0_16();
+                var _tmp4 = _Loop0_24();
                 // Expect '/'
                 var a = Expect("/");
                 if (a == null)
@@ -28794,7 +28424,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: lambda_param_maybe_default+ (CPython: _Loop1_N rule)
-                var _tmp0 = _Loop1_17();
+                var _tmp0 = _Loop1_25();
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -28889,7 +28519,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: lambda_param_with_default+ (CPython: _Loop1_N rule)
-                var _tmp0 = _Loop1_15();
+                var _tmp0 = _Loop1_23();
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -29109,7 +28739,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_maybe_default* (CPython: _Loop0_N rule)
-                var _tmp2 = _Loop0_16();
+                var _tmp2 = _Loop0_24();
                 // Expect '*'
                 var a = Expect("*");
                 if (a == null)
@@ -29990,6 +29620,12 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                if (_first__tmp2 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 _tmp2.Add((GeneratedExpr)_first__tmp2);
                 // Parse remaining items (separator + item)
                 while (true)
@@ -30011,6 +29647,12 @@ namespace SharpPy.Generated
                     // Group: ()
                     GeneratedAstNode? _loop_elem__tmp2 = null;
                     int _group_mark__loop_elem__tmp2 = _position;
+                    if (_loop_elem__tmp2 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
                     if (_loop_elem__tmp2 == null)
                     {
                         _position = _loop_mark; // Reset to before separator
@@ -30096,6 +29738,12 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                if (_first__tmp3 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 _tmp3.Add((GeneratedExpr)_first__tmp3);
                 // Parse remaining items (separator + item)
                 while (true)
@@ -30117,6 +29765,12 @@ namespace SharpPy.Generated
                     // Group: ()
                     GeneratedAstNode? _loop_elem__tmp3 = null;
                     int _group_mark__loop_elem__tmp3 = _position;
+                    if (_loop_elem__tmp3 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
                     if (_loop_elem__tmp3 == null)
                     {
                         _position = _loop_mark; // Reset to before separator
@@ -30244,6 +29898,12 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                if (_first__tmp1 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 _tmp1.Add((GeneratedExpr)_first__tmp1);
                 // Parse remaining items (separator + item)
                 while (true)
@@ -30265,6 +29925,12 @@ namespace SharpPy.Generated
                     // Group: ()
                     GeneratedAstNode? _loop_elem__tmp1 = null;
                     int _group_mark__loop_elem__tmp1 = _position;
+                    if (_loop_elem__tmp1 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
                     if (_loop_elem__tmp1 == null)
                     {
                         _position = _loop_mark; // Reset to before separator
@@ -30368,6 +30034,12 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                if (_first__tmp2 == null)
+                {
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit this alternative
+                }
                 _tmp2.Add((GeneratedExpr)_first__tmp2);
                 // Parse remaining items (separator + item)
                 while (true)
@@ -30389,6 +30061,12 @@ namespace SharpPy.Generated
                     // Group: ()
                     GeneratedAstNode? _loop_elem__tmp2 = null;
                     int _group_mark__loop_elem__tmp2 = _position;
+                    if (_loop_elem__tmp2 == null)
+                    {
+                        _position = _mark;
+                        _res = null;
+                        break;  // Exit this alternative
+                    }
                     if (_loop_elem__tmp2 == null)
                     {
                         _position = _loop_mark; // Reset to before separator
@@ -30623,9 +30301,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: block* (CPython: _Loop0_N rule)
-                var _tmp2 = _Loop0_22();
+                var _tmp2 = _Loop0_37();
                 // One or more: except_block+ (CPython: _Loop1_N rule)
-                var _tmp3 = _Loop1_8();
+                var _tmp3 = _Loop1_12();
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -30693,9 +30371,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: block* (CPython: _Loop0_N rule)
-                var _tmp2 = _Loop0_22();
+                var _tmp2 = _Loop0_37();
                 // One or more: except_star_block+ (CPython: _Loop1_N rule)
-                var _tmp3 = _Loop1_9();
+                var _tmp3 = _Loop1_13();
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -34043,7 +33721,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: fstring_format_spec* (CPython: _Loop0_N rule)
-                var _tmp5 = _Loop0_18();
+                var _tmp5 = _Loop0_26();
                 // Negative lookahead: !('}')
                 GeneratedTokenInfo? _lookahead_test_115 = null;
                 if (CurrentToken?.Value == "}") { _lookahead_test_115 = CurrentToken; }
@@ -34288,7 +33966,10 @@ namespace SharpPy.Generated
             int _loop_mark = _position;  // CPython: int _mark = p->mark
             while (true)
             {
+                // Expect token: NEWLINE
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _item = ExpectToken(GeneratedTokenType.NEWLINE);
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_item != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_item == null)
                 {
                     // CPython: p->mark = _mark (restore to last success position)
@@ -34306,31 +33987,20 @@ namespace SharpPy.Generated
 
         private List<GeneratedStmtSeq>? _Loop1_1()
         {
-            Console.WriteLine($"[DEBUG] _Loop1_1() START: position={_position}");
             var _items = new List<GeneratedStmtSeq>();
             // CPython: First element required
-            Console.WriteLine($"[DEBUG] _Loop1_1(): Calling first Statement()...");
+            // Call rule: statement
             var _first = Statement();
-            Console.WriteLine($"[DEBUG] _Loop1_1(): _first = {(_first == null ? "null" : "not null")}, position={_position}");
-            if (_first == null)
-            {
-                Console.WriteLine($"[DEBUG] _Loop1_1(): First element null, returning null");
-                return null;
-            }
+            if (_first == null) return null;
             _items.Add(_first);
             int _loop_mark = _position;  // CPython: int _mark = p->mark
-            int _loop_iteration = 0;
             while (true)
             {
-                _loop_iteration++;
-                Console.WriteLine($"[DEBUG] _Loop1_1(): Loop iteration {_loop_iteration}, position={_position}");
-                if (_loop_iteration > 100) { Console.WriteLine($"[DEBUG] _Loop1_1(): WARNING - Too many iterations!"); break; }
+                // Call rule: statement
                 var _item = Statement();
-                Console.WriteLine($"[DEBUG] _Loop1_1(): _item = {(_item == null ? "null" : "not null")}, position={_position}");
                 if (_item == null)
                 {
                     // CPython: p->mark = _mark (restore to last success position)
-                    Console.WriteLine($"[DEBUG] _Loop1_1(): Restoring position from {_position} to {_loop_mark}");
                     _position = _loop_mark;
                     break;
                 }
@@ -34338,17 +34008,245 @@ namespace SharpPy.Generated
                 // CPython: _mark = p->mark (save position after success)
                 _loop_mark = _position;
             }
-            Console.WriteLine($"[DEBUG] _Loop1_1(): Returning {_items.Count} items");
             // CPython: Always has at least 1 item
             return _items;
         }
 
-        private GeneratedArgSeq? _Loop0_2()
+        private GeneratedExprSeq? _Loop1_2()
+        {
+            var _items = new GeneratedExprSeq();
+            // CPython: First element required
+            // Group: (z=star_targets '=' { z })
+            GeneratedExpr? _first = null;
+            int _group_mark__first = _position;
+            // Try group alternative 1: z=star_targets '=' { z }
+            {
+                _position = _group_mark__first;
+                GeneratedExpr _group_alt0__first_item0 = StarTargets();
+                if (_group_alt0__first_item0 != null)
+                {
+                    GeneratedTokenInfo? _group_alt0__first_item1 = Expect("=");
+                    if (_group_alt0__first_item1 != null)
+                    {
+                        _first = _group_alt0__first_item0;
+                    }
+                }
+            }
+            if (_first == null) return null;
+            _items.Add(_first);
+            int _loop_mark = _position;  // CPython: int _mark = p->mark
+            while (true)
+            {
+                // Group: (z=star_targets '=' { z })
+                GeneratedExpr? _item = null;
+                int _group_mark__item = _position;
+                // Try group alternative 1: z=star_targets '=' { z }
+                {
+                    _position = _group_mark__item;
+                    GeneratedExpr _group_alt0__item_item0 = StarTargets();
+                    if (_group_alt0__item_item0 != null)
+                    {
+                        GeneratedTokenInfo? _group_alt0__item_item1 = Expect("=");
+                        if (_group_alt0__item_item1 != null)
+                        {
+                            _item = _group_alt0__item_item0;
+                        }
+                    }
+                }
+                if (_item == null)
+                {
+                    // CPython: p->mark = _mark (restore to last success position)
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(_item);
+                // CPython: _mark = p->mark (save position after success)
+                _loop_mark = _position;
+            }
+            // CPython: Always has at least 1 item
+            return _items;
+        }
+
+        private List<GeneratedTokenInfo>? _Loop0_3()
+        {
+            var _items = new List<GeneratedTokenInfo>();
+            int _loop_mark = _position;  // CPython: int _mark = p->mark
+            while (true)
+            {
+                // Group: ('.' | '...')
+                GeneratedTokenInfo? _item = null;
+                int _group_mark__item = _position;
+                // Try group alternative 1: '.'
+                {
+                    _position = _group_mark__item;
+                    GeneratedTokenInfo? _group_alt0__item_item0 = Expect(".");
+                    if (_group_alt0__item_item0 != null)
+                    {
+                        _item = _group_alt0__item_item0;
+                    }
+                }
+                // Try group alternative 2: '...'
+                if (_item == null)
+                {
+                    _position = _group_mark__item;
+                    GeneratedTokenInfo? _group_alt1__item_item0 = Expect("...");
+                    if (_group_alt1__item_item0 != null)
+                    {
+                        _item = _group_alt1__item_item0;
+                    }
+                }
+                if (_item == null)
+                {
+                    // CPython: p->mark = _mark (restore to last success position)
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(_item);
+                // CPython: _mark = p->mark (save position after success)
+                _loop_mark = _position;
+            }
+            // CPython: Returns NULL if totalSize == 0
+            if (_items.Count == 0) return null;
+            return _items;
+        }
+
+        private List<GeneratedTokenInfo>? _Loop1_4()
+        {
+            var _items = new List<GeneratedTokenInfo>();
+            // CPython: First element required
+            // Group: ('.' | '...')
+            GeneratedTokenInfo? _first = null;
+            int _group_mark__first = _position;
+            // Try group alternative 1: '.'
+            {
+                _position = _group_mark__first;
+                GeneratedTokenInfo? _group_alt0__first_item0 = Expect(".");
+                if (_group_alt0__first_item0 != null)
+                {
+                    _first = _group_alt0__first_item0;
+                }
+            }
+            // Try group alternative 2: '...'
+            if (_first == null)
+            {
+                _position = _group_mark__first;
+                GeneratedTokenInfo? _group_alt1__first_item0 = Expect("...");
+                if (_group_alt1__first_item0 != null)
+                {
+                    _first = _group_alt1__first_item0;
+                }
+            }
+            if (_first == null) return null;
+            _items.Add(_first);
+            int _loop_mark = _position;  // CPython: int _mark = p->mark
+            while (true)
+            {
+                // Group: ('.' | '...')
+                GeneratedTokenInfo? _item = null;
+                int _group_mark__item = _position;
+                // Try group alternative 1: '.'
+                {
+                    _position = _group_mark__item;
+                    GeneratedTokenInfo? _group_alt0__item_item0 = Expect(".");
+                    if (_group_alt0__item_item0 != null)
+                    {
+                        _item = _group_alt0__item_item0;
+                    }
+                }
+                // Try group alternative 2: '...'
+                if (_item == null)
+                {
+                    _position = _group_mark__item;
+                    GeneratedTokenInfo? _group_alt1__item_item0 = Expect("...");
+                    if (_group_alt1__item_item0 != null)
+                    {
+                        _item = _group_alt1__item_item0;
+                    }
+                }
+                if (_item == null)
+                {
+                    // CPython: p->mark = _mark (restore to last success position)
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(_item);
+                // CPython: _mark = p->mark (save position after success)
+                _loop_mark = _position;
+            }
+            // CPython: Always has at least 1 item
+            return _items;
+        }
+
+        private GeneratedExprSeq? _Loop1_5()
+        {
+            var _items = new GeneratedExprSeq();
+            // CPython: First element required
+            // Group: ('@' f=named_expression NEWLINE { f })
+            GeneratedExpr? _first = null;
+            int _group_mark__first = _position;
+            // Try group alternative 1: '@' f=named_expression NEWLINE { f }
+            {
+                _position = _group_mark__first;
+                GeneratedTokenInfo? _group_alt0__first_item0 = Expect("@");
+                if (_group_alt0__first_item0 != null)
+                {
+                    GeneratedExpr _group_alt0__first_item1 = NamedExpression();
+                    if (_group_alt0__first_item1 != null)
+                    {
+                        GeneratedTokenInfo? _group_alt0__first_item2 = ExpectToken(GeneratedTokenType.NEWLINE);
+                        if (_group_alt0__first_item2 != null)
+                        {
+                            _first = _group_alt0__first_item1;
+                        }
+                    }
+                }
+            }
+            if (_first == null) return null;
+            _items.Add(_first);
+            int _loop_mark = _position;  // CPython: int _mark = p->mark
+            while (true)
+            {
+                // Group: ('@' f=named_expression NEWLINE { f })
+                GeneratedExpr? _item = null;
+                int _group_mark__item = _position;
+                // Try group alternative 1: '@' f=named_expression NEWLINE { f }
+                {
+                    _position = _group_mark__item;
+                    GeneratedTokenInfo? _group_alt0__item_item0 = Expect("@");
+                    if (_group_alt0__item_item0 != null)
+                    {
+                        GeneratedExpr _group_alt0__item_item1 = NamedExpression();
+                        if (_group_alt0__item_item1 != null)
+                        {
+                            GeneratedTokenInfo? _group_alt0__item_item2 = ExpectToken(GeneratedTokenType.NEWLINE);
+                            if (_group_alt0__item_item2 != null)
+                            {
+                                _item = _group_alt0__item_item1;
+                            }
+                        }
+                    }
+                }
+                if (_item == null)
+                {
+                    // CPython: p->mark = _mark (restore to last success position)
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(_item);
+                // CPython: _mark = p->mark (save position after success)
+                _loop_mark = _position;
+            }
+            // CPython: Always has at least 1 item
+            return _items;
+        }
+
+        private GeneratedArgSeq? _Loop0_6()
         {
             var _items = new GeneratedArgSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
             while (true)
             {
+                // Call rule: param_no_default
                 var _item = ParamNoDefault();
                 if (_item == null)
                 {
@@ -34365,12 +34263,13 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedAstNodeSeq? _Loop0_3()
+        private GeneratedAstNodeSeq? _Loop0_7()
         {
             var _items = new GeneratedAstNodeSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
             while (true)
             {
+                // Call rule: param_with_default
                 var _item = ParamWithDefault();
                 if (_item == null)
                 {
@@ -34387,33 +34286,22 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedArgSeq? _Loop1_4()
+        private GeneratedArgSeq? _Loop1_8()
         {
-            Console.WriteLine($"[DEBUG] _Loop1_4() START: position={_position}");
             var _items = new GeneratedArgSeq();
             // CPython: First element required
-            Console.WriteLine($"[DEBUG] _Loop1_4(): Calling first ParamNoDefault()...");
+            // Call rule: param_no_default
             var _first = ParamNoDefault();
-            Console.WriteLine($"[DEBUG] _Loop1_4(): _first = {(_first == null ? "null" : "not null")}, position={_position}");
-            if (_first == null)
-            {
-                Console.WriteLine($"[DEBUG] _Loop1_4(): First element null, returning null");
-                return null;
-            }
+            if (_first == null) return null;
             _items.Add(_first);
             int _loop_mark = _position;  // CPython: int _mark = p->mark
-            int _loop_iteration = 0;
             while (true)
             {
-                _loop_iteration++;
-                Console.WriteLine($"[DEBUG] _Loop1_4(): Loop iteration {_loop_iteration}, position={_position}");
-                if (_loop_iteration > 100) { Console.WriteLine($"[DEBUG] _Loop1_4(): WARNING - Too many iterations!"); break; }
+                // Call rule: param_no_default
                 var _item = ParamNoDefault();
-                Console.WriteLine($"[DEBUG] _Loop1_4(): _item = {(_item == null ? "null" : "not null")}, position={_position}");
                 if (_item == null)
                 {
                     // CPython: p->mark = _mark (restore to last success position)
-                    Console.WriteLine($"[DEBUG] _Loop1_4(): Restoring position from {_position} to {_loop_mark}");
                     _position = _loop_mark;
                     break;
                 }
@@ -34421,38 +34309,26 @@ namespace SharpPy.Generated
                 // CPython: _mark = p->mark (save position after success)
                 _loop_mark = _position;
             }
-            Console.WriteLine($"[DEBUG] _Loop1_4(): Returning {_items.Count} items");
             // CPython: Always has at least 1 item
             return _items;
         }
 
-        private GeneratedAstNodeSeq? _Loop1_5()
+        private GeneratedAstNodeSeq? _Loop1_9()
         {
-            Console.WriteLine($"[DEBUG] _Loop1_5() START: position={_position}");
             var _items = new GeneratedAstNodeSeq();
             // CPython: First element required
-            Console.WriteLine($"[DEBUG] _Loop1_5(): Calling first ParamWithDefault()...");
+            // Call rule: param_with_default
             var _first = ParamWithDefault();
-            Console.WriteLine($"[DEBUG] _Loop1_5(): _first = {(_first == null ? "null" : "not null")}, position={_position}");
-            if (_first == null)
-            {
-                Console.WriteLine($"[DEBUG] _Loop1_5(): First element null, returning null");
-                return null;
-            }
+            if (_first == null) return null;
             _items.Add(_first);
             int _loop_mark = _position;  // CPython: int _mark = p->mark
-            int _loop_iteration = 0;
             while (true)
             {
-                _loop_iteration++;
-                Console.WriteLine($"[DEBUG] _Loop1_5(): Loop iteration {_loop_iteration}, position={_position}");
-                if (_loop_iteration > 100) { Console.WriteLine($"[DEBUG] _Loop1_5(): WARNING - Too many iterations!"); break; }
+                // Call rule: param_with_default
                 var _item = ParamWithDefault();
-                Console.WriteLine($"[DEBUG] _Loop1_5(): _item = {(_item == null ? "null" : "not null")}, position={_position}");
                 if (_item == null)
                 {
                     // CPython: p->mark = _mark (restore to last success position)
-                    Console.WriteLine($"[DEBUG] _Loop1_5(): Restoring position from {_position} to {_loop_mark}");
                     _position = _loop_mark;
                     break;
                 }
@@ -34460,17 +34336,17 @@ namespace SharpPy.Generated
                 // CPython: _mark = p->mark (save position after success)
                 _loop_mark = _position;
             }
-            Console.WriteLine($"[DEBUG] _Loop1_5(): Returning {_items.Count} items");
             // CPython: Always has at least 1 item
             return _items;
         }
 
-        private GeneratedAstNodeSeq? _Loop0_6()
+        private GeneratedAstNodeSeq? _Loop0_10()
         {
             var _items = new GeneratedAstNodeSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
             while (true)
             {
+                // Call rule: param_maybe_default
                 var _item = ParamMaybeDefault();
                 if (_item == null)
                 {
@@ -34484,192 +34360,353 @@ namespace SharpPy.Generated
             }
             // CPython: Returns NULL if totalSize == 0
             if (_items.Count == 0) return null;
-            return _items;
-        }
-
-        private GeneratedAstNodeSeq? _Loop1_7()
-        {
-            Console.WriteLine($"[DEBUG] _Loop1_7() START: position={_position}");
-            var _items = new GeneratedAstNodeSeq();
-            // CPython: First element required
-            Console.WriteLine($"[DEBUG] _Loop1_7(): Calling first ParamMaybeDefault()...");
-            var _first = ParamMaybeDefault();
-            Console.WriteLine($"[DEBUG] _Loop1_7(): _first = {(_first == null ? "null" : "not null")}, position={_position}");
-            if (_first == null)
-            {
-                Console.WriteLine($"[DEBUG] _Loop1_7(): First element null, returning null");
-                return null;
-            }
-            _items.Add(_first);
-            int _loop_mark = _position;  // CPython: int _mark = p->mark
-            int _loop_iteration = 0;
-            while (true)
-            {
-                _loop_iteration++;
-                Console.WriteLine($"[DEBUG] _Loop1_7(): Loop iteration {_loop_iteration}, position={_position}");
-                if (_loop_iteration > 100) { Console.WriteLine($"[DEBUG] _Loop1_7(): WARNING - Too many iterations!"); break; }
-                var _item = ParamMaybeDefault();
-                Console.WriteLine($"[DEBUG] _Loop1_7(): _item = {(_item == null ? "null" : "not null")}, position={_position}");
-                if (_item == null)
-                {
-                    // CPython: p->mark = _mark (restore to last success position)
-                    Console.WriteLine($"[DEBUG] _Loop1_7(): Restoring position from {_position} to {_loop_mark}");
-                    _position = _loop_mark;
-                    break;
-                }
-                _items.Add(_item);
-                // CPython: _mark = p->mark (save position after success)
-                _loop_mark = _position;
-            }
-            Console.WriteLine($"[DEBUG] _Loop1_7(): Returning {_items.Count} items");
-            // CPython: Always has at least 1 item
-            return _items;
-        }
-
-        private GeneratedExcepthandlerSeq? _Loop1_8()
-        {
-            Console.WriteLine($"[DEBUG] _Loop1_8() START: position={_position}");
-            var _items = new GeneratedExcepthandlerSeq();
-            // CPython: First element required
-            Console.WriteLine($"[DEBUG] _Loop1_8(): Calling first ExceptBlock()...");
-            var _first = ExceptBlock();
-            Console.WriteLine($"[DEBUG] _Loop1_8(): _first = {(_first == null ? "null" : "not null")}, position={_position}");
-            if (_first == null)
-            {
-                Console.WriteLine($"[DEBUG] _Loop1_8(): First element null, returning null");
-                return null;
-            }
-            _items.Add(_first);
-            int _loop_mark = _position;  // CPython: int _mark = p->mark
-            int _loop_iteration = 0;
-            while (true)
-            {
-                _loop_iteration++;
-                Console.WriteLine($"[DEBUG] _Loop1_8(): Loop iteration {_loop_iteration}, position={_position}");
-                if (_loop_iteration > 100) { Console.WriteLine($"[DEBUG] _Loop1_8(): WARNING - Too many iterations!"); break; }
-                var _item = ExceptBlock();
-                Console.WriteLine($"[DEBUG] _Loop1_8(): _item = {(_item == null ? "null" : "not null")}, position={_position}");
-                if (_item == null)
-                {
-                    // CPython: p->mark = _mark (restore to last success position)
-                    Console.WriteLine($"[DEBUG] _Loop1_8(): Restoring position from {_position} to {_loop_mark}");
-                    _position = _loop_mark;
-                    break;
-                }
-                _items.Add(_item);
-                // CPython: _mark = p->mark (save position after success)
-                _loop_mark = _position;
-            }
-            Console.WriteLine($"[DEBUG] _Loop1_8(): Returning {_items.Count} items");
-            // CPython: Always has at least 1 item
-            return _items;
-        }
-
-        private GeneratedExcepthandlerSeq? _Loop1_9()
-        {
-            Console.WriteLine($"[DEBUG] _Loop1_9() START: position={_position}");
-            var _items = new GeneratedExcepthandlerSeq();
-            // CPython: First element required
-            Console.WriteLine($"[DEBUG] _Loop1_9(): Calling first ExceptStarBlock()...");
-            var _first = ExceptStarBlock();
-            Console.WriteLine($"[DEBUG] _Loop1_9(): _first = {(_first == null ? "null" : "not null")}, position={_position}");
-            if (_first == null)
-            {
-                Console.WriteLine($"[DEBUG] _Loop1_9(): First element null, returning null");
-                return null;
-            }
-            _items.Add(_first);
-            int _loop_mark = _position;  // CPython: int _mark = p->mark
-            int _loop_iteration = 0;
-            while (true)
-            {
-                _loop_iteration++;
-                Console.WriteLine($"[DEBUG] _Loop1_9(): Loop iteration {_loop_iteration}, position={_position}");
-                if (_loop_iteration > 100) { Console.WriteLine($"[DEBUG] _Loop1_9(): WARNING - Too many iterations!"); break; }
-                var _item = ExceptStarBlock();
-                Console.WriteLine($"[DEBUG] _Loop1_9(): _item = {(_item == null ? "null" : "not null")}, position={_position}");
-                if (_item == null)
-                {
-                    // CPython: p->mark = _mark (restore to last success position)
-                    Console.WriteLine($"[DEBUG] _Loop1_9(): Restoring position from {_position} to {_loop_mark}");
-                    _position = _loop_mark;
-                    break;
-                }
-                _items.Add(_item);
-                // CPython: _mark = p->mark (save position after success)
-                _loop_mark = _position;
-            }
-            Console.WriteLine($"[DEBUG] _Loop1_9(): Returning {_items.Count} items");
-            // CPython: Always has at least 1 item
-            return _items;
-        }
-
-        private GeneratedMatchCaseSeq? _Loop1_10()
-        {
-            Console.WriteLine($"[DEBUG] _Loop1_10() START: position={_position}");
-            var _items = new GeneratedMatchCaseSeq();
-            // CPython: First element required
-            Console.WriteLine($"[DEBUG] _Loop1_10(): Calling first CaseBlock()...");
-            var _first = CaseBlock();
-            Console.WriteLine($"[DEBUG] _Loop1_10(): _first = {(_first == null ? "null" : "not null")}, position={_position}");
-            if (_first == null)
-            {
-                Console.WriteLine($"[DEBUG] _Loop1_10(): First element null, returning null");
-                return null;
-            }
-            _items.Add(_first);
-            int _loop_mark = _position;  // CPython: int _mark = p->mark
-            int _loop_iteration = 0;
-            while (true)
-            {
-                _loop_iteration++;
-                Console.WriteLine($"[DEBUG] _Loop1_10(): Loop iteration {_loop_iteration}, position={_position}");
-                if (_loop_iteration > 100) { Console.WriteLine($"[DEBUG] _Loop1_10(): WARNING - Too many iterations!"); break; }
-                var _item = CaseBlock();
-                Console.WriteLine($"[DEBUG] _Loop1_10(): _item = {(_item == null ? "null" : "not null")}, position={_position}");
-                if (_item == null)
-                {
-                    // CPython: p->mark = _mark (restore to last success position)
-                    Console.WriteLine($"[DEBUG] _Loop1_10(): Restoring position from {_position} to {_loop_mark}");
-                    _position = _loop_mark;
-                    break;
-                }
-                _items.Add(_item);
-                // CPython: _mark = p->mark (save position after success)
-                _loop_mark = _position;
-            }
-            Console.WriteLine($"[DEBUG] _Loop1_10(): Returning {_items.Count} items");
-            // CPython: Always has at least 1 item
             return _items;
         }
 
         private GeneratedAstNodeSeq? _Loop1_11()
         {
-            Console.WriteLine($"[DEBUG] _Loop1_11() START: position={_position}");
             var _items = new GeneratedAstNodeSeq();
             // CPython: First element required
-            Console.WriteLine($"[DEBUG] _Loop1_11(): Calling first CompareOpBitwiseOrPair()...");
+            // Call rule: param_maybe_default
+            var _first = ParamMaybeDefault();
+            if (_first == null) return null;
+            _items.Add(_first);
+            int _loop_mark = _position;  // CPython: int _mark = p->mark
+            while (true)
+            {
+                // Call rule: param_maybe_default
+                var _item = ParamMaybeDefault();
+                if (_item == null)
+                {
+                    // CPython: p->mark = _mark (restore to last success position)
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(_item);
+                // CPython: _mark = p->mark (save position after success)
+                _loop_mark = _position;
+            }
+            // CPython: Always has at least 1 item
+            return _items;
+        }
+
+        private GeneratedExcepthandlerSeq? _Loop1_12()
+        {
+            var _items = new GeneratedExcepthandlerSeq();
+            // CPython: First element required
+            // Call rule: except_block
+            var _first = ExceptBlock();
+            if (_first == null) return null;
+            _items.Add(_first);
+            int _loop_mark = _position;  // CPython: int _mark = p->mark
+            while (true)
+            {
+                // Call rule: except_block
+                var _item = ExceptBlock();
+                if (_item == null)
+                {
+                    // CPython: p->mark = _mark (restore to last success position)
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(_item);
+                // CPython: _mark = p->mark (save position after success)
+                _loop_mark = _position;
+            }
+            // CPython: Always has at least 1 item
+            return _items;
+        }
+
+        private GeneratedExcepthandlerSeq? _Loop1_13()
+        {
+            var _items = new GeneratedExcepthandlerSeq();
+            // CPython: First element required
+            // Call rule: except_star_block
+            var _first = ExceptStarBlock();
+            if (_first == null) return null;
+            _items.Add(_first);
+            int _loop_mark = _position;  // CPython: int _mark = p->mark
+            while (true)
+            {
+                // Call rule: except_star_block
+                var _item = ExceptStarBlock();
+                if (_item == null)
+                {
+                    // CPython: p->mark = _mark (restore to last success position)
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(_item);
+                // CPython: _mark = p->mark (save position after success)
+                _loop_mark = _position;
+            }
+            // CPython: Always has at least 1 item
+            return _items;
+        }
+
+        private GeneratedMatchCaseSeq? _Loop1_14()
+        {
+            var _items = new GeneratedMatchCaseSeq();
+            // CPython: First element required
+            // Call rule: case_block
+            var _first = CaseBlock();
+            if (_first == null) return null;
+            _items.Add(_first);
+            int _loop_mark = _position;  // CPython: int _mark = p->mark
+            while (true)
+            {
+                // Call rule: case_block
+                var _item = CaseBlock();
+                if (_item == null)
+                {
+                    // CPython: p->mark = _mark (restore to last success position)
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(_item);
+                // CPython: _mark = p->mark (save position after success)
+                _loop_mark = _position;
+            }
+            // CPython: Always has at least 1 item
+            return _items;
+        }
+
+        private GeneratedExprSeq? _Loop1_15()
+        {
+            var _items = new GeneratedExprSeq();
+            // CPython: First element required
+            // Group: (',' c=expression { c })
+            GeneratedExpr? _first = null;
+            int _group_mark__first = _position;
+            // Try group alternative 1: ',' c=expression { c }
+            {
+                _position = _group_mark__first;
+                GeneratedTokenInfo? _group_alt0__first_item0 = Expect(",");
+                if (_group_alt0__first_item0 != null)
+                {
+                    GeneratedExpr _group_alt0__first_item1 = Expression();
+                    if (_group_alt0__first_item1 != null)
+                    {
+                        _first = _group_alt0__first_item1;
+                    }
+                }
+            }
+            if (_first == null) return null;
+            _items.Add(_first);
+            int _loop_mark = _position;  // CPython: int _mark = p->mark
+            while (true)
+            {
+                // Group: (',' c=expression { c })
+                GeneratedExpr? _item = null;
+                int _group_mark__item = _position;
+                // Try group alternative 1: ',' c=expression { c }
+                {
+                    _position = _group_mark__item;
+                    GeneratedTokenInfo? _group_alt0__item_item0 = Expect(",");
+                    if (_group_alt0__item_item0 != null)
+                    {
+                        GeneratedExpr _group_alt0__item_item1 = Expression();
+                        if (_group_alt0__item_item1 != null)
+                        {
+                            _item = _group_alt0__item_item1;
+                        }
+                    }
+                }
+                if (_item == null)
+                {
+                    // CPython: p->mark = _mark (restore to last success position)
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(_item);
+                // CPython: _mark = p->mark (save position after success)
+                _loop_mark = _position;
+            }
+            // CPython: Always has at least 1 item
+            return _items;
+        }
+
+        private GeneratedExprSeq? _Loop1_16()
+        {
+            var _items = new GeneratedExprSeq();
+            // CPython: First element required
+            // Group: (',' c=star_expression { c })
+            GeneratedExpr? _first = null;
+            int _group_mark__first = _position;
+            // Try group alternative 1: ',' c=star_expression { c }
+            {
+                _position = _group_mark__first;
+                GeneratedTokenInfo? _group_alt0__first_item0 = Expect(",");
+                if (_group_alt0__first_item0 != null)
+                {
+                    GeneratedExpr _group_alt0__first_item1 = StarExpression();
+                    if (_group_alt0__first_item1 != null)
+                    {
+                        _first = _group_alt0__first_item1;
+                    }
+                }
+            }
+            if (_first == null) return null;
+            _items.Add(_first);
+            int _loop_mark = _position;  // CPython: int _mark = p->mark
+            while (true)
+            {
+                // Group: (',' c=star_expression { c })
+                GeneratedExpr? _item = null;
+                int _group_mark__item = _position;
+                // Try group alternative 1: ',' c=star_expression { c }
+                {
+                    _position = _group_mark__item;
+                    GeneratedTokenInfo? _group_alt0__item_item0 = Expect(",");
+                    if (_group_alt0__item_item0 != null)
+                    {
+                        GeneratedExpr _group_alt0__item_item1 = StarExpression();
+                        if (_group_alt0__item_item1 != null)
+                        {
+                            _item = _group_alt0__item_item1;
+                        }
+                    }
+                }
+                if (_item == null)
+                {
+                    // CPython: p->mark = _mark (restore to last success position)
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(_item);
+                // CPython: _mark = p->mark (save position after success)
+                _loop_mark = _position;
+            }
+            // CPython: Always has at least 1 item
+            return _items;
+        }
+
+        private GeneratedExprSeq? _Loop1_17()
+        {
+            var _items = new GeneratedExprSeq();
+            // CPython: First element required
+            // Group: ('or' c=conjunction { c })
+            GeneratedExpr? _first = null;
+            int _group_mark__first = _position;
+            // Try group alternative 1: 'or' c=conjunction { c }
+            {
+                _position = _group_mark__first;
+                GeneratedTokenInfo? _group_alt0__first_item0 = Expect("or");
+                if (_group_alt0__first_item0 != null)
+                {
+                    GeneratedExpr _group_alt0__first_item1 = Conjunction();
+                    if (_group_alt0__first_item1 != null)
+                    {
+                        _first = _group_alt0__first_item1;
+                    }
+                }
+            }
+            if (_first == null) return null;
+            _items.Add(_first);
+            int _loop_mark = _position;  // CPython: int _mark = p->mark
+            while (true)
+            {
+                // Group: ('or' c=conjunction { c })
+                GeneratedExpr? _item = null;
+                int _group_mark__item = _position;
+                // Try group alternative 1: 'or' c=conjunction { c }
+                {
+                    _position = _group_mark__item;
+                    GeneratedTokenInfo? _group_alt0__item_item0 = Expect("or");
+                    if (_group_alt0__item_item0 != null)
+                    {
+                        GeneratedExpr _group_alt0__item_item1 = Conjunction();
+                        if (_group_alt0__item_item1 != null)
+                        {
+                            _item = _group_alt0__item_item1;
+                        }
+                    }
+                }
+                if (_item == null)
+                {
+                    // CPython: p->mark = _mark (restore to last success position)
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(_item);
+                // CPython: _mark = p->mark (save position after success)
+                _loop_mark = _position;
+            }
+            // CPython: Always has at least 1 item
+            return _items;
+        }
+
+        private GeneratedExprSeq? _Loop1_18()
+        {
+            var _items = new GeneratedExprSeq();
+            // CPython: First element required
+            // Group: ('and' c=inversion { c })
+            GeneratedExpr? _first = null;
+            int _group_mark__first = _position;
+            // Try group alternative 1: 'and' c=inversion { c }
+            {
+                _position = _group_mark__first;
+                GeneratedTokenInfo? _group_alt0__first_item0 = Expect("and");
+                if (_group_alt0__first_item0 != null)
+                {
+                    GeneratedExpr _group_alt0__first_item1 = Inversion();
+                    if (_group_alt0__first_item1 != null)
+                    {
+                        _first = _group_alt0__first_item1;
+                    }
+                }
+            }
+            if (_first == null) return null;
+            _items.Add(_first);
+            int _loop_mark = _position;  // CPython: int _mark = p->mark
+            while (true)
+            {
+                // Group: ('and' c=inversion { c })
+                GeneratedExpr? _item = null;
+                int _group_mark__item = _position;
+                // Try group alternative 1: 'and' c=inversion { c }
+                {
+                    _position = _group_mark__item;
+                    GeneratedTokenInfo? _group_alt0__item_item0 = Expect("and");
+                    if (_group_alt0__item_item0 != null)
+                    {
+                        GeneratedExpr _group_alt0__item_item1 = Inversion();
+                        if (_group_alt0__item_item1 != null)
+                        {
+                            _item = _group_alt0__item_item1;
+                        }
+                    }
+                }
+                if (_item == null)
+                {
+                    // CPython: p->mark = _mark (restore to last success position)
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(_item);
+                // CPython: _mark = p->mark (save position after success)
+                _loop_mark = _position;
+            }
+            // CPython: Always has at least 1 item
+            return _items;
+        }
+
+        private GeneratedAstNodeSeq? _Loop1_19()
+        {
+            var _items = new GeneratedAstNodeSeq();
+            // CPython: First element required
+            // Call rule: compare_op_bitwise_or_pair
             var _first = CompareOpBitwiseOrPair();
-            Console.WriteLine($"[DEBUG] _Loop1_11(): _first = {(_first == null ? "null" : "not null")}, position={_position}");
-            if (_first == null)
-            {
-                Console.WriteLine($"[DEBUG] _Loop1_11(): First element null, returning null");
-                return null;
-            }
+            if (_first == null) return null;
             _items.Add(_first);
             int _loop_mark = _position;  // CPython: int _mark = p->mark
-            int _loop_iteration = 0;
             while (true)
             {
-                _loop_iteration++;
-                Console.WriteLine($"[DEBUG] _Loop1_11(): Loop iteration {_loop_iteration}, position={_position}");
-                if (_loop_iteration > 100) { Console.WriteLine($"[DEBUG] _Loop1_11(): WARNING - Too many iterations!"); break; }
+                // Call rule: compare_op_bitwise_or_pair
                 var _item = CompareOpBitwiseOrPair();
-                Console.WriteLine($"[DEBUG] _Loop1_11(): _item = {(_item == null ? "null" : "not null")}, position={_position}");
                 if (_item == null)
                 {
                     // CPython: p->mark = _mark (restore to last success position)
-                    Console.WriteLine($"[DEBUG] _Loop1_11(): Restoring position from {_position} to {_loop_mark}");
                     _position = _loop_mark;
                     break;
                 }
@@ -34677,17 +34714,17 @@ namespace SharpPy.Generated
                 // CPython: _mark = p->mark (save position after success)
                 _loop_mark = _position;
             }
-            Console.WriteLine($"[DEBUG] _Loop1_11(): Returning {_items.Count} items");
             // CPython: Always has at least 1 item
             return _items;
         }
 
-        private GeneratedArgSeq? _Loop0_12()
+        private GeneratedArgSeq? _Loop0_20()
         {
             var _items = new GeneratedArgSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
             while (true)
             {
+                // Call rule: lambda_param_no_default
                 var _item = LambdaParamNoDefault();
                 if (_item == null)
                 {
@@ -34704,12 +34741,13 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedAstNodeSeq? _Loop0_13()
+        private GeneratedAstNodeSeq? _Loop0_21()
         {
             var _items = new GeneratedAstNodeSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
             while (true)
             {
+                // Call rule: lambda_param_with_default
                 var _item = LambdaParamWithDefault();
                 if (_item == null)
                 {
@@ -34726,33 +34764,22 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedArgSeq? _Loop1_14()
+        private GeneratedArgSeq? _Loop1_22()
         {
-            Console.WriteLine($"[DEBUG] _Loop1_14() START: position={_position}");
             var _items = new GeneratedArgSeq();
             // CPython: First element required
-            Console.WriteLine($"[DEBUG] _Loop1_14(): Calling first LambdaParamNoDefault()...");
+            // Call rule: lambda_param_no_default
             var _first = LambdaParamNoDefault();
-            Console.WriteLine($"[DEBUG] _Loop1_14(): _first = {(_first == null ? "null" : "not null")}, position={_position}");
-            if (_first == null)
-            {
-                Console.WriteLine($"[DEBUG] _Loop1_14(): First element null, returning null");
-                return null;
-            }
+            if (_first == null) return null;
             _items.Add(_first);
             int _loop_mark = _position;  // CPython: int _mark = p->mark
-            int _loop_iteration = 0;
             while (true)
             {
-                _loop_iteration++;
-                Console.WriteLine($"[DEBUG] _Loop1_14(): Loop iteration {_loop_iteration}, position={_position}");
-                if (_loop_iteration > 100) { Console.WriteLine($"[DEBUG] _Loop1_14(): WARNING - Too many iterations!"); break; }
+                // Call rule: lambda_param_no_default
                 var _item = LambdaParamNoDefault();
-                Console.WriteLine($"[DEBUG] _Loop1_14(): _item = {(_item == null ? "null" : "not null")}, position={_position}");
                 if (_item == null)
                 {
                     // CPython: p->mark = _mark (restore to last success position)
-                    Console.WriteLine($"[DEBUG] _Loop1_14(): Restoring position from {_position} to {_loop_mark}");
                     _position = _loop_mark;
                     break;
                 }
@@ -34760,38 +34787,26 @@ namespace SharpPy.Generated
                 // CPython: _mark = p->mark (save position after success)
                 _loop_mark = _position;
             }
-            Console.WriteLine($"[DEBUG] _Loop1_14(): Returning {_items.Count} items");
             // CPython: Always has at least 1 item
             return _items;
         }
 
-        private GeneratedAstNodeSeq? _Loop1_15()
+        private GeneratedAstNodeSeq? _Loop1_23()
         {
-            Console.WriteLine($"[DEBUG] _Loop1_15() START: position={_position}");
             var _items = new GeneratedAstNodeSeq();
             // CPython: First element required
-            Console.WriteLine($"[DEBUG] _Loop1_15(): Calling first LambdaParamWithDefault()...");
+            // Call rule: lambda_param_with_default
             var _first = LambdaParamWithDefault();
-            Console.WriteLine($"[DEBUG] _Loop1_15(): _first = {(_first == null ? "null" : "not null")}, position={_position}");
-            if (_first == null)
-            {
-                Console.WriteLine($"[DEBUG] _Loop1_15(): First element null, returning null");
-                return null;
-            }
+            if (_first == null) return null;
             _items.Add(_first);
             int _loop_mark = _position;  // CPython: int _mark = p->mark
-            int _loop_iteration = 0;
             while (true)
             {
-                _loop_iteration++;
-                Console.WriteLine($"[DEBUG] _Loop1_15(): Loop iteration {_loop_iteration}, position={_position}");
-                if (_loop_iteration > 100) { Console.WriteLine($"[DEBUG] _Loop1_15(): WARNING - Too many iterations!"); break; }
+                // Call rule: lambda_param_with_default
                 var _item = LambdaParamWithDefault();
-                Console.WriteLine($"[DEBUG] _Loop1_15(): _item = {(_item == null ? "null" : "not null")}, position={_position}");
                 if (_item == null)
                 {
                     // CPython: p->mark = _mark (restore to last success position)
-                    Console.WriteLine($"[DEBUG] _Loop1_15(): Restoring position from {_position} to {_loop_mark}");
                     _position = _loop_mark;
                     break;
                 }
@@ -34799,17 +34814,17 @@ namespace SharpPy.Generated
                 // CPython: _mark = p->mark (save position after success)
                 _loop_mark = _position;
             }
-            Console.WriteLine($"[DEBUG] _Loop1_15(): Returning {_items.Count} items");
             // CPython: Always has at least 1 item
             return _items;
         }
 
-        private GeneratedAstNodeSeq? _Loop0_16()
+        private GeneratedAstNodeSeq? _Loop0_24()
         {
             var _items = new GeneratedAstNodeSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
             while (true)
             {
+                // Call rule: lambda_param_maybe_default
                 var _item = LambdaParamMaybeDefault();
                 if (_item == null)
                 {
@@ -34826,33 +34841,22 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedAstNodeSeq? _Loop1_17()
+        private GeneratedAstNodeSeq? _Loop1_25()
         {
-            Console.WriteLine($"[DEBUG] _Loop1_17() START: position={_position}");
             var _items = new GeneratedAstNodeSeq();
             // CPython: First element required
-            Console.WriteLine($"[DEBUG] _Loop1_17(): Calling first LambdaParamMaybeDefault()...");
+            // Call rule: lambda_param_maybe_default
             var _first = LambdaParamMaybeDefault();
-            Console.WriteLine($"[DEBUG] _Loop1_17(): _first = {(_first == null ? "null" : "not null")}, position={_position}");
-            if (_first == null)
-            {
-                Console.WriteLine($"[DEBUG] _Loop1_17(): First element null, returning null");
-                return null;
-            }
+            if (_first == null) return null;
             _items.Add(_first);
             int _loop_mark = _position;  // CPython: int _mark = p->mark
-            int _loop_iteration = 0;
             while (true)
             {
-                _loop_iteration++;
-                Console.WriteLine($"[DEBUG] _Loop1_17(): Loop iteration {_loop_iteration}, position={_position}");
-                if (_loop_iteration > 100) { Console.WriteLine($"[DEBUG] _Loop1_17(): WARNING - Too many iterations!"); break; }
+                // Call rule: lambda_param_maybe_default
                 var _item = LambdaParamMaybeDefault();
-                Console.WriteLine($"[DEBUG] _Loop1_17(): _item = {(_item == null ? "null" : "not null")}, position={_position}");
                 if (_item == null)
                 {
                     // CPython: p->mark = _mark (restore to last success position)
-                    Console.WriteLine($"[DEBUG] _Loop1_17(): Restoring position from {_position} to {_loop_mark}");
                     _position = _loop_mark;
                     break;
                 }
@@ -34860,17 +34864,17 @@ namespace SharpPy.Generated
                 // CPython: _mark = p->mark (save position after success)
                 _loop_mark = _position;
             }
-            Console.WriteLine($"[DEBUG] _Loop1_17(): Returning {_items.Count} items");
             // CPython: Always has at least 1 item
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop0_18()
+        private GeneratedExprSeq? _Loop0_26()
         {
             var _items = new GeneratedExprSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
             while (true)
             {
+                // Call rule: fstring_format_spec
                 var _item = FstringFormatSpec();
                 if (_item == null)
                 {
@@ -34887,12 +34891,13 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop0_19()
+        private GeneratedExprSeq? _Loop0_27()
         {
             var _items = new GeneratedExprSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
             while (true)
             {
+                // Call rule: fstring_middle
                 var _item = FstringMiddle();
                 if (_item == null)
                 {
@@ -34909,33 +34914,62 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedComprehensionSeq? _Loop1_20()
+        private GeneratedExprSeq? _Loop1_28()
         {
-            Console.WriteLine($"[DEBUG] _Loop1_20() START: position={_position}");
-            var _items = new GeneratedComprehensionSeq();
+            var _items = new GeneratedExprSeq();
             // CPython: First element required
-            Console.WriteLine($"[DEBUG] _Loop1_20(): Calling first ForIfClause()...");
-            var _first = ForIfClause();
-            Console.WriteLine($"[DEBUG] _Loop1_20(): _first = {(_first == null ? "null" : "not null")}, position={_position}");
+            // Group: (fstring | string)
+            GeneratedExpr? _first = null;
+            int _group_mark__first = _position;
+            // Try group alternative 1: fstring
+            {
+                _position = _group_mark__first;
+                GeneratedExpr _group_alt0__first_item0 = Fstring();
+                if (_group_alt0__first_item0 != null)
+                {
+                    _first = _group_alt0__first_item0;
+                }
+            }
+            // Try group alternative 2: string
             if (_first == null)
             {
-                Console.WriteLine($"[DEBUG] _Loop1_20(): First element null, returning null");
-                return null;
+                _position = _group_mark__first;
+                GeneratedExpr _group_alt1__first_item0 = String();
+                if (_group_alt1__first_item0 != null)
+                {
+                    _first = _group_alt1__first_item0;
+                }
             }
+            if (_first == null) return null;
             _items.Add(_first);
             int _loop_mark = _position;  // CPython: int _mark = p->mark
-            int _loop_iteration = 0;
             while (true)
             {
-                _loop_iteration++;
-                Console.WriteLine($"[DEBUG] _Loop1_20(): Loop iteration {_loop_iteration}, position={_position}");
-                if (_loop_iteration > 100) { Console.WriteLine($"[DEBUG] _Loop1_20(): WARNING - Too many iterations!"); break; }
-                var _item = ForIfClause();
-                Console.WriteLine($"[DEBUG] _Loop1_20(): _item = {(_item == null ? "null" : "not null")}, position={_position}");
+                // Group: (fstring | string)
+                GeneratedExpr? _item = null;
+                int _group_mark__item = _position;
+                // Try group alternative 1: fstring
+                {
+                    _position = _group_mark__item;
+                    GeneratedExpr _group_alt0__item_item0 = Fstring();
+                    if (_group_alt0__item_item0 != null)
+                    {
+                        _item = _group_alt0__item_item0;
+                    }
+                }
+                // Try group alternative 2: string
+                if (_item == null)
+                {
+                    _position = _group_mark__item;
+                    GeneratedExpr _group_alt1__item_item0 = String();
+                    if (_group_alt1__item_item0 != null)
+                    {
+                        _item = _group_alt1__item_item0;
+                    }
+                }
                 if (_item == null)
                 {
                     // CPython: p->mark = _mark (restore to last success position)
-                    Console.WriteLine($"[DEBUG] _Loop1_20(): Restoring position from {_position} to {_loop_mark}");
                     _position = _loop_mark;
                     break;
                 }
@@ -34943,17 +34977,210 @@ namespace SharpPy.Generated
                 // CPython: _mark = p->mark (save position after success)
                 _loop_mark = _position;
             }
-            Console.WriteLine($"[DEBUG] _Loop1_20(): Returning {_items.Count} items");
             // CPython: Always has at least 1 item
             return _items;
         }
 
-        private List<GeneratedExprSeq>? _Loop0_21()
+        private GeneratedComprehensionSeq? _Loop1_29()
+        {
+            var _items = new GeneratedComprehensionSeq();
+            // CPython: First element required
+            // Call rule: for_if_clause
+            var _first = ForIfClause();
+            if (_first == null) return null;
+            _items.Add(_first);
+            int _loop_mark = _position;  // CPython: int _mark = p->mark
+            while (true)
+            {
+                // Call rule: for_if_clause
+                var _item = ForIfClause();
+                if (_item == null)
+                {
+                    // CPython: p->mark = _mark (restore to last success position)
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(_item);
+                // CPython: _mark = p->mark (save position after success)
+                _loop_mark = _position;
+            }
+            // CPython: Always has at least 1 item
+            return _items;
+        }
+
+        private GeneratedExprSeq? _Loop0_30()
+        {
+            var _items = new GeneratedExprSeq();
+            int _loop_mark = _position;  // CPython: int _mark = p->mark
+            while (true)
+            {
+                // Group: ('if' z=disjunction { z })
+                GeneratedExpr? _item = null;
+                int _group_mark__item = _position;
+                // Try group alternative 1: 'if' z=disjunction { z }
+                {
+                    _position = _group_mark__item;
+                    GeneratedTokenInfo? _group_alt0__item_item0 = Expect("if");
+                    if (_group_alt0__item_item0 != null)
+                    {
+                        GeneratedExpr _group_alt0__item_item1 = Disjunction();
+                        if (_group_alt0__item_item1 != null)
+                        {
+                            _item = _group_alt0__item_item1;
+                        }
+                    }
+                }
+                if (_item == null)
+                {
+                    // CPython: p->mark = _mark (restore to last success position)
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(_item);
+                // CPython: _mark = p->mark (save position after success)
+                _loop_mark = _position;
+            }
+            // CPython: Returns NULL if totalSize == 0
+            if (_items.Count == 0) return null;
+            return _items;
+        }
+
+        private GeneratedExprSeq? _Loop0_31()
+        {
+            var _items = new GeneratedExprSeq();
+            int _loop_mark = _position;  // CPython: int _mark = p->mark
+            while (true)
+            {
+                // Group: ('if' z=disjunction { z })
+                GeneratedExpr? _item = null;
+                int _group_mark__item = _position;
+                // Try group alternative 1: 'if' z=disjunction { z }
+                {
+                    _position = _group_mark__item;
+                    GeneratedTokenInfo? _group_alt0__item_item0 = Expect("if");
+                    if (_group_alt0__item_item0 != null)
+                    {
+                        GeneratedExpr _group_alt0__item_item1 = Disjunction();
+                        if (_group_alt0__item_item1 != null)
+                        {
+                            _item = _group_alt0__item_item1;
+                        }
+                    }
+                }
+                if (_item == null)
+                {
+                    // CPython: p->mark = _mark (restore to last success position)
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(_item);
+                // CPython: _mark = p->mark (save position after success)
+                _loop_mark = _position;
+            }
+            // CPython: Returns NULL if totalSize == 0
+            if (_items.Count == 0) return null;
+            return _items;
+        }
+
+        private GeneratedExprSeq? _Loop0_32()
+        {
+            var _items = new GeneratedExprSeq();
+            int _loop_mark = _position;  // CPython: int _mark = p->mark
+            while (true)
+            {
+                // Group: (',' c=star_target { c })
+                GeneratedExpr? _item = null;
+                int _group_mark__item = _position;
+                // Try group alternative 1: ',' c=star_target { c }
+                {
+                    _position = _group_mark__item;
+                    GeneratedTokenInfo? _group_alt0__item_item0 = Expect(",");
+                    if (_group_alt0__item_item0 != null)
+                    {
+                        GeneratedExpr _group_alt0__item_item1 = StarTarget();
+                        if (_group_alt0__item_item1 != null)
+                        {
+                            _item = _group_alt0__item_item1;
+                        }
+                    }
+                }
+                if (_item == null)
+                {
+                    // CPython: p->mark = _mark (restore to last success position)
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(_item);
+                // CPython: _mark = p->mark (save position after success)
+                _loop_mark = _position;
+            }
+            // CPython: Returns NULL if totalSize == 0
+            if (_items.Count == 0) return null;
+            return _items;
+        }
+
+        private GeneratedExprSeq? _Loop1_33()
+        {
+            var _items = new GeneratedExprSeq();
+            // CPython: First element required
+            // Group: (',' c=star_target { c })
+            GeneratedExpr? _first = null;
+            int _group_mark__first = _position;
+            // Try group alternative 1: ',' c=star_target { c }
+            {
+                _position = _group_mark__first;
+                GeneratedTokenInfo? _group_alt0__first_item0 = Expect(",");
+                if (_group_alt0__first_item0 != null)
+                {
+                    GeneratedExpr _group_alt0__first_item1 = StarTarget();
+                    if (_group_alt0__first_item1 != null)
+                    {
+                        _first = _group_alt0__first_item1;
+                    }
+                }
+            }
+            if (_first == null) return null;
+            _items.Add(_first);
+            int _loop_mark = _position;  // CPython: int _mark = p->mark
+            while (true)
+            {
+                // Group: (',' c=star_target { c })
+                GeneratedExpr? _item = null;
+                int _group_mark__item = _position;
+                // Try group alternative 1: ',' c=star_target { c }
+                {
+                    _position = _group_mark__item;
+                    GeneratedTokenInfo? _group_alt0__item_item0 = Expect(",");
+                    if (_group_alt0__item_item0 != null)
+                    {
+                        GeneratedExpr _group_alt0__item_item1 = StarTarget();
+                        if (_group_alt0__item_item1 != null)
+                        {
+                            _item = _group_alt0__item_item1;
+                        }
+                    }
+                }
+                if (_item == null)
+                {
+                    // CPython: p->mark = _mark (restore to last success position)
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(_item);
+                // CPython: _mark = p->mark (save position after success)
+                _loop_mark = _position;
+            }
+            // CPython: Always has at least 1 item
+            return _items;
+        }
+
+        private List<GeneratedExprSeq>? _Loop0_34()
         {
             var _items = new List<GeneratedExprSeq>();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
             while (true)
             {
+                // Call rule: star_named_expressions
                 var _item = StarNamedExpressions();
                 if (_item == null)
                 {
@@ -34970,12 +35197,87 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private List<GeneratedStmtSeq>? _Loop0_22()
+        private List<GeneratedTokenInfo>? _Loop0_35()
+        {
+            var _items = new List<GeneratedTokenInfo>();
+            int _loop_mark = _position;  // CPython: int _mark = p->mark
+            while (true)
+            {
+                // Group: (star_targets '=')
+                GeneratedTokenInfo? _item = null;
+                int _group_mark__item = _position;
+                // Try group alternative 1: star_targets '='
+                {
+                    _position = _group_mark__item;
+                    GeneratedExpr _group_alt0__item_item0 = StarTargets();
+                    if (_group_alt0__item_item0 != null)
+                    {
+                        GeneratedTokenInfo? _group_alt0__item_item1 = Expect("=");
+                        if (_group_alt0__item_item1 != null)
+                        {
+                            _item = _group_alt0__item_item1;
+                        }
+                    }
+                }
+                if (_item == null)
+                {
+                    // CPython: p->mark = _mark (restore to last success position)
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(_item);
+                // CPython: _mark = p->mark (save position after success)
+                _loop_mark = _position;
+            }
+            // CPython: Returns NULL if totalSize == 0
+            if (_items.Count == 0) return null;
+            return _items;
+        }
+
+        private List<GeneratedTokenInfo>? _Loop0_36()
+        {
+            var _items = new List<GeneratedTokenInfo>();
+            int _loop_mark = _position;  // CPython: int _mark = p->mark
+            while (true)
+            {
+                // Group: (star_targets '=')
+                GeneratedTokenInfo? _item = null;
+                int _group_mark__item = _position;
+                // Try group alternative 1: star_targets '='
+                {
+                    _position = _group_mark__item;
+                    GeneratedExpr _group_alt0__item_item0 = StarTargets();
+                    if (_group_alt0__item_item0 != null)
+                    {
+                        GeneratedTokenInfo? _group_alt0__item_item1 = Expect("=");
+                        if (_group_alt0__item_item1 != null)
+                        {
+                            _item = _group_alt0__item_item1;
+                        }
+                    }
+                }
+                if (_item == null)
+                {
+                    // CPython: p->mark = _mark (restore to last success position)
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(_item);
+                // CPython: _mark = p->mark (save position after success)
+                _loop_mark = _position;
+            }
+            // CPython: Returns NULL if totalSize == 0
+            if (_items.Count == 0) return null;
+            return _items;
+        }
+
+        private List<GeneratedStmtSeq>? _Loop0_37()
         {
             var _items = new List<GeneratedStmtSeq>();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
             while (true)
             {
+                // Call rule: block
                 var _item = Block();
                 if (_item == null)
                 {
