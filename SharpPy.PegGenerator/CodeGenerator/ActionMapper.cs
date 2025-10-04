@@ -654,7 +654,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     return "GeneratedExceptHandlerSeq";
 
                 case "asdl_withitem_seq":
-                    return "GeneratedWithItemSeq";
+                    return "GeneratedWithitemSeq";
 
                 case "asdl_match_case_seq":
                     return "GeneratedMatchCaseSeq";

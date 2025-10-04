@@ -2231,7 +2231,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 "asdl_match_case_seq*" => "GeneratedMatchCaseSeq", // Match case sequence
                 "asdl_pattern_seq*" => "GeneratedAstNodeSeq", // Pattern sequence (use generic until specific type needed)
                 "asdl_type_param_seq*" => "GeneratedTypeParamSeq", // Type parameter sequence
-                "asdl_withitem_seq*" => "GeneratedWithItemSeq", // With item sequence
+                "asdl_withitem_seq*" => "GeneratedWithitemSeq", // With item sequence (lowercase 'i' matches Python.asdl)
                 "stmt_ty" => "GeneratedStmt", // Statement type
                 "expr_ty" => "GeneratedExpr", // Expression type
                 "pattern_ty" => "GeneratedPattern", // Pattern type (CPython 3.10+)
@@ -2242,7 +2242,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 "excepthandler_ty" => "GeneratedExceptHandler", // Exception handler type
                 "match_case_ty" => "GeneratedMatchCase", // Match case type (CPython 3.10+)
                 "type_param_ty" => "GeneratedTypeParam", // Type parameter (CPython 3.12+)
-                "withitem_ty" => "GeneratedWithItem", // With statement item type
+                "withitem_ty" => "GeneratedWithitem", // With statement item type (lowercase 'i' matches Python.asdl)
                 "asdl_seq*" => "GeneratedSeq", // Generic sequence
                 "asdl_identifier_seq*" => "GeneratedIdentifierSeq", // Identifier sequence
                 "KeywordOrStarred*" => "GeneratedKeywordOrStarred", // Keyword or starred argument

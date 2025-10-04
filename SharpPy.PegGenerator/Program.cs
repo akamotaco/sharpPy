@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using SharpPy.PegGenerator.Grammar;
 using SharpPy.PegGenerator.CodeGenerator;
+using SharpPy.PegGenerator.Asdl;
 
 namespace SharpPy.PegGenerator
 {
@@ -17,7 +18,10 @@ namespace SharpPy.PegGenerator
                 // Default paths relative to the main SharpPy project
                 var grammarPath = Path.Combine("..", "Grammar", "python.gram");
                 var tokensPath = Path.Combine("..", "Grammar", "Tokens");
+                var asdlPath = Path.Combine("..", "Grammar", "Python.asdl");
                 var parserOutputPath = Path.Combine("..", "Generated", "PyParser.cs");
+                var astTypesOutputPath = Path.Combine("..", "Generated", "GeneratedAstTypes.cs");
+                var parserBaseOutputPath = Path.Combine("..", "Generated", "PyParserBase.cs");
 
                 // Parse command line arguments
                 for (int i = 0; i < args.Length; i++)
@@ -35,6 +39,14 @@ namespace SharpPy.PegGenerator
                         case "--parser-output":
                             if (i + 1 < args.Length)
                                 parserOutputPath = args[++i];
+                            break;
+                        case "--asdl":
+                            if (i + 1 < args.Length)
+                                asdlPath = args[++i];
+                            break;
+                        case "--ast-output":
+                            if (i + 1 < args.Length)
+                                astTypesOutputPath = args[++i];
                             break;
                         case "--test-simple":
                             // Test with simple grammar
@@ -59,10 +71,76 @@ namespace SharpPy.PegGenerator
                     return;
                 }
 
+                if (!File.Exists(asdlPath))
+                {
+                    Console.WriteLine($"Error: ASDL file not found: {asdlPath}");
+                    return;
+                }
+
+                Console.WriteLine($"Reading ASDL from: {asdlPath}");
                 Console.WriteLine($"Reading grammar from: {grammarPath}");
                 Console.WriteLine($"Reading tokens from: {tokensPath}");
+                Console.WriteLine($"AST types output will be written to: {astTypesOutputPath}");
+                Console.WriteLine($"Parser base output will be written to: {parserBaseOutputPath}");
                 Console.WriteLine($"Parser output will be written to: {parserOutputPath}");
                 Console.WriteLine();
+
+                // ============================================================
+                // Phase 1: Generate AST Types from ASDL (CPython: asdl_c.py)
+                // ============================================================
+                Console.WriteLine("=== Phase 1: Generating AST Types from ASDL ===");
+                Console.WriteLine("Reading ASDL...");
+                var asdlContent = File.ReadAllText(asdlPath);
+
+                Console.WriteLine("Parsing ASDL...");
+                var asdlParser = new AsdlParser();
+                var asdlModule = asdlParser.Parse(asdlContent);
+                Console.WriteLine($"Parsed ASDL module '{asdlModule.Name}' with {asdlModule.Types.Count} types");
+
+                Console.WriteLine("Generating C# AST types...");
+                var astCodeGenerator = new AsdlCodeGenerator();
+                var generatedAstCode = astCodeGenerator.GenerateAstTypes(asdlModule);
+
+                // Ensure output directory exists
+                var astOutputDir = Path.GetDirectoryName(astTypesOutputPath);
+                if (!string.IsNullOrEmpty(astOutputDir) && !Directory.Exists(astOutputDir))
+                {
+                    Directory.CreateDirectory(astOutputDir);
+                    Console.WriteLine($"Created AST output directory: {astOutputDir}");
+                }
+
+                // Write AST types output
+                File.WriteAllText(astTypesOutputPath, generatedAstCode);
+                Console.WriteLine($"Generated AST types written to: {astTypesOutputPath}");
+                Console.WriteLine($"Generated AST code size: {generatedAstCode.Length} characters");
+                Console.WriteLine();
+
+                // ============================================================
+                // Phase 1.5: Generate PyParserBase from ASDL (CPython: Python-ast.c)
+                // ============================================================
+                Console.WriteLine("=== Phase 1.5: Generating PyParserBase from ASDL ===");
+                Console.WriteLine("Generating PyParserBase with _PyAST_* helpers...");
+                var parserBaseGenerator = new PyParserBaseGenerator();
+                var generatedParserBase = parserBaseGenerator.GenerateParserBase(asdlModule);
+
+                // Ensure output directory exists for PyParserBase
+                var parserBaseOutputDir = Path.GetDirectoryName(parserBaseOutputPath);
+                if (!string.IsNullOrEmpty(parserBaseOutputDir) && !Directory.Exists(parserBaseOutputDir))
+                {
+                    Directory.CreateDirectory(parserBaseOutputDir);
+                    Console.WriteLine($"Created parser base output directory: {parserBaseOutputDir}");
+                }
+
+                // Write PyParserBase output
+                File.WriteAllText(parserBaseOutputPath, generatedParserBase);
+                Console.WriteLine($"Generated PyParserBase written to: {parserBaseOutputPath}");
+                Console.WriteLine($"Generated PyParserBase code size: {generatedParserBase.Length} characters");
+                Console.WriteLine();
+
+                // ============================================================
+                // Phase 2: Generate Parser from Grammar (CPython: pegen.c)
+                // ============================================================
+                Console.WriteLine("=== Phase 2: Generating Parser from Grammar ===");
 
                 // Read and parse tokens
                 Console.WriteLine("Reading tokens...");
@@ -102,7 +180,7 @@ namespace SharpPy.PegGenerator
                 Console.WriteLine($"Generated parser code size: {generatedParserCode.Length} characters");
 
                 Console.WriteLine();
-                Console.WriteLine("✅ Parser generation completed successfully!");
+                Console.WriteLine("✅ AST types and parser generation completed successfully!");
             }
             catch (Exception ex)
             {
@@ -120,8 +198,10 @@ namespace SharpPy.PegGenerator
             Console.WriteLine("Usage: SharpPy.PegGenerator [options]");
             Console.WriteLine();
             Console.WriteLine("Options:");
+            Console.WriteLine("  --asdl <path>           Path to Python.asdl file (default: ../Grammar/Python.asdl)");
             Console.WriteLine("  --grammar <path>        Path to python.gram file (default: ../Grammar/python.gram)");
             Console.WriteLine("  --tokens <path>         Path to Tokens file (default: ../Grammar/Tokens)");
+            Console.WriteLine("  --ast-output <path>     AST types output C# file path (default: ../Generated/GeneratedAstTypes.cs)");
             Console.WriteLine("  --parser-output <path>  Parser output C# file path (default: ../Generated/PyParser.cs)");
             Console.WriteLine("  --help                  Show this help message");
             Console.WriteLine();

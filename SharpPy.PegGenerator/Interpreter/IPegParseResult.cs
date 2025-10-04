@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using SharpPy.Generated;
 
 namespace SharpPy.PegGenerator.Interpreter
 {
@@ -53,9 +52,9 @@ namespace SharpPy.PegGenerator.Interpreter
     /// </summary>
     public sealed class PegTokenResult : PegParseResult
     {
-        public GeneratedTokenInfo Token { get; }
+        public ITokenInfo Token { get; }
 
-        public PegTokenResult(GeneratedTokenInfo token, int endPosition)
+        public PegTokenResult(ITokenInfo token, int endPosition)
             : base(true, endPosition)
         {
             Token = token ?? throw new ArgumentNullException(nameof(token));

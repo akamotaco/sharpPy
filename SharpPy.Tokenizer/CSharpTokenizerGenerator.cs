@@ -53,29 +53,13 @@ namespace SharpPy.Tokenizer
             WriteLine("{");
             Indent();
 
-            GenerateGeneratedPtrClass(); // CPython 3.12: void* equivalent base class
+            // GeneratedPtr is now defined in GeneratedAstTypes.cs
             GenerateTokenTypeEnum(); // Generate enum from Grammar/Tokens
             GenerateTokenInfoClass();
             GenerateGeneratedTokenizerClass();
 
             Dedent();
             WriteLine("}"); // Close namespace
-        }
-
-        private void GenerateGeneratedPtrClass()
-        {
-            WriteLine("/// <summary>");
-            WriteLine("/// CPython 3.12: Equivalent of C's void* - base class for all generated types");
-            WriteLine("/// This replaces object type usage to maintain type safety");
-            WriteLine("/// All AST nodes, tokens, and helper types inherit from this");
-            WriteLine("/// </summary>");
-            WriteLine("public abstract class GeneratedPtr");
-            WriteLine("{");
-            Indent();
-            WriteLine("// Minimal base class - just provides type hierarchy");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
         }
 
         private void GenerateTokenTypeEnum()
@@ -114,11 +98,11 @@ namespace SharpPy.Tokenizer
             WriteLine("}");
             WriteLine();
 
-            // Generate GeneratedTokenInfo implementing ITokenInfo and inheriting from GeneratedPtr
+            // Generate GeneratedTokenInfo implementing ITokenInfo
             WriteLine("/// <summary>");
             WriteLine("/// CPython 3.12 compatible token info");
             WriteLine("/// </summary>");
-            WriteLine("public class GeneratedTokenInfo : GeneratedPtr, ITokenInfo");
+            WriteLine("public class GeneratedTokenInfo : ITokenInfo");
             WriteLine("{");
             Indent();
 

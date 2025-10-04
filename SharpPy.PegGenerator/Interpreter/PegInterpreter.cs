@@ -2,10 +2,21 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using SharpPy.PegGenerator.Grammar;
-using SharpPy.Generated;
 
 namespace SharpPy.PegGenerator.Interpreter
 {
+    /// <summary>
+    /// Token information interface (CPython 3.12 compatible)
+    /// Minimal interface for PegInterpreter - actual implementation in Generated/PyTokenizer.cs
+    /// </summary>
+    public interface ITokenInfo
+    {
+        int Type { get; }
+        string Value { get; }
+        int Line { get; }
+        int Column { get; }
+    }
+
     /// <summary>
     /// Parser context types for tracking parsing state
     /// CPython 3.12 compatible context management
@@ -133,7 +144,7 @@ namespace SharpPy.PegGenerator.Interpreter
     public class PegInterpreter
     {
         private readonly Grammar.Grammar _grammar;
-        private readonly List<GeneratedTokenInfo> _tokens;
+        private readonly List<ITokenInfo> _tokens;
         private int _position;
         // ===== Performance Optimization: Cache Management =====
         private readonly Dictionary<(int, string), IPegParseResult> _memoCache = new();
@@ -142,7 +153,7 @@ namespace SharpPy.PegGenerator.Interpreter
         private int _cacheHits = 0;
         private int _cacheMisses = 0;
 
-        private readonly Dictionary<string, GeneratedPtr?> _variables = new();
+        private readonly Dictionary<string, object?> _variables = new();
         private readonly HashSet<(int, string)> _activeRules = new(); // Track active rules to prevent left recursion
         private readonly Dictionary<string, bool> _leftRecursiveRules = new(); // Cache for left-recursive rule detection
         private readonly Dictionary<string, IPegParseResult> _seedResults = new(); // Store seed results for left-recursive expansion
@@ -157,7 +168,7 @@ namespace SharpPy.PegGenerator.Interpreter
         private readonly Stack<ParserContext> _contextStack = new();
         private int _indentLevel = 0; // Track current indentation level
 
-        public PegInterpreter(Grammar.Grammar grammar, List<GeneratedTokenInfo> tokens)
+        public PegInterpreter(Grammar.Grammar grammar, List<ITokenInfo> tokens)
         {
             _grammar = grammar ?? throw new ArgumentNullException(nameof(grammar));
             _tokens = tokens ?? throw new ArgumentNullException(nameof(tokens));
@@ -170,7 +181,7 @@ namespace SharpPy.PegGenerator.Interpreter
         /// <summary>
         /// Current token for parsing
         /// </summary>
-        private GeneratedTokenInfo? CurrentToken => _position < _tokens.Count ? _tokens[_position] : null;
+        private ITokenInfo? CurrentToken => _position < _tokens.Count ? _tokens[_position] : null;
 
         /// <summary>
         /// Check if we're at end of tokens
@@ -1198,8 +1209,14 @@ namespace SharpPy.PegGenerator.Interpreter
         /// </summary>
         private bool IsTokenType(string name)
         {
-            // Check if the name corresponds to a GeneratedTokenType enum value
-            return Enum.TryParse<GeneratedTokenType>(name, out _);
+            // CPython 3.12 token types (string-based check since enum is in generated code)
+            // Common token types: NAME, NUMBER, STRING, OP, NEWLINE, INDENT, DEDENT, etc.
+            var tokenTypes = new HashSet<string> {
+                "NAME", "NUMBER", "STRING", "OP", "NEWLINE", "INDENT", "DEDENT",
+                "ENDMARKER", "NL", "COMMENT", "ERRORTOKEN", "ENCODING", "FSTRING_START",
+                "FSTRING_MIDDLE", "FSTRING_END", "TYPE_COMMENT", "TYPE_IGNORE"
+            };
+            return tokenTypes.Contains(name.ToUpper());
         }
 
         /// <summary>
