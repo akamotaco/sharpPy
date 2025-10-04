@@ -206,16 +206,17 @@ namespace SharpPy
 
                 case GeneratedAugAssign augAssign:
                     // Augmented assignment statement (name += value)
+                    // CPython 3.12: operator is a type, not a string
                     {
-                        var target = augAssign.Target;  // Already GeneratedExpr
-                        var op = augAssign.Op;          // Already string (operator)
-                        var value = augAssign.Value;    // Already GeneratedExpr
+                        var target = augAssign.Target;
+                        var op = augAssign.Op;  // GeneratedOperator
+                        var value = augAssign.Value;
 
 #if DEBUG_LOG
-                        Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Target={target != null}, Op='{op}', Value={value != null}");
+                        Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Target={target != null}, Op={op?.GetType().Name}, Value={value != null}");
 #endif
 
-                        if (target != null && !string.IsNullOrEmpty(op) && value != null)
+                        if (target != null && op != null && value != null)
                         {
                             // Convert target expression
                             var targetExpr = ConvertAnyExpression(target);
@@ -223,12 +224,15 @@ namespace SharpPy
                             // Convert value expression
                             var valueExpr = ConvertAnyExpression(value);
 
+                            // Convert operator
+                            var opNode = ConvertGeneratedOperator(op);
+
                             if (targetExpr is NameExpression nameExpr)
                             {
 #if DEBUG_LOG
-                                Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Creating AugAssignStatement with target='{nameExpr.Name}', op='{op}'");
+                                Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Creating AugAssignStatement with target='{nameExpr.Name}', op={opNode.OperatorType}");
 #endif
-                                return new AugAssignStatement(nameExpr.Name, op, valueExpr);
+                                return new AugAssignStatement(nameExpr.Name, opNode, valueExpr);
                             }
                         }
                     }
@@ -576,7 +580,7 @@ namespace SharpPy
                         if (!string.IsNullOrEmpty(name))
                         {
                             // CPython 3.12: Convert arguments to FunctionArguments
-                            var functionArgs = ConvertFunctionArguments(funcData.Arguments);
+                            var functionArgs = ConvertFunctionArguments(funcData.Args);
 
                             // OLD CODE BELOW - will be removed after testing
                             /*
@@ -1293,6 +1297,31 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Convert GeneratedOperator (from ASDL) to Runtime BinaryOperator
+        /// CPython 3.12: Direct type mapping, no string conversion
+        /// </summary>
+        private static BinaryOperator ConvertGeneratedOperator(GeneratedOperator op)
+        {
+            return op switch
+            {
+                GeneratedAdd _ => Add.Instance,
+                GeneratedSub _ => Sub.Instance,
+                GeneratedMult _ => Mult.Instance,
+                GeneratedDiv _ => Div.Instance,
+                GeneratedFloorDiv _ => FloorDiv.Instance,
+                GeneratedMod _ => Mod.Instance,
+                GeneratedPow _ => Pow.Instance,
+                GeneratedLShift _ => LShift.Instance,
+                GeneratedRShift _ => RShift.Instance,
+                GeneratedBitOr _ => BitOr.Instance,
+                GeneratedBitXor _ => BitXor.Instance,
+                GeneratedBitAnd _ => BitAnd.Instance,
+                GeneratedMatMult _ => MatMult.Instance,
+                _ => throw new NotImplementedException($"Unknown GeneratedOperator: {op.GetType().Name}")
+            };
+        }
+
+        /// <summary>
         /// Convert string operator to CPython 3.12 compatible BinaryOperator node
         /// </summary>
         private static BinaryOperator ConvertToBinaryOperator(string op)
@@ -1516,13 +1545,14 @@ namespace SharpPy
                 ),
 
                 // Boolean operations
+                // CPython 3.12: operators are types, not strings
                 GeneratedBoolOp boolOp => new BoolOpExpression(
-                    ConvertToBoolOperator(boolOp.Op),
+                    ConvertGeneratedBoolop(boolOp.Op),
                     boolOp.Values.AsEnumerable().Select(v => ConvertAnyExpression(v)).ToList()
                 ),
 
                 GeneratedUnaryOp unaryOp => new UnaryOpExpression(
-                    ConvertToUnaryOperator(unaryOp.Op),
+                    ConvertGeneratedUnaryop(unaryOp.Op),
                     ConvertAnyExpression(unaryOp.Operand)
                 ),
 
@@ -1618,7 +1648,7 @@ namespace SharpPy
 
                 // Lambda expressions
                 GeneratedLambda lambda => new LambdaExpression(
-                    ConvertFunctionArgumentsToNames(lambda.Arguments),
+                    ConvertFunctionArgumentsToNames(lambda.Args),
                     ConvertAnyExpression(lambda.Body)
                 ),
 
@@ -1661,6 +1691,22 @@ namespace SharpPy
         /// <summary>
         /// Convert operator string to CPython 3.12 UnaryOperator node
         /// </summary>
+        /// <summary>
+        /// Convert GeneratedUnaryop (from ASDL) to Runtime UnaryOperator
+        /// CPython 3.12: Direct type mapping
+        /// </summary>
+        private static UnaryOperator ConvertGeneratedUnaryop(GeneratedUnaryop op)
+        {
+            return op switch
+            {
+                GeneratedNot _ => Not.Instance,
+                GeneratedUAdd _ => UAdd.Instance,
+                GeneratedUSub _ => USub.Instance,
+                GeneratedInvert _ => Invert.Instance,
+                _ => throw new NotImplementedException($"Unknown GeneratedUnaryop: {op.GetType().Name}")
+            };
+        }
+
         private static UnaryOperator ConvertToUnaryOperator(string op)
         {
             return op switch
@@ -1670,6 +1716,20 @@ namespace SharpPy
                 "USub" => USub.Instance,
                 "Invert" => Invert.Instance,
                 _ => throw new NotImplementedException($"Unknown unary operator: {op}")
+            };
+        }
+
+        /// <summary>
+        /// Convert GeneratedBoolop (from ASDL) to Runtime BoolOperator
+        /// CPython 3.12: Direct type mapping
+        /// </summary>
+        private static BoolOperator ConvertGeneratedBoolop(GeneratedBoolop op)
+        {
+            return op switch
+            {
+                GeneratedAnd _ => And.Instance,
+                GeneratedOr _ => Or.Instance,
+                _ => throw new NotImplementedException($"Unknown GeneratedBoolop: {op.GetType().Name}")
             };
         }
 

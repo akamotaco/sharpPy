@@ -3571,24 +3571,8 @@ namespace SharpPy
             EmitLoadName(augAssign.Target);
             CompileExpression(augAssign.Value);
             
-            // CPython 3.12 정확한 순서로 업데이트됨 - 동일한 BinaryOpType 사용
-            var binaryOpType = augAssign.Op switch
-            {
-                "+=" => BinaryOpType.ADD,           // 0 ✅ 변경 없음  
-                "-=" => BinaryOpType.SUBTRACT,      // 1 (순서 변경됨)
-                "*=" => BinaryOpType.MULTIPLY,      // 2 (순서 변경됨)
-                "/=" => BinaryOpType.TRUE_DIVIDE,   // 3 (순서 변경됨)
-                "//=" => BinaryOpType.FLOOR_DIVIDE, // 4 (순서 변경됨)
-                "%=" => BinaryOpType.MODULO,        // 5 (순서 변경됨)
-                "**=" => BinaryOpType.POWER,        // 6 (순서 변경됨)
-                "<<=" => BinaryOpType.LSHIFT,       // 7 (순서 변경됨)
-                ">>=" => BinaryOpType.RSHIFT,       // 8 (순서 변경됨)
-                "|=" => BinaryOpType.OR,            // 9 (순서 변경됨)
-                "^=" => BinaryOpType.XOR,           // 10 (순서 변경됨)
-                "&=" => BinaryOpType.AND,           // 11 (순서 변경됨)
-                // "@=" => BinaryOpType.MATRIX_MULTIPLY, // Not implemented yet
-                _ => throw new NotImplementedException($"Augment assign operator '{augAssign.Op}' not implemented")
-            };
+            // CPython 3.12: BinaryOperator type directly maps to BinaryOpType
+            var binaryOpType = augAssign.Op.GetOpType();
             
             EmitInstruction(ByteCodeOp.BINARY_OP, (int)binaryOpType);
             EmitStoreName(augAssign.Target);

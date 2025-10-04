@@ -774,43 +774,29 @@ namespace SharpPy
     {
         public override string NodeType => "AugAssign";
         public string Target { get; }
-        public string Op { get; }
+        public BinaryOperator Op { get; }
         public Expression Value { get; }
-        
-        public AugAssignStatement(string target, string op, Expression value)
+
+        public AugAssignStatement(string target, BinaryOperator op, Expression value)
         {
             Target = target;
             Op = op;
             Value = value;
         }
-        
+
         public override PyObject Evaluate(PyScope scope)
         {
             var currentValue = scope.GetVariable(Target);
             var rightValue = Value.Evaluate(scope);
-            
-            PyObject result = Op switch
-            {
-                "+="  => currentValue.Add(rightValue),
-                "-="  => currentValue.Subtract(rightValue),
-                "*="  => currentValue.Multiply(rightValue),
-                "/="  => currentValue.Divide(rightValue),
-                "//=" => currentValue.FloorDivide(rightValue),
-                "%="  => currentValue.Modulo(rightValue),
-                "**=" => currentValue.Power(rightValue),
-                "&="  => currentValue.BitwiseAnd(rightValue),
-                "|="  => currentValue.BitwiseOr(rightValue),
-                "^="  => currentValue.BitwiseXor(rightValue),
-                "<<=" => currentValue.LeftShift(rightValue),
-                ">>=" => currentValue.RightShift(rightValue),
-                _ => throw new NotImplementedException($"Augmented assignment operator {Op} not implemented")
-            };
-            
+
+            // CPython 3.12: Use operator's Apply method
+            PyObject result = Op.Apply(currentValue, rightValue);
+
             scope.SetVariable(Target, result);
             return result;
         }
-        
-        public override string ToString() => $"{Target} {Op} {Value}";
+
+        public override string ToString() => $"{Target} {Op.OperatorType}= {Value}";
     }
 
     public class WalrusStatement : Statement
