@@ -213,8 +213,8 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("name.Ctx = GeneratedLoad.Instance;  // Default context");
             WriteLine("name.LineNo = token.Line;");
             WriteLine("name.ColOffset = token.Column;");
-            WriteLine("name.EndLineNo = token.EndLine ?? token.Line;");
-            WriteLine("name.EndColOffset = token.EndColumn ?? token.Column;");
+            WriteLine("name.EndLineNo = token.EndLine;");
+            WriteLine("name.EndColOffset = token.EndColumn;");
             WriteLine("return name;");
             _indentLevel--;
             WriteLine("}");
@@ -234,8 +234,8 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("constant.Value = token.Value;");
             WriteLine("constant.LineNo = token.Line;");
             WriteLine("constant.ColOffset = token.Column;");
-            WriteLine("constant.EndLineNo = token.EndLine ?? token.Line;");
-            WriteLine("constant.EndColOffset = token.EndColumn ?? token.Column;");
+            WriteLine("constant.EndLineNo = token.EndLine;");
+            WriteLine("constant.EndColOffset = token.EndColumn;");
             WriteLine("return constant;");
             _indentLevel--;
             WriteLine("}");
@@ -255,8 +255,8 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("constant.Value = token.Value;");
             WriteLine("constant.LineNo = token.Line;");
             WriteLine("constant.ColOffset = token.Column;");
-            WriteLine("constant.EndLineNo = token.EndLine ?? token.Line;");
-            WriteLine("constant.EndColOffset = token.EndColumn ?? token.Column;");
+            WriteLine("constant.EndLineNo = token.EndLine;");
+            WriteLine("constant.EndColOffset = token.EndColumn;");
             WriteLine("return constant;");
             _indentLevel--;
             WriteLine("}");
@@ -449,11 +449,18 @@ namespace SharpPy.PegGenerator.Asdl
 
             // seq_flatten
             WriteLine("// CPython: _PyPegen_seq_flatten");
-            WriteLine("public static GeneratedStmtSeq _PyPegen_seq_flatten(GeneratedStmtSeq seq)");
+            WriteLine("// Flatten list of sequences into single sequence");
+            WriteLine("public static GeneratedStmtSeq _PyPegen_seq_flatten(System.Collections.Generic.List<GeneratedStmtSeq> sequences)");
             WriteLine("{");
             _indentLevel++;
-            WriteLine("// Already flat in C# - just return the sequence");
-            WriteLine("return seq ?? GeneratedStmtSeq.Empty;");
+            WriteLine("var result = new GeneratedStmtSeq();");
+            WriteLine("foreach (var seq in sequences)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("result.AddRange(seq);");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine("return result;");
             _indentLevel--;
             WriteLine("}");
             WriteLine();
@@ -524,8 +531,27 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("}");
             WriteLine();
 
-            // map_names_to_ids
+            // map_names_to_ids - from token list
             WriteLine("// CPython: _PyPegen_map_names_to_ids");
+            WriteLine("// Extract identifier strings from NAME tokens");
+            WriteLine("public static GeneratedIdentifierSeq _PyPegen_map_names_to_ids(System.Collections.Generic.List<GeneratedTokenInfo> tokens)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("var ids = new GeneratedIdentifierSeq(tokens.Count);");
+            WriteLine("foreach (var token in tokens)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("ids.Add(token.Value ?? string.Empty);");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine("return ids;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // map_names_to_ids - from expr seq
+            WriteLine("// CPython: _PyPegen_map_names_to_ids");
+            WriteLine("// Extract identifier strings from Name expressions");
             WriteLine("public static GeneratedIdentifierSeq _PyPegen_map_names_to_ids(GeneratedExprSeq names)");
             WriteLine("{");
             _indentLevel++;
@@ -678,6 +704,137 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("{");
             _indentLevel++;
             WriteLine("return new GeneratedName { Id = \"_\", Ctx = GeneratedStore.Instance };");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // get_cmpops - extract comparison operators from KeywordOrStarred pairs
+            WriteLine("// CPython: _PyPegen_get_cmpops");
+            WriteLine("// Extract comparison operators from (cmpop, expr) pairs");
+            WriteLine("public static GeneratedCmpopSeq _PyPegen_get_cmpops(GeneratedMixedSeq pairs)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("var ops = new GeneratedCmpopSeq();");
+            WriteLine("// TODO: Extract cmpops from pairs - needs pair structure definition");
+            WriteLine("return ops;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // get_exprs - extract expressions from KeywordOrStarred pairs
+            WriteLine("// CPython: _PyPegen_get_exprs");
+            WriteLine("// Extract expressions from (cmpop, expr) pairs");
+            WriteLine("public static GeneratedExprSeq _PyPegen_get_exprs(GeneratedMixedSeq pairs)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("var exprs = new GeneratedExprSeq();");
+            WriteLine("// TODO: Extract exprs from pairs - needs pair structure definition");
+            WriteLine("return exprs;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // get_keys - extract keys from key-value pairs
+            WriteLine("// CPython: _PyPegen_get_keys");
+            WriteLine("// Extract keys from (key, value) pairs");
+            WriteLine("public static GeneratedExprSeq _PyPegen_get_keys(GeneratedMixedSeq pairs)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("var keys = new GeneratedExprSeq();");
+            WriteLine("// TODO: Extract keys from pairs - needs pair structure definition");
+            WriteLine("return keys;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // get_values - extract values from key-value pairs
+            WriteLine("// CPython: _PyPegen_get_values");
+            WriteLine("// Extract values from (key, value) pairs");
+            WriteLine("public static GeneratedExprSeq _PyPegen_get_values(GeneratedMixedSeq pairs)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("var values = new GeneratedExprSeq();");
+            WriteLine("// TODO: Extract values from pairs - needs pair structure definition");
+            WriteLine("return values;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // seq_extract_starred_exprs - extract starred expressions
+            WriteLine("// CPython: _PyPegen_seq_extract_starred_exprs");
+            WriteLine("// Extract starred expressions from KeywordOrStarred sequence");
+            WriteLine("public static GeneratedExprSeq _PyPegen_seq_extract_starred_exprs(GeneratedKeywordOrStarredSeq seq)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("var exprs = new GeneratedExprSeq();");
+            WriteLine("foreach (var item in seq)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("if (item.Starred != null)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("exprs.Add(item.Starred);");
+            _indentLevel--;
+            WriteLine("}");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine("return exprs;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // seq_delete_starred_exprs - extract keywords (non-starred)
+            WriteLine("// CPython: _PyPegen_seq_delete_starred_exprs");
+            WriteLine("// Extract keywords (non-starred items) from KeywordOrStarred sequence");
+            WriteLine("public static GeneratedKeywordSeq _PyPegen_seq_delete_starred_exprs(GeneratedKeywordOrStarredSeq seq)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("var keywords = new GeneratedKeywordSeq();");
+            WriteLine("foreach (var item in seq)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("if (item.Keyword != null)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("keywords.Add(item.Keyword);");
+            _indentLevel--;
+            WriteLine("}");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine("return keywords;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // Conversion helpers for Seq types
+            WriteLine("// Conversion: GeneratedAstNodeSeq to GeneratedMixedSeq");
+            WriteLine("public static GeneratedMixedSeq ToMixedSeq(GeneratedAstNodeSeq seq)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("var mixed = new GeneratedMixedSeq();");
+            WriteLine("foreach (var item in seq)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("mixed.Add(item);");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine("return mixed;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// Conversion: GeneratedKeywordOrStarredSeq to GeneratedMixedSeq");
+            WriteLine("public static GeneratedMixedSeq ToMixedSeq(GeneratedKeywordOrStarredSeq seq)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("var mixed = new GeneratedMixedSeq();");
+            WriteLine("foreach (var item in seq)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("mixed.Add(item);");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine("return mixed;");
             _indentLevel--;
             WriteLine("}");
             WriteLine();

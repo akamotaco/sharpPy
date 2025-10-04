@@ -27,10 +27,10 @@ namespace SharpPy
             Console.WriteLine($"[DEBUG] ConvertFunctionArguments: Processing GeneratedArguments");
 
             // Process posonlyargs (positional-only parameters before /)
-            if (argumentsData.PosOnlyArgs != null && argumentsData.PosOnlyArgs.Count > 0)
+            if (argumentsData.Posonlyargs != null && argumentsData.Posonlyargs.Count > 0)
             {
-                Console.WriteLine($"[DEBUG] Found {argumentsData.PosOnlyArgs.Count} posonlyargs");
-                foreach (var arg in argumentsData.PosOnlyArgs)
+                Console.WriteLine($"[DEBUG] Found {argumentsData.Posonlyargs.Count} posonlyargs");
+                foreach (var arg in argumentsData.Posonlyargs)
                 {
                     functionArgs.PosOnlyArgs.Add(new Arg(arg.Arg));
                     Console.WriteLine($"[DEBUG] Added posonly arg: {arg.Arg}");
@@ -49,17 +49,17 @@ namespace SharpPy
             }
 
             // Process vararg (*args)
-            if (argumentsData.VarArg != null)
+            if (argumentsData.Vararg != null)
             {
-                functionArgs.VarArg = new Arg(argumentsData.VarArg.Arg);
-                Console.WriteLine($"[DEBUG] Added vararg: *{argumentsData.VarArg.Arg}");
+                functionArgs.VarArg = new Arg(argumentsData.Vararg.Arg);
+                Console.WriteLine($"[DEBUG] Added vararg: *{argumentsData.Vararg.Arg}");
             }
 
             // Process kwonlyargs (keyword-only parameters after *)
-            if (argumentsData.KwOnlyArgs != null && argumentsData.KwOnlyArgs.Count > 0)
+            if (argumentsData.Kwonlyargs != null && argumentsData.Kwonlyargs.Count > 0)
             {
-                Console.WriteLine($"[DEBUG] Found {argumentsData.KwOnlyArgs.Count} kwonlyargs");
-                foreach (var arg in argumentsData.KwOnlyArgs)
+                Console.WriteLine($"[DEBUG] Found {argumentsData.Kwonlyargs.Count} kwonlyargs");
+                foreach (var arg in argumentsData.Kwonlyargs)
                 {
                     functionArgs.KwOnlyArgs.Add(new Arg(arg.Arg));
                     Console.WriteLine($"[DEBUG] Added kwonly arg: {arg.Arg}");
@@ -67,10 +67,10 @@ namespace SharpPy
             }
 
             // Process kwarg (**kwargs)
-            if (argumentsData.KwArg != null)
+            if (argumentsData.Kwarg != null)
             {
-                functionArgs.KwArg = new Arg(argumentsData.KwArg.Arg);
-                Console.WriteLine($"[DEBUG] Added kwarg: **{argumentsData.KwArg.Arg}");
+                functionArgs.KwArg = new Arg(argumentsData.Kwarg.Arg);
+                Console.WriteLine($"[DEBUG] Added kwarg: **{argumentsData.Kwarg.Arg}");
             }
 
             // Process defaults (default values for regular args)

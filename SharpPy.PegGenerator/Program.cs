@@ -48,6 +48,10 @@ namespace SharpPy.PegGenerator
                             if (i + 1 < args.Length)
                                 astTypesOutputPath = args[++i];
                             break;
+                        case "--parser-base-output":
+                            if (i + 1 < args.Length)
+                                parserBaseOutputPath = args[++i];
+                            break;
                         case "--test-simple":
                             // Test with simple grammar
                             grammarPath = Path.Combine("..", "Grammar", "test_simple.gram");

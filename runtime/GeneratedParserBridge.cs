@@ -126,14 +126,14 @@ namespace SharpPy
                     }
                     return new ContinueStatement();
 
-                case GeneratedAnnAssignStmt annAssign:
+                case GeneratedAnnAssign annAssign:
                     // Annotated assignment statement (name: type = value or name: type)
                     {
                         try
                         {
                             // Convert target (should be a name)
                             string? targetName = null;
-                            if (annAssign.Target is GeneratedNameExpr nameExpr)
+                            if (annAssign.Target is GeneratedName nameExpr)
                             {
                                 targetName = nameExpr.Id;
                             }
@@ -167,7 +167,7 @@ namespace SharpPy
                         }
                     }
 
-                case GeneratedAssignStmt assignStmt:
+                case GeneratedAssign assignStmt:
                     // Assignment statement (name = value OR a = b = c = value)
                     {
                         var targets = assignStmt.Targets;  // Already GeneratedExprSeq (List<GeneratedExpr>)
@@ -204,7 +204,7 @@ namespace SharpPy
                     }
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
 
-                case GeneratedAugAssignStmt augAssign:
+                case GeneratedAugAssign augAssign:
                     // Augmented assignment statement (name += value)
                     {
                         var target = augAssign.Target;  // Already GeneratedExpr
@@ -246,7 +246,7 @@ namespace SharpPy
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
 
-                case GeneratedReturnStmt returnStmt:
+                case GeneratedReturn returnStmt:
                     // Return statement (return [expression]) - only valid inside functions
                     if (!insideFunction)
                     {
@@ -268,7 +268,7 @@ namespace SharpPy
                         return new ReturnStatement(returnValue);
                     }
 
-                case GeneratedRaiseStmt raiseStmt:
+                case GeneratedRaise raiseStmt:
                     // Raise statement (raise [expression] [from expression])
                     {
                         Expression? exceptionExpr = null;
@@ -287,7 +287,7 @@ namespace SharpPy
                         return new RaiseStatement(exceptionExpr, fromExpr);
                     }
 
-                case GeneratedIfStmt ifStmt:
+                case GeneratedIf ifStmt:
                     // If statement (if condition: body)
                     {
                         // Convert condition expression
@@ -304,7 +304,7 @@ namespace SharpPy
 
                         // Convert else clause (orelse)
                         var elseStmts = new List<Statement>();
-                        foreach (var elseStmt in ifStmt.OrElse.AsEnumerable())
+                        foreach (var elseStmt in ifStmt.Orelse.AsEnumerable())
                         {
                             var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
                             if (convertedStmt != null)
@@ -314,7 +314,7 @@ namespace SharpPy
                         return new IfStatement(conditionExpr, bodyStmts, elseStmts);
                     }
 
-                case GeneratedWhileStmt whileStmt:
+                case GeneratedWhile whileStmt:
                     // While statement (while condition: body [else: elseBody])
                     {
                         // Convert condition expression
@@ -331,7 +331,7 @@ namespace SharpPy
 
                         // Convert optional else statements (Python while-else construct)
                         var elseStmts = new List<Statement>();
-                        foreach (var elseStmt in whileStmt.OrElse.AsEnumerable())
+                        foreach (var elseStmt in whileStmt.Orelse.AsEnumerable())
                         {
                             var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
                             if (convertedStmt != null)
@@ -341,7 +341,7 @@ namespace SharpPy
                         return new WhileStatement(conditionExpr, bodyStmts, elseStmts);
                     }
 
-                case GeneratedForStmt forStmt:
+                case GeneratedFor forStmt:
                     // For statement (for target in iterable: body [else: elseBody])
                     {
                         // Convert target to get variable name
@@ -366,7 +366,7 @@ namespace SharpPy
 
                         // Convert optional else statements (Python for-else construct)
                         var elseStmts = new List<Statement>();
-                        foreach (var elseStmt in forStmt.OrElse.AsEnumerable())
+                        foreach (var elseStmt in forStmt.Orelse.AsEnumerable())
                         {
                             var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
                             if (convertedStmt != null)
@@ -376,7 +376,7 @@ namespace SharpPy
                         return new ForStatement(targetVar, iterableExpr, bodyStmts, elseStmts);
                     }
 
-                case GeneratedAsyncForStmt asyncForStmt:
+                case GeneratedAsyncFor asyncForStmt:
                     // Async for statement (async for target in iterable: body [else: elseBody])
                     {
                         // Convert target to get variable name
@@ -401,7 +401,7 @@ namespace SharpPy
 
                         // Convert optional else statements
                         var elseStmts = new List<Statement>();
-                        foreach (var elseStmt in asyncForStmt.OrElse.AsEnumerable())
+                        foreach (var elseStmt in asyncForStmt.Orelse.AsEnumerable())
                         {
                             var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
                             if (convertedStmt != null)
@@ -411,7 +411,7 @@ namespace SharpPy
                         return new AsyncForStatement(targetVar, iterableExpr, bodyStmts, elseStmts);
                     }
 
-                case GeneratedTryStmt tryStmt:
+                case GeneratedTry tryStmt:
                     // Try statement (try: body except: handler)
                     {
 #if DEBUG_LOG
@@ -473,7 +473,7 @@ namespace SharpPy
 
                         // Convert else and finally blocks
                         var elseStatements = new List<Statement>();
-                        foreach (var elseStmt in tryStmt.OrElse.AsEnumerable())
+                        foreach (var elseStmt in tryStmt.Orelse.AsEnumerable())
                         {
                             var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
                             if (convertedStmt != null)
@@ -481,7 +481,7 @@ namespace SharpPy
                         }
 
                         var finallyStatements = new List<Statement>();
-                        foreach (var finallyStmt in tryStmt.FinallyBody.AsEnumerable())
+                        foreach (var finallyStmt in tryStmt.Finalbody.AsEnumerable())
                         {
                             var convertedStmt = ConvertStatement((GeneratedStmt)finallyStmt, insideLoop, insideFunction);
                             if (convertedStmt != null)
@@ -491,7 +491,7 @@ namespace SharpPy
                         return new TryStatement(tryBodyStatements, exceptHandlersList, elseStatements, finallyStatements);
                     }
 
-                case GeneratedTryStarStmt tryStarStmt:
+                case GeneratedTryStar tryStarStmt:
                     // Try statement with except* handlers (PEP 654: Exception Groups)
                     {
                         // Convert try body statements
@@ -543,9 +543,9 @@ namespace SharpPy
 
                         // Handle else and finally blocks
                         var elseStmts = new List<Statement>();
-                        if (tryStarStmt.OrElse != null)
+                        if (tryStarStmt.Orelse != null)
                         {
-                            foreach (var elseStmt in tryStarStmt.OrElse.AsEnumerable())
+                            foreach (var elseStmt in tryStarStmt.Orelse.AsEnumerable())
                             {
                                 var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
                                 if (convertedStmt != null)
@@ -554,9 +554,9 @@ namespace SharpPy
                         }
 
                         var finallyStmts = new List<Statement>();
-                        if (tryStarStmt.FinallyBody != null)
+                        if (tryStarStmt.Finalbody != null)
                         {
-                            foreach (var finallyStmt in tryStarStmt.FinallyBody.AsEnumerable())
+                            foreach (var finallyStmt in tryStarStmt.Finalbody.AsEnumerable())
                             {
                                 var convertedStmt = ConvertStatement((GeneratedStmt)finallyStmt, insideLoop, insideFunction);
                                 if (convertedStmt != null)
@@ -567,7 +567,7 @@ namespace SharpPy
                         return new TryStatement(tryBodyStmts, exceptHandlers, elseStmts, finallyStmts);
                     }
 
-                case GeneratedFunctionDefStmt funcDef:
+                case GeneratedFunctionDef funcDef:
                     // Function definition (def name(): body)
                     {
                         var funcData = funcDef; // Use funcDef directly
@@ -872,7 +872,7 @@ namespace SharpPy
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
 
-                case GeneratedAsyncFunctionDefStmt asyncFuncDef:
+                case GeneratedAsyncFunctionDef asyncFuncDef:
                     // Async function definition (async def name(): body)
                     {
                         var name = asyncFuncDef.Name;
@@ -893,7 +893,7 @@ namespace SharpPy
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
 
-                case GeneratedClassDefStmt classDef:
+                case GeneratedClassDef classDef:
                     // Class definition from parser (class name: body)
                     {
 #if DEBUG_LOG
@@ -956,7 +956,7 @@ namespace SharpPy
                         return new ClassDefStatement(className, baseClassExprs, classBodyStmts);
                     }
 
-                case GeneratedGlobalStmt globalStmt:
+                case GeneratedGlobal globalStmt:
                     // Global statement (global var1, var2, ...)
                     {
                         if (globalStmt.Names != null && globalStmt.Names.Count > 0)
@@ -966,7 +966,7 @@ namespace SharpPy
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
 
-                case GeneratedNonlocalStmt nonlocalStmt:
+                case GeneratedNonlocal nonlocalStmt:
                     // Nonlocal statement (nonlocal var1, var2, ...)
                     {
                         if (nonlocalStmt.Names != null && nonlocalStmt.Names.Count > 0)
@@ -976,7 +976,7 @@ namespace SharpPy
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
 
-                case GeneratedDeleteStmt delStmt:
+                case GeneratedDelete delStmt:
                     // Delete statement (del var)
                     {
                         var targets = new List<Expression>();
@@ -995,7 +995,7 @@ namespace SharpPy
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
 
-                case GeneratedImportStmt importStmt:
+                case GeneratedImport importStmt:
                     // Import statement (import module)
                     {
 #if DEBUG_LOG
@@ -1047,7 +1047,7 @@ namespace SharpPy
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
 
-                case GeneratedImportFromStmt importFromStmt:
+                case GeneratedImportFrom importFromStmt:
                     // From import statement (from module import name) - CPython 3.12 compatible
                     {
                         Console.WriteLine($"[DEBUG] Processing from_import: module={importFromStmt.Module}, level={importFromStmt.Level}, names={importFromStmt.Names?.Count ?? 0}");
@@ -1063,7 +1063,7 @@ namespace SharpPy
                             if (nameItem is GeneratedAlias alias)
                             {
                                 var name = alias.Name;
-                                var asName = alias.AsName;
+                                var asName = alias.Asname;
 
                                 if (!string.IsNullOrEmpty(name))
                                 {
@@ -1078,7 +1078,7 @@ namespace SharpPy
                                 try
                                 {
                                     var name = nameObj?.Name?.ToString();
-                                    var asName = nameObj?.AsName?.ToString();
+                                    var asName = nameObj?.Asname?.ToString();
 
                                     if (!string.IsNullOrEmpty(name))
                                     {
@@ -1112,7 +1112,7 @@ namespace SharpPy
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
 
-                case GeneratedWithStmt withStmt:
+                case GeneratedWith withStmt:
                     // With statement (with context_expr [as target]: body)
                     {
                         // Create with items
@@ -1145,7 +1145,7 @@ namespace SharpPy
                         return new WithStatement(items, bodyStmts);
                     }
 
-                case GeneratedAsyncWithStmt asyncWithStmt:
+                case GeneratedAsyncWith asyncWithStmt:
                     // Async with statement (async with context_expr [as target]: body)
                     {
                         // Create with items
@@ -1178,7 +1178,7 @@ namespace SharpPy
                         return new AsyncWithStatement(items, bodyStmts);
                     }
 
-                case GeneratedMatchStmt matchStmt:
+                case GeneratedMatch matchStmt:
                     // Match statement (match subject: case pattern: body)
                     {
                         // Convert subject expression
@@ -1510,145 +1510,145 @@ namespace SharpPy
             return genExpr switch
             {
                 // Assignment expressions (walrus operator)
-                GeneratedNamedExprExpr namedExpr => new NamedExpression(
+                GeneratedNamedExpr namedExpr => new NamedExpression(
                     ConvertAnyExpression(namedExpr.Target),
                     ConvertAnyExpression(namedExpr.Value)
                 ),
 
                 // Boolean operations
-                GeneratedBoolOpExpr boolOp => new BoolOpExpression(
+                GeneratedBoolOp boolOp => new BoolOpExpression(
                     ConvertToBoolOperator(boolOp.Op),
                     boolOp.Values.AsEnumerable().Select(v => ConvertAnyExpression(v)).ToList()
                 ),
 
-                GeneratedUnaryOpExpr unaryOp => new UnaryOpExpression(
+                GeneratedUnaryOp unaryOp => new UnaryOpExpression(
                     ConvertToUnaryOperator(unaryOp.Op),
                     ConvertAnyExpression(unaryOp.Operand)
                 ),
 
                 // F-strings
-                GeneratedJoinedStrExpr joinedStr => new JoinedStrExpression(
+                GeneratedJoinedStr joinedStr => new JoinedStrExpression(
                     joinedStr.Values.AsEnumerable().Select(v => ConvertAnyExpression(v)).ToList()
                 ),
 
-                GeneratedFormattedValueExpr formattedValue => new FormattedValueExpression(
+                GeneratedFormattedValue formattedValue => new FormattedValueExpression(
                     ConvertAnyExpression(formattedValue.Value),
                     formattedValue.Conversion,
                     formattedValue.FormatSpec != null ? ConvertAnyExpression(formattedValue.FormatSpec) : null
                 ),
 
                 // Basic expressions - CPython 3.12: Convert value to PyObject if needed
-                GeneratedConstantExpr constant => new ConstantExpression(
+                GeneratedConstant constant => new ConstantExpression(
                     constant.Value is PyObject pyObj ? pyObj : ParseConstantValue(constant.Value, constant.Kind)
                 ),
 
-                GeneratedNameExpr name => new NameExpression(name.Id),
+                GeneratedName name => new NameExpression(name.Id),
 
                 // Binary and comparison operations
-                GeneratedBinOpExpr binOp => new BinOpExpression(
+                GeneratedBinOp binOp => new BinOpExpression(
                     ConvertAnyExpression(binOp.Left),
                     ConvertBinaryOp(binOp.Op),
                     ConvertAnyExpression(binOp.Right)
                 ),
 
-                GeneratedCompareExpr compare => new CompareExpression(
+                GeneratedCompare compare => new CompareExpression(
                     ConvertAnyExpression(compare.Left),
                     string.Join(" ", compare.Ops),
                     ConvertAnyExpression(compare.Comparators.AsEnumerable().First())
                 ),
 
                 // Function calls and attribute access
-                GeneratedCallExpr call => new CallExpression(
+                GeneratedCall call => new CallExpression(
                     ConvertAnyExpression(call.Func),
                     call.Args.AsEnumerable().Select(a => ConvertAnyExpression(a)).ToList(),
                     call.Keywords.AsEnumerable().Select(k => ConvertKeyword(k)).ToList()
                 ),
 
-                GeneratedAttributeExpr attr => new AttributeExpression(
+                GeneratedAttribute attr => new AttributeExpression(
                     ConvertAnyExpression(attr.Value),
                     attr.Attr
                 ),
 
-                GeneratedSubscriptExpr subscript => new SubscriptExpression(
+                GeneratedSubscript subscript => new SubscriptExpression(
                     ConvertAnyExpression(subscript.Value),
                     ConvertAnyExpression(subscript.Slice)
                 ),
 
                 // Collections
-                GeneratedListExpr list => new ListExpression(
-                    list.Elements.AsEnumerable().Select(e => ConvertAnyExpression(e)).ToList()
+                GeneratedList list => new ListExpression(
+                    list.Elts.AsEnumerable().Select(e => ConvertAnyExpression(e)).ToList()
                 ),
 
-                GeneratedTupleExpr tuple => new TupleExpression(
-                    tuple.Elements.AsEnumerable().Select(e => ConvertAnyExpression(e)).ToList()
+                GeneratedTuple tuple => new TupleExpression(
+                    tuple.Elts.AsEnumerable().Select(e => ConvertAnyExpression(e)).ToList()
                 ),
 
-                GeneratedDictExpr dict => new DictExpression(
+                GeneratedDict dict => new DictExpression(
                     dict.Keys.AsEnumerable().Zip(dict.Values.AsEnumerable(), (k, v) => (
                         Key: ConvertAnyExpression(k),
                         Value: ConvertAnyExpression(v))
                     ).ToList()
                 ),
 
-                GeneratedSetExpr set => new SetExpression(
-                    set.Elements.AsEnumerable().Select(e => ConvertAnyExpression(e)).ToList()
+                GeneratedSet set => new SetExpression(
+                    set.Elts.AsEnumerable().Select(e => ConvertAnyExpression(e)).ToList()
                 ),
 
                 // Comprehensions
-                GeneratedListCompExpr listComp => new ListComprehension(
-                    ConvertAnyExpression(listComp.Element),
+                GeneratedListComp listComp => new ListComprehension(
+                    ConvertAnyExpression(listComp.Elt),
                     listComp.Generators.AsEnumerable().Select(g => ConvertComprehension(g)).ToList()
                 ),
 
-                GeneratedSetCompExpr setComp => new SetComprehension(
-                    ConvertAnyExpression(setComp.Element),
+                GeneratedSetComp setComp => new SetComprehension(
+                    ConvertAnyExpression(setComp.Elt),
                     setComp.Generators.AsEnumerable().Select(g => ConvertComprehension(g)).ToList()
                 ),
 
-                GeneratedDictCompExpr dictComp => new DictComprehension(
+                GeneratedDictComp dictComp => new DictComprehension(
                     ConvertAnyExpression(dictComp.Key),
                     ConvertAnyExpression(dictComp.Value),
                     dictComp.Generators.AsEnumerable().Select(g => ConvertComprehension(g)).ToList()
                 ),
 
-                GeneratedGeneratorExpExpr genExp => new GeneratorExpression(
-                    ConvertAnyExpression(genExp.Element),
+                GeneratedGeneratorExp genExp => new GeneratorExpression(
+                    ConvertAnyExpression(genExp.Elt),
                     genExp.Generators.AsEnumerable().Select(g => ConvertComprehension(g)).ToList()
                 ),
 
                 // Lambda expressions
-                GeneratedLambdaExpr lambda => new LambdaExpression(
+                GeneratedLambda lambda => new LambdaExpression(
                     ConvertFunctionArgumentsToNames(lambda.Arguments),
                     ConvertAnyExpression(lambda.Body)
                 ),
 
                 // Ternary (if expression)
-                GeneratedIfExpExpr ifExp => new ConditionalExpression(
+                GeneratedIfExp ifExp => new ConditionalExpression(
                     ConvertAnyExpression(ifExp.Test),
                     ConvertAnyExpression(ifExp.Body),
-                    ConvertAnyExpression(ifExp.OrElse)
+                    ConvertAnyExpression(ifExp.Orelse)
                 ),
 
                 // Async/await expressions
-                GeneratedAwaitExpr awaitExpr => new AwaitExpression(
+                GeneratedAwait awaitExpr => new AwaitExpression(
                     ConvertAnyExpression(awaitExpr.Value)
                 ),
 
-                GeneratedYieldExpr yieldExpr => new YieldExpression(
+                GeneratedYield yieldExpr => new YieldExpression(
                     yieldExpr.Value != null ? ConvertAnyExpression(yieldExpr.Value) : null
                 ),
 
-                GeneratedYieldFromExpr yieldFrom => new YieldFromExpression(
+                GeneratedYieldFrom yieldFrom => new YieldFromExpression(
                     ConvertAnyExpression(yieldFrom.Value)
                 ),
 
                 // Starred expression (unpacking)
-                GeneratedStarredExpr starred => new StarredExpression(
+                GeneratedStarred starred => new StarredExpression(
                     ConvertAnyExpression(starred.Value)
                 ),
 
                 // Slice expression
-                GeneratedSliceExpr slice => new SliceExpression(
+                GeneratedSlice slice => new SliceExpression(
                     slice.Lower != null ? ConvertAnyExpression(slice.Lower) : null,
                     slice.Upper != null ? ConvertAnyExpression(slice.Upper) : null,
                     slice.Step != null ? ConvertAnyExpression(slice.Step) : null
@@ -1809,11 +1809,11 @@ namespace SharpPy
 
             return new FunctionArguments
             {
-                PosOnlyArgs = argsObj.PosOnlyArgs?.Select(a => ConvertArg(a)).ToList() ?? new List<Arg>(),
+                PosOnlyArgs = argsObj.Posonlyargs?.Select(a => ConvertArg(a)).ToList() ?? new List<Arg>(),
                 Args = argsObj.Args?.Select(a => ConvertArg(a)).ToList() ?? new List<Arg>(),
-                VarArg = argsObj.VarArg != null ? ConvertArg(argsObj.VarArg) : null,
-                KwOnlyArgs = argsObj.KwOnlyArgs?.Select(a => ConvertArg(a)).ToList() ?? new List<Arg>(),
-                KwArg = argsObj.KwArg != null ? ConvertArg(argsObj.KwArg) : null,
+                VarArg = argsObj.Vararg != null ? ConvertArg(argsObj.Vararg) : null,
+                KwOnlyArgs = argsObj.Kwonlyargs?.Select(a => ConvertArg(a)).ToList() ?? new List<Arg>(),
+                KwArg = argsObj.Kwarg != null ? ConvertArg(argsObj.Kwarg) : null,
                 Defaults = argsObj.Defaults?.AsEnumerable().Select(d => ConvertAnyExpression(d)).ToList() ?? new List<Expression?>(),
                 KwDefaults = argsObj.KwDefaults?.AsEnumerable().Select(d => d != null ? ConvertAnyExpression(d) : null).ToList() ?? new List<Expression?>()
             };
@@ -1839,7 +1839,7 @@ namespace SharpPy
 
         // OBSOLETE METHODS REMOVED - These used .Value property which no longer exists
         // List, Tuple, Dict, Set conversions now handled directly in ConvertAnyExpression
-        // via concrete typed expressions (GeneratedListExpr, GeneratedTupleExpr, etc.)
+        // via concrete typed expressions (GeneratedList, GeneratedTuple, etc.)
 
         /// <summary>
         /// Convert lambda expression to SharpPy lambda expression
@@ -2333,11 +2333,11 @@ namespace SharpPy
 
             Console.WriteLine($"[DEBUG] ConvertDefaultToString: {defaultValue} (Type: {defaultValue.GetType().Name})");
 
-            // Handle GeneratedConstantExpr directly
-            if (defaultValue is GeneratedConstantExpr constantExpr)
+            // Handle GeneratedConstant directly
+            if (defaultValue is GeneratedConstant constantExpr)
             {
                 var value = constantExpr.Value;
-                Console.WriteLine($"[DEBUG] GeneratedConstantExpr value: {value} (Type: {value?.GetType().Name})");
+                Console.WriteLine($"[DEBUG] GeneratedConstant value: {value} (Type: {value?.GetType().Name})");
 
                 // CPython 3.12: Value is now PyObject
                 if (value == null || value is PyNone) return "None";

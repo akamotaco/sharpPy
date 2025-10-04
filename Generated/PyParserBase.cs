@@ -1581,10 +1581,15 @@ namespace SharpPy.Generated
     public static partial class PegenHelpers
     {
         // CPython: _PyPegen_seq_flatten
-        public static GeneratedStmtSeq _PyPegen_seq_flatten(GeneratedStmtSeq seq)
+        // Flatten list of sequences into single sequence
+        public static GeneratedStmtSeq _PyPegen_seq_flatten(System.Collections.Generic.List<GeneratedStmtSeq> sequences)
         {
-            // Already flat in C# - just return the sequence
-            return seq ?? GeneratedStmtSeq.Empty;
+            var result = new GeneratedStmtSeq();
+            foreach (var seq in sequences)
+            {
+                result.AddRange(seq);
+            }
+            return result;
         }
 
         // CPython: _PyPegen_singleton_seq
@@ -1633,6 +1638,19 @@ namespace SharpPy.Generated
         }
 
         // CPython: _PyPegen_map_names_to_ids
+        // Extract identifier strings from NAME tokens
+        public static GeneratedIdentifierSeq _PyPegen_map_names_to_ids(System.Collections.Generic.List<GeneratedTokenInfo> tokens)
+        {
+            var ids = new GeneratedIdentifierSeq(tokens.Count);
+            foreach (var token in tokens)
+            {
+                ids.Add(token.Value ?? string.Empty);
+            }
+            return ids;
+        }
+
+        // CPython: _PyPegen_map_names_to_ids
+        // Extract identifier strings from Name expressions
         public static GeneratedIdentifierSeq _PyPegen_map_names_to_ids(GeneratedExprSeq names)
         {
             var ids = new GeneratedIdentifierSeq(names.Count);
@@ -1736,6 +1754,94 @@ namespace SharpPy.Generated
         public static GeneratedName _PyPegen_dummy_name()
         {
             return new GeneratedName { Id = "_", Ctx = GeneratedStore.Instance };
+        }
+
+        // CPython: _PyPegen_get_cmpops
+        // Extract comparison operators from (cmpop, expr) pairs
+        public static GeneratedCmpopSeq _PyPegen_get_cmpops(GeneratedMixedSeq pairs)
+        {
+            var ops = new GeneratedCmpopSeq();
+            // TODO: Extract cmpops from pairs - needs pair structure definition
+            return ops;
+        }
+
+        // CPython: _PyPegen_get_exprs
+        // Extract expressions from (cmpop, expr) pairs
+        public static GeneratedExprSeq _PyPegen_get_exprs(GeneratedMixedSeq pairs)
+        {
+            var exprs = new GeneratedExprSeq();
+            // TODO: Extract exprs from pairs - needs pair structure definition
+            return exprs;
+        }
+
+        // CPython: _PyPegen_get_keys
+        // Extract keys from (key, value) pairs
+        public static GeneratedExprSeq _PyPegen_get_keys(GeneratedMixedSeq pairs)
+        {
+            var keys = new GeneratedExprSeq();
+            // TODO: Extract keys from pairs - needs pair structure definition
+            return keys;
+        }
+
+        // CPython: _PyPegen_get_values
+        // Extract values from (key, value) pairs
+        public static GeneratedExprSeq _PyPegen_get_values(GeneratedMixedSeq pairs)
+        {
+            var values = new GeneratedExprSeq();
+            // TODO: Extract values from pairs - needs pair structure definition
+            return values;
+        }
+
+        // CPython: _PyPegen_seq_extract_starred_exprs
+        // Extract starred expressions from KeywordOrStarred sequence
+        public static GeneratedExprSeq _PyPegen_seq_extract_starred_exprs(GeneratedKeywordOrStarredSeq seq)
+        {
+            var exprs = new GeneratedExprSeq();
+            foreach (var item in seq)
+            {
+                if (item.Starred != null)
+                {
+                    exprs.Add(item.Starred);
+                }
+            }
+            return exprs;
+        }
+
+        // CPython: _PyPegen_seq_delete_starred_exprs
+        // Extract keywords (non-starred items) from KeywordOrStarred sequence
+        public static GeneratedKeywordSeq _PyPegen_seq_delete_starred_exprs(GeneratedKeywordOrStarredSeq seq)
+        {
+            var keywords = new GeneratedKeywordSeq();
+            foreach (var item in seq)
+            {
+                if (item.Keyword != null)
+                {
+                    keywords.Add(item.Keyword);
+                }
+            }
+            return keywords;
+        }
+
+        // Conversion: GeneratedAstNodeSeq to GeneratedMixedSeq
+        public static GeneratedMixedSeq ToMixedSeq(GeneratedAstNodeSeq seq)
+        {
+            var mixed = new GeneratedMixedSeq();
+            foreach (var item in seq)
+            {
+                mixed.Add(item);
+            }
+            return mixed;
+        }
+
+        // Conversion: GeneratedKeywordOrStarredSeq to GeneratedMixedSeq
+        public static GeneratedMixedSeq ToMixedSeq(GeneratedKeywordOrStarredSeq seq)
+        {
+            var mixed = new GeneratedMixedSeq();
+            foreach (var item in seq)
+            {
+                mixed.Add(item);
+            }
+            return mixed;
         }
 
     }

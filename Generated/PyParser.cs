@@ -4541,7 +4541,7 @@ namespace SharpPy.Generated
                 //   (b) ? ((expr_ty) b)->v.Call.args : NULL,
                 //   (b) ? ((expr_ty) b)->v.Call.keywords : NULL,
                 //   c, NULL, t, EXTRA)
-                _res = _PyAST_ClassDef(ASTHelpers.ExtractStringValue(a), ExtractCallArgs(b), ExtractCallKeywords(b), c, t, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_ClassDef(ASTHelpers.ExtractStringValue(a), ASTHelpers.ExtractCallArgs(b), ASTHelpers.ExtractCallKeywords(b), c, t, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -17949,7 +17949,7 @@ namespace SharpPy.Generated
                 //   (b) ? ((expr_ty) b)->v.Call.args : NULL,
                 //   (b) ? ((expr_ty) b)->v.Call.keywords : NULL,
                 //   EXTRA)
-                _res = _PyAST_Call(a, ExtractCallArgs(b), ExtractCallKeywords(b), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Call(a, ASTHelpers.ExtractCallArgs(b), ASTHelpers.ExtractCallKeywords(b), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -25192,7 +25192,7 @@ namespace SharpPy.Generated
                 //   (b) ? ((expr_ty) b)->v.Call.args : NULL,
                 //   (b) ? ((expr_ty) b)->v.Call.keywords : NULL,
                 //   EXTRA)
-                _res = _PyAST_Call(a, ExtractCallArgs(b), ExtractCallKeywords(b), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Call(a, ASTHelpers.ExtractCallArgs(b), ASTHelpers.ExtractCallKeywords(b), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);

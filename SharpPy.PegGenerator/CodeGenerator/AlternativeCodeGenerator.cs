@@ -242,6 +242,23 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     // Only cast if necessary - avoid (object?) boxing for performance
                     var targetType = _parent.GetRuleReturnType(_rule);
 
+                    // Special case: Converting specific Seq types to GeneratedMixedSeq
+                    if (targetType == "GeneratedMixedSeq")
+                    {
+                        // Check if source is a specific Seq type that needs conversion
+                        var firstVarType = _variables.ContainsKey(firstVar) ? _variables[firstVar] : "";
+                        if (firstVarType == "GeneratedAstNodeSeq" || firstVarType.Contains("AstNodeSeq"))
+                        {
+                            _parent.WriteLine($"_res = PegenHelpers.ToMixedSeq((GeneratedAstNodeSeq){firstVar});");
+                            return;
+                        }
+                        else if (firstVarType == "GeneratedKeywordOrStarredSeq" || firstVarType.Contains("KeywordOrStarredSeq"))
+                        {
+                            _parent.WriteLine($"_res = PegenHelpers.ToMixedSeq((GeneratedKeywordOrStarredSeq){firstVar});");
+                            return;
+                        }
+                    }
+
                     // If variable type matches target type, direct assignment (no cast needed)
                     // Otherwise, explicit cast (C#'s strong typing requirement)
                     _parent.WriteLine($"_res = ({targetType}){firstVar};");

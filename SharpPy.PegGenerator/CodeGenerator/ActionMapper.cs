@@ -271,7 +271,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     if (condStart >= 0 && condEnd > condStart)
                     {
                         var variable = expr.Substring(condStart + 1, condEnd - condStart - 1).Trim();
-                        return $"ExtractCallArgs({EscapeCSharpKeyword(variable)})";
+                        return $"ASTHelpers.ExtractCallArgs({EscapeCSharpKeyword(variable)})";
                     }
                 }
                 else if (expr.Contains("->v.Call.keywords"))
@@ -281,7 +281,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     if (condStart >= 0 && condEnd > condStart)
                     {
                         var variable = expr.Substring(condStart + 1, condEnd - condStart - 1).Trim();
-                        return $"ExtractCallKeywords({EscapeCSharpKeyword(variable)})";
+                        return $"ASTHelpers.ExtractCallKeywords({EscapeCSharpKeyword(variable)})";
                     }
                 }
                 // Simple ternary: (x) ? x : y → x ?? y

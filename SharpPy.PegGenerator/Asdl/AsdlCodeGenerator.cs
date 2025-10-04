@@ -279,10 +279,12 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine();
 
             // SlashWithDefault - arguments 파싱용
+            // CPython 3.12: Inherits from GeneratedPtr for void* compatibility
             WriteLine("/// <summary>");
             WriteLine("/// Intermediate type for slash_with_default rule in python.gram");
+            WriteLine("/// CPython 3.12: void* compatible via GeneratedPtr inheritance");
             WriteLine("/// </summary>");
-            WriteLine("public class GeneratedSlashWithDefault");
+            WriteLine("public class GeneratedSlashWithDefault : GeneratedPtr");
             WriteLine("{");
             _indentLevel++;
             WriteLine("public GeneratedArgSeq Args { get; set; } = new();");
@@ -292,10 +294,12 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine();
 
             // StarEtc - arguments 파싱용
+            // CPython 3.12: Inherits from GeneratedPtr for void* compatibility
             WriteLine("/// <summary>");
             WriteLine("/// Intermediate type for star_etc rule in python.gram");
+            WriteLine("/// CPython 3.12: void* compatible via GeneratedPtr inheritance");
             WriteLine("/// </summary>");
-            WriteLine("public class GeneratedStarEtc");
+            WriteLine("public class GeneratedStarEtc : GeneratedPtr");
             WriteLine("{");
             _indentLevel++;
             WriteLine("public GeneratedArg? Vararg { get; set; }");
@@ -307,14 +311,96 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine();
 
             // KeywordOrStarred - call arguments 파싱용
+            // CPython 3.12: Inherits from GeneratedPtr for void* compatibility
             WriteLine("/// <summary>");
             WriteLine("/// Intermediate type for keyword_or_starred rule in python.gram");
+            WriteLine("/// CPython 3.12: void* compatible via GeneratedPtr inheritance");
             WriteLine("/// </summary>");
-            WriteLine("public class GeneratedKeywordOrStarred");
+            WriteLine("public class GeneratedKeywordOrStarred : GeneratedPtr");
             WriteLine("{");
             _indentLevel++;
             WriteLine("public GeneratedKeyword? Keyword { get; set; }");
             WriteLine("public GeneratedExpr? Starred { get; set; }");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // Sequence types for intermediate types
+            // CPython 3.12: These are needed for gather patterns in python.gram
+            WriteLine("/// <summary>");
+            WriteLine("/// Sequence type for GeneratedSlashWithDefault");
+            WriteLine("/// CPython 3.12: Used in arguments parsing (slash_with_default*)");
+            WriteLine("/// </summary>");
+            WriteLine("public class GeneratedSlashWithDefaultSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedSlashWithDefault>");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("private readonly List<GeneratedSlashWithDefault> _items = new();");
+            WriteLine("public int Count => _items.Count;");
+            WriteLine("public bool IsReadOnly => false;");
+            WriteLine("public GeneratedSlashWithDefault this[int index] { get => _items[index]; set => _items[index] = value; }");
+            WriteLine("public void Add(GeneratedSlashWithDefault item) => _items.Add(item);");
+            WriteLine("public void AddRange(System.Collections.Generic.IEnumerable<GeneratedSlashWithDefault> collection) => _items.AddRange(collection);");
+            WriteLine("public void Clear() => _items.Clear();");
+            WriteLine("public bool Contains(GeneratedSlashWithDefault item) => _items.Contains(item);");
+            WriteLine("public void CopyTo(GeneratedSlashWithDefault[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);");
+            WriteLine("public System.Collections.Generic.IEnumerator<GeneratedSlashWithDefault> GetEnumerator() => _items.GetEnumerator();");
+            WriteLine("System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();");
+            WriteLine("public int IndexOf(GeneratedSlashWithDefault item) => _items.IndexOf(item);");
+            WriteLine("public void Insert(int index, GeneratedSlashWithDefault item) => _items.Insert(index, item);");
+            WriteLine("public bool Remove(GeneratedSlashWithDefault item) => _items.Remove(item);");
+            WriteLine("public void RemoveAt(int index) => _items.RemoveAt(index);");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("/// <summary>");
+            WriteLine("/// Sequence type for GeneratedStarEtc");
+            WriteLine("/// CPython 3.12: Used in arguments parsing (star_etc*)");
+            WriteLine("/// </summary>");
+            WriteLine("public class GeneratedStarEtcSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedStarEtc>");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("private readonly List<GeneratedStarEtc> _items = new();");
+            WriteLine("public int Count => _items.Count;");
+            WriteLine("public bool IsReadOnly => false;");
+            WriteLine("public GeneratedStarEtc this[int index] { get => _items[index]; set => _items[index] = value; }");
+            WriteLine("public void Add(GeneratedStarEtc item) => _items.Add(item);");
+            WriteLine("public void AddRange(System.Collections.Generic.IEnumerable<GeneratedStarEtc> collection) => _items.AddRange(collection);");
+            WriteLine("public void Clear() => _items.Clear();");
+            WriteLine("public bool Contains(GeneratedStarEtc item) => _items.Contains(item);");
+            WriteLine("public void CopyTo(GeneratedStarEtc[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);");
+            WriteLine("public System.Collections.Generic.IEnumerator<GeneratedStarEtc> GetEnumerator() => _items.GetEnumerator();");
+            WriteLine("System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();");
+            WriteLine("public int IndexOf(GeneratedStarEtc item) => _items.IndexOf(item);");
+            WriteLine("public void Insert(int index, GeneratedStarEtc item) => _items.Insert(index, item);");
+            WriteLine("public bool Remove(GeneratedStarEtc item) => _items.Remove(item);");
+            WriteLine("public void RemoveAt(int index) => _items.RemoveAt(index);");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("/// <summary>");
+            WriteLine("/// Sequence type for GeneratedKeywordOrStarred");
+            WriteLine("/// CPython 3.12: Used in call arguments parsing (','.kwarg_or_starred+)");
+            WriteLine("/// </summary>");
+            WriteLine("public class GeneratedKeywordOrStarredSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedKeywordOrStarred>");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("private readonly List<GeneratedKeywordOrStarred> _items = new();");
+            WriteLine("public int Count => _items.Count;");
+            WriteLine("public bool IsReadOnly => false;");
+            WriteLine("public GeneratedKeywordOrStarred this[int index] { get => _items[index]; set => _items[index] = value; }");
+            WriteLine("public void Add(GeneratedKeywordOrStarred item) => _items.Add(item);");
+            WriteLine("public void AddRange(System.Collections.Generic.IEnumerable<GeneratedKeywordOrStarred> collection) => _items.AddRange(collection);");
+            WriteLine("public void Clear() => _items.Clear();");
+            WriteLine("public bool Contains(GeneratedKeywordOrStarred item) => _items.Contains(item);");
+            WriteLine("public void CopyTo(GeneratedKeywordOrStarred[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);");
+            WriteLine("public System.Collections.Generic.IEnumerator<GeneratedKeywordOrStarred> GetEnumerator() => _items.GetEnumerator();");
+            WriteLine("System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();");
+            WriteLine("public int IndexOf(GeneratedKeywordOrStarred item) => _items.IndexOf(item);");
+            WriteLine("public void Insert(int index, GeneratedKeywordOrStarred item) => _items.Insert(index, item);");
+            WriteLine("public bool Remove(GeneratedKeywordOrStarred item) => _items.Remove(item);");
+            WriteLine("public void RemoveAt(int index) => _items.RemoveAt(index);");
             _indentLevel--;
             WriteLine("}");
             WriteLine();
