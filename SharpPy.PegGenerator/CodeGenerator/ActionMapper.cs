@@ -96,6 +96,26 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 return MapPyPegenFunction(funcName, args, variables, typeCast);
             }
 
+            // Special case: DictComp with KeyValuePair
+            // _PyAST_DictComp(a, a, b, EXTRA) where a is kvpair should be _PyAST_DictComp(a.Key, a.Value, b, EXTRA)
+            if (funcName == "_PyAST_DictComp" && args.Count >= 2 && args[0] == args[1])
+            {
+                var kvpairVar = args[0];
+                // Check if this variable is from a kvpair rule
+                if (variables.ContainsKey(kvpairVar))
+                {
+                    // Replace first two args with kvpair.Key and kvpair.Value
+                    var newArgs = new List<string>();
+                    newArgs.Add($"{kvpairVar}.Key");
+                    newArgs.Add($"{kvpairVar}.Value");
+                    for (int i = 2; i < args.Count; i++)
+                    {
+                        newArgs.Add(args[i]);
+                    }
+                    args = newArgs;
+                }
+            }
+
             // CPython 3.12: Translate action arguments to C# expressions
             // Keep complex expressions intact (constants, function calls, etc.)
             var translatedArgs = new List<string>();
@@ -121,6 +141,15 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // Determine if this is a statement or expression
             if (StmtTypeMap.TryGetValue(funcName, out var stmtType))
             {
+                // DEBUG: Log If statement args
+                if (stmtType == "If")
+                {
+                    Console.WriteLine($"[ActionMapper] _PyAST_If called with {translatedArgs.Count} args:");
+                    for (int i = 0; i < translatedArgs.Count; i++)
+                    {
+                        Console.WriteLine($"  arg[{i}]: [{translatedArgs[i]}]");
+                    }
+                }
                 return GenerateStmtConstruction(stmtType, translatedArgs, variables);
             }
             else if (ExprTypeMap.TryGetValue(funcName, out var exprType))
@@ -251,7 +280,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
                                    "LShift", "RShift", "BitOr", "BitXor", "BitAnd", "FloorDiv",
                                    "Invert", "Not", "UAdd", "USub" };
             if (singletons.Contains(expr))
+            {
+                // Special case: Mod renamed to Mod_ to avoid collision with 'mod' base type
+                if (expr == "Mod")
+                    return "GeneratedMod_.Instance";
                 return $"Generated{expr}.Instance";
+            }
 
             // CPython ternary operator with complex expressions - CHECK BEFORE field access
             // This must come BEFORE the ->v. check because ternary may contain ->v.
@@ -308,8 +342,28 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 }
             }
 
+            // CPython simple field access: a->key, a->value → a.Key, a.Value
+            // Must come BEFORE the ->v. check
+            if (expr.Contains("->") && !expr.Contains("->v."))
+            {
+                var parts = expr.Split(new[] { "->" }, StringSplitOptions.None);
+                if (parts.Length == 2)
+                {
+                    var varName = parts[0].Trim();
+                    var fieldName = parts[1].Trim();
+                    // Capitalize first letter for C# property naming
+                    if (fieldName.Length > 0)
+                    {
+                        fieldName = char.ToUpper(fieldName[0]) + fieldName.Substring(1);
+                    }
+                    var result = $"{EscapeCSharpKeyword(varName)}.{fieldName}";
+                    Console.WriteLine($"[ActionMapper] Translating {expr} → {result}");
+                    return result;
+                }
+            }
+
             // CPython token field access: n->v.Name.id → ASTHelpers.ExtractStringValue(n)
-            // AFTER ternary check
+            // AFTER ternary check and simple field access
             if (expr.Contains("->v.Name.id") || expr.Contains("->v.String.s") ||
                 expr.Contains("->v.Number.") || expr.Contains("->v."))
             {
@@ -433,13 +487,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // Arguments are already translated to C# expressions
             var pyastFuncName = $"_PyAST_{stmtType}";
 
-            // Filter out only null arguments
-            var validArgs = args.Where(a => a != "null" && !string.IsNullOrWhiteSpace(a)).ToList();
-
+            // CPython 3.12: NULL arguments are valid (e.g., empty decorator_list)
+            // Keep null arguments as they represent optional/empty AST nodes
             // Generate the call
-            if (validArgs.Count > 0)
+            if (args.Count > 0)
             {
-                sb.AppendLine($"_res = {pyastFuncName}({string.Join(", ", validArgs)});");
+                sb.AppendLine($"_res = {pyastFuncName}({string.Join(", ", args)});");
             }
             else
             {
@@ -457,13 +510,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // Arguments are already translated to C# expressions
             var pyastFuncName = $"_PyAST_{exprType}";
 
-            // Filter out only null arguments
-            var validArgs = args.Where(a => a != "null" && !string.IsNullOrWhiteSpace(a)).ToList();
-
+            // CPython 3.12: NULL arguments are valid (e.g., empty optional expressions)
+            // Keep null arguments as they represent optional/empty AST nodes
             // Generate the call
-            if (validArgs.Count > 0)
+            if (args.Count > 0)
             {
-                sb.AppendLine($"_res = {pyastFuncName}({string.Join(", ", validArgs)});");
+                sb.AppendLine($"_res = {pyastFuncName}({string.Join(", ", args)});");
             }
             else
             {

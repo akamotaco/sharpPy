@@ -117,9 +117,10 @@ namespace SharpPy.PegGenerator.Asdl
             var constructorName = ToPascalCase(constructor.Name);
 
             // CPython 3.12: 이름 충돌 처리
-            // stmt.Expr vs expr base type → ExprStmt
-            // type_ignore.TypeIgnore vs type_ignore base → TypeIgnoreNode
-            // operator.Mod vs mod base type → ModOp
+            // Name collision avoidance in C#:
+            // - stmt.Expr vs expr base type → ExprStmt
+            // - type_ignore.TypeIgnore vs type_ignore base → TypeIgnoreNode
+            // - operator.Mod vs mod base type → Mod_ (underscore suffix for consistency)
             if (typeName == "stmt" && constructorName == "Expr")
             {
                 constructorName = "ExprStmt";
@@ -130,7 +131,7 @@ namespace SharpPy.PegGenerator.Asdl
             }
             else if (typeName == "operator" && constructorName == "Mod")
             {
-                constructorName = "ModOp";
+                constructorName = "Mod_";  // Modulo operator (%) - renamed to avoid collision with 'mod' base type
             }
 
             var className = $"Generated{constructorName}";
@@ -289,6 +290,21 @@ namespace SharpPy.PegGenerator.Asdl
             _indentLevel++;
             WriteLine("public GeneratedArgSeq Args { get; set; } = new();");
             WriteLine("public GeneratedExprSeq Defaults { get; set; } = new();");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // KeyValuePair - dictionary literals 파싱용
+            // CPython 3.12: Inherits from GeneratedAstNode for proper type hierarchy
+            WriteLine("/// <summary>");
+            WriteLine("/// Intermediate type for kvpair rule in python.gram");
+            WriteLine("/// CPython 3.12: Inherits from GeneratedAstNode for compatibility with mixed sequences");
+            WriteLine("/// </summary>");
+            WriteLine("public class GeneratedKeyValuePair : GeneratedAstNode");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("public GeneratedExpr Key { get; set; } = null!;");
+            WriteLine("public GeneratedExpr Value { get; set; } = null!;");
             _indentLevel--;
             WriteLine("}");
             WriteLine();

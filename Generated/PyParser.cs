@@ -88,13 +88,13 @@ namespace SharpPy.Generated
                 // Expect token: ENDMARKER
                 Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp0 = ExpectToken(GeneratedTokenType.ENDMARKER);
-                Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_make_module(p, a)
                 // Unknown AST function: _PyPegen_make_module
                 _res = default(GeneratedModule);
@@ -207,13 +207,13 @@ namespace SharpPy.Generated
                     // Expect token: NEWLINE
                     Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                     var _loop_elem__tmp0 = ExpectToken(GeneratedTokenType.NEWLINE);
-                    Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_loop_elem__tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                     if (_loop_elem__tmp0 == null)
                     {
                         _position = _mark;
                         _res = null;
                         break;  // Exit this alternative
                     }
+                    Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_loop_elem__tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                     if (_loop_elem__tmp0 == null)
                     {
                         _position = _loop_mark; // Reset to before failed attempt
@@ -225,13 +225,13 @@ namespace SharpPy.Generated
                 // Expect token: ENDMARKER
                 Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp1 = ExpectToken(GeneratedTokenType.ENDMARKER);
-                Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyAST_Expression(a, p->arena)
                 // Unknown AST function: _PyAST_Expression
                 _res = default(GeneratedModule);
@@ -342,13 +342,13 @@ namespace SharpPy.Generated
                     // Expect token: NEWLINE
                     Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                     var _loop_elem__tmp3 = ExpectToken(GeneratedTokenType.NEWLINE);
-                    Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_loop_elem__tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                     if (_loop_elem__tmp3 == null)
                     {
                         _position = _mark;
                         _res = null;
                         break;  // Exit this alternative
                     }
+                    Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_loop_elem__tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                     if (_loop_elem__tmp3 == null)
                     {
                         _position = _loop_mark; // Reset to before failed attempt
@@ -360,13 +360,13 @@ namespace SharpPy.Generated
                 // Expect token: ENDMARKER
                 Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp4 = ExpectToken(GeneratedTokenType.ENDMARKER);
-                Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): result={(_tmp4 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp4 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): result={(_tmp4 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyAST_FunctionType(a, b, p->arena)
                 // Unknown AST function: _PyAST_FunctionType
                 _res = default(GeneratedModule);
@@ -568,13 +568,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp0 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a)
                 _res = _PyPegen_singleton_seq(a);
                 if (_res != null) goto done;
@@ -620,13 +620,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp0 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: (asdl_stmt_seq*)_PyPegen_singleton_seq(p, CHECK(stmt_ty, _PyAST_Pass(EXTRA)))
                 var _stmt_tmp = _PyAST_Pass(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
@@ -649,13 +649,13 @@ namespace SharpPy.Generated
                 // Expect token: ENDMARKER
                 Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp0 = ExpectToken(GeneratedTokenType.ENDMARKER);
-                Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_interactive_exit(p)
                 // Unknown AST function: _PyPegen_interactive_exit
                 _res = default(GeneratedStmtSeq);
@@ -721,13 +721,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a)
                 _res = _PyPegen_singleton_seq(a);
                 if (_res != null) goto done;
@@ -824,13 +824,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: a
                 _res = (GeneratedStmtSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
@@ -1552,14 +1552,15 @@ namespace SharpPy.Generated
 
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect ':'
                 var _tmp0 = Expect(":");
                 if (_tmp0 == null)
@@ -1836,7 +1837,7 @@ namespace SharpPy.Generated
                     tc = null; // Optional not present
                 }
                 // Action: _PyAST_Assign(a, b, NEW_TYPE_COMMENT(p, tc), EXTRA)
-                _res = _PyAST_Assign(a, b, tc, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Assign(a, b, tc?.Value, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -2564,7 +2565,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Raise(NULL, NULL, EXTRA)
-                _res = _PyAST_Raise(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Raise(null, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -2621,13 +2622,13 @@ namespace SharpPy.Generated
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _first_a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_first_a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_first_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_first_a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_first_a == null)
                 {
                     _position = _mark;
@@ -2655,13 +2656,13 @@ namespace SharpPy.Generated
                     // Expect token: NAME
                     Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                     var _loop_elem_a = ExpectToken(GeneratedTokenType.NAME);
-                    Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_loop_elem_a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                     if (_loop_elem_a == null)
                     {
                         _position = _mark;
                         _res = null;
                         break;  // Exit this alternative
                     }
+                    Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_loop_elem_a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                     if (_loop_elem_a == null)
                     {
                         _position = _loop_mark; // Reset to before separator
@@ -2727,13 +2728,13 @@ namespace SharpPy.Generated
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _first_a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_first_a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_first_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_first_a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_first_a == null)
                 {
                     _position = _mark;
@@ -2761,13 +2762,13 @@ namespace SharpPy.Generated
                     // Expect token: NAME
                     Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                     var _loop_elem_a = ExpectToken(GeneratedTokenType.NAME);
-                    Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_loop_elem_a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                     if (_loop_elem_a == null)
                     {
                         _position = _mark;
                         _res = null;
                         break;  // Exit this alternative
                     }
+                    Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_loop_elem_a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                     if (_loop_elem_a == null)
                     {
                         _position = _loop_mark; // Reset to before separator
@@ -3384,7 +3385,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_ImportFrom(NULL, b, _PyPegen_seq_count_dots(a), EXTRA)
-                _res = _PyAST_ImportFrom(b, _PyPegen_seq_count_dots(a), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_ImportFrom(null, b, _PyPegen_seq_count_dots(a), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -3705,14 +3706,15 @@ namespace SharpPy.Generated
 
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Optional: [('as' z=NAME { z })]
                 int _opt_mark_b = _position;
                 // Group: ('as' z=NAME { z })
@@ -3992,14 +3994,15 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var b = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (b == null)
+                var _token_b = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_b == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var b = NameToken(_token_b);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_join_names_with_dot(p, a, b)
                 // Unknown AST function: _PyPegen_join_names_with_dot
                 _res = default(GeneratedExpr);
@@ -4020,17 +4023,18 @@ namespace SharpPy.Generated
 
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var _tmp0 = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (_tmp0 == null)
+                var _token__tmp0 = ExpectToken(GeneratedTokenType.NAME);
+                if (_token__tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var _tmp0 = NameToken(_token__tmp0);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // No action specified - using default result
-                // CPython 3.12: NAME token → Name expression (implicit _PyPegen_name_token)
-                _res = NameToken(_tmp0);
+                // CPython 3.12: NAME token → Name expression (already converted by ItemCodeGenerator)
+                _res = _tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -4081,23 +4085,23 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp0 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect token: INDENT
                 Console.WriteLine($"[DEBUG] ExpectToken(INDENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp1 = ExpectToken(GeneratedTokenType.INDENT);
-                Console.WriteLine($"[DEBUG] ExpectToken(INDENT): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(INDENT): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Call rule: statements
                 var a = Statements();
                 if (a == null)
@@ -4109,13 +4113,13 @@ namespace SharpPy.Generated
                 // Expect token: DEDENT
                 Console.WriteLine($"[DEBUG] ExpectToken(DEDENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp2 = ExpectToken(GeneratedTokenType.DEDENT);
-                Console.WriteLine($"[DEBUG] ExpectToken(DEDENT): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(DEDENT): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: a
                 _res = (GeneratedStmtSeq)((GeneratedPtr?)a);
                 if (_res != null) goto done;
@@ -4427,14 +4431,15 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Optional: [(type_params)]
                 int _opt_mark_t = _position;
                 // Group: (type_params)
@@ -4541,7 +4546,7 @@ namespace SharpPy.Generated
                 //   (b) ? ((expr_ty) b)->v.Call.args : NULL,
                 //   (b) ? ((expr_ty) b)->v.Call.keywords : NULL,
                 //   c, NULL, t, EXTRA)
-                _res = _PyAST_ClassDef(ASTHelpers.ExtractStringValue(a), ASTHelpers.ExtractCallArgs(b), ASTHelpers.ExtractCallKeywords(b), c, t, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_ClassDef(ASTHelpers.ExtractStringValue(a), ASTHelpers.ExtractCallArgs(b), ASTHelpers.ExtractCallKeywords(b), c, null, t, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -4709,14 +4714,15 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var n = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(n != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (n == null)
+                var _token_n = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_n == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var n = NameToken(_token_n);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(n != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Optional: [(type_params)]
                 int _opt_mark_t = _position;
                 // Group: (type_params)
@@ -4818,12 +4824,12 @@ namespace SharpPy.Generated
                 // Optional: [(func_type_comment)]
                 int _opt_mark_tc = _position;
                 // Group: (func_type_comment)
-                GeneratedAstNode? _opt_tc = null;
+                GeneratedTokenInfo? _opt_tc = null;
                 int _group_mark__opt_tc = _position;
                 // Try group alternative 1: func_type_comment
                 {
                     _position = _group_mark__opt_tc;
-                    GeneratedAstNode? _group_alt0__opt_tc_item0 = FuncTypeComment();
+                    GeneratedTokenInfo _group_alt0__opt_tc_item0 = FuncTypeComment();
                     if (_group_alt0__opt_tc_item0 != null)
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
@@ -4835,7 +4841,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                GeneratedAstNode? tc = _opt_tc;
+                GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
                     _position = _opt_mark_tc; // Reset position
@@ -4853,7 +4859,7 @@ namespace SharpPy.Generated
                 //   _PyAST_FunctionDef(n->v.Name.id,
                 //   (params) ? params : CHECK(arguments_ty, _PyPegen_empty_arguments(p)),
                 //   b, NULL, a, NEW_TYPE_COMMENT(p, tc), t, EXTRA)
-                _res = _PyAST_FunctionDef(ASTHelpers.ExtractStringValue(n), params_ ?? _PyPegen_empty_arguments(), b, a, tc, t, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_FunctionDef(ASTHelpers.ExtractStringValue(n), params_ ?? _PyPegen_empty_arguments(), b, null, a, tc?.Value, t, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -4873,13 +4879,13 @@ namespace SharpPy.Generated
                 // Expect token: ASYNC
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp0 = ExpectToken(GeneratedTokenType.ASYNC);
-                Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect 'def'
                 var _tmp1 = Expect("def");
                 if (_tmp1 == null)
@@ -4890,14 +4896,15 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var n = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(n != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (n == null)
+                var _token_n = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_n == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var n = NameToken(_token_n);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(n != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Optional: [(type_params)]
                 int _opt_mark_t = _position;
                 // Group: (type_params)
@@ -4999,12 +5006,12 @@ namespace SharpPy.Generated
                 // Optional: [(func_type_comment)]
                 int _opt_mark_tc = _position;
                 // Group: (func_type_comment)
-                GeneratedAstNode? _opt_tc = null;
+                GeneratedTokenInfo? _opt_tc = null;
                 int _group_mark__opt_tc = _position;
                 // Try group alternative 1: func_type_comment
                 {
                     _position = _group_mark__opt_tc;
-                    GeneratedAstNode? _group_alt0__opt_tc_item0 = FuncTypeComment();
+                    GeneratedTokenInfo _group_alt0__opt_tc_item0 = FuncTypeComment();
                     if (_group_alt0__opt_tc_item0 != null)
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
@@ -5016,7 +5023,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                GeneratedAstNode? tc = _opt_tc;
+                GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
                     _position = _opt_mark_tc; // Reset position
@@ -6314,13 +6321,13 @@ namespace SharpPy.Generated
                 // Expect token: TYPE_COMMENT
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _opt_tc = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_opt_tc == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
@@ -6358,13 +6365,13 @@ namespace SharpPy.Generated
                 // Expect token: TYPE_COMMENT
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _opt_tc = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_opt_tc == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
@@ -6440,13 +6447,13 @@ namespace SharpPy.Generated
                 // Expect token: TYPE_COMMENT
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _opt_tc = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_opt_tc == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
@@ -6484,13 +6491,13 @@ namespace SharpPy.Generated
                 // Expect token: TYPE_COMMENT
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _opt_tc = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_opt_tc == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
@@ -6574,13 +6581,13 @@ namespace SharpPy.Generated
                 // Expect token: TYPE_COMMENT
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _opt_tc = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_opt_tc == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
@@ -6626,13 +6633,13 @@ namespace SharpPy.Generated
                 // Expect token: TYPE_COMMENT
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _opt_tc = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_opt_tc == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
@@ -6724,13 +6731,13 @@ namespace SharpPy.Generated
                 // Expect token: TYPE_COMMENT
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _opt_tc = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_opt_tc == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
@@ -6784,13 +6791,13 @@ namespace SharpPy.Generated
                 // Expect token: TYPE_COMMENT
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _opt_tc = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_opt_tc == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 GeneratedTokenInfo? tc = _opt_tc;
                 if (tc == null)
                 {
@@ -6847,14 +6854,15 @@ namespace SharpPy.Generated
 
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Optional: [annotation]
                 int _opt_mark_b = _position;
                 // Call rule: annotation
@@ -6917,14 +6925,15 @@ namespace SharpPy.Generated
 
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Call rule: star_annotation
                 var b = StarAnnotation();
                 if (b == null)
@@ -7255,7 +7264,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_If(a, b, CHECK(asdl_stmt_seq*, _PyPegen_singleton_seq(p, c)), EXTRA)
-                _res = _PyAST_If(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_If(a, b, _PyPegen_singleton_seq(c), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -7445,7 +7454,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_If(a, b, CHECK(asdl_stmt_seq*, _PyPegen_singleton_seq(p, c)), EXTRA)
-                _res = _PyAST_If(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_If(a, b, _PyPegen_singleton_seq(c), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -7922,7 +7931,7 @@ namespace SharpPy.Generated
                     el = null; // Optional not present
                 }
                 // Action: _PyAST_For(t, ex, b, el, NEW_TYPE_COMMENT(p, tc), EXTRA)
-                _res = _PyAST_For(t, ex, b, el, tc, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_For(t, ex, b, el, tc?.Value, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -7942,13 +7951,13 @@ namespace SharpPy.Generated
                 // Expect token: ASYNC
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp0 = ExpectToken(GeneratedTokenType.ASYNC);
-                Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect 'for'
                 var _tmp1 = Expect("for");
                 if (_tmp1 == null)
@@ -8262,7 +8271,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_With(a, b, NULL, EXTRA)
-                _res = _PyAST_With(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_With(a, b, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -8380,7 +8389,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_With(a, b, NEW_TYPE_COMMENT(p, tc), EXTRA)
-                _res = _PyAST_With(a, b, tc, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_With(a, b, tc?.Value, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -8400,13 +8409,13 @@ namespace SharpPy.Generated
                 // Expect token: ASYNC
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp0 = ExpectToken(GeneratedTokenType.ASYNC);
-                Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect 'with'
                 var _tmp1 = Expect("with");
                 if (_tmp1 == null)
@@ -8534,13 +8543,13 @@ namespace SharpPy.Generated
                 // Expect token: ASYNC
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp0 = ExpectToken(GeneratedTokenType.ASYNC);
-                Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect 'with'
                 var _tmp1 = Expect("with");
                 if (_tmp1 == null)
@@ -8902,7 +8911,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Try(b, NULL, NULL, f, EXTRA)
-                _res = _PyAST_Try(b, f, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Try(b, null, null, f, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -9683,23 +9692,23 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp2 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect token: INDENT
                 Console.WriteLine($"[DEBUG] ExpectToken(INDENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp3 = ExpectToken(GeneratedTokenType.INDENT);
-                Console.WriteLine($"[DEBUG] ExpectToken(INDENT): result={(_tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp3 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(INDENT): result={(_tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // One or more: case_block+
                 var cases = new GeneratedMatchCaseSeq();
                 while (true)
@@ -9730,13 +9739,13 @@ namespace SharpPy.Generated
                 // Expect token: DEDENT
                 Console.WriteLine($"[DEBUG] ExpectToken(DEDENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp4 = ExpectToken(GeneratedTokenType.DEDENT);
-                Console.WriteLine($"[DEBUG] ExpectToken(DEDENT): result={(_tmp4 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp4 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(DEDENT): result={(_tmp4 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: CHECK_VERSION(stmt_ty, 10, "Pattern matching is", _PyAST_Match(subject, cases, EXTRA))
                 // No _PyAST_ or _PyPegen_ function in action: EXTRA)
                 _res = default(GeneratedStmt);
@@ -10960,7 +10969,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Constant(Py_None, NULL, EXTRA)
-                _res = _PyAST_Constant(Py_None, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Constant(Py_None, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -10986,7 +10995,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Constant(Py_True, NULL, EXTRA)
-                _res = _PyAST_Constant(Py_True, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Constant(Py_True, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -11012,7 +11021,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Constant(Py_False, NULL, EXTRA)
-                _res = _PyAST_Constant(Py_False, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Constant(Py_False, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -11167,17 +11176,18 @@ namespace SharpPy.Generated
 
                 // Expect token: NUMBER
                 Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var _tmp0 = ExpectToken(GeneratedTokenType.NUMBER);
-                Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (_tmp0 == null)
+                var _token__tmp0 = ExpectToken(GeneratedTokenType.NUMBER);
+                if (_token__tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var _tmp0 = NumberToken(_token__tmp0);
+                Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // No action specified - using default result
-                // CPython 3.12: NUMBER token → Constant expression (implicit _PyPegen_number_token)
-                _res = NumberToken(_tmp0);
+                // CPython 3.12: NUMBER token → Constant expression (already converted by ItemCodeGenerator)
+                _res = _tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -11203,14 +11213,15 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NUMBER
                 Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var number = ExpectToken(GeneratedTokenType.NUMBER);
-                Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): result={(number != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (number == null)
+                var _token_number = ExpectToken(GeneratedTokenType.NUMBER);
+                if (_token_number == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var number = NumberToken(_token_number);
+                Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): result={(number != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyAST_UnaryOp(USub, number, EXTRA)
                 _res = _PyAST_UnaryOp(GeneratedUSub.Instance, number, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
@@ -11342,14 +11353,15 @@ namespace SharpPy.Generated
 
                 // Expect token: NUMBER
                 Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var real = ExpectToken(GeneratedTokenType.NUMBER);
-                Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): result={(real != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (real == null)
+                var _token_real = ExpectToken(GeneratedTokenType.NUMBER);
+                if (_token_real == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var real = NumberToken(_token_real);
+                Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): result={(real != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_ensure_real(p, real)
                 // Unknown AST function: _PyPegen_ensure_real
                 _res = default(GeneratedExpr);
@@ -11396,14 +11408,15 @@ namespace SharpPy.Generated
 
                 // Expect token: NUMBER
                 Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var imag = ExpectToken(GeneratedTokenType.NUMBER);
-                Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): result={(imag != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (imag == null)
+                var _token_imag = ExpectToken(GeneratedTokenType.NUMBER);
+                if (_token_imag == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var imag = NumberToken(_token_imag);
+                Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): result={(imag != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_ensure_imaginary(p, imag)
                 // Unknown AST function: _PyPegen_ensure_imaginary
                 _res = default(GeneratedExpr);
@@ -11512,14 +11525,15 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var name = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(name != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (name == null)
+                var _token_name = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_name == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var name = NameToken(_token_name);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(name != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(('.' | '(' | '='))
                 GeneratedTokenInfo? _lookahead_test_39 = null;
                 // Test if current token matches: ('.' | '(' | '=')
@@ -11711,14 +11725,15 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var attr = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(attr != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (attr == null)
+                var _token_attr = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_attr == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var attr = NameToken(_token_attr);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(attr != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyAST_Attribute(value, attr->v.Name.id, Load, EXTRA)
                 _res = _PyAST_Attribute(value, ASTHelpers.ExtractStringValue(attr), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
@@ -11790,17 +11805,18 @@ namespace SharpPy.Generated
 
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var _tmp0 = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (_tmp0 == null)
+                var _token__tmp0 = ExpectToken(GeneratedTokenType.NAME);
+                if (_token__tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var _tmp0 = NameToken(_token__tmp0);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // No action specified - using default result
-                // CPython 3.12: NAME token → Name expression (implicit _PyPegen_name_token)
-                _res = NameToken(_tmp0);
+                // CPython 3.12: NAME token → Name expression (already converted by ItemCodeGenerator)
+                _res = _tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -12706,7 +12722,7 @@ namespace SharpPy.Generated
                     _tmp0.Add(_loop_elem__tmp0);
                 }
                 // No action specified - using default result
-                _res = (GeneratedMixedSeq)_tmp0;
+                _res = PegenHelpers.ToMixedSeq(_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13364,7 +13380,7 @@ namespace SharpPy.Generated
                     _tmp0.Add(_loop_elem__tmp0);
                 }
                 // No action specified - using default result
-                _res = (GeneratedMixedSeq)_tmp0;
+                _res = PegenHelpers.ToMixedSeq(_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13408,14 +13424,15 @@ namespace SharpPy.Generated
 
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var arg = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(arg != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (arg == null)
+                var _token_arg = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_arg == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var arg = NameToken(_token_arg);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(arg != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect '='
                 var _tmp0 = Expect("=");
                 if (_tmp0 == null)
@@ -13486,14 +13503,15 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var n = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(n != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (n == null)
+                var _token_n = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_n == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var n = NameToken(_token_n);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(n != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Optional: [(type_params)]
                 int _opt_mark_t = _position;
                 // Group: (type_params)
@@ -13777,14 +13795,15 @@ namespace SharpPy.Generated
 
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Optional: [(type_param_bound)]
                 int _opt_mark_b = _position;
                 // Group: (type_param_bound)
@@ -13839,14 +13858,15 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect ':'
                 var colon = Expect(":");
                 if (colon == null)
@@ -13896,14 +13916,15 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyAST_TypeVarTuple(a->v.Name.id, EXTRA)
                 // Unknown AST function: _PyAST_TypeVarTuple
                 _res = default(GeneratedTypeParam);
@@ -13932,14 +13953,15 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect ':'
                 var colon = Expect(":");
                 if (colon == null)
@@ -13989,14 +14011,15 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyAST_ParamSpec(a->v.Name.id, EXTRA)
                 // Unknown AST function: _PyAST_ParamSpec
                 _res = default(GeneratedTypeParam);
@@ -14210,7 +14233,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_singleton_seq(p, a)), Load, EXTRA)
-                _res = _PyAST_Tuple(GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Tuple(_PyPegen_singleton_seq(a), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -14708,7 +14731,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_singleton_seq(p, a)), Load, EXTRA)
-                _res = _PyAST_Tuple(GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Tuple(_PyPegen_singleton_seq(a), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -15073,14 +15096,15 @@ namespace SharpPy.Generated
 
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect ':='
                 var _tmp0 = Expect(":=");
                 if (_tmp0 == null)
@@ -17355,7 +17379,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_BinOp(a, Mod, b, EXTRA)
-                _res = _PyAST_BinOp(a, GeneratedMod.Instance, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_BinOp(a, GeneratedMod_.Instance, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -17726,13 +17750,13 @@ namespace SharpPy.Generated
                 // Expect token: AWAIT
                 Console.WriteLine($"[DEBUG] ExpectToken(AWAIT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp0 = ExpectToken(GeneratedTokenType.AWAIT);
-                Console.WriteLine($"[DEBUG] ExpectToken(AWAIT): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(AWAIT): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Call rule: primary
                 var a = Primary();
                 if (a == null)
@@ -17834,14 +17858,15 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var b = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (b == null)
+                var _token_b = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_b == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var b = NameToken(_token_b);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyAST_Attribute(a, b->v.Name.id, Load, EXTRA)
                 _res = _PyAST_Attribute(a, ASTHelpers.ExtractStringValue(b), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
@@ -17877,7 +17902,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Call(a, CHECK(asdl_expr_seq*, (asdl_expr_seq*)_PyPegen_singleton_seq(p, b)), NULL, EXTRA)
-                _res = _PyAST_Call(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Call(a, _PyPegen_singleton_seq(b), null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -18448,17 +18473,18 @@ namespace SharpPy.Generated
 
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var _tmp0 = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (_tmp0 == null)
+                var _token__tmp0 = ExpectToken(GeneratedTokenType.NAME);
+                if (_token__tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var _tmp0 = NameToken(_token__tmp0);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // No action specified - using default result
-                // CPython 3.12: NAME token → Name expression (implicit _PyPegen_name_token)
-                _res = NameToken(_tmp0);
+                // CPython 3.12: NAME token → Name expression (already converted by ItemCodeGenerator)
+                _res = _tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -18483,7 +18509,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Constant(Py_True, NULL, EXTRA)
-                _res = _PyAST_Constant(Py_True, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Constant(Py_True, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -18509,7 +18535,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Constant(Py_False, NULL, EXTRA)
-                _res = _PyAST_Constant(Py_False, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Constant(Py_False, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -18535,7 +18561,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Constant(Py_None, NULL, EXTRA)
-                _res = _PyAST_Constant(Py_None, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Constant(Py_None, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -18583,17 +18609,18 @@ namespace SharpPy.Generated
 
                 // Expect token: NUMBER
                 Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var _tmp0 = ExpectToken(GeneratedTokenType.NUMBER);
-                Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (_tmp0 == null)
+                var _token__tmp0 = ExpectToken(GeneratedTokenType.NUMBER);
+                if (_token__tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var _tmp0 = NumberToken(_token__tmp0);
+                Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // No action specified - using default result
-                // CPython 3.12: NUMBER token → Constant expression (implicit _PyPegen_number_token)
-                _res = NumberToken(_tmp0);
+                // CPython 3.12: NUMBER token → Constant expression (already converted by ItemCodeGenerator)
+                _res = _tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -18795,7 +18822,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Constant(Py_Ellipsis, NULL, EXTRA)
-                _res = _PyAST_Constant(Py_Ellipsis, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Constant(Py_Ellipsis, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -20497,14 +20524,15 @@ namespace SharpPy.Generated
 
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyAST_arg(a->v.Name.id, NULL, NULL, EXTRA)
                 // Unknown AST function: _PyAST_arg
                 _res = default(GeneratedArg);
@@ -20577,13 +20605,13 @@ namespace SharpPy.Generated
                 // Expect token: FSTRING_MIDDLE
                 Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_MIDDLE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var t = ExpectToken(GeneratedTokenType.FSTRING_MIDDLE);
-                Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_MIDDLE): result={(t != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (t == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_MIDDLE): result={(t != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_constant_from_token(p, t)
                 // Unknown AST function: _PyPegen_constant_from_token
                 _res = default(GeneratedExpr);
@@ -20824,14 +20852,15 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var conv = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(conv != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (conv == null)
+                var _token_conv = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_conv == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var conv = NameToken(_token_conv);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(conv != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_check_fstring_conversion(p, conv_token, conv)
                 // Unknown AST function: _PyPegen_check_fstring_conversion
                 _res = default(GeneratedAstNode?);
@@ -20952,13 +20981,13 @@ namespace SharpPy.Generated
                 // Expect token: FSTRING_MIDDLE
                 Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_MIDDLE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var t = ExpectToken(GeneratedTokenType.FSTRING_MIDDLE);
-                Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_MIDDLE): result={(t != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (t == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_MIDDLE): result={(t != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_decoded_constant_from_token(p, t)
                 // Unknown AST function: _PyPegen_decoded_constant_from_token
                 _res = default(GeneratedExpr);
@@ -21031,13 +21060,13 @@ namespace SharpPy.Generated
                 // Expect token: FSTRING_START
                 Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_START): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var a = ExpectToken(GeneratedTokenType.FSTRING_START);
-                Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_START): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_START): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Zero or more: fstring_middle*
                 var b = new GeneratedExprSeq();
                 while (true)
@@ -21062,13 +21091,13 @@ namespace SharpPy.Generated
                 // Expect token: FSTRING_END
                 Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_END): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var c = ExpectToken(GeneratedTokenType.FSTRING_END);
-                Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_END): result={(c != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (c == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_END): result={(c != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_joined_str(p, a, (asdl_expr_seq*)b, c)
                 // Unknown AST function: _PyPegen_joined_str
                 _res = default(GeneratedExpr);
@@ -21121,14 +21150,15 @@ namespace SharpPy.Generated
 
                 // Expect token: STRING
                 Console.WriteLine($"[DEBUG] ExpectToken(STRING): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var s = ExpectToken(GeneratedTokenType.STRING);
-                Console.WriteLine($"[DEBUG] ExpectToken(STRING): result={(s != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (s == null)
+                var _token_s = ExpectToken(GeneratedTokenType.STRING);
+                if (_token_s == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var s = StringToken(_token_s);
+                Console.WriteLine($"[DEBUG] ExpectToken(STRING): result={(s != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_constant_from_string(p, s)
                 // Unknown AST function: _PyPegen_constant_from_string
                 _res = default(GeneratedExpr);
@@ -21680,7 +21710,7 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.double_starred_kvpair+
-                var a = new GeneratedAstNodeSeq();
+                var a = new GeneratedMixedSeq();
                 // Parse first item (no separator)
                 // Call rule: double_starred_kvpair
                 var _first_a = DoubleStarredKvpair();
@@ -21696,7 +21726,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                a.Add(_first_a);
+                a.Add((GeneratedAstNode)_first_a);
                 // Parse remaining items (separator + item)
                 while (true)
                 {
@@ -21727,7 +21757,7 @@ namespace SharpPy.Generated
                         _position = _loop_mark; // Reset to before separator
                         break; // No item after separator
                     }
-                    a.Add(_loop_elem_a);
+                    a.Add((GeneratedAstNode)_loop_elem_a);
                 }
                 // Optional: [(',')]
                 int _opt_mark__tmp0 = _position;
@@ -21773,11 +21803,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: double_starred_kvpair from python.gram
-        public GeneratedAstNode? DoubleStarredKvpair()
+        public GeneratedKeyValuePair DoubleStarredKvpair()
         {
             // CPython 3.12 PEG: double_starred_kvpair
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedKeyValuePair _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -21816,7 +21846,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyPegen_key_value_pair(p, NULL, a)
                 // Unknown AST function: _PyPegen_key_value_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedKeyValuePair);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21841,7 +21871,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = (GeneratedKeyValuePair)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -21858,11 +21888,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: kvpair from python.gram
-        public GeneratedAstNode? Kvpair()
+        public GeneratedKeyValuePair Kvpair()
         {
             // CPython 3.12 PEG: kvpair
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedKeyValuePair _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -21909,7 +21939,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyPegen_key_value_pair(p, a, b)
                 // Unknown AST function: _PyPegen_key_value_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedKeyValuePair);
                 if (_res != null) goto done;
             } while (false);
 
@@ -22024,13 +22054,13 @@ namespace SharpPy.Generated
                 // Expect token: ASYNC
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp0 = ExpectToken(GeneratedTokenType.ASYNC);
-                Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect 'for'
                 var _tmp1 = Expect("for");
                 if (_tmp1 == null)
@@ -22647,7 +22677,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_DictComp(a->key, a->value, b, EXTRA)
-                _res = _PyAST_DictComp(a, a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_DictComp(a.Key, a.Value, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -23322,7 +23352,7 @@ namespace SharpPy.Generated
                     _tmp0.Add(_loop_elem__tmp0);
                 }
                 // No action specified - using default result
-                _res = (GeneratedMixedSeq)_tmp0;
+                _res = PegenHelpers.ToMixedSeq(_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23389,7 +23419,7 @@ namespace SharpPy.Generated
                     _tmp0.Add(_loop_elem__tmp0);
                 }
                 // No action specified - using default result
-                _res = (GeneratedMixedSeq)_tmp0;
+                _res = PegenHelpers.ToMixedSeq(_tmp0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23581,14 +23611,15 @@ namespace SharpPy.Generated
 
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect '='
                 var _tmp0 = Expect("=");
                 if (_tmp0 == null)
@@ -23707,14 +23738,15 @@ namespace SharpPy.Generated
 
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect '='
                 var _tmp0 = Expect("=");
                 if (_tmp0 == null)
@@ -24367,14 +24399,15 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var b = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (b == null)
+                var _token_b = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_b == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var b = NameToken(_token_b);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(t_lookahead)
                 GeneratedTokenInfo? _lookahead_test_60 = null;
                 // TODO: Complex negative lookahead for RuleRef
@@ -24516,14 +24549,15 @@ namespace SharpPy.Generated
 
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_set_expr_context(p, a, Store)
                 _res = _PyPegen_set_expr_context(a, GeneratedStore.Instance);
                 if (_res != null) goto done;
@@ -24755,14 +24789,15 @@ namespace SharpPy.Generated
 
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_set_expr_context(p, a, Store)
                 _res = _PyPegen_set_expr_context(a, GeneratedStore.Instance);
                 if (_res != null) goto done;
@@ -24865,14 +24900,15 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var b = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (b == null)
+                var _token_b = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_b == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var b = NameToken(_token_b);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(t_lookahead)
                 GeneratedTokenInfo? _lookahead_test_62 = null;
                 // TODO: Complex negative lookahead for RuleRef
@@ -25011,14 +25047,15 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var b = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (b == null)
+                var _token_b = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_b == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var b = NameToken(_token_b);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Positive lookahead - check without consuming
                 int _lookahead_mark_64 = _position;
                 // TODO: Parse lookahead content for RuleRef
@@ -25116,7 +25153,7 @@ namespace SharpPy.Generated
                 // TODO: Parse lookahead content for RuleRef
                 _position = _lookahead_mark_66; // Restore position
                 // Action: _PyAST_Call(a, CHECK(asdl_expr_seq*, (asdl_expr_seq*)_PyPegen_singleton_seq(p, b)), NULL, EXTRA)
-                _res = _PyAST_Call(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Call(a, _PyPegen_singleton_seq(b), null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -25508,14 +25545,15 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var b = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (b == null)
+                var _token_b = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_b == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var b = NameToken(_token_b);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(t_lookahead)
                 GeneratedTokenInfo? _lookahead_test_69 = null;
                 // TODO: Complex negative lookahead for RuleRef
@@ -25657,14 +25695,15 @@ namespace SharpPy.Generated
 
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_set_expr_context(p, a, Del)
                 _res = _PyPegen_set_expr_context(a, GeneratedDel.Instance);
                 if (_res != null) goto done;
@@ -26215,8 +26254,7 @@ namespace SharpPy.Generated
                 //   p,
                 //   CHECK(asdl_seq*, _PyPegen_singleton_seq(p, a)),
                 //   b)
-                // Unknown AST function: _PyPegen_seq_append_to_end
-                _res = default(GeneratedExprSeq);
+                _res = _PyPegen_seq_append_to_end(_PyPegen_singleton_seq(a), b);
                 if (_res != null) goto done;
             } while (false);
 
@@ -26366,11 +26404,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: func_type_comment from python.gram
-        public GeneratedAstNode? FuncTypeComment()
+        public GeneratedTokenInfo FuncTypeComment()
         {
             // CPython 3.12 PEG: func_type_comment
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedTokenInfo _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -26394,29 +26432,29 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp0 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect token: TYPE_COMMENT
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var t = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(t != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (t == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(t != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Positive lookahead - check without consuming
                 int _lookahead_mark_71 = _position;
                 // TODO: Parse lookahead content for Group
                 _position = _lookahead_mark_71; // Restore position
                 // Action: t
-                _res = (GeneratedAstNode?)((GeneratedPtr?)t);
+                _res = (GeneratedTokenInfo)((GeneratedPtr?)t);
                 if (_res != null) goto done;
             } while (false);
 
@@ -26465,15 +26503,15 @@ namespace SharpPy.Generated
                 // Expect token: TYPE_COMMENT
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp0 = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = (GeneratedTokenInfo)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -26971,14 +27009,15 @@ namespace SharpPy.Generated
 
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect '='
                 var b = Expect("=");
                 if (b == null)
@@ -27055,14 +27094,15 @@ namespace SharpPy.Generated
                 }
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect '='
                 var b = Expect("=");
                 if (b == null)
@@ -27317,14 +27357,15 @@ namespace SharpPy.Generated
 
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect '='
                 var b = Expect("=");
                 if (b == null)
@@ -27636,14 +27677,15 @@ namespace SharpPy.Generated
 
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !('(')
                 GeneratedTokenInfo? _lookahead_test_80 = null;
                 if (CurrentToken?.Value == "(") { _lookahead_test_80 = CurrentToken; }
@@ -27960,14 +28002,15 @@ namespace SharpPy.Generated
 
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (a == null)
+                var _token_a = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_a == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                var a = NameToken(_token_a);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect '='
                 var _tmp0 = Expect("=");
                 if (_tmp0 == null)
@@ -28706,13 +28749,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp0 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
                 GeneratedTokenInfo? _lookahead_test_87 = null;
                 // TODO: Complex negative lookahead for RuleRef
@@ -29800,13 +29843,13 @@ namespace SharpPy.Generated
                 // Expect token: TYPE_COMMENT
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp2 = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: RAISE_SYNTAX_ERROR("bare * has associated type comment")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "bare * has associated type comment";
@@ -31439,53 +31482,53 @@ namespace SharpPy.Generated
                 // Expect token: TYPE_COMMENT
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp0 = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect token: TYPE_COMMENT
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp2 = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp3 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp3 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect token: INDENT
                 Console.WriteLine($"[DEBUG] ExpectToken(INDENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp4 = ExpectToken(GeneratedTokenType.INDENT);
-                Console.WriteLine($"[DEBUG] ExpectToken(INDENT): result={(_tmp4 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp4 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(INDENT): result={(_tmp4 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: RAISE_SYNTAX_ERROR("Cannot have two type comments on def")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "Cannot have two type comments on def";
@@ -31611,13 +31654,13 @@ namespace SharpPy.Generated
                 // Expect token: ASYNC
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _opt__tmp0 = ExpectToken(GeneratedTokenType.ASYNC);
-                Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_opt__tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_opt__tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_opt__tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_tmp0 == null)
                 {
@@ -31947,13 +31990,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp2 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: RAISE_SYNTAX_ERROR("trailing comma not allowed without surrounding parentheses")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "trailing comma not allowed without surrounding parentheses";
@@ -32089,13 +32132,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp3 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp3 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: RAISE_SYNTAX_ERROR("expected ':'")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected ':'";
@@ -32237,13 +32280,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp6 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp6 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp6 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp6 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: RAISE_SYNTAX_ERROR("expected ':'")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected ':'";
@@ -32387,13 +32430,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp3 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp3 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
                 GeneratedTokenInfo? _lookahead_test_90 = null;
                 // TODO: Complex negative lookahead for RuleRef
@@ -32553,13 +32596,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp6 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp6 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp6 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp6 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
                 GeneratedTokenInfo? _lookahead_test_91 = null;
                 // TODO: Complex negative lookahead for RuleRef
@@ -32635,13 +32678,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
                 GeneratedTokenInfo? _lookahead_test_92 = null;
                 // TODO: Complex negative lookahead for RuleRef
@@ -33078,13 +33121,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var expression = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(expression != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (expression == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(expression != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: RAISE_SYNTAX_ERROR("expected ':'")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected ':'";
@@ -33116,13 +33159,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp0 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: RAISE_SYNTAX_ERROR("expected ':'")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected ':'";
@@ -33252,13 +33295,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
                 GeneratedTokenInfo? _lookahead_test_94 = null;
                 // TODO: Complex negative lookahead for RuleRef
@@ -33334,13 +33377,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp0 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
                 GeneratedTokenInfo? _lookahead_test_95 = null;
                 // TODO: Complex negative lookahead for RuleRef
@@ -33390,13 +33433,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
                 GeneratedTokenInfo? _lookahead_test_96 = null;
                 // TODO: Complex negative lookahead for RuleRef
@@ -33480,13 +33523,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
                 GeneratedTokenInfo? _lookahead_test_97 = null;
                 // TODO: Complex negative lookahead for RuleRef
@@ -33562,13 +33605,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp2 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: CHECK_VERSION(void*, 10, "Pattern matching is", RAISE_SYNTAX_ERROR("expected ':'") )
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "Pattern matching is";
@@ -33616,13 +33659,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
                 GeneratedTokenInfo? _lookahead_test_98 = null;
                 // TODO: Complex negative lookahead for RuleRef
@@ -33714,13 +33757,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp3 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp3 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: RAISE_SYNTAX_ERROR("expected ':'")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected ':'";
@@ -33784,13 +33827,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp3 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp3 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
                 GeneratedTokenInfo? _lookahead_test_99 = null;
                 // TODO: Complex negative lookahead for RuleRef
@@ -34165,13 +34208,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp2 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: RAISE_SYNTAX_ERROR("expected ':'")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected ':'";
@@ -34219,13 +34262,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
                 GeneratedTokenInfo? _lookahead_test_101 = null;
                 // TODO: Complex negative lookahead for RuleRef
@@ -34301,13 +34344,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp2 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: RAISE_SYNTAX_ERROR("expected ':'")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected ':'";
@@ -34355,13 +34398,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp2 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
                 GeneratedTokenInfo? _lookahead_test_102 = null;
                 // TODO: Complex negative lookahead for RuleRef
@@ -34437,13 +34480,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
                 GeneratedTokenInfo? _lookahead_test_103 = null;
                 // TODO: Complex negative lookahead for RuleRef
@@ -34519,13 +34562,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp2 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: RAISE_SYNTAX_ERROR("expected ':'")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected ':'";
@@ -34573,13 +34616,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp2 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
                 GeneratedTokenInfo? _lookahead_test_104 = null;
                 // TODO: Complex negative lookahead for RuleRef
@@ -34697,13 +34740,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp5 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp5 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp5 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp5 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: RAISE_SYNTAX_ERROR("expected ':'")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected ':'";
@@ -34793,13 +34836,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp5 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp5 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp5 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp5 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
                 GeneratedTokenInfo? _lookahead_test_105 = null;
                 // TODO: Complex negative lookahead for RuleRef
@@ -34973,13 +35016,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp5 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp5 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp5 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp5 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
                 GeneratedTokenInfo? _lookahead_test_106 = null;
                 // TODO: Complex negative lookahead for RuleRef
@@ -35106,13 +35149,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: RAISE_SYNTAX_ERROR("expected ':'")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected ':'";
@@ -35211,13 +35254,13 @@ namespace SharpPy.Generated
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var _tmp1 = ExpectToken(GeneratedTokenType.NEWLINE);
-                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
                     _res = null;
                     break;  // Exit this alternative
                 }
+                Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
                 GeneratedTokenInfo? _lookahead_test_107 = null;
                 // TODO: Complex negative lookahead for RuleRef
@@ -35275,7 +35318,7 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.double_starred_kvpair+
-                var _tmp0 = new GeneratedAstNodeSeq();
+                var _tmp0 = new GeneratedMixedSeq();
                 // Parse first item (no separator)
                 // Call rule: double_starred_kvpair
                 var _first__tmp0 = DoubleStarredKvpair();
@@ -35291,7 +35334,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                _tmp0.Add(_first__tmp0);
+                _tmp0.Add((GeneratedAstNode)_first__tmp0);
                 // Parse remaining items (separator + item)
                 while (true)
                 {
@@ -35322,7 +35365,7 @@ namespace SharpPy.Generated
                         _position = _loop_mark; // Reset to before separator
                         break; // No item after separator
                     }
-                    _tmp0.Add(_loop_elem__tmp0);
+                    _tmp0.Add((GeneratedAstNode)_loop_elem__tmp0);
                 }
                 // Expect ','
                 var _tmp1 = Expect(",");
@@ -36773,7 +36816,7 @@ namespace SharpPy.Generated
             }
 
             // Expect ']'
-            if (ExpectToken(GeneratedTokenType.OP, "]") == null)
+            if (Expect("]") == null)
             {
                 Console.WriteLine($"[DEBUG] ParseTypeParams: Failed to match ']' at position {_position}");
                 _position = startPos;
@@ -36791,50 +36834,60 @@ namespace SharpPy.Generated
         public object? ParseTypeParam()
         {
             var startPos = _position;
+            var _start_lineno = _tokens[startPos].Line;
+            var _start_col_offset = _tokens[startPos].Column;
 
             // Check for TypeVarTuple: '*' NAME
             if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "*")
             {
                 Advance(); // consume '*'
-                var name = ExpectName();
-                if (name == null)
+                var nameToken = ExpectName();
+                if (nameToken == null)
                 {
                     Console.WriteLine($"[DEBUG] ParseTypeParam: Failed to parse TypeVarTuple name at position {_position}");
                     _position = startPos;
                     return null;
                 }
 
+                var name = nameToken.Value;
                 Console.WriteLine($"[DEBUG] ParseTypeParam: Parsed TypeVarTuple '{name}'");
-                return _PyAST_TypeVarTuple(name);
+                var _end_lineno = _tokens[_position - 1].EndLine;
+                var _end_col_offset = _tokens[_position - 1].EndColumn;
+                return _PyAST_TypeVarTuple(name, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
             }
 
             // Check for ParamSpec: '**' NAME
             if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == "**")
             {
                 Advance(); // consume '**'
-                var name = ExpectName();
-                if (name == null)
+                var nameToken = ExpectName();
+                if (nameToken == null)
                 {
                     Console.WriteLine($"[DEBUG] ParseTypeParam: Failed to parse ParamSpec name at position {_position}");
                     _position = startPos;
                     return null;
                 }
 
+                var name = nameToken.Value;
                 Console.WriteLine($"[DEBUG] ParseTypeParam: Parsed ParamSpec '{name}'");
-                return _PyAST_ParamSpec(name);
+                var _end_lineno = _tokens[_position - 1].EndLine;
+                var _end_col_offset = _tokens[_position - 1].EndColumn;
+                return _PyAST_ParamSpec(name, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
             }
 
             // TypeVar: NAME [':' expression]
-            var typeVarName = ExpectName();
-            if (typeVarName == null)
+            var typeVarNameToken = ExpectName();
+            if (typeVarNameToken == null)
             {
                 Console.WriteLine($"[DEBUG] ParseTypeParam: Failed to parse TypeVar name at position {_position}");
                 _position = startPos;
                 return null;
             }
 
+            var typeVarName = typeVarNameToken.Value;
+
             // Optional bound: ':' expression
-            object? bound = null;
+            GeneratedExpr? bound = null;
             if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == ":")
             {
                 Advance(); // consume ':'
@@ -36848,7 +36901,9 @@ namespace SharpPy.Generated
             }
 
             Console.WriteLine($"[DEBUG] ParseTypeParam: Parsed TypeVar '{typeVarName}' with bound: {bound != null}");
-            return _PyAST_TypeVar(typeVarName, bound);
+            var _end_lineno2 = _tokens[_position - 1].EndLine;
+            var _end_col_offset2 = _tokens[_position - 1].EndColumn;
+            return _PyAST_TypeVar(typeVarName, bound, _start_lineno, _start_col_offset, _end_lineno2, _end_col_offset2);
         }
 
     }

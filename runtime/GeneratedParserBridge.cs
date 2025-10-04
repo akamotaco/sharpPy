@@ -965,7 +965,7 @@ namespace SharpPy
                     {
                         if (globalStmt.Names != null && globalStmt.Names.Count > 0)
                         {
-                            return new GlobalStatement(globalStmt.Names);
+                            return new GlobalStatement(globalStmt.Names.ToList());
                         }
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
@@ -975,7 +975,7 @@ namespace SharpPy
                     {
                         if (nonlocalStmt.Names != null && nonlocalStmt.Names.Count > 0)
                         {
-                            return new NonlocalStatement(nonlocalStmt.Names);
+                            return new NonlocalStatement(nonlocalStmt.Names.ToList());
                         }
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
@@ -1057,7 +1057,7 @@ namespace SharpPy
                         Console.WriteLine($"[DEBUG] Processing from_import: module={importFromStmt.Module}, level={importFromStmt.Level}, names={importFromStmt.Names?.Count ?? 0}");
 
                         var module = importFromStmt.Module;
-                        var level = importFromStmt.Level;
+                        var level = importFromStmt.Level ?? 0;  // CPython 3.12: None → 0 (absolute import)
                         var importAliases = new List<ImportAlias>();
 
                         if (importFromStmt.Names != null)
@@ -1309,7 +1309,7 @@ namespace SharpPy
                 GeneratedMult _ => Mult.Instance,
                 GeneratedDiv _ => Div.Instance,
                 GeneratedFloorDiv _ => FloorDiv.Instance,
-                GeneratedMod _ => Mod.Instance,
+                GeneratedMod_ _ => Mod.Instance,  // Mod_ to avoid collision with 'mod' base type
                 GeneratedPow _ => Pow.Instance,
                 GeneratedLShift _ => LShift.Instance,
                 GeneratedRShift _ => RShift.Instance,
@@ -1577,7 +1577,7 @@ namespace SharpPy
                 // Binary and comparison operations
                 GeneratedBinOp binOp => new BinOpExpression(
                     ConvertAnyExpression(binOp.Left),
-                    ConvertBinaryOp(binOp.Op),
+                    ConvertGeneratedOperator(binOp.Op),  // Use GeneratedOperator → BinaryOperator converter
                     ConvertAnyExpression(binOp.Right)
                 ),
 
@@ -2508,6 +2508,36 @@ namespace SharpPy
 
             // Fallback: keep as string
             return value;
+        }
+
+        /// <summary>
+        /// Overload for object type (from GeneratedConstant.Value)
+        /// </summary>
+        private static PyObject ParseConstantValue(object? value, string? kind)
+        {
+            if (value == null)
+                return PyNone.Instance;
+
+            if (value is PyObject pyObj)
+                return pyObj;
+
+            // Convert to PyObject first, then parse
+            return ParseConstantValue(ToPyObject(value), kind);
+        }
+
+        private static PyObject ToPyObject(object value)
+        {
+            return value switch
+            {
+                PyObject pyObj => pyObj,
+                string str => new PyString(str),
+                int i => new PyInt(i),
+                long l => new PyInt((int)l),
+                double d => new PyFloat(d),
+                bool b => b ? PyBool.True : PyBool.False,
+                null => PyNone.Instance,
+                _ => new PyString(value.ToString() ?? "")
+            };
         }
 
         /// <summary>

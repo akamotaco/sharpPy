@@ -2253,7 +2253,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 "int" => "int",
                 "void" => "GeneratedAstNode?", // void returns nothing (null AST node)
                 "PyObject*" => "GeneratedPyObject", // Python object
-                "token*" => "GeneratedTokenInfo", // Token type
+                "token*" => "GeneratedTokenInfo", // Token type (lowercase)
+                "Token*" => "GeneratedTokenInfo", // Token type (capitalized - used in grammar)
+                "KeyValuePair*" => "GeneratedKeyValuePair", // Key-value pair for dict comprehensions
                 _ when cType.EndsWith("_ty") => "GeneratedAstNode?", // Unknown AST node types
                 _ when cType.EndsWith("*") => "GeneratedAstNode?", // Unknown pointer types (likely AST nodes)
                 _ => cType // Keep as-is for standard types
@@ -8356,7 +8358,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Expect ']'");
-            WriteLine("if (ExpectToken(GeneratedTokenType.OP, \"]\") == null)");
+            WriteLine("if (Expect(\"]\") == null)");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseTypeParams: Failed to match ']' at position {_position}\");");
             WriteLine("    _position = startPos;");
@@ -8378,50 +8380,60 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("var startPos = _position;");
+            WriteLine("var _start_lineno = _tokens[startPos].Line;");
+            WriteLine("var _start_col_offset = _tokens[startPos].Column;");
             WriteLine();
             WriteLine("// Check for TypeVarTuple: '*' NAME");
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"*\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume '*'");
-            WriteLine("    var name = ExpectName();");
-            WriteLine("    if (name == null)");
+            WriteLine("    var nameToken = ExpectName();");
+            WriteLine("    if (nameToken == null)");
             WriteLine("    {");
             WriteLine("        Console.WriteLine($\"[DEBUG] ParseTypeParam: Failed to parse TypeVarTuple name at position {_position}\");");
             WriteLine("        _position = startPos;");
             WriteLine("        return null;");
             WriteLine("    }");
             WriteLine();
+            WriteLine("    var name = nameToken.Value;");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseTypeParam: Parsed TypeVarTuple '{name}'\");");
-            WriteLine("    return _PyAST_TypeVarTuple(name);");
+            WriteLine("    var _end_lineno = _tokens[_position - 1].EndLine;");
+            WriteLine("    var _end_col_offset = _tokens[_position - 1].EndColumn;");
+            WriteLine("    return _PyAST_TypeVarTuple(name, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);");
             WriteLine("}");
             WriteLine();
             WriteLine("// Check for ParamSpec: '**' NAME");
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"**\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume '**'");
-            WriteLine("    var name = ExpectName();");
-            WriteLine("    if (name == null)");
+            WriteLine("    var nameToken = ExpectName();");
+            WriteLine("    if (nameToken == null)");
             WriteLine("    {");
             WriteLine("        Console.WriteLine($\"[DEBUG] ParseTypeParam: Failed to parse ParamSpec name at position {_position}\");");
             WriteLine("        _position = startPos;");
             WriteLine("        return null;");
             WriteLine("    }");
             WriteLine();
+            WriteLine("    var name = nameToken.Value;");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseTypeParam: Parsed ParamSpec '{name}'\");");
-            WriteLine("    return _PyAST_ParamSpec(name);");
+            WriteLine("    var _end_lineno = _tokens[_position - 1].EndLine;");
+            WriteLine("    var _end_col_offset = _tokens[_position - 1].EndColumn;");
+            WriteLine("    return _PyAST_ParamSpec(name, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);");
             WriteLine("}");
             WriteLine();
             WriteLine("// TypeVar: NAME [':' expression]");
-            WriteLine("var typeVarName = ExpectName();");
-            WriteLine("if (typeVarName == null)");
+            WriteLine("var typeVarNameToken = ExpectName();");
+            WriteLine("if (typeVarNameToken == null)");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseTypeParam: Failed to parse TypeVar name at position {_position}\");");
             WriteLine("    _position = startPos;");
             WriteLine("    return null;");
             WriteLine("}");
             WriteLine();
+            WriteLine("var typeVarName = typeVarNameToken.Value;");
+            WriteLine();
             WriteLine("// Optional bound: ':' expression");
-            WriteLine("object? bound = null;");
+            WriteLine("GeneratedExpr? bound = null;");
             WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \":\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume ':'");
@@ -8435,7 +8447,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseTypeParam: Parsed TypeVar '{typeVarName}' with bound: {bound != null}\");");
-            WriteLine("return _PyAST_TypeVar(typeVarName, bound);");
+            WriteLine("var _end_lineno2 = _tokens[_position - 1].EndLine;");
+            WriteLine("var _end_col_offset2 = _tokens[_position - 1].EndColumn;");
+            WriteLine("return _PyAST_TypeVar(typeVarName, bound, _start_lineno, _start_col_offset, _end_lineno2, _end_col_offset2);");
             Dedent();
             WriteLine("}");
             WriteLine();

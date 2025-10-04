@@ -24,7 +24,8 @@ namespace SharpPy.Generated
         protected string? _pendingSyntaxError = null;
         protected int _pendingErrorPosition = -1;
         protected bool _callInvalidRules = true;
-        protected Dictionary<string, Dictionary<int, object?>> _memoCache = new();
+        // CPython 3.12: Memo cache uses (position, rule_name) tuple keys
+        protected Dictionary<(int, string), object?> _memoCache = new();
 
         // CPython Parser fields for recursion and error tracking
         protected int _level = 0;  // Nesting depth for recursion limit
@@ -1069,7 +1070,7 @@ namespace SharpPy.Generated
 
         public static GeneratedOperator _PyAST_Mod(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            var node = GeneratedModOp.Instance;
+            var node = GeneratedMod_.Instance;
             node.LineNo = lineno;
             node.ColOffset = col_offset;
             node.EndLineNo = end_lineno ?? 0;
@@ -1614,6 +1615,14 @@ namespace SharpPy.Generated
             return seq;
         }
 
+        // For grammar helper types like SlashWithDefault
+        public static GeneratedMixedSeq _PyPegen_singleton_seq(GeneratedSlashWithDefault item)
+        {
+            var seq = new GeneratedMixedSeq(1);
+            seq.Add(item);
+            return seq;
+        }
+
         // CPython: _PyPegen_seq_insert_in_front
         public static GeneratedExprSeq _PyPegen_seq_insert_in_front(GeneratedExpr item, GeneratedExprSeq seq)
         {
@@ -1631,10 +1640,51 @@ namespace SharpPy.Generated
             return newSeq;
         }
 
+        // Generic version for MixedSeq - handles any AST node type
+        public static GeneratedMixedSeq _PyPegen_seq_insert_in_front(GeneratedExpr item, GeneratedMixedSeq seq)
+        {
+            var newSeq = new GeneratedMixedSeq(seq.Count + 1);
+            newSeq.Add(item);
+            newSeq.AddRange(seq);
+            return newSeq;
+        }
+
+        public static GeneratedMixedSeq _PyPegen_seq_insert_in_front(GeneratedPattern item, GeneratedMixedSeq seq)
+        {
+            var newSeq = new GeneratedMixedSeq(seq.Count + 1);
+            newSeq.Add(item);
+            newSeq.AddRange(seq);
+            return newSeq;
+        }
+
+        public static GeneratedMixedSeq _PyPegen_seq_insert_in_front(GeneratedAstNode item, GeneratedMixedSeq seq)
+        {
+            var newSeq = new GeneratedMixedSeq(seq.Count + 1);
+            newSeq.Add(item);
+            newSeq.AddRange(seq);
+            return newSeq;
+        }
+
         // CPython: _PyPegen_seq_count_dots
         public static int _PyPegen_seq_count_dots(GeneratedIdentifierSeq? seq)
         {
             return seq?.Count ?? 0;
+        }
+
+        // CPython: _PyPegen_seq_count_dots (token list overload)
+        public static int _PyPegen_seq_count_dots(System.Collections.Generic.List<GeneratedTokenInfo>? tokens)
+        {
+            if (tokens == null) return 0;
+            int count = 0;
+            foreach (var token in tokens)
+            {
+                // '.' counts as 1, '...' (ELLIPSIS) counts as 3
+                if (token.Value == "...")
+                    count += 3;
+                else
+                    count += 1;
+            }
+            return count;
         }
 
         // CPython: _PyPegen_map_names_to_ids
@@ -1765,6 +1815,14 @@ namespace SharpPy.Generated
             return ops;
         }
 
+        // Overload for AstNodeSeq
+        public static GeneratedCmpopSeq _PyPegen_get_cmpops(GeneratedAstNodeSeq pairs)
+        {
+            var mixed = new GeneratedMixedSeq();
+            mixed.AddRange(pairs);
+            return _PyPegen_get_cmpops(mixed);
+        }
+
         // CPython: _PyPegen_get_exprs
         // Extract expressions from (cmpop, expr) pairs
         public static GeneratedExprSeq _PyPegen_get_exprs(GeneratedMixedSeq pairs)
@@ -1774,12 +1832,33 @@ namespace SharpPy.Generated
             return exprs;
         }
 
+        // Overload for AstNodeSeq
+        public static GeneratedExprSeq _PyPegen_get_exprs(GeneratedAstNodeSeq pairs)
+        {
+            var mixed = new GeneratedMixedSeq();
+            mixed.AddRange(pairs);
+            return _PyPegen_get_exprs(mixed);
+        }
+
+        // CPython: _PyPegen_key_value_pair
+        // Create a key-value pair for dictionary literals
+        public static GeneratedKeyValuePair _PyPegen_key_value_pair(GeneratedExpr? key, GeneratedExpr value)
+        {
+            return new GeneratedKeyValuePair { Key = key ?? value, Value = value };
+        }
+
         // CPython: _PyPegen_get_keys
         // Extract keys from (key, value) pairs
         public static GeneratedExprSeq _PyPegen_get_keys(GeneratedMixedSeq pairs)
         {
             var keys = new GeneratedExprSeq();
-            // TODO: Extract keys from pairs - needs pair structure definition
+            foreach (var pair in pairs)
+            {
+                if (pair is GeneratedKeyValuePair kvp)
+                {
+                    keys.Add(kvp.Key);
+                }
+            }
             return keys;
         }
 
@@ -1788,7 +1867,13 @@ namespace SharpPy.Generated
         public static GeneratedExprSeq _PyPegen_get_values(GeneratedMixedSeq pairs)
         {
             var values = new GeneratedExprSeq();
-            // TODO: Extract values from pairs - needs pair structure definition
+            foreach (var pair in pairs)
+            {
+                if (pair is GeneratedKeyValuePair kvp)
+                {
+                    values.Add(kvp.Value);
+                }
+            }
             return values;
         }
 
@@ -1820,6 +1905,21 @@ namespace SharpPy.Generated
                 }
             }
             return keywords;
+        }
+
+        // Overload for MixedSeq
+        public static GeneratedExprSeq _PyPegen_seq_extract_starred_exprs(GeneratedMixedSeq seq)
+        {
+            var kwSeq = new GeneratedKeywordOrStarredSeq();
+            kwSeq.AddRange(seq.Cast<GeneratedKeywordOrStarred>());
+            return _PyPegen_seq_extract_starred_exprs(kwSeq);
+        }
+
+        public static GeneratedKeywordSeq _PyPegen_seq_delete_starred_exprs(GeneratedMixedSeq seq)
+        {
+            var kwSeq = new GeneratedKeywordOrStarredSeq();
+            kwSeq.AddRange(seq.Cast<GeneratedKeywordOrStarred>());
+            return _PyPegen_seq_delete_starred_exprs(kwSeq);
         }
 
         // Conversion: GeneratedAstNodeSeq to GeneratedMixedSeq

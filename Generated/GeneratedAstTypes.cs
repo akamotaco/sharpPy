@@ -570,10 +570,10 @@ namespace SharpPy.Generated
     /// <summary>
     /// Mod - Singleton pattern (no fields)
     /// </summary>
-    public class GeneratedModOp : GeneratedOperator
+    public class GeneratedMod_ : GeneratedOperator
     {
-        public static readonly GeneratedModOp Instance = new();
-        private GeneratedModOp() { }
+        public static readonly GeneratedMod_ Instance = new();
+        private GeneratedMod_() { }
     }
 
     /// <summary>
@@ -1648,6 +1648,16 @@ namespace SharpPy.Generated
     {
         public GeneratedArgSeq Args { get; set; } = new();
         public GeneratedExprSeq Defaults { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Intermediate type for kvpair rule in python.gram
+    /// CPython 3.12: Inherits from GeneratedAstNode for compatibility with mixed sequences
+    /// </summary>
+    public class GeneratedKeyValuePair : GeneratedAstNode
+    {
+        public GeneratedExpr Key { get; set; } = null!;
+        public GeneratedExpr Value { get; set; } = null!;
     }
 
     /// <summary>

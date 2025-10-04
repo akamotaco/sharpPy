@@ -216,22 +216,26 @@ namespace SharpPy.PegGenerator.CodeGenerator
                             var ruleName = ruleRef.Name;
 
                             // CPython 3.12: Implicit token to AST node conversion for token rules
+                            // IMPORTANT: ItemCodeGenerator already auto-converts NAME/NUMBER/STRING to AST nodes
+                            // (unless insideRepeater=true, which doesn't apply to single-item alternatives)
+                            // So firstVar is already GeneratedName/GeneratedConstant, not a token
+                            // Just assign directly - no double conversion needed
                             if (ruleName == "NAME" && _rule.ReturnType == "expr_ty")
                             {
-                                _parent.WriteLine($"// CPython 3.12: NAME token → Name expression (implicit _PyPegen_name_token)");
-                                _parent.WriteLine($"_res = NameToken({firstVar});");
+                                _parent.WriteLine($"// CPython 3.12: NAME token → Name expression (already converted by ItemCodeGenerator)");
+                                _parent.WriteLine($"_res = {firstVar};");
                                 return;
                             }
                             else if (ruleName == "NUMBER" && _rule.ReturnType == "expr_ty")
                             {
-                                _parent.WriteLine($"// CPython 3.12: NUMBER token → Constant expression (implicit _PyPegen_number_token)");
-                                _parent.WriteLine($"_res = NumberToken({firstVar});");
+                                _parent.WriteLine($"// CPython 3.12: NUMBER token → Constant expression (already converted by ItemCodeGenerator)");
+                                _parent.WriteLine($"_res = {firstVar};");
                                 return;
                             }
                             else if (ruleName == "STRING" && _rule.ReturnType == "expr_ty")
                             {
-                                _parent.WriteLine($"// CPython 3.12: STRING token → handled by strings rule");
-                                _parent.WriteLine($"_res = StringToken({firstVar});");
+                                _parent.WriteLine($"// CPython 3.12: STRING token → handled by strings rule (already converted by ItemCodeGenerator)");
+                                _parent.WriteLine($"_res = {firstVar};");
                                 return;
                             }
                         }
@@ -243,20 +247,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     var targetType = _parent.GetRuleReturnType(_rule);
 
                     // Special case: Converting specific Seq types to GeneratedMixedSeq
+                    // PegenHelpers.ToMixedSeq has overloads for all sequence types
+                    // Let C# method overload resolution choose the right one
                     if (targetType == "GeneratedMixedSeq")
                     {
-                        // Check if source is a specific Seq type that needs conversion
-                        var firstVarType = _variables.ContainsKey(firstVar) ? _variables[firstVar] : "";
-                        if (firstVarType == "GeneratedAstNodeSeq" || firstVarType.Contains("AstNodeSeq"))
-                        {
-                            _parent.WriteLine($"_res = PegenHelpers.ToMixedSeq((GeneratedAstNodeSeq){firstVar});");
-                            return;
-                        }
-                        else if (firstVarType == "GeneratedKeywordOrStarredSeq" || firstVarType.Contains("KeywordOrStarredSeq"))
-                        {
-                            _parent.WriteLine($"_res = PegenHelpers.ToMixedSeq((GeneratedKeywordOrStarredSeq){firstVar});");
-                            return;
-                        }
+                        _parent.WriteLine($"_res = PegenHelpers.ToMixedSeq({firstVar});");
+                        return;
                     }
 
                     // If variable type matches target type, direct assignment (no cast needed)
@@ -594,33 +590,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 }
             }
 
-            // Remove _PyPegen_singleton_seq(p, x) → x (for now)
-            while (argsStr.Contains("_PyPegen_singleton_seq("))
-            {
-                var seqStart = argsStr.IndexOf("_PyPegen_singleton_seq(");
-                var seqEnd = FindMatchingParen(argsStr, seqStart + 22);  // +22 for "_PyPegen_singleton_seq"
-                if (seqEnd > seqStart)
-                {
-                    var seqContent = argsStr.Substring(seqStart + 23, seqEnd - seqStart - 23);
-                    // Extract the expression after the first comma (skip 'p')
-                    var commaPos = seqContent.IndexOf(',');
-                    if (commaPos >= 0)
-                    {
-                        var expression = seqContent.Substring(commaPos + 1).Trim();
-                        argsStr = argsStr.Substring(0, seqStart) + expression + argsStr.Substring(seqEnd + 1);
-                    }
-                    else
-                    {
-                        argsStr = argsStr.Substring(0, seqStart) + argsStr.Substring(seqEnd + 1);
-                    }
-                }
-                else
-                {
-                    break;
-                }
-            }
+            // CPython: _PyPegen_singleton_seq(p, x) is a real function, not a macro!
+            // It creates a sequence with a single element: asdl_seq* with one item
+            // We have overloaded C# implementations in PyParserBase.cs
+            // DO NOT remove this - let ActionMapper handle the translation
 
-            // Remove NEW_TYPE_COMMENT(p, x) → x
+            // CPython: NEW_TYPE_COMMENT(p, x) → x?.Value (extract token string value)
+            // TYPE_COMMENT is a token, needs .Value to get the string
             while (argsStr.Contains("NEW_TYPE_COMMENT("))
             {
                 var tcStart = argsStr.IndexOf("NEW_TYPE_COMMENT(");
@@ -633,7 +609,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     if (commaPos >= 0)
                     {
                         var expression = tcContent.Substring(commaPos + 1).Trim();
-                        argsStr = argsStr.Substring(0, tcStart) + expression + argsStr.Substring(tcEnd + 1);
+                        // Add ?.Value to extract string from token
+                        argsStr = argsStr.Substring(0, tcStart) + expression + "?.Value" + argsStr.Substring(tcEnd + 1);
                     }
                     else
                     {

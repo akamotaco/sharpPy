@@ -13,18 +13,21 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private readonly Item _item;
         private readonly string _varName;
         private readonly string _labelPrefix;
+        private readonly bool _insideRepeater;
         private static int _lookaheadCounter = 0;
 
         public ItemCodeGenerator(
             CSharpCodeGenerator parent,
             Item item,
             string varName,
-            string labelPrefix)
+            string labelPrefix,
+            bool insideRepeater = false)
         {
             _parent = parent ?? throw new ArgumentNullException(nameof(parent));
             _item = item ?? throw new ArgumentNullException(nameof(item));
             _varName = varName ?? throw new ArgumentNullException(nameof(varName));
             _labelPrefix = labelPrefix ?? "item";
+            _insideRepeater = insideRepeater;
         }
 
         /// <summary>
@@ -107,16 +110,52 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 // Token reference - use Expect()
                 _parent.WriteLine($"// Expect token: {ruleRef.Name}");
                 _parent.WriteLine($"Console.WriteLine($\"[DEBUG] ExpectToken({ruleRef.Name}): pos={{_position}}, token={{CurrentToken?.Type}}:'{{CurrentToken?.Value}}'\");");
-                _parent.WriteLine($"var {_varName} = ExpectToken(GeneratedTokenType.{ruleRef.Name.ToUpper()});");
+
+                // CPython 3.12: NAME/STRING/NUMBER tokens are automatically converted to AST nodes
+                // BUT: Inside repeaters (Gather, ZeroOrMore, OneOrMore), tokens stay as tokens
+                // because _PyPegen_map_names_to_ids expects token list, not expr list
+                var tokenName = ruleRef.Name.ToUpper();
+                bool needsConversion = (tokenName == "NAME" || tokenName == "STRING" || tokenName == "NUMBER")
+                                       && !_insideRepeater;
+
+                if (needsConversion)
+                {
+                    // Store token temporarily, then convert to AST
+                    _parent.WriteLine($"var _token_{_varName} = ExpectToken(GeneratedTokenType.{tokenName});");
+                    _parent.WriteLine($"if (_token_{_varName} == null)");
+                    _parent.WriteLine("{");
+                    _parent.Indent();
+                    _parent.WriteLine("_position = _mark;");
+                    _parent.WriteLine("_res = null;");
+                    _parent.WriteLine("break;  // Exit this alternative");
+                    _parent.Dedent();
+                    _parent.WriteLine("}");
+
+                    // Convert token to AST node (CPython pattern)
+                    string conversionMethod = tokenName switch
+                    {
+                        "NAME" => "NameToken",
+                        "STRING" => "StringToken",
+                        "NUMBER" => "NumberToken",
+                        _ => throw new InvalidOperationException($"Unknown token: {tokenName}")
+                    };
+                    _parent.WriteLine($"var {_varName} = {conversionMethod}(_token_{_varName});");
+                }
+                else
+                {
+                    // Other tokens - no conversion needed
+                    _parent.WriteLine($"var {_varName} = ExpectToken(GeneratedTokenType.{tokenName});");
+                    _parent.WriteLine($"if ({_varName} == null)");
+                    _parent.WriteLine("{");
+                    _parent.Indent();
+                    _parent.WriteLine("_position = _mark;");
+                    _parent.WriteLine("_res = null;");
+                    _parent.WriteLine("break;  // Exit this alternative");
+                    _parent.Dedent();
+                    _parent.WriteLine("}");
+                }
+
                 _parent.WriteLine($"Console.WriteLine($\"[DEBUG] ExpectToken({ruleRef.Name}): result={{({_varName} != null ? \"SUCCESS\" : \"FAIL\")}}, newPos={{_position}}\");");
-                _parent.WriteLine($"if ({_varName} == null)");
-                _parent.WriteLine("{");
-                _parent.Indent();
-                _parent.WriteLine("_position = _mark;");
-                _parent.WriteLine("_res = null;");
-                _parent.WriteLine("break;  // Exit this alternative");
-                _parent.Dedent();
-                _parent.WriteLine("}");
             }
             else
             {
@@ -203,7 +242,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // Generate code for the inner expression
             var innerItem = new Item { Atom = zm.Expression, Name = null };
             var innerVarName = $"_loop_elem_{_varName}";
-            var innerGen = new ItemCodeGenerator(_parent, innerItem, innerVarName, _labelPrefix);
+            var innerGen = new ItemCodeGenerator(_parent, innerItem, innerVarName, _labelPrefix, insideRepeater: true);
             innerGen.Generate();
 
             // If parsing failed, break the loop
@@ -240,7 +279,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // Generate code for the inner expression
             var innerItem = new Item { Atom = om.Expression, Name = null };
             var innerVarName = $"_loop_elem_{_varName}";
-            var innerGen = new ItemCodeGenerator(_parent, innerItem, innerVarName, _labelPrefix);
+            var innerGen = new ItemCodeGenerator(_parent, innerItem, innerVarName, _labelPrefix, insideRepeater: true);
             innerGen.Generate();
 
             // If parsing failed, break the loop
@@ -291,7 +330,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // First item (no separator before it)
             _parent.WriteLine($"// Parse first item (no separator)");
             var firstItemVarName = $"_first_{_varName}";
-            var firstItemGen = new ItemCodeGenerator(_parent, new Item { Atom = gather.Item, Name = null }, firstItemVarName, _labelPrefix);
+            var firstItemGen = new ItemCodeGenerator(_parent, new Item { Atom = gather.Item, Name = null }, firstItemVarName, _labelPrefix, insideRepeater: true);
             firstItemGen.Generate();
 
             // CPython 3.12: Determine if cast is necessary (C# explicit cast, C uses implicit void*)
@@ -358,7 +397,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             // Parse item
             var itemVarName = $"_loop_elem_{_varName}";
-            var itemGen = new ItemCodeGenerator(_parent, new Item { Atom = gather.Item, Name = null }, itemVarName, _labelPrefix);
+            var itemGen = new ItemCodeGenerator(_parent, new Item { Atom = gather.Item, Name = null }, itemVarName, _labelPrefix, insideRepeater: true);
             itemGen.Generate();
 
             _parent.WriteLine($"if ({itemVarName} == null)");
@@ -969,6 +1008,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 return seqType.Substring(5, seqType.Length - 6);
             }
 
+            // Special case: MixedSeq and AstNodeSeq store GeneratedAstNode
+            if (seqType == "GeneratedMixedSeq" || seqType == "GeneratedAstNodeSeq")
+            {
+                return "GeneratedAstNode";
+            }
+
             if (seqType.EndsWith("Seq"))
             {
                 // Remove "Seq" suffix: GeneratedExprSeq → GeneratedExpr
@@ -1051,6 +1096,15 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 case "type_ignore_ty":
                 case "GeneratedTypeIgnore":
                     return "GeneratedTypeIgnoreSeq";
+
+                // Helper types for grammar parsing
+                case "KeyValuePair*":
+                case "GeneratedKeyValuePair":
+                    return "GeneratedMixedSeq"; // Key-value pairs are stored in mixed seq
+
+                case "SlashWithDefault*":
+                case "GeneratedSlashWithDefault":
+                    return "GeneratedMixedSeq"; // SlashWithDefault is stored in mixed seq
 
                 // Base AST node type - used for mixed or unknown AST nodes
                 case "GeneratedAstNode":
