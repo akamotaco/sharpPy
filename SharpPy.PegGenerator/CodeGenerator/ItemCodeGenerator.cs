@@ -190,16 +190,34 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 {
                     var ruleReturnType = _parent.GetRuleReturnType(ruleRef.Name);
                     _parent.WriteLine($"{ruleReturnType} {_varName} = null;");
+                    _parent.WriteLine($"Console.WriteLine($\"[{ruleRef.Name.ToUpper()}] _callInvalidRules={{_callInvalidRules}}\");");
                     _parent.WriteLine($"if (_callInvalidRules)");
                     _parent.WriteLine("{");
                     _parent.Indent();
+                    _parent.WriteLine($"Console.WriteLine($\"[{ruleRef.Name.ToUpper()}] Calling {methodName}()\");");
                     _parent.WriteLine($"{_varName} = {methodName}();");
+                    _parent.WriteLine($"Console.WriteLine($\"[{ruleRef.Name.ToUpper()}] Returned {{({_varName} == null ? \"null\" : \"non-null\")}}\");");
+                    _parent.Dedent();
+                    _parent.WriteLine("}");
+                    _parent.WriteLine("else");
+                    _parent.WriteLine("{");
+                    _parent.Indent();
+                    _parent.WriteLine($"Console.WriteLine($\"[{ruleRef.Name.ToUpper()}] SKIP due to _callInvalidRules=false\");");
                     _parent.Dedent();
                     _parent.WriteLine("}");
                 }
                 else
                 {
-                    _parent.WriteLine($"var {_varName} = {methodName}();");
+                    // Check if there's a type annotation
+                    if (!string.IsNullOrEmpty(_item.TypeAnnotation))
+                    {
+                        var targetType = _parent.TranslatePegTypeToCS(_item.TypeAnnotation);
+                        _parent.WriteLine($"{targetType} {_varName} = ({targetType}){methodName}();");
+                    }
+                    else
+                    {
+                        _parent.WriteLine($"var {_varName} = {methodName}();");
+                    }
                 }
 
                 // CPython 3.12: Only add null check if NOT inside a repeater or loop rule
@@ -211,7 +229,26 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     _parent.WriteLine("{");
                     _parent.Indent();
                     _parent.WriteLine("_position = _mark;");
-                _parent.WriteLine("_pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails");
+
+                    // CPython 3.12: DON'T clear error if it was set by invalid_* rule
+                    // invalid_* rules set error_indicator when they want to report an error
+                    if (isInvalidRule)
+                    {
+                        _parent.WriteLine("// CPython 3.12: invalid_* rule returned NULL - check if error was set");
+                        _parent.WriteLine("// If error is set, preserve it and exit. Otherwise, try next alternative.");
+                        _parent.WriteLine("if (_pendingSyntaxError != null)");
+                        _parent.WriteLine("{");
+                        _parent.Indent();
+                        _parent.WriteLine("_res = null;");
+                        _parent.WriteLine("break;  // Exit with error set");
+                        _parent.Dedent();
+                        _parent.WriteLine("}");
+                    }
+                    else
+                    {
+                        _parent.WriteLine("_pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails");
+                    }
+
                     _parent.WriteLine("_res = null;");
                     _parent.WriteLine("break;  // Exit this alternative");
                     _parent.Dedent();
@@ -240,13 +277,27 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 itemType += "?";
             }
 
-            // If parsing failed, reset and set to null (optional always succeeds)
+            // CPython 3.12: Optional pattern (expr, !p->error_indicator)
+            // The comma operator in C: evaluates expr, stores in var, then checks !error_indicator
+            // If error_indicator is set, the entire pattern fails
+            // If no error, pattern succeeds (even if expr returned NULL)
+            _parent.WriteLine($"// CPython: (a = expr, !p->error_indicator) - check error after optional");
             _parent.WriteLine($"{itemType} {_varName} = {innerVarName};");
-            _parent.WriteLine($"if ({_varName} == null)");
+            _parent.WriteLine("if (_pendingSyntaxError != null)");
             _parent.WriteLine("{");
             _parent.Indent();
+            _parent.WriteLine("// CPython: error_indicator is set - optional pattern FAILS");
+            _parent.WriteLine("// This causes the entire alternative to fail (like && short-circuit in C)");
+            _parent.WriteLine("_position = _mark;");
+            _parent.WriteLine("_res = null;");
+            _parent.WriteLine("break;  // Exit alternative with error preserved");
+            _parent.Dedent();
+            _parent.WriteLine("}");
+            _parent.WriteLine($"else if ({_varName} == null)");
+            _parent.WriteLine("{");
+            _parent.Indent();
+            _parent.WriteLine("// CPython: No error, but expr returned NULL - optional not present");
             _parent.WriteLine($"_position = _opt_mark_{_varName}; // Reset position");
-            _parent.WriteLine($"{_varName} = null; // Optional not present");
             _parent.Dedent();
             _parent.WriteLine("}");
         }
@@ -259,13 +310,31 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             // Get the inner pattern as a callable string (handles all patterns)
             string innerPattern = GetInnerPatternCallForLoop(zm.Expression);
-            string seqType = DetermineSequenceType(zm.Expression);
+
+            // Use type annotation if available, otherwise infer
+            string seqType;
+            if (!string.IsNullOrEmpty(_item.TypeAnnotation))
+            {
+                seqType = _parent.TranslatePegTypeToCS(_item.TypeAnnotation);
+                _parent.WriteLine($"// Using type annotation: {_item.TypeAnnotation} → {seqType}");
+            }
+            else
+            {
+                seqType = DetermineSequenceType(zm.Expression);
+            }
 
             // Register loop rule and get its name - pass Atom for complex patterns
             string loopRuleName = _parent.GetOrCreateLoopRule("Loop0", seqType, innerPattern, zm.Expression);
 
-            // Call the loop rule instead of inline loop
-            _parent.WriteLine($"var {_varName} = {loopRuleName}();");
+            // Call the loop rule with explicit cast if type annotation exists
+            if (!string.IsNullOrEmpty(_item.TypeAnnotation))
+            {
+                _parent.WriteLine($"{seqType} {_varName} = ({seqType}){loopRuleName}();");
+            }
+            else
+            {
+                _parent.WriteLine($"var {_varName} = {loopRuleName}();");
+            }
         }
 
         private void GenerateOneOrMore(OneOrMore om)
@@ -275,13 +344,31 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             // Get the inner pattern as a callable string (handles all patterns)
             string innerPattern = GetInnerPatternCallForLoop(om.Expression);
-            string seqType = DetermineSequenceType(om.Expression);
+
+            // Use type annotation if available, otherwise infer
+            string seqType;
+            if (!string.IsNullOrEmpty(_item.TypeAnnotation))
+            {
+                seqType = _parent.TranslatePegTypeToCS(_item.TypeAnnotation);
+                _parent.WriteLine($"// Using type annotation: {_item.TypeAnnotation} → {seqType}");
+            }
+            else
+            {
+                seqType = DetermineSequenceType(om.Expression);
+            }
 
             // Register loop rule and get its name - pass Atom for complex patterns
             string loopRuleName = _parent.GetOrCreateLoopRule("Loop1", seqType, innerPattern, om.Expression);
 
-            // Call the loop rule instead of inline loop
-            _parent.WriteLine($"var {_varName} = {loopRuleName}();");
+            // Call the loop rule with explicit cast if type annotation exists
+            if (!string.IsNullOrEmpty(_item.TypeAnnotation))
+            {
+                _parent.WriteLine($"{seqType} {_varName} = ({seqType}){loopRuleName}();");
+            }
+            else
+            {
+                _parent.WriteLine($"var {_varName} = {loopRuleName}();");
+            }
 
             // CPython 3.12: Loop1 rules return null on failure (0 elements)
             _parent.WriteLine($"if ({_varName} == null)");
@@ -305,8 +392,17 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // Example: ','.expression+ means one or more expressions separated by ','
             _parent.WriteLine($"// Gather: {gather.Separator}.{gather.Item}{(gather.IsOneOrMore ? "+" : "*")}");
 
-            // Determine the sequence type for items
-            string seqType = DetermineSequenceType(gather.Item);
+            // Use type annotation if available, otherwise infer
+            string seqType;
+            if (!string.IsNullOrEmpty(_item.TypeAnnotation))
+            {
+                seqType = _parent.TranslatePegTypeToCS(_item.TypeAnnotation);
+                _parent.WriteLine($"// Using type annotation: {_item.TypeAnnotation} → {seqType}");
+            }
+            else
+            {
+                seqType = DetermineSequenceType(gather.Item);
+            }
             _parent.WriteLine($"var {_varName} = new {seqType}();");
 
             // CPython 3.12: Infer item type from sequence type
@@ -1137,7 +1233,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             }
 
             // Special case: MixedSeq and AstNodeSeq store GeneratedAstNode
-            if (seqType == "GeneratedMixedSeq" || seqType == "GeneratedAstNodeSeq")
+            if (seqType == "GeneratedSeq" || seqType == "GeneratedAstNodeSeq")
             {
                 return "GeneratedAstNode";
             }
@@ -1202,6 +1298,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     return "GeneratedArgSeq";
 
                 case "excepthandler_ty":
+                case "GeneratedExcepthandler":
                 case "GeneratedExceptHandler":
                     return "GeneratedExcepthandlerSeq";
 
@@ -1228,11 +1325,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 // Helper types for grammar parsing
                 case "KeyValuePair*":
                 case "GeneratedKeyValuePair":
-                    return "GeneratedMixedSeq"; // Key-value pairs are stored in mixed seq
+                    return "GeneratedSeq"; // Key-value pairs are stored in mixed seq
 
                 case "SlashWithDefault*":
                 case "GeneratedSlashWithDefault":
-                    return "GeneratedMixedSeq"; // SlashWithDefault is stored in mixed seq
+                    return "GeneratedSeq"; // SlashWithDefault is stored in mixed seq
 
                 // Base AST node type - used for mixed or unknown AST nodes
                 case "GeneratedAstNode":

@@ -339,12 +339,17 @@ namespace SharpPy.PegGenerator.Grammar
                     item.Name = CurrentToken.Value;
                     Advance(); // Skip name
 
-                    // Skip the type annotation [type]
+                    // Parse the type annotation [type]
                     Advance(); // Skip [
+                    var typeAnnotationTokens = new List<string>();
                     while (CurrentToken?.Type != GrammarTokenType.RSQB && CurrentToken != null)
                     {
+                        typeAnnotationTokens.Add(CurrentToken.Value ?? "");
                         Advance();
                     }
+                    item.TypeAnnotation = string.Join("", typeAnnotationTokens);
+                    Console.WriteLine($"[GrammarParser] Parsed type annotation: '{item.TypeAnnotation}' for '{item.Name}'");
+
                     if (CurrentToken?.Type == GrammarTokenType.RSQB)
                     {
                         Advance(); // Skip ]

@@ -30,10 +30,10 @@ namespace SharpPy
             if (argumentsData.Posonlyargs != null && argumentsData.Posonlyargs.Count > 0)
             {
                 Console.WriteLine($"[DEBUG] Found {argumentsData.Posonlyargs.Count} posonlyargs");
-                foreach (var arg in argumentsData.Posonlyargs)
+                foreach (var argPtr in argumentsData.Posonlyargs.ToEnumerable<GeneratedArg>())
                 {
-                    functionArgs.PosOnlyArgs.Add(new Arg(arg.Arg));
-                    Console.WriteLine($"[DEBUG] Added posonly arg: {arg.Arg}");
+                    functionArgs.PosOnlyArgs.Add(new Arg(argPtr.Arg.Value));
+                    Console.WriteLine($"[DEBUG] Added posonly arg: {argPtr.Arg.Value}");
                 }
             }
 
@@ -41,36 +41,36 @@ namespace SharpPy
             if (argumentsData.Args != null && argumentsData.Args.Count > 0)
             {
                 Console.WriteLine($"[DEBUG] Found {argumentsData.Args.Count} args");
-                foreach (var arg in argumentsData.Args)
+                foreach (var argPtr in argumentsData.Args.ToEnumerable<GeneratedArg>())
                 {
-                    functionArgs.Args.Add(new Arg(arg.Arg));
-                    Console.WriteLine($"[DEBUG] Added regular arg: {arg.Arg}");
+                    functionArgs.Args.Add(new Arg(argPtr.Arg.Value));
+                    Console.WriteLine($"[DEBUG] Added regular arg: {argPtr.Arg.Value}");
                 }
             }
 
             // Process vararg (*args)
             if (argumentsData.Vararg != null)
             {
-                functionArgs.VarArg = new Arg(argumentsData.Vararg.Arg);
-                Console.WriteLine($"[DEBUG] Added vararg: *{argumentsData.Vararg.Arg}");
+                functionArgs.VarArg = new Arg(argumentsData.Vararg.Arg.Value);
+                Console.WriteLine($"[DEBUG] Added vararg: *{argumentsData.Vararg.Arg.Value}");
             }
 
             // Process kwonlyargs (keyword-only parameters after *)
             if (argumentsData.Kwonlyargs != null && argumentsData.Kwonlyargs.Count > 0)
             {
                 Console.WriteLine($"[DEBUG] Found {argumentsData.Kwonlyargs.Count} kwonlyargs");
-                foreach (var arg in argumentsData.Kwonlyargs)
+                foreach (var argPtr in argumentsData.Kwonlyargs.ToEnumerable<GeneratedArg>())
                 {
-                    functionArgs.KwOnlyArgs.Add(new Arg(arg.Arg));
-                    Console.WriteLine($"[DEBUG] Added kwonly arg: {arg.Arg}");
+                    functionArgs.KwOnlyArgs.Add(new Arg(argPtr.Arg.Value));
+                    Console.WriteLine($"[DEBUG] Added kwonly arg: {argPtr.Arg.Value}");
                 }
             }
 
             // Process kwarg (**kwargs)
             if (argumentsData.Kwarg != null)
             {
-                functionArgs.KwArg = new Arg(argumentsData.Kwarg.Arg);
-                Console.WriteLine($"[DEBUG] Added kwarg: **{argumentsData.Kwarg.Arg}");
+                functionArgs.KwArg = new Arg(argumentsData.Kwarg.Arg.Value);
+                Console.WriteLine($"[DEBUG] Added kwarg: **{argumentsData.Kwarg.Arg.Value}");
             }
 
             // Process defaults (default values for regular args)
@@ -78,7 +78,7 @@ namespace SharpPy
             if (argumentsData.Defaults != null && argumentsData.Defaults.Count > 0)
             {
                 Console.WriteLine($"[DEBUG] Found {argumentsData.Defaults.Count} defaults");
-                foreach (var defaultExpr in argumentsData.Defaults.AsEnumerable())
+                foreach (var defaultExpr in argumentsData.Defaults.ToEnumerable<GeneratedExpr>())
                 {
                     if (defaultExpr != null)
                     {
@@ -97,7 +97,7 @@ namespace SharpPy
             if (argumentsData.KwDefaults != null && argumentsData.KwDefaults.Count > 0)
             {
                 Console.WriteLine($"[DEBUG] Found {argumentsData.KwDefaults.Count} kw_defaults");
-                foreach (var defaultExpr in argumentsData.KwDefaults.AsEnumerable())
+                foreach (var defaultExpr in argumentsData.KwDefaults.ToEnumerable<GeneratedExpr>())
                 {
                     if (defaultExpr != null)
                     {

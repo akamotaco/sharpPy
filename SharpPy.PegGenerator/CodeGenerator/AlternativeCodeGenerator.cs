@@ -212,10 +212,21 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     return false;
                 });
 
-                // If this is an error recovery alternative with invalid_* rules, return null
+                // If this is an error recovery alternative with invalid_* rules
+                // CPython 3.12: invalid_* rules set error indicator and return NULL
+                // We must check if error was set and exit immediately if so
                 if (hasInvalidRule)
                 {
-                    _parent.WriteLine("// Error recovery alternative - return null");
+                    _parent.WriteLine("// CPython 3.12: invalid_* rule matched - check if error was set");
+                    _parent.WriteLine("if (_pendingSyntaxError != null)");
+                    _parent.WriteLine("{");
+                    _parent.Indent();
+                    _parent.WriteLine("// Error was set by invalid_* rule - exit rule immediately");
+                    _parent.WriteLine("_res = null;");
+                    _parent.WriteLine("goto done;");
+                    _parent.Dedent();
+                    _parent.WriteLine("}");
+                    _parent.WriteLine("// No error set - this invalid_* rule didn't match, try next alternative");
                     _parent.WriteLine("_res = null;");
                     return;
                 }
@@ -266,10 +277,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     // Only cast if necessary - avoid (object?) boxing for performance
                     var targetType = _parent.GetRuleReturnType(_rule);
 
-                    // Special case: Converting specific Seq types to GeneratedMixedSeq
+                    // Special case: Converting specific Seq types to GeneratedSeq
                     // PegenHelpers.ToMixedSeq has overloads for all sequence types
                     // Let C# method overload resolution choose the right one
-                    if (targetType == "GeneratedMixedSeq")
+                    if (targetType == "GeneratedSeq")
                     {
                         _parent.WriteLine($"_res = PegenHelpers.ToMixedSeq({firstVar});");
                         return;
@@ -508,144 +519,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 Console.WriteLine($"[CleanCPythonMacros] Input: [{argsStr.Replace("\n", "\\n")}]");
             }
 
-            // Remove C type casts: (asdl_expr_seq*), (expr_ty), etc.
-            // Pattern: (type*) or (type_ty)
-            argsStr = System.Text.RegularExpressions.Regex.Replace(argsStr, @"\([a-zA-Z_][a-zA-Z0-9_]*\s*\*+\s*\)", "");
-            argsStr = System.Text.RegularExpressions.Regex.Replace(argsStr, @"\([a-zA-Z_][a-zA-Z0-9_]*_ty\)", "");
-
-            // Remove C pointer operators for specific patterns
-            // b->kind → ASTHelpers.ExtractOpKind(b)
-            // b->v.Name.id → ASTHelpers.ExtractStringValue(b)
-            argsStr = System.Text.RegularExpressions.Regex.Replace(argsStr, @"([a-zA-Z_][a-zA-Z0-9_]*)\s*->\s*kind", "ASTHelpers.ExtractOpKind($1)");
-            argsStr = System.Text.RegularExpressions.Regex.Replace(argsStr, @"([a-zA-Z_][a-zA-Z0-9_]*)\s*->\s*v\.Name\.id", "ASTHelpers.ExtractStringValue($1)");
-            argsStr = System.Text.RegularExpressions.Regex.Replace(argsStr, @"([a-zA-Z_][a-zA-Z0-9_]*)\s*->\s*v\.[a-zA-Z_]+\.[a-zA-Z_]+", "ASTHelpers.ExtractStringValue($1)");
-            // Generic fallback: b->something → b
-            argsStr = System.Text.RegularExpressions.Regex.Replace(argsStr, @"([a-zA-Z_][a-zA-Z0-9_]*)\s*->\s*[a-zA-Z_][a-zA-Z0-9_]*", "$1");
-
-            // Remove 'p' parameter from _PyPegen_* function calls
-            // Pattern: _PyPegen_*(p, ...) → _PyPegen_*(...)
-            argsStr = System.Text.RegularExpressions.Regex.Replace(argsStr, @"_PyPegen_([a-zA-Z0-9_]+)\(p,\s*", "_PyPegen_$1(");
-            argsStr = System.Text.RegularExpressions.Regex.Replace(argsStr, @"_PyPegen_([a-zA-Z0-9_]+)\(p\)", "_PyPegen_$1()");
-
-            // Remove CHECK(...) macro
-            // Pattern: CHECK(type, expression) → expression
-            while (argsStr.Contains("CHECK("))
-            {
-                var checkStart = argsStr.IndexOf("CHECK(");
-                var checkEnd = FindMatchingParen(argsStr, checkStart + 5);  // +5 for "CHECK"
-
-                if (debugLog)
-                {
-                    Console.WriteLine($"[CleanCPythonMacros] CHECK found at {checkStart}, matching paren at {checkEnd}");
-                }
-
-                if (checkEnd > checkStart)
-                {
-                    var checkContent = argsStr.Substring(checkStart + 6, checkEnd - checkStart - 6);
-
-                    if (debugLog)
-                    {
-                        Console.WriteLine($"[CleanCPythonMacros] CHECK content: [{checkContent.Replace("\n", "\\n")}]");
-                    }
-
-                    // Extract the expression after the first comma
-                    var commaPos = checkContent.IndexOf(',');
-                    if (commaPos >= 0)
-                    {
-                        var expression = checkContent.Substring(commaPos + 1).Trim();
-                        if (debugLog)
-                        {
-                            Console.WriteLine($"[CleanCPythonMacros] Extracted expression: [{expression.Replace("\n", "\\n")}]");
-                        }
-                        argsStr = argsStr.Substring(0, checkStart) + expression + argsStr.Substring(checkEnd + 1);
-                    }
-                    else
-                    {
-                        // No comma, remove the entire CHECK
-                        argsStr = argsStr.Substring(0, checkStart) + argsStr.Substring(checkEnd + 1);
-                    }
-
-                    if (debugLog)
-                    {
-                        Console.WriteLine($"[CleanCPythonMacros] After CHECK removal: [{argsStr.Replace("\n", "\\n")}]");
-                    }
-                }
-                else
-                {
-                    if (debugLog)
-                    {
-                        Console.WriteLine($"[CleanCPythonMacros] Could not find matching paren, breaking");
-                    }
-                    break; // Can't find matching paren, give up
-                }
-            }
-
-            // Remove CHECK_NULL_ALLOWED(type, expr) → expr
-            // Pattern: CHECK_NULL_ALLOWED(asdl_expr_seq*, _PyPegen_seq_extract_starred_exprs(p, a)) → _PyPegen_seq_extract_starred_exprs(p, a)
-            while (argsStr.Contains("CHECK_NULL_ALLOWED("))
-            {
-                var checkStart = argsStr.IndexOf("CHECK_NULL_ALLOWED(");
-                var checkEnd = FindMatchingParen(argsStr, checkStart + 18);  // +18 for "CHECK_NULL_ALLOWED"
-
-                if (checkEnd > checkStart)
-                {
-                    var checkContent = argsStr.Substring(checkStart + 19, checkEnd - checkStart - 19);
-
-                    // Extract the expression after the first comma (skip type)
-                    var commaPos = checkContent.IndexOf(',');
-                    if (commaPos >= 0)
-                    {
-                        var expression = checkContent.Substring(commaPos + 1).Trim();
-                        argsStr = argsStr.Substring(0, checkStart) + expression + argsStr.Substring(checkEnd + 1);
-                    }
-                    else
-                    {
-                        // No comma, remove the entire CHECK_NULL_ALLOWED
-                        argsStr = argsStr.Substring(0, checkStart) + argsStr.Substring(checkEnd + 1);
-                    }
-                }
-                else
-                {
-                    break;
-                }
-            }
-
-            // CPython: _PyPegen_singleton_seq(p, x) is a real function, not a macro!
-            // It creates a sequence with a single element: asdl_seq* with one item
-            // We have overloaded C# implementations in PyParserBase.cs
-            // DO NOT remove this - let ActionMapper handle the translation
-
-            // CPython: NEW_TYPE_COMMENT(p, x) → x?.Value (extract token string value)
-            // TYPE_COMMENT is a token, needs .Value to get the string
-            while (argsStr.Contains("NEW_TYPE_COMMENT("))
-            {
-                var tcStart = argsStr.IndexOf("NEW_TYPE_COMMENT(");
-                var tcEnd = FindMatchingParen(argsStr, tcStart + 16);  // +16 for "NEW_TYPE_COMMENT"
-                if (tcEnd > tcStart)
-                {
-                    var tcContent = argsStr.Substring(tcStart + 17, tcEnd - tcStart - 17);
-                    // Extract the expression after the first comma (skip 'p')
-                    var commaPos = tcContent.IndexOf(',');
-                    if (commaPos >= 0)
-                    {
-                        var expression = tcContent.Substring(commaPos + 1).Trim();
-                        // Add ?.Value to extract string from token
-                        argsStr = argsStr.Substring(0, tcStart) + expression + "?.Value" + argsStr.Substring(tcEnd + 1);
-                    }
-                    else
-                    {
-                        argsStr = argsStr.Substring(0, tcStart) + "null" + argsStr.Substring(tcEnd + 1);
-                    }
-                }
-                else
-                {
-                    break;
-                }
-            }
-
-            // Note: _PyPegen_* functions are helper functions, not macros to remove
-            // They should be kept in the argument list and handled at runtime
-            // Example: _PyPegen_seq_insert_in_front(p, a, b) should remain as-is
+            // CPython 3.12: All C→C# conversions are done in python_cs.gram
+            // No runtime transformations needed - grammar already contains C# code
 
             if (debugLog)
             {
@@ -736,16 +611,22 @@ namespace SharpPy.PegGenerator.CodeGenerator
         {
             var action = _alternative.Action.Trim();
 
-            // CPython 3.12: All RAISE_* macros throw syntax errors
-            // For now, just throw a generic PySyntaxError since we're focused on getting parsing to work
-            // The exact error message isn't critical for our testing purposes
+            // CPython 3.12: python_cs.gram contains C# action code directly
+            // No transformation needed - just use the action as-is
 
-            // CPython 3.12: For now, use System.Exception for all syntax errors
-            // TODO: Create custom PySyntaxError and PyIndentationError exception classes
-            string exceptionClass = "System.Exception";
+            // Check if this is a conditional error (contains ternary operator)
+            if (action.Contains("?") && action.Contains(":"))
+            {
+                // Pattern: CheckLegacyStmt(a) ? RaiseSyntaxErrorKnownRange(...) : null
+                if (action.Contains("CheckLegacyStmt"))
+                {
+                    GenerateConditionalRaiseAction(action);
+                    return;
+                }
+            }
 
+            // Unconditional RAISE_SYNTAX_ERROR
             // Try to extract the first quoted string as the error message
-            // Need to handle escaped quotes like \"==\" properly
             string message = "\"invalid syntax\"";  // Default message
             var firstQuote = action.IndexOf('"');
             if (firstQuote >= 0)
@@ -779,6 +660,43 @@ namespace SharpPy.PegGenerator.CodeGenerator
             _parent.WriteLine($"_pendingErrorPosition = _position;");
             _parent.WriteLine($"_res = null;");
             _parent.WriteLine($"goto done;  // CPython: Skip remaining alternatives after RAISE_SYNTAX_ERROR");
+        }
+
+        /// <summary>
+        /// Generate conditional RAISE_SYNTAX_ERROR based on CheckLegacyStmt
+        /// CPython 3.12: Two patterns:
+        ///   Pattern 1: check ? RAISE_ERROR : null (invalid_legacy_expression)
+        ///   Pattern 2: check ? null : RAISE_ERROR (invalid_expression)
+        /// </summary>
+        /// <param name="action">C# action string from python_cs.gram</param>
+        private void GenerateConditionalRaiseAction(string action)
+        {
+            // python_cs.gram action: CheckLegacyStmt(a) ? RaiseSyntaxErrorKnownRange(...) : null
+            // OR: CheckLegacyStmt(a) ? null : other_conditions ? null : RaiseSyntaxErrorKnownRange(...)
+
+            // CPython 3.12 approach: Just execute the ternary expression directly
+            // If RaiseSyntaxErrorKnownRange is called, it will throw
+            // If null is returned, alternative fails gracefully
+
+            _parent.WriteLine($"// CPython: Conditional error - execute C# ternary expression");
+            _parent.WriteLine($"try");
+            _parent.WriteLine($"{{");
+            _parent.Indent();
+            _parent.WriteLine($"_res = {action};");
+            _parent.WriteLine($"// If we reach here, ternary returned null (no error)");
+            _parent.WriteLine($"goto done;");
+            _parent.Dedent();
+            _parent.WriteLine($"}}");
+            _parent.WriteLine($"catch (PySyntaxErrorException ex)");
+            _parent.WriteLine($"{{");
+            _parent.Indent();
+            _parent.WriteLine($"// CPython: Error was raised - set pending error and fail alternative");
+            _parent.WriteLine($"_pendingSyntaxError = ex.Message;");
+            _parent.WriteLine($"_pendingErrorPosition = _position;");
+            _parent.WriteLine($"_res = null;");
+            _parent.WriteLine($"goto done;");
+            _parent.Dedent();
+            _parent.WriteLine($"}}");
         }
     }
 }

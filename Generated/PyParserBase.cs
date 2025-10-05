@@ -6,6 +6,21 @@ using System.Collections.Generic;
 using System.Linq;
 using SharpPy.Tokenizer;
 
+// CPython 3.12: Type aliases for grammar compatibility
+// Allows python_cs.gram to use C type names directly
+using stmt_ty = SharpPy.Generated.GeneratedStmt;
+using expr_ty = SharpPy.Generated.GeneratedExpr;
+using alias_ty = SharpPy.Generated.GeneratedAlias;
+using arguments_ty = SharpPy.Generated.GeneratedArguments;
+using asdl_stmt_seq = SharpPy.Generated.GeneratedStmtSeq;
+using asdl_expr_seq = SharpPy.Generated.GeneratedExprSeq;
+using asdl_identifier_seq = SharpPy.Generated.GeneratedIdentifierSeq;
+using asdl_pattern_seq = SharpPy.Generated.GeneratedPatternSeq;
+using asdl_int_seq = SharpPy.Generated.GeneratedCmpopSeq;  // CPython: int sequence used for comparison operators
+using asdl_keyword_seq = SharpPy.Generated.GeneratedKeywordSeq;
+using asdl_seq = SharpPy.Generated.GeneratedSeq;
+using keyword_ty = SharpPy.Generated.GeneratedKeyword;
+
 namespace SharpPy.Generated
 {
     // ============================================================
@@ -36,7 +51,7 @@ namespace SharpPy.Generated
         // Left-recursion handling (Warth et al. algorithm)
         protected class LREntry
         {
-            public object? Result { get; set; }
+            public GeneratedPtr? Result { get; set; }
             public int EndPos { get; set; }
             public bool IsGrowing { get; set; }
         }
@@ -107,7 +122,7 @@ namespace SharpPy.Generated
         /// CPython 3.12: Implements Warth et al. 'Packrat Parsers Can Support Left Recursion'
         /// Algorithm: SEED (FAIL) → BASE CASE → GROW → TERMINATE
         /// </summary>
-        protected T? TryLeftRecursive<T>(string ruleName, Func<T?> ruleFunc) where T : class
+        protected GeneratedPtr? TryLeftRecursive(string ruleName, Func<GeneratedPtr?> ruleFunc)
         {
             // Check recursion depth
             if (_level >= MAX_RECURSION_DEPTH)
@@ -121,7 +136,7 @@ namespace SharpPy.Generated
             if (_lrCache.TryGetValue(key, out var lrEntry) && lrEntry.IsGrowing)
             {
                 _position = lrEntry.EndPos;
-                return lrEntry.Result as T;
+                return lrEntry.Result;
             }
 
             _level++;
@@ -147,7 +162,7 @@ namespace SharpPy.Generated
                 }
 
                 // GROWTH PHASE: Seed succeeded, now grow
-                T? lastResult = result;
+                GeneratedPtr? lastResult = result;
                 int lastEndPos = _position;
                 _lrCache[key] = new LREntry { Result = result, EndPos = _position, IsGrowing = true };
 
@@ -198,7 +213,7 @@ namespace SharpPy.Generated
         ///   3. If hit: p->mark = m->mark; return m->node
         ///   4. If miss: parse, then update token's memo list
         /// </summary>
-        protected T? TryMemoized<T>(string ruleName, Func<T?> ruleFunc) where T : class
+        protected GeneratedPtr? TryMemoized(string ruleName, Func<GeneratedPtr?> ruleFunc)
         {
             #if DEBUG_PARSE_LOG
             Console.WriteLine($"[MEMO] {ruleName} at pos={_position}");
@@ -217,9 +232,11 @@ namespace SharpPy.Generated
             int startMark = _position;
 
             // STEP 2: CHECK CACHE - _PyPegen_is_memoized(p, type, &res)
+            // CPython 3.12: Cache key must include call_invalid_rules state for expression rules
             if (token.Memo != null)
             {
                 // CPython: for (Memo *m = t->memo; m != NULL; m = m->next)
+                // CPython: Cache key is m->type (rule type), NOT affected by call_invalid_rules
                 var cached = token.Memo.FirstOrDefault(m => m.RuleType == ruleName);
                 if (cached != null)
                 {
@@ -229,7 +246,7 @@ namespace SharpPy.Generated
                     // Cache HIT - restore mark and return cached result
                     // CPython: p->mark = m->mark; *(void**)(pres) = m->node; return 1;
                     _position = cached.Mark;
-                    return cached.Node as T;
+                    return cached.Node as GeneratedPtr;
                 }
             }
             #if DEBUG_PARSE_LOG
@@ -250,6 +267,7 @@ namespace SharpPy.Generated
             }
 
             // CPython: Search for existing entry and update, or insert new
+            // CPython: Cache key is just rule name, independent of call_invalid_rules
             var existing = token.Memo.FirstOrDefault(m => m.RuleType == ruleName);
             if (existing != null)
             {
@@ -267,6 +285,7 @@ namespace SharpPy.Generated
                 #endif
                 // Insert new memo entry
                 // CPython: _PyPegen_insert_memo() adds to front of linked list
+                // CPython: Cache key is just rule name, independent of call_invalid_rules
                 token.Memo.Add(new MemoEntry
                 {
                     RuleType = ruleName,
@@ -1806,14 +1825,15 @@ namespace SharpPy.Generated
         }
 
         // For grammar helper types like SlashWithDefault
-        public static GeneratedMixedSeq _PyPegen_singleton_seq(GeneratedSlashWithDefault item)
+        public static GeneratedSeq _PyPegen_singleton_seq(GeneratedSlashWithDefault item)
         {
-            var seq = new GeneratedMixedSeq(1);
+            var seq = new GeneratedSeq(1);
             seq.Add(item);
             return seq;
         }
 
         // CPython: _PyPegen_seq_insert_in_front
+        // Typed sequence versions - same type input and output
         public static GeneratedExprSeq _PyPegen_seq_insert_in_front(GeneratedExpr item, GeneratedExprSeq seq)
         {
             var newSeq = new GeneratedExprSeq(seq.Count + 1);
@@ -1825,31 +1845,6 @@ namespace SharpPy.Generated
         public static GeneratedPatternSeq _PyPegen_seq_insert_in_front(GeneratedPattern item, GeneratedPatternSeq seq)
         {
             var newSeq = new GeneratedPatternSeq(seq.Count + 1);
-            newSeq.Add(item);
-            newSeq.AddRange(seq);
-            return newSeq;
-        }
-
-        // Generic version for MixedSeq - handles any AST node type
-        public static GeneratedMixedSeq _PyPegen_seq_insert_in_front(GeneratedExpr item, GeneratedMixedSeq seq)
-        {
-            var newSeq = new GeneratedMixedSeq(seq.Count + 1);
-            newSeq.Add(item);
-            newSeq.AddRange(seq);
-            return newSeq;
-        }
-
-        public static GeneratedMixedSeq _PyPegen_seq_insert_in_front(GeneratedPattern item, GeneratedMixedSeq seq)
-        {
-            var newSeq = new GeneratedMixedSeq(seq.Count + 1);
-            newSeq.Add(item);
-            newSeq.AddRange(seq);
-            return newSeq;
-        }
-
-        public static GeneratedMixedSeq _PyPegen_seq_insert_in_front(GeneratedAstNode item, GeneratedMixedSeq seq)
-        {
-            var newSeq = new GeneratedMixedSeq(seq.Count + 1);
             newSeq.Add(item);
             newSeq.AddRange(seq);
             return newSeq;
@@ -1946,14 +1941,14 @@ namespace SharpPy.Generated
                     break;
                 case GeneratedList list:
                     list.Ctx = ctx;
-                    foreach (var elt in list.Elts)
+                    foreach (var elt in list.Elts.ToEnumerable<GeneratedExpr>())
                     {
                         _PyPegen_set_expr_context(elt, ctx);
                     }
                     break;
                 case GeneratedTuple tuple:
                     tuple.Ctx = ctx;
-                    foreach (var elt in tuple.Elts)
+                    foreach (var elt in tuple.Elts.ToEnumerable<GeneratedExpr>())
                     {
                         _PyPegen_set_expr_context(elt, ctx);
                     }
@@ -2047,7 +2042,7 @@ namespace SharpPy.Generated
 
         // CPython: _PyPegen_get_cmpops
         // Extract comparison operators from (cmpop, expr) pairs
-        public static GeneratedCmpopSeq _PyPegen_get_cmpops(GeneratedMixedSeq pairs)
+        public static GeneratedCmpopSeq _PyPegen_get_cmpops(GeneratedSeq pairs)
         {
             var ops = new GeneratedCmpopSeq();
             // TODO: Extract cmpops from pairs - needs pair structure definition
@@ -2057,14 +2052,14 @@ namespace SharpPy.Generated
         // Overload for AstNodeSeq
         public static GeneratedCmpopSeq _PyPegen_get_cmpops(GeneratedAstNodeSeq pairs)
         {
-            var mixed = new GeneratedMixedSeq();
-            mixed.AddRange(pairs);
-            return _PyPegen_get_cmpops(mixed);
+            var seq = new GeneratedSeq();
+            seq.AddRange(pairs);
+            return _PyPegen_get_cmpops(seq);
         }
 
         // CPython: _PyPegen_get_exprs
         // Extract expressions from (cmpop, expr) pairs
-        public static GeneratedExprSeq _PyPegen_get_exprs(GeneratedMixedSeq pairs)
+        public static GeneratedExprSeq _PyPegen_get_exprs(GeneratedSeq pairs)
         {
             var exprs = new GeneratedExprSeq();
             // TODO: Extract exprs from pairs - needs pair structure definition
@@ -2074,9 +2069,9 @@ namespace SharpPy.Generated
         // Overload for AstNodeSeq
         public static GeneratedExprSeq _PyPegen_get_exprs(GeneratedAstNodeSeq pairs)
         {
-            var mixed = new GeneratedMixedSeq();
-            mixed.AddRange(pairs);
-            return _PyPegen_get_exprs(mixed);
+            var seq = new GeneratedSeq();
+            seq.AddRange(pairs);
+            return _PyPegen_get_exprs(seq);
         }
 
         // CPython: _PyPegen_key_value_pair
@@ -2088,7 +2083,7 @@ namespace SharpPy.Generated
 
         // CPython: _PyPegen_get_keys
         // Extract keys from (key, value) pairs
-        public static GeneratedExprSeq _PyPegen_get_keys(GeneratedMixedSeq pairs)
+        public static GeneratedExprSeq _PyPegen_get_keys(GeneratedSeq pairs)
         {
             var keys = new GeneratedExprSeq();
             foreach (var pair in pairs)
@@ -2103,7 +2098,7 @@ namespace SharpPy.Generated
 
         // CPython: _PyPegen_get_values
         // Extract values from (key, value) pairs
-        public static GeneratedExprSeq _PyPegen_get_values(GeneratedMixedSeq pairs)
+        public static GeneratedExprSeq _PyPegen_get_values(GeneratedSeq pairs)
         {
             var values = new GeneratedExprSeq();
             foreach (var pair in pairs)
@@ -2121,7 +2116,7 @@ namespace SharpPy.Generated
         public static GeneratedExprSeq _PyPegen_seq_extract_starred_exprs(GeneratedKeywordOrStarredSeq seq)
         {
             var exprs = new GeneratedExprSeq();
-            foreach (var item in seq)
+            foreach (var item in seq.ToEnumerable<GeneratedKeywordOrStarred>())
             {
                 if (item.Starred != null)
                 {
@@ -2136,7 +2131,7 @@ namespace SharpPy.Generated
         public static GeneratedKeywordSeq _PyPegen_seq_delete_starred_exprs(GeneratedKeywordOrStarredSeq seq)
         {
             var keywords = new GeneratedKeywordSeq();
-            foreach (var item in seq)
+            foreach (var item in seq.ToEnumerable<GeneratedKeywordOrStarred>())
             {
                 if (item.Keyword != null)
                 {
@@ -2147,42 +2142,123 @@ namespace SharpPy.Generated
         }
 
         // Overload for MixedSeq
-        public static GeneratedExprSeq _PyPegen_seq_extract_starred_exprs(GeneratedMixedSeq seq)
+        public static GeneratedExprSeq _PyPegen_seq_extract_starred_exprs(GeneratedSeq seq)
         {
             var kwSeq = new GeneratedKeywordOrStarredSeq();
             kwSeq.AddRange(seq.Cast<GeneratedKeywordOrStarred>());
             return _PyPegen_seq_extract_starred_exprs(kwSeq);
         }
 
-        public static GeneratedKeywordSeq _PyPegen_seq_delete_starred_exprs(GeneratedMixedSeq seq)
+        public static GeneratedKeywordSeq _PyPegen_seq_delete_starred_exprs(GeneratedSeq seq)
         {
             var kwSeq = new GeneratedKeywordOrStarredSeq();
             kwSeq.AddRange(seq.Cast<GeneratedKeywordOrStarred>());
             return _PyPegen_seq_delete_starred_exprs(kwSeq);
         }
 
-        // Conversion: GeneratedAstNodeSeq to GeneratedMixedSeq
-        public static GeneratedMixedSeq ToMixedSeq(GeneratedAstNodeSeq seq)
+        // Conversion: GeneratedAstNodeSeq to GeneratedSeq
+        public static GeneratedSeq ToMixedSeq(GeneratedAstNodeSeq inputSeq)
         {
-            var mixed = new GeneratedMixedSeq();
-            foreach (var item in seq)
-            {
-                mixed.Add(item);
-            }
-            return mixed;
+            var seq = new GeneratedSeq();
+            seq.AddRange(inputSeq.ToRawList());
+            return seq;
         }
 
-        // Conversion: GeneratedKeywordOrStarredSeq to GeneratedMixedSeq
-        public static GeneratedMixedSeq ToMixedSeq(GeneratedKeywordOrStarredSeq seq)
+        // Conversion: GeneratedKeywordOrStarredSeq to GeneratedSeq
+        public static GeneratedSeq ToMixedSeq(GeneratedKeywordOrStarredSeq inputSeq)
         {
-            var mixed = new GeneratedMixedSeq();
-            foreach (var item in seq)
-            {
-                mixed.Add(item);
-            }
-            return mixed;
+            var seq = new GeneratedSeq();
+            seq.AddRange(inputSeq.ToRawList());
+            return seq;
         }
 
+        // CPython: _PyPegen_check_legacy_stmt
+        // Check if NAME is 'print' or 'exec' (legacy Python 2 statements)
+        public static bool CheckLegacyStmt(GeneratedExpr? expr)
+        {
+            if (expr is not GeneratedName name)
+            {
+                return false;
+            }
+
+            var id = name.Id;
+            return id == "print" || id == "exec";
+        }
+
+        // Legacy alias for backward compatibility
+        public static bool _PyPegen_check_legacy_stmt(GeneratedExpr? expr) => CheckLegacyStmt(expr);
+
+        // CPython: RAISE_SYNTAX_ERROR_KNOWN_RANGE macro
+        // Raise syntax error with range information
+        public static GeneratedPtr? RaiseSyntaxErrorKnownRange(GeneratedAstNode? start, GeneratedAstNode? end, string message)
+        {
+            // Extract location info from start/end nodes
+            var startLine = start?.LineNo ?? 1;
+            var startCol = start?.ColOffset ?? 0;
+            var endLine = end?.EndLineNo ?? startLine;
+            var endCol = end?.EndColOffset ?? startCol;
+
+            // Format message with location info
+            var fullMessage = $"{message} (line {startLine}, col {startCol})";
+            throw new PySyntaxErrorException(fullMessage);
+        }
+
+        // CPython: CHECK(type, expr) macro
+        // Null-check and cast - throws if null, otherwise returns typed result
+        public static T CHECK<T>(T? value) where T : class
+        {
+            if (value == null)
+            {
+                throw new PySyntaxErrorException("CHECK failed: unexpected null value");
+            }
+            return value;
+        }
+
+        /// <summary>
+        /// CPython 3.12: CHECK_NULL_ALLOWED - allows NULL return without error
+        /// Used for helper functions like _PyPegen_seq_extract_starred_exprs
+        /// Returns nullable type - NULL is valid if no error occurred
+        /// </summary>
+        public static T? CHECK_NULL_ALLOWED<T>(T? value) where T : class
+        {
+            // CPython: if (result == NULL && PyErr_Occurred()) p->error_indicator = 1;
+            // In C#: We don't set error_indicator here, just return null
+            // The caller is responsible for checking null and handling it
+            return value;
+        }
+
+    }
+
+
+    // ============================================================
+    // Parser Helper Types
+    // CPython 3.12: Parser-specific types (not in ASDL)
+    // Note: Some types (SlashWithDefault, StarEtc, KeywordOrStarred, KeyValuePair) are already defined in GeneratedAstTypes.cs
+    // ============================================================
+
+    public class GeneratedNameDefaultPair : GeneratedPtr
+    {
+        public GeneratedArg Arg { get; set; }
+        public GeneratedExpr Default { get; set; }
+        public string? TypeComment { get; set; }
+    }
+
+    public class GeneratedKeyPatternPair : GeneratedPtr
+    {
+        public GeneratedExpr Key { get; set; }
+        public GeneratedPattern Pattern { get; set; }
+    }
+
+    public class GeneratedCmpopExprPair : GeneratedPtr
+    {
+        public GeneratedCmpop Op { get; set; }
+        public GeneratedExpr Expr { get; set; }
+    }
+
+    public class GeneratedResultTokenWithMetadata : GeneratedPtr
+    {
+        public GeneratedTokenInfo Token { get; set; }
+        public object? Metadata { get; set; }
     }
 
     // ============================================================

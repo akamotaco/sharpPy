@@ -27,6 +27,21 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("using System.Linq;");
             WriteLine("using SharpPy.Tokenizer;");
             WriteLine();
+            WriteLine("// CPython 3.12: Type aliases for grammar compatibility");
+            WriteLine("// Allows python_cs.gram to use C type names directly");
+            WriteLine("using stmt_ty = SharpPy.Generated.GeneratedStmt;");
+            WriteLine("using expr_ty = SharpPy.Generated.GeneratedExpr;");
+            WriteLine("using alias_ty = SharpPy.Generated.GeneratedAlias;");
+            WriteLine("using arguments_ty = SharpPy.Generated.GeneratedArguments;");
+            WriteLine("using asdl_stmt_seq = SharpPy.Generated.GeneratedStmtSeq;");
+            WriteLine("using asdl_expr_seq = SharpPy.Generated.GeneratedExprSeq;");
+            WriteLine("using asdl_identifier_seq = SharpPy.Generated.GeneratedIdentifierSeq;");
+            WriteLine("using asdl_pattern_seq = SharpPy.Generated.GeneratedPatternSeq;");
+            WriteLine("using asdl_int_seq = SharpPy.Generated.GeneratedCmpopSeq;  // CPython: int sequence used for comparison operators");
+            WriteLine("using asdl_keyword_seq = SharpPy.Generated.GeneratedKeywordSeq;");
+            WriteLine("using asdl_seq = SharpPy.Generated.GeneratedSeq;");
+            WriteLine("using keyword_ty = SharpPy.Generated.GeneratedKeyword;");
+            WriteLine();
             WriteLine("namespace SharpPy.Generated");
             WriteLine("{");
             _indentLevel++;
@@ -39,6 +54,9 @@ namespace SharpPy.PegGenerator.Asdl
 
             // _PyPegen_* helper functions
             GeneratePegenHelpers(module);
+
+            // Parser helper types (not in ASDL, defined in pegen)
+            GenerateParserHelperTypes();
 
             // ASTHelpers static class
             GenerateAstHelpersClass();
@@ -72,11 +90,11 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("protected int _pendingErrorPosition = -1;");
             WriteLine("protected bool _callInvalidRules = true;");
             WriteLine("// CPython 3.12: Memo cache uses (position, rule_name) tuple keys");
-            WriteLine("protected Dictionary<(int, string), GeneratedAstNode?> _memoCache = new();");
+            WriteLine("protected Dictionary<(int, string), GeneratedAstNode> _memoCache = new();");
             WriteLine();
             WriteLine("// CPython Parser fields for recursion and error tracking");
             WriteLine("protected int _level = 0;  // Nesting depth for recursion limit");
-            WriteLine("protected GeneratedTokenInfo? _knownErrToken = null;  // Error location tracking");
+            WriteLine("protected GeneratedTokenInfo _knownErrToken = null;  // Error location tracking");
             WriteLine("protected int _errorIndicator = 0;  // Error state flag");
             WriteLine("protected const int MAX_RECURSION_DEPTH = 1000;  // Python's recursion limit");
             WriteLine();
@@ -84,7 +102,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("protected class LREntry");
             WriteLine("{");
             _indentLevel++;
-            WriteLine("public object? Result { get; set; }");
+            WriteLine("public GeneratedPtr Result { get; set; }");
             WriteLine("public int EndPos { get; set; }");
             WriteLine("public bool IsGrowing { get; set; }");
             _indentLevel--;
@@ -111,7 +129,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine();
 
             // Current token property
-            WriteLine("protected GeneratedTokenInfo? CurrentToken");
+            WriteLine("protected GeneratedTokenInfo CurrentToken");
             WriteLine("{");
             _indentLevel++;
             WriteLine("get => _position < _tokens.Count ? _tokens[_position] : null;");
@@ -134,7 +152,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine();
 
             // ExpectToken method
-            WriteLine("protected GeneratedTokenInfo? ExpectToken(GeneratedTokenType type)");
+            WriteLine("protected GeneratedTokenInfo ExpectToken(GeneratedTokenType type)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("var token = CurrentToken;");
@@ -151,7 +169,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine();
 
             // Expect method (with value)
-            WriteLine("protected GeneratedTokenInfo? Expect(GeneratedTokenType type, string value)");
+            WriteLine("protected GeneratedTokenInfo Expect(GeneratedTokenType type, string value)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("var token = CurrentToken;");
@@ -168,7 +186,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine();
 
             // ExpectName method - expect NAME token
-            WriteLine("protected GeneratedTokenInfo? ExpectName()");
+            WriteLine("protected GeneratedTokenInfo ExpectName()");
             WriteLine("{");
             _indentLevel++;
             WriteLine("var token = CurrentToken;");
@@ -190,7 +208,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("/// CPython 3.12: Implements Warth et al. 'Packrat Parsers Can Support Left Recursion'");
             WriteLine("/// Algorithm: SEED (FAIL) → BASE CASE → GROW → TERMINATE");
             WriteLine("/// </summary>");
-            WriteLine("protected T? TryLeftRecursive<T>(string ruleName, Func<T?> ruleFunc) where T : class");
+            WriteLine("protected GeneratedPtr TryLeftRecursive(string ruleName, Func<GeneratedPtr> ruleFunc)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("// Check recursion depth");
@@ -208,7 +226,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("{");
             _indentLevel++;
             WriteLine("_position = lrEntry.EndPos;");
-            WriteLine("return lrEntry.Result as T;");
+            WriteLine("return lrEntry.Result;");
             _indentLevel--;
             WriteLine("}");
             WriteLine();
@@ -238,7 +256,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("}");
             WriteLine();
             WriteLine("// GROWTH PHASE: Seed succeeded, now grow");
-            WriteLine("T? lastResult = result;");
+            WriteLine("GeneratedPtr lastResult = result;");
             WriteLine("int lastEndPos = _position;");
             WriteLine("_lrCache[key] = new LREntry { Result = result, EndPos = _position, IsGrowing = true };");
             WriteLine();
@@ -299,7 +317,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("///   3. If hit: p->mark = m->mark; return m->node");
             WriteLine("///   4. If miss: parse, then update token's memo list");
             WriteLine("/// </summary>");
-            WriteLine("protected T? TryMemoized<T>(string ruleName, Func<T?> ruleFunc) where T : class");
+            WriteLine("protected GeneratedPtr TryMemoized(string ruleName, Func<GeneratedPtr> ruleFunc)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("#if DEBUG_PARSE_LOG");
@@ -321,10 +339,12 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("int startMark = _position;");
             WriteLine();
             WriteLine("// STEP 2: CHECK CACHE - _PyPegen_is_memoized(p, type, &res)");
+            WriteLine("// CPython 3.12: Cache key must include call_invalid_rules state for expression rules");
             WriteLine("if (token.Memo != null)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("// CPython: for (Memo *m = t->memo; m != NULL; m = m->next)");
+            WriteLine("// CPython: Cache key is m->type (rule type), NOT affected by call_invalid_rules");
             WriteLine("var cached = token.Memo.FirstOrDefault(m => m.RuleType == ruleName);");
             WriteLine("if (cached != null)");
             WriteLine("{");
@@ -335,7 +355,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("// Cache HIT - restore mark and return cached result");
             WriteLine("// CPython: p->mark = m->mark; *(void**)(pres) = m->node; return 1;");
             WriteLine("_position = cached.Mark;");
-            WriteLine("return cached.Node as T;");
+            WriteLine("return cached.Node as GeneratedPtr;");
             _indentLevel--;
             WriteLine("}");
             _indentLevel--;
@@ -360,6 +380,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("}");
             WriteLine();
             WriteLine("// CPython: Search for existing entry and update, or insert new");
+            WriteLine("// CPython: Cache key is just rule name, independent of call_invalid_rules");
             WriteLine("var existing = token.Memo.FirstOrDefault(m => m.RuleType == ruleName);");
             WriteLine("if (existing != null)");
             WriteLine("{");
@@ -380,6 +401,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("#endif");
             WriteLine("// Insert new memo entry");
             WriteLine("// CPython: _PyPegen_insert_memo() adds to front of linked list");
+            WriteLine("// CPython: Cache key is just rule name, independent of call_invalid_rules");
             WriteLine("token.Memo.Add(new MemoEntry");
             WriteLine("{");
             _indentLevel++;
@@ -401,7 +423,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("/// Convert NAME token to AST Name expression");
             WriteLine("/// CPython 3.12: Used in grammar actions");
             WriteLine("/// </summary>");
-            WriteLine("protected GeneratedName? NameToken(GeneratedTokenInfo? token)");
+            WriteLine("protected GeneratedName NameToken(GeneratedTokenInfo token)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("if (token == null) return null;");
@@ -422,7 +444,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("/// Convert NUMBER token to AST Constant expression");
             WriteLine("/// CPython 3.12: Numbers are represented as Constant nodes");
             WriteLine("/// </summary>");
-            WriteLine("protected GeneratedConstant? NumberToken(GeneratedTokenInfo? token)");
+            WriteLine("protected GeneratedConstant NumberToken(GeneratedTokenInfo token)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("if (token == null) return null;");
@@ -450,7 +472,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("/// Convert STRING token to AST Constant expression");
             WriteLine("/// CPython 3.12: Strings are represented as Constant nodes");
             WriteLine("/// </summary>");
-            WriteLine("protected GeneratedConstant? StringToken(GeneratedTokenInfo? token)");
+            WriteLine("protected GeneratedConstant StringToken(GeneratedTokenInfo token)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("if (token == null) return null;");
@@ -658,7 +680,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("// CPython: _PyPegen_seq_flatten");
             WriteLine("// Flatten list of sequences into single sequence");
             WriteLine("// CPython 3.12: Returns NULL if total size is 0 (assert fails in CPython)");
-            WriteLine("public static GeneratedStmtSeq? _PyPegen_seq_flatten(System.Collections.Generic.List<GeneratedStmtSeq> sequences)");
+            WriteLine("public static GeneratedStmtSeq _PyPegen_seq_flatten(System.Collections.Generic.List<GeneratedStmtSeq> sequences)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("// CPython: Calculate flattened size");
@@ -724,10 +746,10 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine();
 
             WriteLine("// For grammar helper types like SlashWithDefault");
-            WriteLine("public static GeneratedMixedSeq _PyPegen_singleton_seq(GeneratedSlashWithDefault item)");
+            WriteLine("public static GeneratedSeq _PyPegen_singleton_seq(GeneratedSlashWithDefault item)");
             WriteLine("{");
             _indentLevel++;
-            WriteLine("var seq = new GeneratedMixedSeq(1);");
+            WriteLine("var seq = new GeneratedSeq(1);");
             WriteLine("seq.Add(item);");
             WriteLine("return seq;");
             _indentLevel--;
@@ -737,6 +759,7 @@ namespace SharpPy.PegGenerator.Asdl
 
             // seq_insert_in_front
             WriteLine("// CPython: _PyPegen_seq_insert_in_front");
+            WriteLine("// Typed sequence versions - same type input and output");
             WriteLine("public static GeneratedExprSeq _PyPegen_seq_insert_in_front(GeneratedExpr item, GeneratedExprSeq seq)");
             WriteLine("{");
             _indentLevel++;
@@ -759,33 +782,19 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("}");
             WriteLine();
 
-            WriteLine("// Generic version for MixedSeq - handles any AST node type");
-            WriteLine("public static GeneratedMixedSeq _PyPegen_seq_insert_in_front(GeneratedExpr item, GeneratedMixedSeq seq)");
+            WriteLine("// CPython 3.12: Generic version for asdl_seq* - matches CPython's void* signature");
+            WriteLine("public static GeneratedSeq _PyPegen_seq_insert_in_front(GeneratedPtr item, GeneratedSeq seq)");
             WriteLine("{");
             _indentLevel++;
-            WriteLine("var newSeq = new GeneratedMixedSeq(seq.Count + 1);");
-            WriteLine("newSeq.Add(item);");
-            WriteLine("newSeq.AddRange(seq);");
-            WriteLine("return newSeq;");
+            WriteLine("if (seq == null)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("var singletonSeq = new GeneratedSeq();");
+            WriteLine("singletonSeq.Add(item);");
+            WriteLine("return singletonSeq;");
             _indentLevel--;
             WriteLine("}");
-            WriteLine();
-
-            WriteLine("public static GeneratedMixedSeq _PyPegen_seq_insert_in_front(GeneratedPattern item, GeneratedMixedSeq seq)");
-            WriteLine("{");
-            _indentLevel++;
-            WriteLine("var newSeq = new GeneratedMixedSeq(seq.Count + 1);");
-            WriteLine("newSeq.Add(item);");
-            WriteLine("newSeq.AddRange(seq);");
-            WriteLine("return newSeq;");
-            _indentLevel--;
-            WriteLine("}");
-            WriteLine();
-
-            WriteLine("public static GeneratedMixedSeq _PyPegen_seq_insert_in_front(GeneratedAstNode item, GeneratedMixedSeq seq)");
-            WriteLine("{");
-            _indentLevel++;
-            WriteLine("var newSeq = new GeneratedMixedSeq(seq.Count + 1);");
+            WriteLine("var newSeq = new GeneratedSeq(seq.Count + 1);");
             WriteLine("newSeq.Add(item);");
             WriteLine("newSeq.AddRange(seq);");
             WriteLine("return newSeq;");
@@ -795,7 +804,7 @@ namespace SharpPy.PegGenerator.Asdl
 
             // seq_count_dots
             WriteLine("// CPython: _PyPegen_seq_count_dots");
-            WriteLine("public static int _PyPegen_seq_count_dots(GeneratedIdentifierSeq? seq)");
+            WriteLine("public static int _PyPegen_seq_count_dots(GeneratedIdentifierSeq seq)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("return seq?.Count ?? 0;");
@@ -926,7 +935,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("case GeneratedList list:");
             _indentLevel++;
             WriteLine("list.Ctx = ctx;");
-            WriteLine("foreach (var elt in list.Elts)");
+            WriteLine("foreach (var elt in list.Elts.ToEnumerable<GeneratedExpr>())");
             WriteLine("{");
             _indentLevel++;
             WriteLine("_PyPegen_set_expr_context(elt, ctx);");
@@ -937,7 +946,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("case GeneratedTuple tuple:");
             _indentLevel++;
             WriteLine("tuple.Ctx = ctx;");
-            WriteLine("foreach (var elt in tuple.Elts)");
+            WriteLine("foreach (var elt in tuple.Elts.ToEnumerable<GeneratedExpr>())");
             WriteLine("{");
             _indentLevel++;
             WriteLine("_PyPegen_set_expr_context(elt, ctx);");
@@ -960,7 +969,7 @@ namespace SharpPy.PegGenerator.Asdl
 
             // make_module
             WriteLine("// CPython: _PyPegen_make_module");
-            WriteLine("public static GeneratedModule _PyPegen_make_module(GeneratedStmtSeq? body)");
+            WriteLine("public static GeneratedModule _PyPegen_make_module(GeneratedStmtSeq body)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("var module = new GeneratedModule();");
@@ -1079,7 +1088,7 @@ namespace SharpPy.PegGenerator.Asdl
             // get_cmpops - extract comparison operators from KeywordOrStarred pairs
             WriteLine("// CPython: _PyPegen_get_cmpops");
             WriteLine("// Extract comparison operators from (cmpop, expr) pairs");
-            WriteLine("public static GeneratedCmpopSeq _PyPegen_get_cmpops(GeneratedMixedSeq pairs)");
+            WriteLine("public static GeneratedCmpopSeq _PyPegen_get_cmpops(GeneratedSeq pairs)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("var ops = new GeneratedCmpopSeq();");
@@ -1093,9 +1102,9 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("public static GeneratedCmpopSeq _PyPegen_get_cmpops(GeneratedAstNodeSeq pairs)");
             WriteLine("{");
             _indentLevel++;
-            WriteLine("var mixed = new GeneratedMixedSeq();");
-            WriteLine("mixed.AddRange(pairs);");
-            WriteLine("return _PyPegen_get_cmpops(mixed);");
+            WriteLine("var seq = new GeneratedSeq();");
+            WriteLine("seq.AddRange(pairs);");
+            WriteLine("return _PyPegen_get_cmpops(seq);");
             _indentLevel--;
             WriteLine("}");
             WriteLine();
@@ -1103,7 +1112,7 @@ namespace SharpPy.PegGenerator.Asdl
             // get_exprs - extract expressions from KeywordOrStarred pairs
             WriteLine("// CPython: _PyPegen_get_exprs");
             WriteLine("// Extract expressions from (cmpop, expr) pairs");
-            WriteLine("public static GeneratedExprSeq _PyPegen_get_exprs(GeneratedMixedSeq pairs)");
+            WriteLine("public static GeneratedExprSeq _PyPegen_get_exprs(GeneratedSeq pairs)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("var exprs = new GeneratedExprSeq();");
@@ -1117,9 +1126,9 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("public static GeneratedExprSeq _PyPegen_get_exprs(GeneratedAstNodeSeq pairs)");
             WriteLine("{");
             _indentLevel++;
-            WriteLine("var mixed = new GeneratedMixedSeq();");
-            WriteLine("mixed.AddRange(pairs);");
-            WriteLine("return _PyPegen_get_exprs(mixed);");
+            WriteLine("var seq = new GeneratedSeq();");
+            WriteLine("seq.AddRange(pairs);");
+            WriteLine("return _PyPegen_get_exprs(seq);");
             _indentLevel--;
             WriteLine("}");
             WriteLine();
@@ -1127,7 +1136,7 @@ namespace SharpPy.PegGenerator.Asdl
             // key_value_pair - create key-value pair
             WriteLine("// CPython: _PyPegen_key_value_pair");
             WriteLine("// Create a key-value pair for dictionary literals");
-            WriteLine("public static GeneratedKeyValuePair _PyPegen_key_value_pair(GeneratedExpr? key, GeneratedExpr value)");
+            WriteLine("public static GeneratedKeyValuePair _PyPegen_key_value_pair(GeneratedExpr key, GeneratedExpr value)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("return new GeneratedKeyValuePair { Key = key ?? value, Value = value };");
@@ -1138,7 +1147,7 @@ namespace SharpPy.PegGenerator.Asdl
             // get_keys - extract keys from key-value pairs
             WriteLine("// CPython: _PyPegen_get_keys");
             WriteLine("// Extract keys from (key, value) pairs");
-            WriteLine("public static GeneratedExprSeq _PyPegen_get_keys(GeneratedMixedSeq pairs)");
+            WriteLine("public static GeneratedExprSeq _PyPegen_get_keys(GeneratedSeq pairs)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("var keys = new GeneratedExprSeq();");
@@ -1161,7 +1170,7 @@ namespace SharpPy.PegGenerator.Asdl
             // get_values - extract values from key-value pairs
             WriteLine("// CPython: _PyPegen_get_values");
             WriteLine("// Extract values from (key, value) pairs");
-            WriteLine("public static GeneratedExprSeq _PyPegen_get_values(GeneratedMixedSeq pairs)");
+            WriteLine("public static GeneratedExprSeq _PyPegen_get_values(GeneratedSeq pairs)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("var values = new GeneratedExprSeq();");
@@ -1188,7 +1197,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("{");
             _indentLevel++;
             WriteLine("var exprs = new GeneratedExprSeq();");
-            WriteLine("foreach (var item in seq)");
+            WriteLine("foreach (var item in seq.ToEnumerable<GeneratedKeywordOrStarred>())");
             WriteLine("{");
             _indentLevel++;
             WriteLine("if (item.Starred != null)");
@@ -1211,7 +1220,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("{");
             _indentLevel++;
             WriteLine("var keywords = new GeneratedKeywordSeq();");
-            WriteLine("foreach (var item in seq)");
+            WriteLine("foreach (var item in seq.ToEnumerable<GeneratedKeywordOrStarred>())");
             WriteLine("{");
             _indentLevel++;
             WriteLine("if (item.Keyword != null)");
@@ -1229,7 +1238,7 @@ namespace SharpPy.PegGenerator.Asdl
 
             // Overload for MixedSeq - cast to KeywordOrStarredSeq
             WriteLine("// Overload for MixedSeq");
-            WriteLine("public static GeneratedExprSeq _PyPegen_seq_extract_starred_exprs(GeneratedMixedSeq seq)");
+            WriteLine("public static GeneratedExprSeq _PyPegen_seq_extract_starred_exprs(GeneratedSeq seq)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("var kwSeq = new GeneratedKeywordOrStarredSeq();");
@@ -1239,7 +1248,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("}");
             WriteLine();
 
-            WriteLine("public static GeneratedKeywordSeq _PyPegen_seq_delete_starred_exprs(GeneratedMixedSeq seq)");
+            WriteLine("public static GeneratedKeywordSeq _PyPegen_seq_delete_starred_exprs(GeneratedSeq seq)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("var kwSeq = new GeneratedKeywordOrStarredSeq();");
@@ -1250,34 +1259,98 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine();
 
             // Conversion helpers for Seq types
-            WriteLine("// Conversion: GeneratedAstNodeSeq to GeneratedMixedSeq");
-            WriteLine("public static GeneratedMixedSeq ToMixedSeq(GeneratedAstNodeSeq seq)");
+            WriteLine("// Conversion: GeneratedAstNodeSeq to GeneratedSeq");
+            WriteLine("public static GeneratedSeq ToMixedSeq(GeneratedAstNodeSeq inputSeq)");
             WriteLine("{");
             _indentLevel++;
-            WriteLine("var mixed = new GeneratedMixedSeq();");
-            WriteLine("foreach (var item in seq)");
-            WriteLine("{");
-            _indentLevel++;
-            WriteLine("mixed.Add(item);");
-            _indentLevel--;
-            WriteLine("}");
-            WriteLine("return mixed;");
+            WriteLine("var seq = new GeneratedSeq();");
+            WriteLine("seq.AddRange(inputSeq.ToRawList());");
+            WriteLine("return seq;");
             _indentLevel--;
             WriteLine("}");
             WriteLine();
 
-            WriteLine("// Conversion: GeneratedKeywordOrStarredSeq to GeneratedMixedSeq");
-            WriteLine("public static GeneratedMixedSeq ToMixedSeq(GeneratedKeywordOrStarredSeq seq)");
+            WriteLine("// Conversion: GeneratedKeywordOrStarredSeq to GeneratedSeq");
+            WriteLine("public static GeneratedSeq ToMixedSeq(GeneratedKeywordOrStarredSeq inputSeq)");
             WriteLine("{");
             _indentLevel++;
-            WriteLine("var mixed = new GeneratedMixedSeq();");
-            WriteLine("foreach (var item in seq)");
-            WriteLine("{");
-            _indentLevel++;
-            WriteLine("mixed.Add(item);");
+            WriteLine("var seq = new GeneratedSeq();");
+            WriteLine("seq.AddRange(inputSeq.ToRawList());");
+            WriteLine("return seq;");
             _indentLevel--;
             WriteLine("}");
-            WriteLine("return mixed;");
+            WriteLine();
+
+            // CheckLegacyStmt - CPython 3.12: Parser/action_helpers.c:876
+            WriteLine("// CPython: _PyPegen_check_legacy_stmt");
+            WriteLine("// Check if NAME is 'print' or 'exec' (legacy Python 2 statements)");
+            WriteLine("public static bool CheckLegacyStmt(GeneratedExpr expr)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("if (expr is not GeneratedName name)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("return false;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+            WriteLine("var id = name.Id;");
+            WriteLine("return id == \"print\" || id == \"exec\";");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// Legacy alias for backward compatibility");
+            WriteLine("public static bool _PyPegen_check_legacy_stmt(GeneratedExpr expr) => CheckLegacyStmt(expr);");
+            WriteLine();
+
+            // RaiseSyntaxErrorKnownRange - CPython 3.12: RAISE_SYNTAX_ERROR_KNOWN_RANGE macro
+            WriteLine("// CPython: RAISE_SYNTAX_ERROR_KNOWN_RANGE macro");
+            WriteLine("// Raise syntax error with range information");
+            WriteLine("public static GeneratedPtr RaiseSyntaxErrorKnownRange(GeneratedAstNode start, GeneratedAstNode end, string message)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("// Extract location info from start/end nodes");
+            WriteLine("var startLine = start?.LineNo ?? 1;");
+            WriteLine("var startCol = start?.ColOffset ?? 0;");
+            WriteLine("var endLine = end?.EndLineNo ?? startLine;");
+            WriteLine("var endCol = end?.EndColOffset ?? startCol;");
+            WriteLine();
+            WriteLine("// Format message with location info");
+            WriteLine("var fullMessage = $\"{message} (line {startLine}, col {startCol})\";");
+            WriteLine("throw new PySyntaxErrorException(fullMessage);");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // CHECK<T> - CPython 3.12: CHECK macro
+            WriteLine("// CPython: CHECK(type, expr) macro");
+            WriteLine("// Null-check and cast - throws if null, otherwise returns typed result");
+            WriteLine("public static T CHECK<T>(T? value) where T : class");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("if (value == null)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("throw new PySyntaxErrorException(\"CHECK failed: unexpected null value\");");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine("return value;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("/// <summary>");
+            WriteLine("/// CPython 3.12: CHECK_NULL_ALLOWED - allows NULL return without error");
+            WriteLine("/// Used for helper functions like _PyPegen_seq_extract_starred_exprs");
+            WriteLine("/// Returns nullable type - NULL is valid if no error occurred");
+            WriteLine("/// </summary>");
+            WriteLine("public static T? CHECK_NULL_ALLOWED<T>(T? value) where T : class");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("// CPython: if (result == NULL && PyErr_Occurred()) p->error_indicator = 1;");
+            WriteLine("// In C#: We don't set error_indicator here, just return null");
+            WriteLine("// The caller is responsible for checking null and handling it");
+            WriteLine("return value;");
             _indentLevel--;
             WriteLine("}");
             WriteLine();
@@ -1382,7 +1455,7 @@ namespace SharpPy.PegGenerator.Asdl
                 "string" => "string",
                 "constant" => "GeneratedPyConstant",
                 "singleton" => "bool?",
-                _ => "object"
+                _ => "GeneratedPtr"
             };
         }
 
@@ -1401,6 +1474,64 @@ namespace SharpPy.PegGenerator.Asdl
             ));
         }
 
+        private void GenerateParserHelperTypes()
+        {
+            WriteLine();
+            WriteLine("// ============================================================");
+            WriteLine("// Parser Helper Types");
+            WriteLine("// CPython 3.12: Parser-specific types (not in ASDL)");
+            WriteLine("// Note: Some types (SlashWithDefault, StarEtc, KeywordOrStarred, KeyValuePair) are already defined in GeneratedAstTypes.cs");
+            WriteLine("// ============================================================");
+            WriteLine();
+
+            // NameDefaultPair
+            WriteLine("public class GeneratedNameDefaultPair : GeneratedPtr");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("public GeneratedArg Arg { get; set; }");
+            WriteLine("public GeneratedExpr Default { get; set; }");
+            WriteLine("public string? TypeComment { get; set; }");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // KeyPatternPair
+            WriteLine("public class GeneratedKeyPatternPair : GeneratedPtr");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("public GeneratedExpr Key { get; set; }");
+            WriteLine("public GeneratedPattern Pattern { get; set; }");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // KeyPatternPairSeq
+            WriteLine("public class GeneratedKeyPatternPairSeq : GeneratedSeq");
+            WriteLine("{");
+            WriteLine("}");
+            WriteLine();
+
+            // CmpopExprPair
+            WriteLine("public class GeneratedCmpopExprPair : GeneratedPtr");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("public GeneratedCmpop Op { get; set; }");  // Fixed: CmpOp → Cmpop
+            WriteLine("public GeneratedExpr Expr { get; set; }");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // ResultTokenWithMetadata
+            WriteLine("public class GeneratedResultTokenWithMetadata : GeneratedPtr");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("public GeneratedTokenInfo Token { get; set; }");
+            WriteLine("public object? Metadata { get; set; }");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+        }
+
         private void WriteLine(string line = "")
         {
             if (string.IsNullOrEmpty(line))
@@ -1411,6 +1542,16 @@ namespace SharpPy.PegGenerator.Asdl
             {
                 _sb.AppendLine(new string(' ', _indentLevel * 4) + line);
             }
+        }
+
+        private void Indent()
+        {
+            _indentLevel++;
+        }
+
+        private void Dedent()
+        {
+            _indentLevel--;
         }
     }
 }

@@ -67,12 +67,14 @@ namespace SharpPy.PegGenerator.Grammar
     public class Item : GrammarNode
     {
         public string? Name { get; set; }  // Optional variable name
+        public string? TypeAnnotation { get; set; }  // Optional type annotation: a[asdl_expr_seq*]
         public Atom Atom { get; set; } = null!;
 
         public override string ToString()
         {
             var name = Name != null ? $"{Name}=" : "";
-            return $"{name}{Atom}";
+            var type = TypeAnnotation != null ? $"[{TypeAnnotation}]" : "";
+            return $"{name}{type}{Atom}";
         }
     }
 

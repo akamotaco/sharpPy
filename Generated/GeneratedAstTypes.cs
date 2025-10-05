@@ -68,7 +68,7 @@ namespace SharpPy.Generated
 
     public class GeneratedFunctionDef : GeneratedStmt
     {
-        public string Name { get; set; } = "";
+        public GeneratedIdentifier Name { get; set; } = null!;
         public GeneratedArguments Args { get; set; } = null!;
         public GeneratedStmtSeq Body { get; set; }
         public GeneratedExprSeq DecoratorList { get; set; }
@@ -79,7 +79,7 @@ namespace SharpPy.Generated
 
     public class GeneratedAsyncFunctionDef : GeneratedStmt
     {
-        public string Name { get; set; } = "";
+        public GeneratedIdentifier Name { get; set; } = null!;
         public GeneratedArguments Args { get; set; } = null!;
         public GeneratedStmtSeq Body { get; set; }
         public GeneratedExprSeq DecoratorList { get; set; }
@@ -90,7 +90,7 @@ namespace SharpPy.Generated
 
     public class GeneratedClassDef : GeneratedStmt
     {
-        public string Name { get; set; } = "";
+        public GeneratedIdentifier Name { get; set; } = null!;
         public GeneratedExprSeq Bases { get; set; }
         public GeneratedKeywordSeq Keywords { get; set; }
         public GeneratedStmtSeq Body { get; set; }
@@ -224,7 +224,7 @@ namespace SharpPy.Generated
 
     public class GeneratedImportFrom : GeneratedStmt
     {
-        public string? Module { get; set; }
+        public GeneratedIdentifier? Module { get; set; }
         public GeneratedAliasSeq Names { get; set; }
         public int? Level { get; set; }
     }
@@ -405,7 +405,7 @@ namespace SharpPy.Generated
     public class GeneratedAttribute : GeneratedExpr
     {
         public GeneratedExpr Value { get; set; } = null!;
-        public string Attr { get; set; } = "";
+        public GeneratedIdentifier Attr { get; set; } = null!;
         public GeneratedExprContext Ctx { get; set; } = null!;
     }
 
@@ -424,7 +424,7 @@ namespace SharpPy.Generated
 
     public class GeneratedName : GeneratedExpr
     {
-        public string Id { get; set; } = "";
+        public GeneratedIdentifier Id { get; set; } = null!;
         public GeneratedExprContext Ctx { get; set; } = null!;
     }
 
@@ -810,7 +810,7 @@ namespace SharpPy.Generated
     public class GeneratedExceptHandler : GeneratedExcepthandler
     {
         public GeneratedExpr? Type { get; set; }
-        public string? Name { get; set; }
+        public GeneratedIdentifier? Name { get; set; }
         public GeneratedStmtSeq Body { get; set; }
     }
 
@@ -835,7 +835,7 @@ namespace SharpPy.Generated
 
     public class GeneratedArg : GeneratedAstNode
     {
-        public string Arg { get; set; } = "";
+        public GeneratedIdentifier Arg { get; set; } = null!;
         public GeneratedExpr? Annotation { get; set; }
         public string? TypeComment { get; set; }
     }
@@ -846,7 +846,7 @@ namespace SharpPy.Generated
 
     public class GeneratedKeyword : GeneratedAstNode
     {
-        public string? Arg { get; set; }
+        public GeneratedIdentifier? Arg { get; set; }
         public GeneratedExpr Value { get; set; } = null!;
     }
 
@@ -856,8 +856,8 @@ namespace SharpPy.Generated
 
     public class GeneratedAlias : GeneratedAstNode
     {
-        public string Name { get; set; } = "";
-        public string? Asname { get; set; }
+        public GeneratedIdentifier Name { get; set; } = null!;
+        public GeneratedIdentifier? Asname { get; set; }
     }
 
     // ============================================================
@@ -910,7 +910,7 @@ namespace SharpPy.Generated
     {
         public GeneratedExprSeq Keys { get; set; }
         public GeneratedPatternSeq Patterns { get; set; }
-        public string? Rest { get; set; }
+        public GeneratedIdentifier? Rest { get; set; }
     }
 
     public class GeneratedMatchClass : GeneratedPattern
@@ -923,13 +923,13 @@ namespace SharpPy.Generated
 
     public class GeneratedMatchStar : GeneratedPattern
     {
-        public string? Name { get; set; }
+        public GeneratedIdentifier? Name { get; set; }
     }
 
     public class GeneratedMatchAs : GeneratedPattern
     {
         public GeneratedPattern? Pattern { get; set; }
-        public string? Name { get; set; }
+        public GeneratedIdentifier? Name { get; set; }
     }
 
     public class GeneratedMatchOr : GeneratedPattern
@@ -965,673 +965,585 @@ namespace SharpPy.Generated
 
     public class GeneratedTypeVar : GeneratedTypeParam
     {
-        public string Name { get; set; } = "";
+        public GeneratedIdentifier Name { get; set; } = null!;
         public GeneratedExpr? Bound { get; set; }
     }
 
     public class GeneratedParamSpec : GeneratedTypeParam
     {
-        public string Name { get; set; } = "";
+        public GeneratedIdentifier Name { get; set; } = null!;
     }
 
     public class GeneratedTypeVarTuple : GeneratedTypeParam
     {
-        public string Name { get; set; } = "";
+        public GeneratedIdentifier Name { get; set; } = null!;
     }
 
     // ============================================================
     // Sequence Types (GC optimized)
     // ============================================================
 
-    /// <summary>
-    /// Base class for all sequence types
-    /// CPython 3.12: All asdl_seq types inherit from this for void* compatibility
-    /// </summary>
-    public abstract class GeneratedSeq : GeneratedPtr { }
+    // Note: GeneratedSeq base class is defined in PyTokenizer.cs
 
     /// <summary>
     /// Sequence of alias - CPython: asdl_alias_seq
-    /// C# GC optimized: List<T> with GeneratedSeq inheritance
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedAliasSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedAlias>
+    public class GeneratedAliasSeq : GeneratedSeq
     {
-        private readonly List<GeneratedAlias> _items = new();
         public static readonly GeneratedAliasSeq Empty = new();
 
         public GeneratedAliasSeq() { }
-        public GeneratedAliasSeq(int capacity) { _items = new List<GeneratedAlias>(capacity); }
-        public GeneratedAliasSeq(IEnumerable<GeneratedAlias> collection) { _items = new List<GeneratedAlias>(collection); }
+        public GeneratedAliasSeq(int capacity) : base(capacity) { }
+        public GeneratedAliasSeq(IEnumerable<GeneratedAlias> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
 
-        // IList<T> implementation
-        public GeneratedAlias this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(GeneratedAlias item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedAlias item) => _items.Contains(item);
-        public void CopyTo(GeneratedAlias[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedAlias> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedAlias item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedAlias item) => _items.Insert(index, item);
-        public bool Remove(GeneratedAlias item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        // Type-constrained wrappers
+        public new void Add(GeneratedAlias item) => base.Add(item);
+        public new GeneratedAlias this[int index]
+        {
+            get => (GeneratedAlias)base[index];
+            set => base[index] = value;
+        }
 
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedAlias> collection) => _items.AddRange(collection);
+        // Typed enumeration
+        public new System.Collections.Generic.IEnumerable<GeneratedAlias> ToEnumerable() => base.ToEnumerable<GeneratedAlias>();
     }
 
     /// <summary>
     /// Sequence of arg - CPython: asdl_arg_seq
-    /// C# GC optimized: List<T> with GeneratedSeq inheritance
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedArgSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedArg>
+    public class GeneratedArgSeq : GeneratedSeq
     {
-        private readonly List<GeneratedArg> _items = new();
         public static readonly GeneratedArgSeq Empty = new();
 
         public GeneratedArgSeq() { }
-        public GeneratedArgSeq(int capacity) { _items = new List<GeneratedArg>(capacity); }
-        public GeneratedArgSeq(IEnumerable<GeneratedArg> collection) { _items = new List<GeneratedArg>(collection); }
+        public GeneratedArgSeq(int capacity) : base(capacity) { }
+        public GeneratedArgSeq(IEnumerable<GeneratedArg> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
 
-        // IList<T> implementation
-        public GeneratedArg this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(GeneratedArg item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedArg item) => _items.Contains(item);
-        public void CopyTo(GeneratedArg[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedArg> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedArg item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedArg item) => _items.Insert(index, item);
-        public bool Remove(GeneratedArg item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        // Type-constrained wrappers
+        public new void Add(GeneratedArg item) => base.Add(item);
+        public new GeneratedArg this[int index]
+        {
+            get => (GeneratedArg)base[index];
+            set => base[index] = value;
+        }
 
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedArg> collection) => _items.AddRange(collection);
+        // Typed enumeration
+        public new System.Collections.Generic.IEnumerable<GeneratedArg> ToEnumerable() => base.ToEnumerable<GeneratedArg>();
     }
 
     /// <summary>
     /// Sequence of arguments - CPython: asdl_arguments_seq
-    /// C# GC optimized: List<T> with GeneratedSeq inheritance
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedArgumentsSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedArguments>
+    public class GeneratedArgumentsSeq : GeneratedSeq
     {
-        private readonly List<GeneratedArguments> _items = new();
         public static readonly GeneratedArgumentsSeq Empty = new();
 
         public GeneratedArgumentsSeq() { }
-        public GeneratedArgumentsSeq(int capacity) { _items = new List<GeneratedArguments>(capacity); }
-        public GeneratedArgumentsSeq(IEnumerable<GeneratedArguments> collection) { _items = new List<GeneratedArguments>(collection); }
+        public GeneratedArgumentsSeq(int capacity) : base(capacity) { }
+        public GeneratedArgumentsSeq(IEnumerable<GeneratedArguments> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
 
-        // IList<T> implementation
-        public GeneratedArguments this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(GeneratedArguments item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedArguments item) => _items.Contains(item);
-        public void CopyTo(GeneratedArguments[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedArguments> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedArguments item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedArguments item) => _items.Insert(index, item);
-        public bool Remove(GeneratedArguments item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        // Type-constrained wrappers
+        public new void Add(GeneratedArguments item) => base.Add(item);
+        public new GeneratedArguments this[int index]
+        {
+            get => (GeneratedArguments)base[index];
+            set => base[index] = value;
+        }
 
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedArguments> collection) => _items.AddRange(collection);
+        // Typed enumeration
+        public new System.Collections.Generic.IEnumerable<GeneratedArguments> ToEnumerable() => base.ToEnumerable<GeneratedArguments>();
     }
 
     /// <summary>
     /// Sequence of boolop - CPython: asdl_boolop_seq
-    /// C# GC optimized: List<T> with GeneratedSeq inheritance
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedBoolopSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedBoolop>
+    public class GeneratedBoolopSeq : GeneratedSeq
     {
-        private readonly List<GeneratedBoolop> _items = new();
         public static readonly GeneratedBoolopSeq Empty = new();
 
         public GeneratedBoolopSeq() { }
-        public GeneratedBoolopSeq(int capacity) { _items = new List<GeneratedBoolop>(capacity); }
-        public GeneratedBoolopSeq(IEnumerable<GeneratedBoolop> collection) { _items = new List<GeneratedBoolop>(collection); }
+        public GeneratedBoolopSeq(int capacity) : base(capacity) { }
+        public GeneratedBoolopSeq(IEnumerable<GeneratedBoolop> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
 
-        // IList<T> implementation
-        public GeneratedBoolop this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(GeneratedBoolop item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedBoolop item) => _items.Contains(item);
-        public void CopyTo(GeneratedBoolop[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedBoolop> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedBoolop item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedBoolop item) => _items.Insert(index, item);
-        public bool Remove(GeneratedBoolop item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        // Type-constrained wrappers
+        public new void Add(GeneratedBoolop item) => base.Add(item);
+        public new GeneratedBoolop this[int index]
+        {
+            get => (GeneratedBoolop)base[index];
+            set => base[index] = value;
+        }
 
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedBoolop> collection) => _items.AddRange(collection);
+        // Typed enumeration
+        public new System.Collections.Generic.IEnumerable<GeneratedBoolop> ToEnumerable() => base.ToEnumerable<GeneratedBoolop>();
     }
 
     /// <summary>
     /// Sequence of cmpop - CPython: asdl_cmpop_seq
-    /// C# GC optimized: List<T> with GeneratedSeq inheritance
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedCmpopSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedCmpop>
+    public class GeneratedCmpopSeq : GeneratedSeq
     {
-        private readonly List<GeneratedCmpop> _items = new();
         public static readonly GeneratedCmpopSeq Empty = new();
 
         public GeneratedCmpopSeq() { }
-        public GeneratedCmpopSeq(int capacity) { _items = new List<GeneratedCmpop>(capacity); }
-        public GeneratedCmpopSeq(IEnumerable<GeneratedCmpop> collection) { _items = new List<GeneratedCmpop>(collection); }
+        public GeneratedCmpopSeq(int capacity) : base(capacity) { }
+        public GeneratedCmpopSeq(IEnumerable<GeneratedCmpop> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
 
-        // IList<T> implementation
-        public GeneratedCmpop this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(GeneratedCmpop item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedCmpop item) => _items.Contains(item);
-        public void CopyTo(GeneratedCmpop[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedCmpop> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedCmpop item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedCmpop item) => _items.Insert(index, item);
-        public bool Remove(GeneratedCmpop item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        // Type-constrained wrappers
+        public new void Add(GeneratedCmpop item) => base.Add(item);
+        public new GeneratedCmpop this[int index]
+        {
+            get => (GeneratedCmpop)base[index];
+            set => base[index] = value;
+        }
 
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedCmpop> collection) => _items.AddRange(collection);
+        // Typed enumeration
+        public new System.Collections.Generic.IEnumerable<GeneratedCmpop> ToEnumerable() => base.ToEnumerable<GeneratedCmpop>();
     }
 
     /// <summary>
     /// Sequence of comprehension - CPython: asdl_comprehension_seq
-    /// C# GC optimized: List<T> with GeneratedSeq inheritance
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedComprehensionSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedComprehension>
+    public class GeneratedComprehensionSeq : GeneratedSeq
     {
-        private readonly List<GeneratedComprehension> _items = new();
         public static readonly GeneratedComprehensionSeq Empty = new();
 
         public GeneratedComprehensionSeq() { }
-        public GeneratedComprehensionSeq(int capacity) { _items = new List<GeneratedComprehension>(capacity); }
-        public GeneratedComprehensionSeq(IEnumerable<GeneratedComprehension> collection) { _items = new List<GeneratedComprehension>(collection); }
+        public GeneratedComprehensionSeq(int capacity) : base(capacity) { }
+        public GeneratedComprehensionSeq(IEnumerable<GeneratedComprehension> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
 
-        // IList<T> implementation
-        public GeneratedComprehension this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(GeneratedComprehension item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedComprehension item) => _items.Contains(item);
-        public void CopyTo(GeneratedComprehension[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedComprehension> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedComprehension item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedComprehension item) => _items.Insert(index, item);
-        public bool Remove(GeneratedComprehension item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        // Type-constrained wrappers
+        public new void Add(GeneratedComprehension item) => base.Add(item);
+        public new GeneratedComprehension this[int index]
+        {
+            get => (GeneratedComprehension)base[index];
+            set => base[index] = value;
+        }
 
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedComprehension> collection) => _items.AddRange(collection);
+        // Typed enumeration
+        public new System.Collections.Generic.IEnumerable<GeneratedComprehension> ToEnumerable() => base.ToEnumerable<GeneratedComprehension>();
     }
 
     /// <summary>
     /// Sequence of excepthandler - CPython: asdl_excepthandler_seq
-    /// C# GC optimized: List<T> with GeneratedSeq inheritance
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedExcepthandlerSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedExcepthandler>
+    public class GeneratedExcepthandlerSeq : GeneratedSeq
     {
-        private readonly List<GeneratedExcepthandler> _items = new();
         public static readonly GeneratedExcepthandlerSeq Empty = new();
 
         public GeneratedExcepthandlerSeq() { }
-        public GeneratedExcepthandlerSeq(int capacity) { _items = new List<GeneratedExcepthandler>(capacity); }
-        public GeneratedExcepthandlerSeq(IEnumerable<GeneratedExcepthandler> collection) { _items = new List<GeneratedExcepthandler>(collection); }
+        public GeneratedExcepthandlerSeq(int capacity) : base(capacity) { }
+        public GeneratedExcepthandlerSeq(IEnumerable<GeneratedExcepthandler> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
 
-        // IList<T> implementation
-        public GeneratedExcepthandler this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(GeneratedExcepthandler item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedExcepthandler item) => _items.Contains(item);
-        public void CopyTo(GeneratedExcepthandler[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedExcepthandler> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedExcepthandler item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedExcepthandler item) => _items.Insert(index, item);
-        public bool Remove(GeneratedExcepthandler item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        // Type-constrained wrappers
+        public new void Add(GeneratedExcepthandler item) => base.Add(item);
+        public new GeneratedExcepthandler this[int index]
+        {
+            get => (GeneratedExcepthandler)base[index];
+            set => base[index] = value;
+        }
 
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedExcepthandler> collection) => _items.AddRange(collection);
+        // Typed enumeration
+        public new System.Collections.Generic.IEnumerable<GeneratedExcepthandler> ToEnumerable() => base.ToEnumerable<GeneratedExcepthandler>();
     }
 
     /// <summary>
     /// Sequence of expr - CPython: asdl_expr_seq
-    /// C# GC optimized: List<T> with GeneratedSeq inheritance
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedExprSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedExpr>
+    public class GeneratedExprSeq : GeneratedSeq
     {
-        private readonly List<GeneratedExpr> _items = new();
         public static readonly GeneratedExprSeq Empty = new();
 
         public GeneratedExprSeq() { }
-        public GeneratedExprSeq(int capacity) { _items = new List<GeneratedExpr>(capacity); }
-        public GeneratedExprSeq(IEnumerable<GeneratedExpr> collection) { _items = new List<GeneratedExpr>(collection); }
+        public GeneratedExprSeq(int capacity) : base(capacity) { }
+        public GeneratedExprSeq(IEnumerable<GeneratedExpr> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
 
-        // IList<T> implementation
-        public GeneratedExpr this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(GeneratedExpr item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedExpr item) => _items.Contains(item);
-        public void CopyTo(GeneratedExpr[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedExpr> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedExpr item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedExpr item) => _items.Insert(index, item);
-        public bool Remove(GeneratedExpr item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        // Type-constrained wrappers
+        public new void Add(GeneratedExpr item) => base.Add(item);
+        public new GeneratedExpr this[int index]
+        {
+            get => (GeneratedExpr)base[index];
+            set => base[index] = value;
+        }
 
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedExpr> collection) => _items.AddRange(collection);
+        // Typed enumeration
+        public new System.Collections.Generic.IEnumerable<GeneratedExpr> ToEnumerable() => base.ToEnumerable<GeneratedExpr>();
     }
 
     /// <summary>
     /// Sequence of expr_context - CPython: asdl_expr_context_seq
-    /// C# GC optimized: List<T> with GeneratedSeq inheritance
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedExprContextSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedExprContext>
+    public class GeneratedExprContextSeq : GeneratedSeq
     {
-        private readonly List<GeneratedExprContext> _items = new();
         public static readonly GeneratedExprContextSeq Empty = new();
 
         public GeneratedExprContextSeq() { }
-        public GeneratedExprContextSeq(int capacity) { _items = new List<GeneratedExprContext>(capacity); }
-        public GeneratedExprContextSeq(IEnumerable<GeneratedExprContext> collection) { _items = new List<GeneratedExprContext>(collection); }
+        public GeneratedExprContextSeq(int capacity) : base(capacity) { }
+        public GeneratedExprContextSeq(IEnumerable<GeneratedExprContext> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
 
-        // IList<T> implementation
-        public GeneratedExprContext this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(GeneratedExprContext item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedExprContext item) => _items.Contains(item);
-        public void CopyTo(GeneratedExprContext[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedExprContext> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedExprContext item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedExprContext item) => _items.Insert(index, item);
-        public bool Remove(GeneratedExprContext item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        // Type-constrained wrappers
+        public new void Add(GeneratedExprContext item) => base.Add(item);
+        public new GeneratedExprContext this[int index]
+        {
+            get => (GeneratedExprContext)base[index];
+            set => base[index] = value;
+        }
 
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedExprContext> collection) => _items.AddRange(collection);
+        // Typed enumeration
+        public new System.Collections.Generic.IEnumerable<GeneratedExprContext> ToEnumerable() => base.ToEnumerable<GeneratedExprContext>();
     }
 
     /// <summary>
     /// Sequence of identifier - CPython: asdl_identifier_seq
-    /// C# GC optimized: List<T> with GeneratedSeq inheritance
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedIdentifierSeq : GeneratedSeq, System.Collections.Generic.IList<string>
+    public class GeneratedIdentifierSeq : GeneratedSeq
     {
-        private readonly List<string> _items = new();
         public static readonly GeneratedIdentifierSeq Empty = new();
 
         public GeneratedIdentifierSeq() { }
-        public GeneratedIdentifierSeq(int capacity) { _items = new List<string>(capacity); }
-        public GeneratedIdentifierSeq(IEnumerable<string> collection) { _items = new List<string>(collection); }
+        public GeneratedIdentifierSeq(int capacity) : base(capacity) { }
+        public GeneratedIdentifierSeq(IEnumerable<GeneratedIdentifier> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
 
-        // IList<T> implementation
-        public string this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(string item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(string item) => _items.Contains(item);
-        public void CopyTo(string[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<string> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(string item) => _items.IndexOf(item);
-        public void Insert(int index, string item) => _items.Insert(index, item);
-        public bool Remove(string item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        // Type-constrained wrappers
+        public new void Add(GeneratedIdentifier item) => base.Add(item);
+        public new GeneratedIdentifier this[int index]
+        {
+            get => (GeneratedIdentifier)base[index];
+            set => base[index] = value;
+        }
 
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<string> collection) => _items.AddRange(collection);
+        // Typed enumeration
+        public new System.Collections.Generic.IEnumerable<GeneratedIdentifier> ToEnumerable() => base.ToEnumerable<GeneratedIdentifier>();
     }
 
     /// <summary>
     /// Sequence of keyword - CPython: asdl_keyword_seq
-    /// C# GC optimized: List<T> with GeneratedSeq inheritance
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedKeywordSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedKeyword>
+    public class GeneratedKeywordSeq : GeneratedSeq
     {
-        private readonly List<GeneratedKeyword> _items = new();
         public static readonly GeneratedKeywordSeq Empty = new();
 
         public GeneratedKeywordSeq() { }
-        public GeneratedKeywordSeq(int capacity) { _items = new List<GeneratedKeyword>(capacity); }
-        public GeneratedKeywordSeq(IEnumerable<GeneratedKeyword> collection) { _items = new List<GeneratedKeyword>(collection); }
+        public GeneratedKeywordSeq(int capacity) : base(capacity) { }
+        public GeneratedKeywordSeq(IEnumerable<GeneratedKeyword> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
 
-        // IList<T> implementation
-        public GeneratedKeyword this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(GeneratedKeyword item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedKeyword item) => _items.Contains(item);
-        public void CopyTo(GeneratedKeyword[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedKeyword> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedKeyword item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedKeyword item) => _items.Insert(index, item);
-        public bool Remove(GeneratedKeyword item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        // Type-constrained wrappers
+        public new void Add(GeneratedKeyword item) => base.Add(item);
+        public new GeneratedKeyword this[int index]
+        {
+            get => (GeneratedKeyword)base[index];
+            set => base[index] = value;
+        }
 
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedKeyword> collection) => _items.AddRange(collection);
+        // Typed enumeration
+        public new System.Collections.Generic.IEnumerable<GeneratedKeyword> ToEnumerable() => base.ToEnumerable<GeneratedKeyword>();
     }
 
     /// <summary>
     /// Sequence of match_case - CPython: asdl_match_case_seq
-    /// C# GC optimized: List<T> with GeneratedSeq inheritance
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedMatchCaseSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedMatchCase>
+    public class GeneratedMatchCaseSeq : GeneratedSeq
     {
-        private readonly List<GeneratedMatchCase> _items = new();
         public static readonly GeneratedMatchCaseSeq Empty = new();
 
         public GeneratedMatchCaseSeq() { }
-        public GeneratedMatchCaseSeq(int capacity) { _items = new List<GeneratedMatchCase>(capacity); }
-        public GeneratedMatchCaseSeq(IEnumerable<GeneratedMatchCase> collection) { _items = new List<GeneratedMatchCase>(collection); }
+        public GeneratedMatchCaseSeq(int capacity) : base(capacity) { }
+        public GeneratedMatchCaseSeq(IEnumerable<GeneratedMatchCase> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
 
-        // IList<T> implementation
-        public GeneratedMatchCase this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(GeneratedMatchCase item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedMatchCase item) => _items.Contains(item);
-        public void CopyTo(GeneratedMatchCase[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedMatchCase> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedMatchCase item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedMatchCase item) => _items.Insert(index, item);
-        public bool Remove(GeneratedMatchCase item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        // Type-constrained wrappers
+        public new void Add(GeneratedMatchCase item) => base.Add(item);
+        public new GeneratedMatchCase this[int index]
+        {
+            get => (GeneratedMatchCase)base[index];
+            set => base[index] = value;
+        }
 
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedMatchCase> collection) => _items.AddRange(collection);
+        // Typed enumeration
+        public new System.Collections.Generic.IEnumerable<GeneratedMatchCase> ToEnumerable() => base.ToEnumerable<GeneratedMatchCase>();
     }
 
     /// <summary>
     /// Sequence of mod - CPython: asdl_mod_seq
-    /// C# GC optimized: List<T> with GeneratedSeq inheritance
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedModSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedMod>
+    public class GeneratedModSeq : GeneratedSeq
     {
-        private readonly List<GeneratedMod> _items = new();
         public static readonly GeneratedModSeq Empty = new();
 
         public GeneratedModSeq() { }
-        public GeneratedModSeq(int capacity) { _items = new List<GeneratedMod>(capacity); }
-        public GeneratedModSeq(IEnumerable<GeneratedMod> collection) { _items = new List<GeneratedMod>(collection); }
+        public GeneratedModSeq(int capacity) : base(capacity) { }
+        public GeneratedModSeq(IEnumerable<GeneratedMod> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
 
-        // IList<T> implementation
-        public GeneratedMod this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(GeneratedMod item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedMod item) => _items.Contains(item);
-        public void CopyTo(GeneratedMod[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedMod> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedMod item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedMod item) => _items.Insert(index, item);
-        public bool Remove(GeneratedMod item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        // Type-constrained wrappers
+        public new void Add(GeneratedMod item) => base.Add(item);
+        public new GeneratedMod this[int index]
+        {
+            get => (GeneratedMod)base[index];
+            set => base[index] = value;
+        }
 
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedMod> collection) => _items.AddRange(collection);
+        // Typed enumeration
+        public new System.Collections.Generic.IEnumerable<GeneratedMod> ToEnumerable() => base.ToEnumerable<GeneratedMod>();
     }
 
     /// <summary>
     /// Sequence of operator - CPython: asdl_operator_seq
-    /// C# GC optimized: List<T> with GeneratedSeq inheritance
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedOperatorSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedOperator>
+    public class GeneratedOperatorSeq : GeneratedSeq
     {
-        private readonly List<GeneratedOperator> _items = new();
         public static readonly GeneratedOperatorSeq Empty = new();
 
         public GeneratedOperatorSeq() { }
-        public GeneratedOperatorSeq(int capacity) { _items = new List<GeneratedOperator>(capacity); }
-        public GeneratedOperatorSeq(IEnumerable<GeneratedOperator> collection) { _items = new List<GeneratedOperator>(collection); }
+        public GeneratedOperatorSeq(int capacity) : base(capacity) { }
+        public GeneratedOperatorSeq(IEnumerable<GeneratedOperator> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
 
-        // IList<T> implementation
-        public GeneratedOperator this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(GeneratedOperator item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedOperator item) => _items.Contains(item);
-        public void CopyTo(GeneratedOperator[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedOperator> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedOperator item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedOperator item) => _items.Insert(index, item);
-        public bool Remove(GeneratedOperator item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        // Type-constrained wrappers
+        public new void Add(GeneratedOperator item) => base.Add(item);
+        public new GeneratedOperator this[int index]
+        {
+            get => (GeneratedOperator)base[index];
+            set => base[index] = value;
+        }
 
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedOperator> collection) => _items.AddRange(collection);
+        // Typed enumeration
+        public new System.Collections.Generic.IEnumerable<GeneratedOperator> ToEnumerable() => base.ToEnumerable<GeneratedOperator>();
     }
 
     /// <summary>
     /// Sequence of pattern - CPython: asdl_pattern_seq
-    /// C# GC optimized: List<T> with GeneratedSeq inheritance
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedPatternSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedPattern>
+    public class GeneratedPatternSeq : GeneratedSeq
     {
-        private readonly List<GeneratedPattern> _items = new();
         public static readonly GeneratedPatternSeq Empty = new();
 
         public GeneratedPatternSeq() { }
-        public GeneratedPatternSeq(int capacity) { _items = new List<GeneratedPattern>(capacity); }
-        public GeneratedPatternSeq(IEnumerable<GeneratedPattern> collection) { _items = new List<GeneratedPattern>(collection); }
+        public GeneratedPatternSeq(int capacity) : base(capacity) { }
+        public GeneratedPatternSeq(IEnumerable<GeneratedPattern> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
 
-        // IList<T> implementation
-        public GeneratedPattern this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(GeneratedPattern item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedPattern item) => _items.Contains(item);
-        public void CopyTo(GeneratedPattern[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedPattern> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedPattern item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedPattern item) => _items.Insert(index, item);
-        public bool Remove(GeneratedPattern item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        // Type-constrained wrappers
+        public new void Add(GeneratedPattern item) => base.Add(item);
+        public new GeneratedPattern this[int index]
+        {
+            get => (GeneratedPattern)base[index];
+            set => base[index] = value;
+        }
 
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedPattern> collection) => _items.AddRange(collection);
+        // Typed enumeration
+        public new System.Collections.Generic.IEnumerable<GeneratedPattern> ToEnumerable() => base.ToEnumerable<GeneratedPattern>();
     }
 
     /// <summary>
     /// Sequence of stmt - CPython: asdl_stmt_seq
-    /// C# GC optimized: List<T> with GeneratedSeq inheritance
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedStmtSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedStmt>
+    public class GeneratedStmtSeq : GeneratedSeq
     {
-        private readonly List<GeneratedStmt> _items = new();
         public static readonly GeneratedStmtSeq Empty = new();
 
         public GeneratedStmtSeq() { }
-        public GeneratedStmtSeq(int capacity) { _items = new List<GeneratedStmt>(capacity); }
-        public GeneratedStmtSeq(IEnumerable<GeneratedStmt> collection) { _items = new List<GeneratedStmt>(collection); }
+        public GeneratedStmtSeq(int capacity) : base(capacity) { }
+        public GeneratedStmtSeq(IEnumerable<GeneratedStmt> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
 
-        // IList<T> implementation
-        public GeneratedStmt this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(GeneratedStmt item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedStmt item) => _items.Contains(item);
-        public void CopyTo(GeneratedStmt[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedStmt> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedStmt item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedStmt item) => _items.Insert(index, item);
-        public bool Remove(GeneratedStmt item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        // Type-constrained wrappers
+        public new void Add(GeneratedStmt item) => base.Add(item);
+        public new GeneratedStmt this[int index]
+        {
+            get => (GeneratedStmt)base[index];
+            set => base[index] = value;
+        }
 
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedStmt> collection) => _items.AddRange(collection);
+        // Typed enumeration
+        public new System.Collections.Generic.IEnumerable<GeneratedStmt> ToEnumerable() => base.ToEnumerable<GeneratedStmt>();
     }
 
     /// <summary>
     /// Sequence of type_ignore - CPython: asdl_type_ignore_seq
-    /// C# GC optimized: List<T> with GeneratedSeq inheritance
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedTypeIgnoreSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedTypeIgnore>
+    public class GeneratedTypeIgnoreSeq : GeneratedSeq
     {
-        private readonly List<GeneratedTypeIgnore> _items = new();
         public static readonly GeneratedTypeIgnoreSeq Empty = new();
 
         public GeneratedTypeIgnoreSeq() { }
-        public GeneratedTypeIgnoreSeq(int capacity) { _items = new List<GeneratedTypeIgnore>(capacity); }
-        public GeneratedTypeIgnoreSeq(IEnumerable<GeneratedTypeIgnore> collection) { _items = new List<GeneratedTypeIgnore>(collection); }
+        public GeneratedTypeIgnoreSeq(int capacity) : base(capacity) { }
+        public GeneratedTypeIgnoreSeq(IEnumerable<GeneratedTypeIgnore> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
 
-        // IList<T> implementation
-        public GeneratedTypeIgnore this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(GeneratedTypeIgnore item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedTypeIgnore item) => _items.Contains(item);
-        public void CopyTo(GeneratedTypeIgnore[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedTypeIgnore> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedTypeIgnore item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedTypeIgnore item) => _items.Insert(index, item);
-        public bool Remove(GeneratedTypeIgnore item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        // Type-constrained wrappers
+        public new void Add(GeneratedTypeIgnore item) => base.Add(item);
+        public new GeneratedTypeIgnore this[int index]
+        {
+            get => (GeneratedTypeIgnore)base[index];
+            set => base[index] = value;
+        }
 
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedTypeIgnore> collection) => _items.AddRange(collection);
+        // Typed enumeration
+        public new System.Collections.Generic.IEnumerable<GeneratedTypeIgnore> ToEnumerable() => base.ToEnumerable<GeneratedTypeIgnore>();
     }
 
     /// <summary>
     /// Sequence of type_param - CPython: asdl_type_param_seq
-    /// C# GC optimized: List<T> with GeneratedSeq inheritance
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedTypeParamSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedTypeParam>
+    public class GeneratedTypeParamSeq : GeneratedSeq
     {
-        private readonly List<GeneratedTypeParam> _items = new();
         public static readonly GeneratedTypeParamSeq Empty = new();
 
         public GeneratedTypeParamSeq() { }
-        public GeneratedTypeParamSeq(int capacity) { _items = new List<GeneratedTypeParam>(capacity); }
-        public GeneratedTypeParamSeq(IEnumerable<GeneratedTypeParam> collection) { _items = new List<GeneratedTypeParam>(collection); }
+        public GeneratedTypeParamSeq(int capacity) : base(capacity) { }
+        public GeneratedTypeParamSeq(IEnumerable<GeneratedTypeParam> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
 
-        // IList<T> implementation
-        public GeneratedTypeParam this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(GeneratedTypeParam item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedTypeParam item) => _items.Contains(item);
-        public void CopyTo(GeneratedTypeParam[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedTypeParam> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedTypeParam item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedTypeParam item) => _items.Insert(index, item);
-        public bool Remove(GeneratedTypeParam item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        // Type-constrained wrappers
+        public new void Add(GeneratedTypeParam item) => base.Add(item);
+        public new GeneratedTypeParam this[int index]
+        {
+            get => (GeneratedTypeParam)base[index];
+            set => base[index] = value;
+        }
 
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedTypeParam> collection) => _items.AddRange(collection);
+        // Typed enumeration
+        public new System.Collections.Generic.IEnumerable<GeneratedTypeParam> ToEnumerable() => base.ToEnumerable<GeneratedTypeParam>();
     }
 
     /// <summary>
     /// Sequence of unaryop - CPython: asdl_unaryop_seq
-    /// C# GC optimized: List<T> with GeneratedSeq inheritance
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedUnaryopSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedUnaryop>
+    public class GeneratedUnaryopSeq : GeneratedSeq
     {
-        private readonly List<GeneratedUnaryop> _items = new();
         public static readonly GeneratedUnaryopSeq Empty = new();
 
         public GeneratedUnaryopSeq() { }
-        public GeneratedUnaryopSeq(int capacity) { _items = new List<GeneratedUnaryop>(capacity); }
-        public GeneratedUnaryopSeq(IEnumerable<GeneratedUnaryop> collection) { _items = new List<GeneratedUnaryop>(collection); }
+        public GeneratedUnaryopSeq(int capacity) : base(capacity) { }
+        public GeneratedUnaryopSeq(IEnumerable<GeneratedUnaryop> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
 
-        // IList<T> implementation
-        public GeneratedUnaryop this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(GeneratedUnaryop item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedUnaryop item) => _items.Contains(item);
-        public void CopyTo(GeneratedUnaryop[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedUnaryop> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedUnaryop item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedUnaryop item) => _items.Insert(index, item);
-        public bool Remove(GeneratedUnaryop item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        // Type-constrained wrappers
+        public new void Add(GeneratedUnaryop item) => base.Add(item);
+        public new GeneratedUnaryop this[int index]
+        {
+            get => (GeneratedUnaryop)base[index];
+            set => base[index] = value;
+        }
 
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedUnaryop> collection) => _items.AddRange(collection);
+        // Typed enumeration
+        public new System.Collections.Generic.IEnumerable<GeneratedUnaryop> ToEnumerable() => base.ToEnumerable<GeneratedUnaryop>();
     }
 
     /// <summary>
     /// Sequence of withitem - CPython: asdl_withitem_seq
-    /// C# GC optimized: List<T> with GeneratedSeq inheritance
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedWithitemSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedWithitem>
+    public class GeneratedWithitemSeq : GeneratedSeq
     {
-        private readonly List<GeneratedWithitem> _items = new();
         public static readonly GeneratedWithitemSeq Empty = new();
 
         public GeneratedWithitemSeq() { }
-        public GeneratedWithitemSeq(int capacity) { _items = new List<GeneratedWithitem>(capacity); }
-        public GeneratedWithitemSeq(IEnumerable<GeneratedWithitem> collection) { _items = new List<GeneratedWithitem>(collection); }
+        public GeneratedWithitemSeq(int capacity) : base(capacity) { }
+        public GeneratedWithitemSeq(IEnumerable<GeneratedWithitem> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
 
-        // IList<T> implementation
-        public GeneratedWithitem this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(GeneratedWithitem item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedWithitem item) => _items.Contains(item);
-        public void CopyTo(GeneratedWithitem[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedWithitem> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedWithitem item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedWithitem item) => _items.Insert(index, item);
-        public bool Remove(GeneratedWithitem item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        // Type-constrained wrappers
+        public new void Add(GeneratedWithitem item) => base.Add(item);
+        public new GeneratedWithitem this[int index]
+        {
+            get => (GeneratedWithitem)base[index];
+            set => base[index] = value;
+        }
 
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedWithitem> collection) => _items.AddRange(collection);
+        // Typed enumeration
+        public new System.Collections.Generic.IEnumerable<GeneratedWithitem> ToEnumerable() => base.ToEnumerable<GeneratedWithitem>();
     }
 
     // ============================================================
     // Helper Types
     // ============================================================
+
+    /// <summary>
+    /// Wrapper for Python identifier (ASDL builtin)
+    /// CPython 3.12: PyObject* string, wrapped for type consistency
+    /// </summary>
+    public class GeneratedIdentifier : GeneratedPtr
+    {
+        public string Value { get; set; }
+
+        public GeneratedIdentifier(string value) { Value = value; }
+
+        public static implicit operator string(GeneratedIdentifier id) => id.Value;
+        public static implicit operator GeneratedIdentifier(string value) => new GeneratedIdentifier(value);
+
+        public override string ToString() => Value;
+    }
 
     // GeneratedTokenInfo is defined in PyTokenizer.cs
 
@@ -1738,70 +1650,46 @@ namespace SharpPy.Generated
     /// <summary>
     /// Sequence type for GeneratedSlashWithDefault
     /// CPython 3.12: Used in arguments parsing (slash_with_default*)
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedSlashWithDefaultSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedSlashWithDefault>
+    public class GeneratedSlashWithDefaultSeq : GeneratedSeq
     {
-        private readonly List<GeneratedSlashWithDefault> _items = new();
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public GeneratedSlashWithDefault this[int index] { get => _items[index]; set => _items[index] = value; }
-        public void Add(GeneratedSlashWithDefault item) => _items.Add(item);
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedSlashWithDefault> collection) => _items.AddRange(collection);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedSlashWithDefault item) => _items.Contains(item);
-        public void CopyTo(GeneratedSlashWithDefault[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedSlashWithDefault> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedSlashWithDefault item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedSlashWithDefault item) => _items.Insert(index, item);
-        public bool Remove(GeneratedSlashWithDefault item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        public new void Add(GeneratedSlashWithDefault item) => base.Add(item);
+        public new GeneratedSlashWithDefault this[int index]
+        {
+            get => (GeneratedSlashWithDefault)base[index];
+            set => base[index] = value;
+        }
     }
 
     /// <summary>
     /// Sequence type for GeneratedStarEtc
     /// CPython 3.12: Used in arguments parsing (star_etc*)
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedStarEtcSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedStarEtc>
+    public class GeneratedStarEtcSeq : GeneratedSeq
     {
-        private readonly List<GeneratedStarEtc> _items = new();
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public GeneratedStarEtc this[int index] { get => _items[index]; set => _items[index] = value; }
-        public void Add(GeneratedStarEtc item) => _items.Add(item);
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedStarEtc> collection) => _items.AddRange(collection);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedStarEtc item) => _items.Contains(item);
-        public void CopyTo(GeneratedStarEtc[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedStarEtc> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedStarEtc item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedStarEtc item) => _items.Insert(index, item);
-        public bool Remove(GeneratedStarEtc item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        public new void Add(GeneratedStarEtc item) => base.Add(item);
+        public new GeneratedStarEtc this[int index]
+        {
+            get => (GeneratedStarEtc)base[index];
+            set => base[index] = value;
+        }
     }
 
     /// <summary>
     /// Sequence type for GeneratedKeywordOrStarred
     /// CPython 3.12: Used in call arguments parsing (','.kwarg_or_starred+)
+    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
-    public class GeneratedKeywordOrStarredSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedKeywordOrStarred>
+    public class GeneratedKeywordOrStarredSeq : GeneratedSeq
     {
-        private readonly List<GeneratedKeywordOrStarred> _items = new();
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public GeneratedKeywordOrStarred this[int index] { get => _items[index]; set => _items[index] = value; }
-        public void Add(GeneratedKeywordOrStarred item) => _items.Add(item);
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedKeywordOrStarred> collection) => _items.AddRange(collection);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedKeywordOrStarred item) => _items.Contains(item);
-        public void CopyTo(GeneratedKeywordOrStarred[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedKeywordOrStarred> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedKeywordOrStarred item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedKeywordOrStarred item) => _items.Insert(index, item);
-        public bool Remove(GeneratedKeywordOrStarred item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
+        public new void Add(GeneratedKeywordOrStarred item) => base.Add(item);
+        public new GeneratedKeywordOrStarred this[int index]
+        {
+            get => (GeneratedKeywordOrStarred)base[index];
+            set => base[index] = value;
+        }
     }
 
     /// <summary>
@@ -1812,37 +1700,6 @@ namespace SharpPy.Generated
         public GeneratedSeq() { }
         public GeneratedSeq(int capacity) : base(capacity) { }
         public GeneratedSeq(IEnumerable<T> collection) : base(collection) { }
-    }
-
-    /// <summary>
-    /// Non-generic sequence for mixed types - parser intermediate
-    /// CPython 3.12: asdl_seq* equivalent - no boxing/unboxing
-    /// </summary>
-    public class GeneratedMixedSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedPtr>
-    {
-        private readonly List<GeneratedPtr> _items = new();
-
-        public GeneratedMixedSeq() { }
-        public GeneratedMixedSeq(int capacity) { _items = new List<GeneratedPtr>(capacity); }
-        public GeneratedMixedSeq(IEnumerable<GeneratedPtr> collection) { _items = new List<GeneratedPtr>(collection); }
-
-        // IList<GeneratedPtr> implementation
-        public GeneratedPtr this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(GeneratedPtr item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedPtr item) => _items.Contains(item);
-        public void CopyTo(GeneratedPtr[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedPtr> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedPtr item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedPtr item) => _items.Insert(index, item);
-        public bool Remove(GeneratedPtr item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
-
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedPtr> collection) => _items.AddRange(collection);
     }
 
     /// <summary>

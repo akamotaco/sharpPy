@@ -11,6 +11,20 @@ using static SharpPy.Generated.AstFactory;
 
 using SharpPy.Tokenizer;
 
+// CPython 3.12: Type aliases for grammar compatibility
+using stmt_ty = SharpPy.Generated.GeneratedStmt;
+using expr_ty = SharpPy.Generated.GeneratedExpr;
+using alias_ty = SharpPy.Generated.GeneratedAlias;
+using arguments_ty = SharpPy.Generated.GeneratedArguments;
+using asdl_stmt_seq = SharpPy.Generated.GeneratedStmtSeq;
+using asdl_expr_seq = SharpPy.Generated.GeneratedExprSeq;
+using asdl_identifier_seq = SharpPy.Generated.GeneratedIdentifierSeq;
+using asdl_pattern_seq = SharpPy.Generated.GeneratedPatternSeq;
+using asdl_int_seq = SharpPy.Generated.GeneratedCmpopSeq;
+using asdl_keyword_seq = SharpPy.Generated.GeneratedKeywordSeq;
+using asdl_seq = SharpPy.Generated.GeneratedSeq;
+using keyword_ty = SharpPy.Generated.GeneratedKeyword;
+
 namespace SharpPy.Generated
 {
     // AST node types (GeneratedStmt, GeneratedExpr, etc.) are defined in GeneratedAstTypes.cs
@@ -34,11 +48,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: file from python.gram
-        public GeneratedModule File()
+        public GeneratedModule? File()
         {
             // CPython 3.12 PEG: file
             int _mark = _position;
-            GeneratedModule _res = null;
+            GeneratedModule? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -67,7 +81,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: statements
                 {
                     _position = _group_mark__opt_a;
-                    GeneratedStmtSeq _group_alt0__opt_a_item0 = Statements();
+                    GeneratedStmtSeq? _group_alt0__opt_a_item0 = Statements();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -78,11 +92,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_a;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedStmtSeq? a = _opt_a;
-                if (a == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (a == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_a; // Reset position
-                    a = null; // Optional not present
                 }
                 // Expect token: ENDMARKER
                 Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
@@ -95,7 +118,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: _PyPegen_make_module(p, a)
+                // Action: _PyPegen_make_module(a)
                 _res = _PyPegen_make_module(a);
                 if (_res != null) goto done;
             } while (false);
@@ -113,11 +136,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: interactive from python.gram
-        public GeneratedModule Interactive()
+        public GeneratedModule? Interactive()
         {
             // CPython 3.12 PEG: interactive
             int _mark = _position;
-            GeneratedModule _res = null;
+            GeneratedModule? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -147,9 +170,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_Interactive(a, p->arena)
+                // Action: _PyAST_Interactive(a)
                 // Unknown AST function: _PyAST_Interactive
-                _res = default(GeneratedModule);
+                _res = default(GeneratedModule?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -166,11 +189,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: eval from python.gram
-        public GeneratedModule Eval()
+        public GeneratedModule? Eval()
         {
             // CPython 3.12 PEG: eval
             int _mark = _position;
-            GeneratedModule _res = null;
+            GeneratedModule? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -213,9 +236,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: _PyAST_Expression(a, p->arena)
+                // Action: _PyAST_Expression(a)
                 // Unknown AST function: _PyAST_Expression
-                _res = default(GeneratedModule);
+                _res = default(GeneratedModule?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -232,11 +255,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: func_type from python.gram
-        public GeneratedModule FuncType()
+        public GeneratedModule? FuncType()
         {
             // CPython 3.12 PEG: func_type
             int _mark = _position;
-            GeneratedModule _res = null;
+            GeneratedModule? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -274,7 +297,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: type_expressions
                 {
                     _position = _group_mark__opt_a;
-                    GeneratedExprSeq _group_alt0__opt_a_item0 = TypeExpressions();
+                    GeneratedExprSeq? _group_alt0__opt_a_item0 = TypeExpressions();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -285,11 +308,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_a;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExprSeq? a = _opt_a;
-                if (a == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (a == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_a; // Reset position
-                    a = null; // Optional not present
                 }
                 // Expect ')'
                 var _tmp1 = Expect(")");
@@ -331,9 +363,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): result={(_tmp4 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: _PyAST_FunctionType(a, b, p->arena)
+                // Action: _PyAST_FunctionType(a, b)
                 // Unknown AST function: _PyAST_FunctionType
-                _res = default(GeneratedModule);
+                _res = default(GeneratedModule?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -350,11 +382,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: statements from python.gram
-        public GeneratedStmtSeq Statements()
+        public GeneratedStmtSeq? Statements()
         {
             // CPython 3.12 PEG: statements
             int _mark = _position;
-            GeneratedStmtSeq _res = null;
+            GeneratedStmtSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -384,7 +416,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: (asdl_stmt_seq*)_PyPegen_seq_flatten(p, a)
+                // Action: _PyPegen_seq_flatten(a)
                 _res = _PyPegen_seq_flatten(a);
                 if (_res != null) goto done;
             } while (false);
@@ -402,11 +434,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: statement from python.gram
-        public GeneratedStmtSeq Statement()
+        public GeneratedStmtSeq? Statement()
         {
             // CPython 3.12 PEG: statement
             int _mark = _position;
-            GeneratedStmtSeq _res = null;
+            GeneratedStmtSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -436,7 +468,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a)
+                // Action: _PyPegen_singleton_seq(a)
                 _res = _PyPegen_singleton_seq(a);
                 if (_res != null) goto done;
             } while (false);
@@ -463,7 +495,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedStmtSeq)((GeneratedPtr?)a);
+                _res = (GeneratedStmtSeq?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -480,11 +512,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: statement_newline from python.gram
-        public GeneratedStmtSeq StatementNewline()
+        public GeneratedStmtSeq? StatementNewline()
         {
             // CPython 3.12 PEG: statement_newline
             int _mark = _position;
-            GeneratedStmtSeq _res = null;
+            GeneratedStmtSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -525,7 +557,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a)
+                // Action: _PyPegen_singleton_seq(a)
                 _res = _PyPegen_singleton_seq(a);
                 if (_res != null) goto done;
             } while (false);
@@ -552,7 +584,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmtSeq)_tmp0;
+                _res = (GeneratedStmtSeq?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -579,7 +611,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: (asdl_stmt_seq*)_PyPegen_singleton_seq(p, CHECK(stmt_ty, _PyAST_Pass(EXTRA)))
+                // Action: _PyPegen_singleton_seq(CHECK<stmt_ty>(_PyAST_Pass(EXTRA)))
                 var _stmt_tmp = _PyAST_Pass(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 _res = (_stmt_tmp != null) ? new GeneratedStmtSeq { _stmt_tmp } : null;
@@ -609,9 +641,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: _PyPegen_interactive_exit(p)
+                // Action: _PyPegen_interactive_exit()
                 // Unknown AST function: _PyPegen_interactive_exit
-                _res = default(GeneratedStmtSeq);
+                _res = default(GeneratedStmtSeq?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -628,11 +660,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: simple_stmts from python.gram
-        public GeneratedStmtSeq SimpleStmts()
+        public GeneratedStmtSeq? SimpleStmts()
         {
             // CPython 3.12 PEG: simple_stmts
             int _mark = _position;
-            GeneratedStmtSeq _res = null;
+            GeneratedStmtSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -684,7 +716,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: (asdl_stmt_seq*)_PyPegen_singleton_seq(p, a)
+                // Action: _PyPegen_singleton_seq(a)
                 _res = _PyPegen_singleton_seq(a);
                 if (_res != null) goto done;
             } while (false);
@@ -760,11 +792,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
@@ -778,7 +819,7 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: a
-                _res = (GeneratedStmtSeq)((GeneratedPtr?)a);
+                _res = (GeneratedStmtSeq?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -795,18 +836,18 @@ namespace SharpPy.Generated
         }
 
         // Rule: simple_stmt from python.gram
-        public GeneratedStmt SimpleStmt()
+        public GeneratedStmt? SimpleStmt()
         {
             // CPython 3.12: Memoized (non-left-recursive) - simple memoization
             // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return TryMemoized<GeneratedStmt>("SimpleStmt", _SimpleStmt);
+            return (GeneratedStmt?)TryMemoized("SimpleStmt", _SimpleStmt);
         }
 
-        private GeneratedStmt _SimpleStmt()
+        private GeneratedStmt? _SimpleStmt()
         {
             // CPython 3.12 PEG: simple_stmt
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -839,7 +880,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp0;
+                _res = (GeneratedStmt?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -879,7 +920,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp1;
+                _res = (GeneratedStmt?)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -946,7 +987,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp1;
+                _res = (GeneratedStmt?)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -988,7 +1029,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp1;
+                _res = (GeneratedStmt?)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1028,7 +1069,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp1;
+                _res = (GeneratedStmt?)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1095,7 +1136,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp1;
+                _res = (GeneratedStmt?)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1135,7 +1176,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp1;
+                _res = (GeneratedStmt?)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1175,7 +1216,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp1;
+                _res = (GeneratedStmt?)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1269,7 +1310,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp1;
+                _res = (GeneratedStmt?)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1309,7 +1350,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp1;
+                _res = (GeneratedStmt?)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1327,11 +1368,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: compound_stmt from python.gram
-        public GeneratedStmt CompoundStmt()
+        public GeneratedStmt? CompoundStmt()
         {
             // CPython 3.12 PEG: compound_stmt
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -1379,7 +1420,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp1;
+                _res = (GeneratedStmt?)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1419,7 +1460,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp1;
+                _res = (GeneratedStmt?)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1461,7 +1502,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp1;
+                _res = (GeneratedStmt?)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1503,7 +1544,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp1;
+                _res = (GeneratedStmt?)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1545,7 +1586,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp1;
+                _res = (GeneratedStmt?)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1585,7 +1626,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp1;
+                _res = (GeneratedStmt?)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1625,7 +1666,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp1;
+                _res = (GeneratedStmt?)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1651,7 +1692,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp0;
+                _res = (GeneratedStmt?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -1668,11 +1709,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: assignment from python.gram
-        public GeneratedStmt Assignment()
+        public GeneratedStmt? Assignment()
         {
             // CPython 3.12 PEG: assignment
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -1734,7 +1775,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__opt_c_item0 = Expect("=");
                     if (_group_alt0__opt_c_item0 != null)
                     {
-                        GeneratedExpr _group_alt0__opt_c_item1 = AnnotatedRhs();
+                        GeneratedExpr? _group_alt0__opt_c_item1 = AnnotatedRhs();
                         if (_group_alt0__opt_c_item1 != null)
                         {
                             _opt_c = _group_alt0__opt_c_item1;
@@ -1746,21 +1787,30 @@ namespace SharpPy.Generated
                         }
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? c = _opt_c;
-                if (c == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (c == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_c; // Reset position
-                    c = null; // Optional not present
                 }
                 // Action (multiline):
                 //   CHECK_VERSION(
                 //   stmt_ty,
                 //   6,
                 //   "Variable annotation syntax is",
-                //   _PyAST_AnnAssign(CHECK(expr_ty, _PyPegen_set_expr_context(p, a, Store)), b, c, 1, EXTRA)
+                //   _PyAST_AnnAssign(CHECK<expr_ty>(_PyPegen_set_expr_context(a, Store)), b, c, 1, EXTRA)
                 //   )
                 // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedStmt);
+                _res = default(GeneratedStmt?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -1785,7 +1835,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0_a_item0 = Expect("(");
                     if (_group_alt0_a_item0 != null)
                     {
-                        GeneratedExpr _group_alt0_a_item1 = SingleTarget();
+                        GeneratedExpr? _group_alt0_a_item1 = SingleTarget();
                         if (_group_alt0_a_item1 != null)
                         {
                             GeneratedTokenInfo? _group_alt0_a_item2 = Expect(")");
@@ -1805,7 +1855,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _group_mark_a;
-                    GeneratedExpr _group_alt1_a_item0 = SingleSubscriptAttributeTarget();
+                    GeneratedExpr? _group_alt1_a_item0 = SingleSubscriptAttributeTarget();
                     if (_group_alt1_a_item0 != null)
                     {
                         a = _group_alt1_a_item0;
@@ -1852,7 +1902,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__opt_c_item0 = Expect("=");
                     if (_group_alt0__opt_c_item0 != null)
                     {
-                        GeneratedExpr _group_alt0__opt_c_item1 = AnnotatedRhs();
+                        GeneratedExpr? _group_alt0__opt_c_item1 = AnnotatedRhs();
                         if (_group_alt0__opt_c_item1 != null)
                         {
                             _opt_c = _group_alt0__opt_c_item1;
@@ -1864,15 +1914,24 @@ namespace SharpPy.Generated
                         }
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? c = _opt_c;
-                if (c == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (c == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_c; // Reset position
-                    c = null; // Optional not present
                 }
                 // Action: CHECK_VERSION(stmt_ty, 6, "Variable annotations syntax is", _PyAST_AnnAssign(a, b, c, 0, EXTRA))
                 // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedStmt);
+                _res = default(GeneratedStmt?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -1903,7 +1962,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark_b;
-                    GeneratedExpr _group_alt0_b_item0 = YieldExpr();
+                    GeneratedExpr? _group_alt0_b_item0 = YieldExpr();
                     if (_group_alt0_b_item0 != null)
                     {
                         b = _group_alt0_b_item0;
@@ -1918,7 +1977,7 @@ namespace SharpPy.Generated
                 if (b == null)
                 {
                     _position = _group_mark_b;
-                    GeneratedExpr _group_alt1_b_item0 = StarExpressions();
+                    GeneratedExpr? _group_alt1_b_item0 = StarExpressions();
                     if (_group_alt1_b_item0 != null)
                     {
                         b = _group_alt1_b_item0;
@@ -1966,13 +2025,22 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_tc;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? tc = _opt_tc;
-                if (tc == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_tc; // Reset position
-                    tc = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyAST_Assign(a, b, NEW_TYPE_COMMENT(p, tc), EXTRA)
+                else if (tc == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_tc; // Reset position
+                }
+                // Action: _PyAST_Assign(a, b, tc?.Value, EXTRA)
                 _res = _PyAST_Assign(a, b, tc?.Value, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
@@ -2016,7 +2084,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark_c;
-                    GeneratedExpr _group_alt0_c_item0 = YieldExpr();
+                    GeneratedExpr? _group_alt0_c_item0 = YieldExpr();
                     if (_group_alt0_c_item0 != null)
                     {
                         c = _group_alt0_c_item0;
@@ -2031,7 +2099,7 @@ namespace SharpPy.Generated
                 if (c == null)
                 {
                     _position = _group_mark_c;
-                    GeneratedExpr _group_alt1_c_item0 = StarExpressions();
+                    GeneratedExpr? _group_alt1_c_item0 = StarExpressions();
                     if (_group_alt1_c_item0 != null)
                     {
                         c = _group_alt1_c_item0;
@@ -2049,8 +2117,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_AugAssign(a, b->kind, c, EXTRA)
-                _res = _PyAST_AugAssign(a, ASTHelpers.ExtractOpKind(b), c, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                // Action: _PyAST_AugAssign(a, b, c, EXTRA)
+                _res = _PyAST_AugAssign(a, b, c, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -2069,19 +2137,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_assignment
                 GeneratedPtr? _tmp0 = null;
+                Console.WriteLine($"[INVALID_ASSIGNMENT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_ASSIGNMENT] Calling InvalidAssignment()");
                     _tmp0 = InvalidAssignment();
+                    Console.WriteLine($"[INVALID_ASSIGNMENT] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_ASSIGNMENT] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -2099,11 +2187,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: annotated_rhs from python.gram
-        public GeneratedExpr AnnotatedRhs()
+        public GeneratedExpr? AnnotatedRhs()
         {
             // CPython 3.12 PEG: annotated_rhs
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -2134,7 +2222,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -2160,7 +2248,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -2177,11 +2265,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: augassign from python.gram
-        public GeneratedAstNode? Augassign()
+        public GeneratedOperator? Augassign()
         {
             // CPython 3.12 PEG: augassign
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedOperator? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -2211,9 +2299,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_augoperator(p, Add)
-                // Unknown AST function: _PyPegen_augoperator
-                _res = default(GeneratedAstNode?);
+                // Action: _PyPegen_augoperator(Add)
+                _res = GeneratedAdd.Instance;
                 if (_res != null) goto done;
             } while (false);
 
@@ -2238,9 +2325,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_augoperator(p, Sub)
-                // Unknown AST function: _PyPegen_augoperator
-                _res = default(GeneratedAstNode?);
+                // Action: _PyPegen_augoperator(Sub)
+                _res = GeneratedSub.Instance;
                 if (_res != null) goto done;
             } while (false);
 
@@ -2265,9 +2351,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_augoperator(p, Mult)
-                // Unknown AST function: _PyPegen_augoperator
-                _res = default(GeneratedAstNode?);
+                // Action: _PyPegen_augoperator(Mult)
+                _res = GeneratedMult.Instance;
                 if (_res != null) goto done;
             } while (false);
 
@@ -2292,9 +2377,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: CHECK_VERSION(AugOperator*, 5, "The '@' operator is", _PyPegen_augoperator(p, MatMult))
-                // No _PyAST_ or _PyPegen_ function in action: MatMult)
-                _res = default(GeneratedAstNode?);
+                // Action: CHECK_VERSION(AugOperator*, 5, "The '@' operator is", _PyPegen_augoperator(MatMult))
+                _res = GeneratedMatMult.Instance;
                 if (_res != null) goto done;
             } while (false);
 
@@ -2319,9 +2403,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_augoperator(p, Div)
-                // Unknown AST function: _PyPegen_augoperator
-                _res = default(GeneratedAstNode?);
+                // Action: _PyPegen_augoperator(Div)
+                _res = GeneratedDiv.Instance;
                 if (_res != null) goto done;
             } while (false);
 
@@ -2346,9 +2429,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_augoperator(p, Mod)
-                // Unknown AST function: _PyPegen_augoperator
-                _res = default(GeneratedAstNode?);
+                // Action: _PyPegen_augoperator(Mod)
+                _res = GeneratedMod_.Instance;
                 if (_res != null) goto done;
             } while (false);
 
@@ -2373,9 +2455,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_augoperator(p, BitAnd)
-                // Unknown AST function: _PyPegen_augoperator
-                _res = default(GeneratedAstNode?);
+                // Action: _PyPegen_augoperator(BitAnd)
+                _res = GeneratedBitAnd.Instance;
                 if (_res != null) goto done;
             } while (false);
 
@@ -2400,9 +2481,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_augoperator(p, BitOr)
-                // Unknown AST function: _PyPegen_augoperator
-                _res = default(GeneratedAstNode?);
+                // Action: _PyPegen_augoperator(BitOr)
+                _res = GeneratedBitOr.Instance;
                 if (_res != null) goto done;
             } while (false);
 
@@ -2427,9 +2507,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_augoperator(p, BitXor)
-                // Unknown AST function: _PyPegen_augoperator
-                _res = default(GeneratedAstNode?);
+                // Action: _PyPegen_augoperator(BitXor)
+                _res = GeneratedBitXor.Instance;
                 if (_res != null) goto done;
             } while (false);
 
@@ -2454,9 +2533,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_augoperator(p, LShift)
-                // Unknown AST function: _PyPegen_augoperator
-                _res = default(GeneratedAstNode?);
+                // Action: _PyPegen_augoperator(LShift)
+                _res = GeneratedLShift.Instance;
                 if (_res != null) goto done;
             } while (false);
 
@@ -2481,9 +2559,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_augoperator(p, RShift)
-                // Unknown AST function: _PyPegen_augoperator
-                _res = default(GeneratedAstNode?);
+                // Action: _PyPegen_augoperator(RShift)
+                _res = GeneratedRShift.Instance;
                 if (_res != null) goto done;
             } while (false);
 
@@ -2508,9 +2585,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_augoperator(p, Pow)
-                // Unknown AST function: _PyPegen_augoperator
-                _res = default(GeneratedAstNode?);
+                // Action: _PyPegen_augoperator(Pow)
+                _res = GeneratedPow.Instance;
                 if (_res != null) goto done;
             } while (false);
 
@@ -2535,9 +2611,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_augoperator(p, FloorDiv)
-                // Unknown AST function: _PyPegen_augoperator
-                _res = default(GeneratedAstNode?);
+                // Action: _PyPegen_augoperator(FloorDiv)
+                _res = GeneratedFloorDiv.Instance;
                 if (_res != null) goto done;
             } while (false);
 
@@ -2554,11 +2629,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: return_stmt from python.gram
-        public GeneratedStmt ReturnStmt()
+        public GeneratedStmt? ReturnStmt()
         {
             // CPython 3.12 PEG: return_stmt
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -2596,7 +2671,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: star_expressions
                 {
                     _position = _group_mark__opt_a;
-                    GeneratedExpr _group_alt0__opt_a_item0 = StarExpressions();
+                    GeneratedExpr? _group_alt0__opt_a_item0 = StarExpressions();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -2607,11 +2682,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_a;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? a = _opt_a;
-                if (a == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (a == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_a; // Reset position
-                    a = null; // Optional not present
                 }
                 // Action: _PyAST_Return(a, EXTRA)
                 _res = _PyAST_Return(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
@@ -2632,11 +2716,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: raise_stmt from python.gram
-        public GeneratedStmt RaiseStmt()
+        public GeneratedStmt? RaiseStmt()
         {
             // CPython 3.12 PEG: raise_stmt
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -2686,7 +2770,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__opt_b_item0 = Expect("from");
                     if (_group_alt0__opt_b_item0 != null)
                     {
-                        GeneratedExpr _group_alt0__opt_b_item1 = Expression();
+                        GeneratedExpr? _group_alt0__opt_b_item1 = Expression();
                         if (_group_alt0__opt_b_item1 != null)
                         {
                             _opt_b = _group_alt0__opt_b_item1;
@@ -2698,11 +2782,20 @@ namespace SharpPy.Generated
                         }
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? b = _opt_b;
-                if (b == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (b == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_b; // Reset position
-                    b = null; // Optional not present
                 }
                 // Action: _PyAST_Raise(a, b, EXTRA)
                 _res = _PyAST_Raise(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
@@ -2731,7 +2824,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_Raise(NULL, NULL, EXTRA)
+                // Action: _PyAST_Raise(null, null, EXTRA)
                 _res = _PyAST_Raise(null, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
@@ -2750,11 +2843,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: global_stmt from python.gram
-        public GeneratedStmt GlobalStmt()
+        public GeneratedStmt? GlobalStmt()
         {
             // CPython 3.12 PEG: global_stmt
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -2828,8 +2921,8 @@ namespace SharpPy.Generated
                     }
                     a.Add(_loop_elem_a);
                 }
-                // Action: _PyAST_Global(CHECK(asdl_identifier_seq*, _PyPegen_map_names_to_ids(p, a)), EXTRA)
-                _res = _PyAST_Global(_PyPegen_map_names_to_ids(a), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                // Action: _PyAST_Global(CHECK<asdl_identifier_seq>(_PyPegen_map_names_to_ids(a)), EXTRA)
+                _res = _PyAST_Global(CHECK<asdl_identifier_seq>(_PyPegen_map_names_to_ids(a)), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -2847,11 +2940,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: nonlocal_stmt from python.gram
-        public GeneratedStmt NonlocalStmt()
+        public GeneratedStmt? NonlocalStmt()
         {
             // CPython 3.12 PEG: nonlocal_stmt
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -2925,8 +3018,8 @@ namespace SharpPy.Generated
                     }
                     a.Add(_loop_elem_a);
                 }
-                // Action: _PyAST_Nonlocal(CHECK(asdl_identifier_seq*, _PyPegen_map_names_to_ids(p, a)), EXTRA)
-                _res = _PyAST_Nonlocal(_PyPegen_map_names_to_ids(a), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                // Action: _PyAST_Nonlocal(CHECK<asdl_identifier_seq>(_PyPegen_map_names_to_ids(a)), EXTRA)
+                _res = _PyAST_Nonlocal(CHECK<asdl_identifier_seq>(_PyPegen_map_names_to_ids(a)), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -2944,11 +3037,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: del_stmt from python.gram
-        public GeneratedStmt DelStmt()
+        public GeneratedStmt? DelStmt()
         {
             // CPython 3.12 PEG: del_stmt
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -3023,19 +3116,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_del_stmt
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_DEL_STMT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_DEL_STMT] Calling InvalidDelStmt()");
                     _tmp0 = InvalidDelStmt();
+                    Console.WriteLine($"[INVALID_DEL_STMT] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_DEL_STMT] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -3053,11 +3166,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: yield_stmt from python.gram
-        public GeneratedStmt YieldStmt()
+        public GeneratedStmt? YieldStmt()
         {
             // CPython 3.12 PEG: yield_stmt
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -3106,11 +3219,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: assert_stmt from python.gram
-        public GeneratedStmt AssertStmt()
+        public GeneratedStmt? AssertStmt()
         {
             // CPython 3.12 PEG: assert_stmt
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -3160,7 +3273,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__opt_b_item0 = Expect(",");
                     if (_group_alt0__opt_b_item0 != null)
                     {
-                        GeneratedExpr _group_alt0__opt_b_item1 = Expression();
+                        GeneratedExpr? _group_alt0__opt_b_item1 = Expression();
                         if (_group_alt0__opt_b_item1 != null)
                         {
                             _opt_b = _group_alt0__opt_b_item1;
@@ -3172,11 +3285,20 @@ namespace SharpPy.Generated
                         }
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? b = _opt_b;
-                if (b == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (b == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_b; // Reset position
-                    b = null; // Optional not present
                 }
                 // Action: _PyAST_Assert(a, b, EXTRA)
                 _res = _PyAST_Assert(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
@@ -3197,11 +3319,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: import_stmt from python.gram
-        public GeneratedStmt ImportStmt()
+        public GeneratedStmt? ImportStmt()
         {
             // CPython 3.12 PEG: import_stmt
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -3224,19 +3346,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_import
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_IMPORT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_IMPORT] Calling InvalidImport()");
                     _tmp0 = InvalidImport();
+                    Console.WriteLine($"[INVALID_IMPORT] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_IMPORT] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -3263,7 +3405,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp0;
+                _res = (GeneratedStmt?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -3289,7 +3431,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp0;
+                _res = (GeneratedStmt?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -3306,11 +3448,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: import_name from python.gram
-        public GeneratedStmt ImportName()
+        public GeneratedStmt? ImportName()
         {
             // CPython 3.12 PEG: import_name
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -3368,11 +3510,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: import_from from python.gram
-        public GeneratedStmt ImportFrom()
+        public GeneratedStmt? ImportFrom()
         {
             // CPython 3.12 PEG: import_from
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -3431,9 +3573,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_checked_future_import(p, b->v.Name.id, c, _PyPegen_seq_count_dots(a), EXTRA)
+                // Action: _PyPegen_checked_future_import(b.Id, c, _PyPegen_seq_count_dots(a), EXTRA)
                 // Unknown AST function: _PyPegen_checked_future_import
-                _res = default(GeneratedStmt);
+                _res = default(GeneratedStmt?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -3485,7 +3627,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_ImportFrom(NULL, b, _PyPegen_seq_count_dots(a), EXTRA)
+                // Action: _PyAST_ImportFrom(null, b, _PyPegen_seq_count_dots(a), EXTRA)
                 _res = _PyAST_ImportFrom(null, b, _PyPegen_seq_count_dots(a), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
@@ -3504,11 +3646,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: import_from_targets from python.gram
-        public GeneratedAliasSeq ImportFromTargets()
+        public GeneratedAliasSeq? ImportFromTargets()
         {
             // CPython 3.12 PEG: import_from_targets
             int _mark = _position;
-            GeneratedAliasSeq _res = null;
+            GeneratedAliasSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -3566,11 +3708,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp1;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp1 = _opt__tmp1;
-                if (_tmp1 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp1 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp1; // Reset position
-                    _tmp1 = null; // Optional not present
                 }
                 // Expect ')'
                 var _tmp2 = Expect(")");
@@ -3582,7 +3733,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedAliasSeq)((GeneratedPtr?)a);
+                _res = (GeneratedAliasSeq?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -3619,7 +3770,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAliasSeq)_tmp0;
+                _res = (GeneratedAliasSeq?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -3644,8 +3795,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: (asdl_alias_seq*)_PyPegen_singleton_seq(p, CHECK(alias_ty, _PyPegen_alias_for_star(p, EXTRA)))
-                _res = _PyPegen_singleton_seq(_PyPegen_alias_for_star(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset));
+                // Action: _PyPegen_singleton_seq(CHECK<alias_ty>(_PyPegen_alias_for_star(EXTRA)))
+                _res = _PyPegen_singleton_seq(CHECK<alias_ty>(_PyPegen_alias_for_star(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset)));
                 if (_res != null) goto done;
             } while (false);
 
@@ -3663,19 +3814,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_import_from_targets
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_IMPORT_FROM_TARGETS] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_IMPORT_FROM_TARGETS] Calling InvalidImportFromTargets()");
                     _tmp0 = InvalidImportFromTargets();
+                    Console.WriteLine($"[INVALID_IMPORT_FROM_TARGETS] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_IMPORT_FROM_TARGETS] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -3693,11 +3864,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: import_from_as_names from python.gram
-        public GeneratedAliasSeq ImportFromAsNames()
+        public GeneratedAliasSeq? ImportFromAsNames()
         {
             // CPython 3.12 PEG: import_from_as_names
             int _mark = _position;
-            GeneratedAliasSeq _res = null;
+            GeneratedAliasSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -3759,7 +3930,7 @@ namespace SharpPy.Generated
                     a.Add(_loop_elem_a);
                 }
                 // Action: a
-                _res = (GeneratedAliasSeq)((GeneratedPtr?)a);
+                _res = (GeneratedAliasSeq?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -3776,11 +3947,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: import_from_as_name from python.gram
-        public GeneratedAlias ImportFromAsName()
+        public GeneratedAlias? ImportFromAsName()
         {
             // CPython 3.12 PEG: import_from_as_name
             int _mark = _position;
-            GeneratedAlias _res = null;
+            GeneratedAlias? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -3836,18 +4007,27 @@ namespace SharpPy.Generated
                         }
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? b = _opt_b;
-                if (b == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (b == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_b; // Reset position
-                    b = null; // Optional not present
                 }
                 // Action (multiline):
-                //   _PyAST_alias(a->v.Name.id,
-                //   (b) ? ((expr_ty) b)->v.Name.id : NULL,
+                //   _PyAST_alias(a.Id,
+                //   (b) ? (b).Id : null,
                 //   EXTRA)
                 // Unknown AST function: _PyAST_alias
-                _res = default(GeneratedAlias);
+                _res = default(GeneratedAlias?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -3864,11 +4044,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: dotted_as_names from python.gram
-        public GeneratedAliasSeq DottedAsNames()
+        public GeneratedAliasSeq? DottedAsNames()
         {
             // CPython 3.12 PEG: dotted_as_names
             int _mark = _position;
-            GeneratedAliasSeq _res = null;
+            GeneratedAliasSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -3930,7 +4110,7 @@ namespace SharpPy.Generated
                     a.Add(_loop_elem_a);
                 }
                 // Action: a
-                _res = (GeneratedAliasSeq)((GeneratedPtr?)a);
+                _res = (GeneratedAliasSeq?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -3947,11 +4127,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: dotted_as_name from python.gram
-        public GeneratedAlias DottedAsName()
+        public GeneratedAlias? DottedAsName()
         {
             // CPython 3.12 PEG: dotted_as_name
             int _mark = _position;
-            GeneratedAlias _res = null;
+            GeneratedAlias? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -4004,18 +4184,27 @@ namespace SharpPy.Generated
                         }
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? b = _opt_b;
-                if (b == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (b == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_b; // Reset position
-                    b = null; // Optional not present
                 }
                 // Action (multiline):
-                //   _PyAST_alias(a->v.Name.id,
-                //   (b) ? ((expr_ty) b)->v.Name.id : NULL,
+                //   _PyAST_alias(a.Id,
+                //   (b) ? (b).Id : null,
                 //   EXTRA)
                 // Unknown AST function: _PyAST_alias
-                _res = default(GeneratedAlias);
+                _res = default(GeneratedAlias?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -4032,17 +4221,17 @@ namespace SharpPy.Generated
         }
 
         // Rule: dotted_name from python.gram
-        public GeneratedExpr DottedName()
+        public GeneratedExpr? DottedName()
         {
             // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return TryLeftRecursive<GeneratedExpr>("DottedName", _DottedName);
+            return (GeneratedExpr?)TryLeftRecursive("DottedName", _DottedName);
         }
 
-        private GeneratedExpr _DottedName()
+        private GeneratedExpr? _DottedName()
         {
             // CPython 3.12 PEG: dotted_name
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -4093,9 +4282,9 @@ namespace SharpPy.Generated
                 }
                 var b = NameToken(_token_b);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: _PyPegen_join_names_with_dot(p, a, b)
+                // Action: _PyPegen_join_names_with_dot(a, b)
                 // Unknown AST function: _PyPegen_join_names_with_dot
-                _res = default(GeneratedExpr);
+                _res = default(GeneratedExpr?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -4142,18 +4331,18 @@ namespace SharpPy.Generated
         }
 
         // Rule: block from python.gram
-        public GeneratedStmtSeq Block()
+        public GeneratedStmtSeq? Block()
         {
             // CPython 3.12: Memoized (non-left-recursive) - simple memoization
             // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return TryMemoized<GeneratedStmtSeq>("Block", _Block);
+            return (GeneratedStmtSeq?)TryMemoized("Block", _Block);
         }
 
-        private GeneratedStmtSeq _Block()
+        private GeneratedStmtSeq? _Block()
         {
             // CPython 3.12 PEG: block
             int _mark = _position;
-            GeneratedStmtSeq _res = null;
+            GeneratedStmtSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -4217,7 +4406,7 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(DEDENT): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: a
-                _res = (GeneratedStmtSeq)((GeneratedPtr?)a);
+                _res = (GeneratedStmtSeq?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -4243,7 +4432,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmtSeq)_tmp0;
+                _res = (GeneratedStmtSeq?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -4261,19 +4450,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_block
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_BLOCK] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_BLOCK] Calling InvalidBlock()");
                     _tmp0 = InvalidBlock();
+                    Console.WriteLine($"[INVALID_BLOCK] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_BLOCK] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -4291,11 +4500,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: decorators from python.gram
-        public GeneratedExprSeq Decorators()
+        public GeneratedExprSeq? Decorators()
         {
             // CPython 3.12 PEG: decorators
             int _mark = _position;
-            GeneratedExprSeq _res = null;
+            GeneratedExprSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -4326,7 +4535,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExprSeq)((GeneratedPtr?)a);
+                _res = (GeneratedExprSeq?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -4343,11 +4552,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: class_def from python.gram
-        public GeneratedStmt ClassDef()
+        public GeneratedStmt? ClassDef()
         {
             // CPython 3.12 PEG: class_def
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -4386,9 +4595,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_class_def_decorators(p, a, b)
+                // Action: _PyPegen_class_def_decorators(a, b)
                 // Unknown AST function: _PyPegen_class_def_decorators
-                _res = default(GeneratedStmt);
+                _res = default(GeneratedStmt?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -4414,7 +4623,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp0;
+                _res = (GeneratedStmt?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -4431,11 +4640,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: class_def_raw from python.gram
-        public GeneratedStmt ClassDefRaw()
+        public GeneratedStmt? ClassDefRaw()
         {
             // CPython 3.12 PEG: class_def_raw
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -4458,19 +4667,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_class_def_raw
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_CLASS_DEF_RAW] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_CLASS_DEF_RAW] Calling InvalidClassDefRaw()");
                     _tmp0 = InvalidClassDefRaw();
+                    Console.WriteLine($"[INVALID_CLASS_DEF_RAW] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_CLASS_DEF_RAW] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -4516,7 +4745,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: type_params
                 {
                     _position = _group_mark__opt_t;
-                    GeneratedTypeParamSeq _group_alt0__opt_t_item0 = TypeParams();
+                    GeneratedTypeParamSeq? _group_alt0__opt_t_item0 = TypeParams();
                     if (_group_alt0__opt_t_item0 != null)
                     {
                         _opt_t = _group_alt0__opt_t_item0;
@@ -4527,11 +4756,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_t;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTypeParamSeq? t = _opt_t;
-                if (t == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (t == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_t; // Reset position
-                    t = null; // Optional not present
                 }
                 // Optional: [('(' z=[(arguments)] ')' { z })]
                 int _opt_mark_b = _position;
@@ -4552,7 +4790,7 @@ namespace SharpPy.Generated
                         // Try group alternative 1: arguments
                         {
                             _position = _group_mark__opt__group_alt0__opt_b_item1;
-                            GeneratedExpr _group_alt0__opt__group_alt0__opt_b_item1_item0 = Arguments();
+                            GeneratedExpr? _group_alt0__opt__group_alt0__opt_b_item1_item0 = Arguments();
                             if (_group_alt0__opt__group_alt0__opt_b_item1_item0 != null)
                             {
                                 _opt__group_alt0__opt_b_item1 = _group_alt0__opt__group_alt0__opt_b_item1_item0;
@@ -4563,11 +4801,20 @@ namespace SharpPy.Generated
                                 _position = _group_mark__opt__group_alt0__opt_b_item1;
                             }
                         }
+                        // CPython: (a = expr, !p->error_indicator) - check error after optional
                         GeneratedExpr? _group_alt0__opt_b_item1 = _opt__group_alt0__opt_b_item1;
-                        if (_group_alt0__opt_b_item1 == null)
+                        if (_pendingSyntaxError != null)
                         {
+                            // CPython: error_indicator is set - optional pattern FAILS
+                            // This causes the entire alternative to fail (like && short-circuit in C)
+                            _position = _mark;
+                            _res = null;
+                            break;  // Exit alternative with error preserved
+                        }
+                        else if (_group_alt0__opt_b_item1 == null)
+                        {
+                            // CPython: No error, but expr returned NULL - optional not present
                             _position = _opt_mark__group_alt0__opt_b_item1; // Reset position
-                            _group_alt0__opt_b_item1 = null; // Optional not present
                         }
                         if (_group_alt0__opt_b_item1 != null)
                         {
@@ -4584,11 +4831,20 @@ namespace SharpPy.Generated
                         }
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? b = _opt_b;
-                if (b == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (b == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_b; // Reset position
-                    b = null; // Optional not present
                 }
                 // Expect ':'
                 var _tmp1 = Expect(":");
@@ -4609,11 +4865,11 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action (multiline):
-                //   _PyAST_ClassDef(a->v.Name.id,
-                //   (b) ? ((expr_ty) b)->v.Call.args : NULL,
-                //   (b) ? ((expr_ty) b)->v.Call.keywords : NULL,
-                //   c, NULL, t, EXTRA)
-                _res = _PyAST_ClassDef(ASTHelpers.ExtractStringValue(a), ASTHelpers.ExtractCallArgs(b), ASTHelpers.ExtractCallKeywords(b), c, null, t, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                //   _PyAST_ClassDef(a.Id,
+                //   (b) ? ((GeneratedCall)b).Args : null!,
+                //   (b) ? ((GeneratedCall)b).Keywords : null!,
+                //   c, null!, t, EXTRA)
+                _res = _PyAST_ClassDef(a.Id, b != null ? ((GeneratedCall)b).Args : null!, b != null ? ((GeneratedCall)b).Keywords : null!, c, null!, t, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -4631,11 +4887,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: function_def from python.gram
-        public GeneratedStmt FunctionDef()
+        public GeneratedStmt? FunctionDef()
         {
             // CPython 3.12 PEG: function_def
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -4674,9 +4930,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_function_def_decorators(p, d, f)
+                // Action: _PyPegen_function_def_decorators(d, f)
                 // Unknown AST function: _PyPegen_function_def_decorators
-                _res = default(GeneratedStmt);
+                _res = default(GeneratedStmt?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -4702,7 +4958,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedStmt)_tmp0;
+                _res = (GeneratedStmt?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -4719,11 +4975,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: function_def_raw from python.gram
-        public GeneratedStmt FunctionDefRaw()
+        public GeneratedStmt? FunctionDefRaw()
         {
             // CPython 3.12 PEG: function_def_raw
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -4746,19 +5002,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_def_raw
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_DEF_RAW] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_DEF_RAW] Calling InvalidDefRaw()");
                     _tmp0 = InvalidDefRaw();
+                    Console.WriteLine($"[INVALID_DEF_RAW] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_DEF_RAW] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -4804,7 +5080,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: type_params
                 {
                     _position = _group_mark__opt_t;
-                    GeneratedTypeParamSeq _group_alt0__opt_t_item0 = TypeParams();
+                    GeneratedTypeParamSeq? _group_alt0__opt_t_item0 = TypeParams();
                     if (_group_alt0__opt_t_item0 != null)
                     {
                         _opt_t = _group_alt0__opt_t_item0;
@@ -4815,11 +5091,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_t;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTypeParamSeq? t = _opt_t;
-                if (t == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (t == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_t; // Reset position
-                    t = null; // Optional not present
                 }
                 // Positive lookahead: &(&'(')
                 int _lookahead_mark_20 = _position;
@@ -4843,7 +5128,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: params
                 {
                     _position = _group_mark__opt_params_;
-                    GeneratedArguments _group_alt0__opt_params__item0 = Params();
+                    GeneratedArguments? _group_alt0__opt_params__item0 = Params();
                     if (_group_alt0__opt_params__item0 != null)
                     {
                         _opt_params_ = _group_alt0__opt_params__item0;
@@ -4854,11 +5139,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_params_;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedArguments? params_ = _opt_params_;
-                if (params_ == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (params_ == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_params_; // Reset position
-                    params_ = null; // Optional not present
                 }
                 // Expect ')'
                 var _tmp2 = Expect(")");
@@ -4880,7 +5174,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__opt_a_item0 = Expect("->");
                     if (_group_alt0__opt_a_item0 != null)
                     {
-                        GeneratedExpr _group_alt0__opt_a_item1 = Expression();
+                        GeneratedExpr? _group_alt0__opt_a_item1 = Expression();
                         if (_group_alt0__opt_a_item1 != null)
                         {
                             _opt_a = _group_alt0__opt_a_item1;
@@ -4892,11 +5186,20 @@ namespace SharpPy.Generated
                         }
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? a = _opt_a;
-                if (a == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (a == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_a; // Reset position
-                    a = null; // Optional not present
                 }
                 // Positive lookahead: &(&':')
                 int _lookahead_mark_21 = _position;
@@ -4920,7 +5223,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: func_type_comment
                 {
                     _position = _group_mark__opt_tc;
-                    GeneratedTokenInfo _group_alt0__opt_tc_item0 = FuncTypeComment();
+                    GeneratedTokenInfo? _group_alt0__opt_tc_item0 = FuncTypeComment();
                     if (_group_alt0__opt_tc_item0 != null)
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
@@ -4931,11 +5234,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_tc;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? tc = _opt_tc;
-                if (tc == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (tc == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_tc; // Reset position
-                    tc = null; // Optional not present
                 }
                 // Call rule: block
                 var b = Block();
@@ -4947,10 +5259,10 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action (multiline):
-                //   _PyAST_FunctionDef(n->v.Name.id,
-                //   (params) ? params : CHECK(arguments_ty, _PyPegen_empty_arguments(p)),
-                //   b, NULL, a, NEW_TYPE_COMMENT(p, tc), t, EXTRA)
-                _res = _PyAST_FunctionDef(ASTHelpers.ExtractStringValue(n), params_ ?? _PyPegen_empty_arguments(), b, null, a, tc?.Value, t, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                //   _PyAST_FunctionDef(n.Id,
+                //   (params) ? params : CHECK<arguments_ty>(_PyPegen_empty_arguments()),
+                //   b, null, a, tc?.Value, t, EXTRA)
+                _res = _PyAST_FunctionDef(n.Id, params_ ?? CHECK<arguments_ty>(_PyPegen_empty_arguments()), b, null, a, tc?.Value, t, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -5007,7 +5319,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: type_params
                 {
                     _position = _group_mark__opt_t;
-                    GeneratedTypeParamSeq _group_alt0__opt_t_item0 = TypeParams();
+                    GeneratedTypeParamSeq? _group_alt0__opt_t_item0 = TypeParams();
                     if (_group_alt0__opt_t_item0 != null)
                     {
                         _opt_t = _group_alt0__opt_t_item0;
@@ -5018,11 +5330,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_t;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTypeParamSeq? t = _opt_t;
-                if (t == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (t == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_t; // Reset position
-                    t = null; // Optional not present
                 }
                 // Positive lookahead: &(&'(')
                 int _lookahead_mark_22 = _position;
@@ -5046,7 +5367,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: params
                 {
                     _position = _group_mark__opt_params_;
-                    GeneratedArguments _group_alt0__opt_params__item0 = Params();
+                    GeneratedArguments? _group_alt0__opt_params__item0 = Params();
                     if (_group_alt0__opt_params__item0 != null)
                     {
                         _opt_params_ = _group_alt0__opt_params__item0;
@@ -5057,11 +5378,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_params_;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedArguments? params_ = _opt_params_;
-                if (params_ == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (params_ == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_params_; // Reset position
-                    params_ = null; // Optional not present
                 }
                 // Expect ')'
                 var _tmp3 = Expect(")");
@@ -5083,7 +5413,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__opt_a_item0 = Expect("->");
                     if (_group_alt0__opt_a_item0 != null)
                     {
-                        GeneratedExpr _group_alt0__opt_a_item1 = Expression();
+                        GeneratedExpr? _group_alt0__opt_a_item1 = Expression();
                         if (_group_alt0__opt_a_item1 != null)
                         {
                             _opt_a = _group_alt0__opt_a_item1;
@@ -5095,11 +5425,20 @@ namespace SharpPy.Generated
                         }
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? a = _opt_a;
-                if (a == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (a == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_a; // Reset position
-                    a = null; // Optional not present
                 }
                 // Positive lookahead: &(&':')
                 int _lookahead_mark_23 = _position;
@@ -5123,7 +5462,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: func_type_comment
                 {
                     _position = _group_mark__opt_tc;
-                    GeneratedTokenInfo _group_alt0__opt_tc_item0 = FuncTypeComment();
+                    GeneratedTokenInfo? _group_alt0__opt_tc_item0 = FuncTypeComment();
                     if (_group_alt0__opt_tc_item0 != null)
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
@@ -5134,11 +5473,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_tc;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? tc = _opt_tc;
-                if (tc == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (tc == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_tc; // Reset position
-                    tc = null; // Optional not present
                 }
                 // Call rule: block
                 var b = Block();
@@ -5154,12 +5502,12 @@ namespace SharpPy.Generated
                 //   stmt_ty,
                 //   5,
                 //   "Async functions are",
-                //   _PyAST_AsyncFunctionDef(n->v.Name.id,
-                //   (params) ? params : CHECK(arguments_ty, _PyPegen_empty_arguments(p)),
-                //   b, NULL, a, NEW_TYPE_COMMENT(p, tc), t, EXTRA)
+                //   _PyAST_AsyncFunctionDef(n.Id,
+                //   (params) ? params : CHECK<arguments_ty>(_PyPegen_empty_arguments()),
+                //   b, null, a, tc?.Value, t, EXTRA)
                 //   )
                 // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedStmt);
+                _res = default(GeneratedStmt?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5176,11 +5524,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: params from python.gram
-        public GeneratedArguments Params()
+        public GeneratedArguments? Params()
         {
             // CPython 3.12 PEG: params
             int _mark = _position;
-            GeneratedArguments _res = null;
+            GeneratedArguments? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -5203,19 +5551,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_parameters
                 GeneratedPtr? _tmp0 = null;
+                Console.WriteLine($"[INVALID_PARAMETERS] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_PARAMETERS] Calling InvalidParameters()");
                     _tmp0 = InvalidParameters();
+                    Console.WriteLine($"[INVALID_PARAMETERS] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_PARAMETERS] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -5242,7 +5610,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedArguments)_tmp0;
+                _res = (GeneratedArguments?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -5259,11 +5627,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: parameters from python.gram
-        public GeneratedArguments Parameters()
+        public GeneratedArguments? Parameters()
         {
             // CPython 3.12 PEG: parameters
             int _mark = _position;
-            GeneratedArguments _res = null;
+            GeneratedArguments? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -5305,7 +5673,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: star_etc
                 {
                     _position = _group_mark__opt_d;
-                    GeneratedStarEtc _group_alt0__opt_d_item0 = StarEtc();
+                    GeneratedStarEtc? _group_alt0__opt_d_item0 = StarEtc();
                     if (_group_alt0__opt_d_item0 != null)
                     {
                         _opt_d = _group_alt0__opt_d_item0;
@@ -5316,15 +5684,24 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_d;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedStarEtc? d = _opt_d;
-                if (d == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_d; // Reset position
-                    d = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(p, a, NULL, b, c, d))
+                else if (d == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_d; // Reset position
+                }
+                // Action: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(a, null, b, c, d))
                 // No _PyAST_ or _PyPegen_ function in action: d)
-                _res = default(GeneratedArguments);
+                _res = default(GeneratedArguments?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5359,7 +5736,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: star_etc
                 {
                     _position = _group_mark__opt_c;
-                    GeneratedStarEtc _group_alt0__opt_c_item0 = StarEtc();
+                    GeneratedStarEtc? _group_alt0__opt_c_item0 = StarEtc();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -5370,15 +5747,24 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_c;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedStarEtc? c = _opt_c;
-                if (c == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_c; // Reset position
-                    c = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(p, NULL, a, NULL, b, c))
+                else if (c == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_c; // Reset position
+                }
+                // Action: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(null, a, null, b, c))
                 // No _PyAST_ or _PyPegen_ function in action: c)
-                _res = default(GeneratedArguments);
+                _res = default(GeneratedArguments?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5413,7 +5799,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: star_etc
                 {
                     _position = _group_mark__opt_c;
-                    GeneratedStarEtc _group_alt0__opt_c_item0 = StarEtc();
+                    GeneratedStarEtc? _group_alt0__opt_c_item0 = StarEtc();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -5424,15 +5810,24 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_c;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedStarEtc? c = _opt_c;
-                if (c == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_c; // Reset position
-                    c = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyPegen_make_arguments(p, NULL, NULL, a, b, c)
+                else if (c == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_c; // Reset position
+                }
+                // Action: _PyPegen_make_arguments(null, null, a, b, c)
                 // Unknown AST function: _PyPegen_make_arguments
-                _res = default(GeneratedArguments);
+                _res = default(GeneratedArguments?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5465,7 +5860,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: star_etc
                 {
                     _position = _group_mark__opt_b;
-                    GeneratedStarEtc _group_alt0__opt_b_item0 = StarEtc();
+                    GeneratedStarEtc? _group_alt0__opt_b_item0 = StarEtc();
                     if (_group_alt0__opt_b_item0 != null)
                     {
                         _opt_b = _group_alt0__opt_b_item0;
@@ -5476,15 +5871,24 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_b;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedStarEtc? b = _opt_b;
-                if (b == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_b; // Reset position
-                    b = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyPegen_make_arguments(p, NULL, NULL, NULL, a, b)
+                else if (b == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_b; // Reset position
+                }
+                // Action: _PyPegen_make_arguments(null, null, null, a, b)
                 // Unknown AST function: _PyPegen_make_arguments
-                _res = default(GeneratedArguments);
+                _res = default(GeneratedArguments?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5509,9 +5913,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_make_arguments(p, NULL, NULL, NULL, NULL, a)
+                // Action: _PyPegen_make_arguments(null, null, null, null, a)
                 // Unknown AST function: _PyPegen_make_arguments
-                _res = default(GeneratedArguments);
+                _res = default(GeneratedArguments?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5528,11 +5932,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: slash_no_default from python.gram
-        public GeneratedAstNodeSeq SlashNoDefault()
+        public GeneratedArgSeq? SlashNoDefault()
         {
             // CPython 3.12 PEG: slash_no_default
             int _mark = _position;
-            GeneratedAstNodeSeq _res = null;
+            GeneratedArgSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -5581,7 +5985,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedAstNodeSeq)((GeneratedPtr?)a);
+                _res = (GeneratedArgSeq?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5630,7 +6034,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedAstNodeSeq)((GeneratedPtr?)a);
+                _res = (GeneratedArgSeq?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5647,11 +6051,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: slash_with_default from python.gram
-        public GeneratedSlashWithDefault SlashWithDefault()
+        public GeneratedSlashWithDefault? SlashWithDefault()
         {
             // CPython 3.12 PEG: slash_with_default
             int _mark = _position;
-            GeneratedSlashWithDefault _res = null;
+            GeneratedSlashWithDefault? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -5701,9 +6105,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)
+                // Action: _PyPegen_slash_with_default((asdl_arg_seq *)a, b)
                 // Unknown AST function: _PyPegen_slash_with_default
-                _res = default(GeneratedSlashWithDefault);
+                _res = default(GeneratedSlashWithDefault?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5753,9 +6157,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)
+                // Action: _PyPegen_slash_with_default((asdl_arg_seq *)a, b)
                 // Unknown AST function: _PyPegen_slash_with_default
-                _res = default(GeneratedSlashWithDefault);
+                _res = default(GeneratedSlashWithDefault?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5772,11 +6176,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: star_etc from python.gram
-        public GeneratedStarEtc StarEtc()
+        public GeneratedStarEtc? StarEtc()
         {
             // CPython 3.12 PEG: star_etc
             int _mark = _position;
-            GeneratedStarEtc _res = null;
+            GeneratedStarEtc? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -5799,19 +6203,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_star_etc
                 GeneratedPtr? _tmp0 = null;
+                Console.WriteLine($"[INVALID_STAR_ETC] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_STAR_ETC] Calling InvalidStarEtc()");
                     _tmp0 = InvalidStarEtc();
+                    Console.WriteLine($"[INVALID_STAR_ETC] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_STAR_ETC] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -5856,7 +6280,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: kwds
                 {
                     _position = _group_mark__opt_c;
-                    GeneratedArg _group_alt0__opt_c_item0 = Kwds();
+                    GeneratedArg? _group_alt0__opt_c_item0 = Kwds();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -5867,15 +6291,24 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_c;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedArg? c = _opt_c;
-                if (c == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_c; // Reset position
-                    c = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyPegen_star_etc(p, a, b, c)
+                else if (c == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_c; // Reset position
+                }
+                // Action: _PyPegen_star_etc(a, b, c)
                 // Unknown AST function: _PyPegen_star_etc
-                _res = default(GeneratedStarEtc);
+                _res = default(GeneratedStarEtc?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5919,7 +6352,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: kwds
                 {
                     _position = _group_mark__opt_c;
-                    GeneratedArg _group_alt0__opt_c_item0 = Kwds();
+                    GeneratedArg? _group_alt0__opt_c_item0 = Kwds();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -5930,15 +6363,24 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_c;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedArg? c = _opt_c;
-                if (c == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_c; // Reset position
-                    c = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyPegen_star_etc(p, a, b, c)
+                else if (c == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_c; // Reset position
+                }
+                // Action: _PyPegen_star_etc(a, b, c)
                 // Unknown AST function: _PyPegen_star_etc
-                _res = default(GeneratedStarEtc);
+                _res = default(GeneratedStarEtc?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5989,7 +6431,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: kwds
                 {
                     _position = _group_mark__opt_c;
-                    GeneratedArg _group_alt0__opt_c_item0 = Kwds();
+                    GeneratedArg? _group_alt0__opt_c_item0 = Kwds();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -6000,15 +6442,24 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_c;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedArg? c = _opt_c;
-                if (c == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_c; // Reset position
-                    c = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyPegen_star_etc(p, NULL, b, c)
+                else if (c == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_c; // Reset position
+                }
+                // Action: _PyPegen_star_etc(null, b, c)
                 // Unknown AST function: _PyPegen_star_etc
-                _res = default(GeneratedStarEtc);
+                _res = default(GeneratedStarEtc?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6033,9 +6484,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_star_etc(p, NULL, NULL, a)
+                // Action: _PyPegen_star_etc(null, null, a)
                 // Unknown AST function: _PyPegen_star_etc
-                _res = default(GeneratedStarEtc);
+                _res = default(GeneratedStarEtc?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6052,11 +6503,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: kwds from python.gram
-        public GeneratedArg Kwds()
+        public GeneratedArg? Kwds()
         {
             // CPython 3.12 PEG: kwds
             int _mark = _position;
-            GeneratedArg _res = null;
+            GeneratedArg? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -6079,19 +6530,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_kwds
                 GeneratedPtr? _tmp0 = null;
+                Console.WriteLine($"[INVALID_KWDS] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_KWDS] Calling InvalidKwds()");
                     _tmp0 = InvalidKwds();
+                    Console.WriteLine($"[INVALID_KWDS] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_KWDS] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -6127,7 +6598,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedArg)((GeneratedPtr?)a);
+                _res = (GeneratedArg?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6144,11 +6615,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: param_no_default from python.gram
-        public GeneratedArg ParamNoDefault()
+        public GeneratedArg? ParamNoDefault()
         {
             // CPython 3.12 PEG: param_no_default
             int _mark = _position;
-            GeneratedArg _res = null;
+            GeneratedArg? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -6200,15 +6671,24 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? tc = _opt_tc;
-                if (tc == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_tc; // Reset position
-                    tc = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyPegen_add_type_comment_to_arg(p, a, tc)
+                else if (tc == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_tc; // Reset position
+                }
+                // Action: _PyPegen_add_type_comment_to_arg(a, tc)
                 // Unknown AST function: _PyPegen_add_type_comment_to_arg
-                _res = default(GeneratedArg);
+                _res = default(GeneratedArg?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6246,11 +6726,20 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? tc = _opt_tc;
-                if (tc == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (tc == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_tc; // Reset position
-                    tc = null; // Optional not present
                 }
                 // Positive lookahead: &(')')
                 int _lookahead_mark_26 = _position;
@@ -6266,9 +6755,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_add_type_comment_to_arg(p, a, tc)
+                // Action: _PyPegen_add_type_comment_to_arg(a, tc)
                 // Unknown AST function: _PyPegen_add_type_comment_to_arg
-                _res = default(GeneratedArg);
+                _res = default(GeneratedArg?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6285,11 +6774,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: param_no_default_star_annotation from python.gram
-        public GeneratedArg ParamNoDefaultStarAnnotation()
+        public GeneratedArg? ParamNoDefaultStarAnnotation()
         {
             // CPython 3.12 PEG: param_no_default_star_annotation
             int _mark = _position;
-            GeneratedArg _res = null;
+            GeneratedArg? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -6341,15 +6830,24 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? tc = _opt_tc;
-                if (tc == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_tc; // Reset position
-                    tc = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyPegen_add_type_comment_to_arg(p, a, tc)
+                else if (tc == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_tc; // Reset position
+                }
+                // Action: _PyPegen_add_type_comment_to_arg(a, tc)
                 // Unknown AST function: _PyPegen_add_type_comment_to_arg
-                _res = default(GeneratedArg);
+                _res = default(GeneratedArg?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6387,11 +6885,20 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? tc = _opt_tc;
-                if (tc == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (tc == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_tc; // Reset position
-                    tc = null; // Optional not present
                 }
                 // Positive lookahead: &(')')
                 int _lookahead_mark_27 = _position;
@@ -6407,9 +6914,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_add_type_comment_to_arg(p, a, tc)
+                // Action: _PyPegen_add_type_comment_to_arg(a, tc)
                 // Unknown AST function: _PyPegen_add_type_comment_to_arg
-                _res = default(GeneratedArg);
+                _res = default(GeneratedArg?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6426,11 +6933,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: param_with_default from python.gram
-        public GeneratedAstNode? ParamWithDefault()
+        public GeneratedNameDefaultPair? ParamWithDefault()
         {
             // CPython 3.12 PEG: param_with_default
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedNameDefaultPair? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -6491,15 +6998,24 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? tc = _opt_tc;
-                if (tc == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_tc; // Reset position
-                    tc = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyPegen_name_default_pair(p, a, c, tc)
+                else if (tc == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_tc; // Reset position
+                }
+                // Action: _PyPegen_name_default_pair(a, c, tc)
                 // Unknown AST function: _PyPegen_name_default_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedNameDefaultPair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6546,11 +7062,20 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? tc = _opt_tc;
-                if (tc == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (tc == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_tc; // Reset position
-                    tc = null; // Optional not present
                 }
                 // Positive lookahead: &(')')
                 int _lookahead_mark_28 = _position;
@@ -6566,9 +7091,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_name_default_pair(p, a, c, tc)
+                // Action: _PyPegen_name_default_pair(a, c, tc)
                 // Unknown AST function: _PyPegen_name_default_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedNameDefaultPair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6585,11 +7110,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: param_maybe_default from python.gram
-        public GeneratedAstNode? ParamMaybeDefault()
+        public GeneratedNameDefaultPair? ParamMaybeDefault()
         {
             // CPython 3.12 PEG: param_maybe_default
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedNameDefaultPair? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -6630,11 +7155,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? c = _opt_c;
-                if (c == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (c == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_c; // Reset position
-                    c = null; // Optional not present
                 }
                 // Expect ','
                 var _tmp0 = Expect(",");
@@ -6658,15 +7192,24 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? tc = _opt_tc;
-                if (tc == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_tc; // Reset position
-                    tc = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyPegen_name_default_pair(p, a, c, tc)
+                else if (tc == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_tc; // Reset position
+                }
+                // Action: _PyPegen_name_default_pair(a, c, tc)
                 // Unknown AST function: _PyPegen_name_default_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedNameDefaultPair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6702,11 +7245,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? c = _opt_c;
-                if (c == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (c == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_c; // Reset position
-                    c = null; // Optional not present
                 }
                 // Optional: [TYPE_COMMENT]
                 int _opt_mark_tc = _position;
@@ -6721,11 +7273,20 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? tc = _opt_tc;
-                if (tc == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (tc == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_tc; // Reset position
-                    tc = null; // Optional not present
                 }
                 // Positive lookahead: &(')')
                 int _lookahead_mark_29 = _position;
@@ -6741,9 +7302,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_name_default_pair(p, a, c, tc)
+                // Action: _PyPegen_name_default_pair(a, c, tc)
                 // Unknown AST function: _PyPegen_name_default_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedNameDefaultPair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6760,11 +7321,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: param from python.gram
-        public GeneratedArg Param()
+        public GeneratedArg? Param()
         {
             // CPython 3.12 PEG: param
             int _mark = _position;
-            GeneratedArg _res = null;
+            GeneratedArg? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -6808,15 +7369,24 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? b = _opt_b;
-                if (b == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_b; // Reset position
-                    b = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyAST_arg(a->v.Name.id, b, NULL, EXTRA)
+                else if (b == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_b; // Reset position
+                }
+                // Action: _PyAST_arg(a.Id, b, null, EXTRA)
                 // Unknown AST function: _PyAST_arg
-                _res = default(GeneratedArg);
+                _res = default(GeneratedArg?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6833,11 +7403,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: param_star_annotation from python.gram
-        public GeneratedArg ParamStarAnnotation()
+        public GeneratedArg? ParamStarAnnotation()
         {
             // CPython 3.12 PEG: param_star_annotation
             int _mark = _position;
-            GeneratedArg _res = null;
+            GeneratedArg? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -6879,9 +7449,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_arg(a->v.Name.id, b, NULL, EXTRA)
+                // Action: _PyAST_arg(a.Id, b, null, EXTRA)
                 // Unknown AST function: _PyAST_arg
-                _res = default(GeneratedArg);
+                _res = default(GeneratedArg?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6898,11 +7468,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: annotation from python.gram
-        public GeneratedExpr Annotation()
+        public GeneratedExpr? Annotation()
         {
             // CPython 3.12 PEG: annotation
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -6942,7 +7512,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExpr)((GeneratedPtr?)a);
+                _res = (GeneratedExpr?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6959,11 +7529,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: star_annotation from python.gram
-        public GeneratedExpr StarAnnotation()
+        public GeneratedExpr? StarAnnotation()
         {
             // CPython 3.12 PEG: star_annotation
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -7003,7 +7573,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExpr)((GeneratedPtr?)a);
+                _res = (GeneratedExpr?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -7020,11 +7590,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: default from python.gram
-        public GeneratedExpr Default()
+        public GeneratedExpr? Default()
         {
             // CPython 3.12 PEG: default
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -7064,7 +7634,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExpr)((GeneratedPtr?)a);
+                _res = (GeneratedExpr?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -7082,19 +7652,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_default
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_DEFAULT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_DEFAULT] Calling InvalidDefault()");
                     _tmp0 = InvalidDefault();
+                    Console.WriteLine($"[INVALID_DEFAULT] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_DEFAULT] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -7112,11 +7702,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: if_stmt from python.gram
-        public GeneratedStmt IfStmt()
+        public GeneratedStmt? IfStmt()
         {
             // CPython 3.12 PEG: if_stmt
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -7139,19 +7729,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_if_stmt
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_IF_STMT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_IF_STMT] Calling InvalidIfStmt()");
                     _tmp0 = InvalidIfStmt();
+                    Console.WriteLine($"[INVALID_IF_STMT] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_IF_STMT] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -7213,8 +7823,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_If(a, b, CHECK(asdl_stmt_seq*, _PyPegen_singleton_seq(p, c)), EXTRA)
-                _res = _PyAST_If(a, b, _PyPegen_singleton_seq(c), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                // Action: _PyAST_If(a, b, CHECK<asdl_stmt_seq>(_PyPegen_singleton_seq(c)), EXTRA)
+                _res = _PyAST_If(a, b, CHECK<asdl_stmt_seq>(_PyPegen_singleton_seq(c)), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -7275,7 +7885,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: else_block
                 {
                     _position = _group_mark__opt_c;
-                    GeneratedStmtSeq _group_alt0__opt_c_item0 = ElseBlock();
+                    GeneratedStmtSeq? _group_alt0__opt_c_item0 = ElseBlock();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -7286,11 +7896,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_c;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedStmtSeq? c = _opt_c;
-                if (c == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (c == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_c; // Reset position
-                    c = null; // Optional not present
                 }
                 // Action: _PyAST_If(a, b, c, EXTRA)
                 _res = _PyAST_If(a, b, c, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
@@ -7311,11 +7930,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: elif_stmt from python.gram
-        public GeneratedStmt ElifStmt()
+        public GeneratedStmt? ElifStmt()
         {
             // CPython 3.12 PEG: elif_stmt
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -7338,19 +7957,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_elif_stmt
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_ELIF_STMT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_ELIF_STMT] Calling InvalidElifStmt()");
                     _tmp0 = InvalidElifStmt();
+                    Console.WriteLine($"[INVALID_ELIF_STMT] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_ELIF_STMT] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -7412,8 +8051,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_If(a, b, CHECK(asdl_stmt_seq*, _PyPegen_singleton_seq(p, c)), EXTRA)
-                _res = _PyAST_If(a, b, _PyPegen_singleton_seq(c), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                // Action: _PyAST_If(a, b, CHECK<asdl_stmt_seq>(_PyPegen_singleton_seq(c)), EXTRA)
+                _res = _PyAST_If(a, b, CHECK<asdl_stmt_seq>(_PyPegen_singleton_seq(c)), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -7474,7 +8113,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: else_block
                 {
                     _position = _group_mark__opt_c;
-                    GeneratedStmtSeq _group_alt0__opt_c_item0 = ElseBlock();
+                    GeneratedStmtSeq? _group_alt0__opt_c_item0 = ElseBlock();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -7485,11 +8124,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_c;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedStmtSeq? c = _opt_c;
-                if (c == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (c == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_c; // Reset position
-                    c = null; // Optional not present
                 }
                 // Action: _PyAST_If(a, b, c, EXTRA)
                 _res = _PyAST_If(a, b, c, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
@@ -7510,11 +8158,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: else_block from python.gram
-        public GeneratedStmtSeq ElseBlock()
+        public GeneratedStmtSeq? ElseBlock()
         {
             // CPython 3.12 PEG: else_block
             int _mark = _position;
-            GeneratedStmtSeq _res = null;
+            GeneratedStmtSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -7537,19 +8185,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_else_stmt
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_ELSE_STMT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_ELSE_STMT] Calling InvalidElseStmt()");
                     _tmp0 = InvalidElseStmt();
+                    Console.WriteLine($"[INVALID_ELSE_STMT] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_ELSE_STMT] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -7599,7 +8267,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: b
-                _res = (GeneratedStmtSeq)((GeneratedPtr?)b);
+                _res = (GeneratedStmtSeq?)((GeneratedPtr?)b);
                 if (_res != null) goto done;
             } while (false);
 
@@ -7616,11 +8284,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: while_stmt from python.gram
-        public GeneratedStmt WhileStmt()
+        public GeneratedStmt? WhileStmt()
         {
             // CPython 3.12 PEG: while_stmt
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -7643,19 +8311,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_while_stmt
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_WHILE_STMT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_WHILE_STMT] Calling InvalidWhileStmt()");
                     _tmp0 = InvalidWhileStmt();
+                    Console.WriteLine($"[INVALID_WHILE_STMT] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_WHILE_STMT] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -7716,7 +8404,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: else_block
                 {
                     _position = _group_mark__opt_c;
-                    GeneratedStmtSeq _group_alt0__opt_c_item0 = ElseBlock();
+                    GeneratedStmtSeq? _group_alt0__opt_c_item0 = ElseBlock();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -7727,11 +8415,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_c;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedStmtSeq? c = _opt_c;
-                if (c == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (c == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_c; // Reset position
-                    c = null; // Optional not present
                 }
                 // Action: _PyAST_While(a, b, c, EXTRA)
                 _res = _PyAST_While(a, b, c, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
@@ -7752,11 +8449,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: for_stmt from python.gram
-        public GeneratedStmt ForStmt()
+        public GeneratedStmt? ForStmt()
         {
             // CPython 3.12 PEG: for_stmt
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -7779,19 +8476,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_for_stmt
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_FOR_STMT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_FOR_STMT] Calling InvalidForStmt()");
                     _tmp0 = InvalidForStmt();
+                    Console.WriteLine($"[INVALID_FOR_STMT] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_FOR_STMT] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -7874,11 +8591,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_tc;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? tc = _opt_tc;
-                if (tc == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (tc == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_tc; // Reset position
-                    tc = null; // Optional not present
                 }
                 // Call rule: block
                 var b = Block();
@@ -7897,7 +8623,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: else_block
                 {
                     _position = _group_mark__opt_el;
-                    GeneratedStmtSeq _group_alt0__opt_el_item0 = ElseBlock();
+                    GeneratedStmtSeq? _group_alt0__opt_el_item0 = ElseBlock();
                     if (_group_alt0__opt_el_item0 != null)
                     {
                         _opt_el = _group_alt0__opt_el_item0;
@@ -7908,13 +8634,22 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_el;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedStmtSeq? el = _opt_el;
-                if (el == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_el; // Reset position
-                    el = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyAST_For(t, ex, b, el, NEW_TYPE_COMMENT(p, tc), EXTRA)
+                else if (el == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_el; // Reset position
+                }
+                // Action: _PyAST_For(t, ex, b, el, tc?.Value, EXTRA)
                 _res = _PyAST_For(t, ex, b, el, tc?.Value, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
@@ -8009,11 +8744,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_tc;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? tc = _opt_tc;
-                if (tc == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (tc == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_tc; // Reset position
-                    tc = null; // Optional not present
                 }
                 // Call rule: block
                 var b = Block();
@@ -8032,7 +8776,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: else_block
                 {
                     _position = _group_mark__opt_el;
-                    GeneratedStmtSeq _group_alt0__opt_el_item0 = ElseBlock();
+                    GeneratedStmtSeq? _group_alt0__opt_el_item0 = ElseBlock();
                     if (_group_alt0__opt_el_item0 != null)
                     {
                         _opt_el = _group_alt0__opt_el_item0;
@@ -8043,15 +8787,24 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_el;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedStmtSeq? el = _opt_el;
-                if (el == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_el; // Reset position
-                    el = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: CHECK_VERSION(stmt_ty, 5, "Async for loops are", _PyAST_AsyncFor(t, ex, b, el, NEW_TYPE_COMMENT(p, tc), EXTRA))
+                else if (el == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_el; // Reset position
+                }
+                // Action: CHECK_VERSION(stmt_ty, 5, "Async for loops are", _PyAST_AsyncFor(t, ex, b, el, tc?.Value, EXTRA))
                 // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedStmt);
+                _res = default(GeneratedStmt?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -8069,19 +8822,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_for_target
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_FOR_TARGET] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_FOR_TARGET] Calling InvalidForTarget()");
                     _tmp0 = InvalidForTarget();
+                    Console.WriteLine($"[INVALID_FOR_TARGET] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_FOR_TARGET] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -8099,11 +8872,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: with_stmt from python.gram
-        public GeneratedStmt WithStmt()
+        public GeneratedStmt? WithStmt()
         {
             // CPython 3.12 PEG: with_stmt
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -8126,19 +8899,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_with_stmt_indent
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_WITH_STMT_INDENT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_WITH_STMT_INDENT] Calling InvalidWithStmtIndent()");
                     _tmp0 = InvalidWithStmtIndent();
+                    Console.WriteLine($"[INVALID_WITH_STMT_INDENT] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_WITH_STMT_INDENT] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -8224,11 +9017,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp2 = _opt__tmp2;
-                if (_tmp2 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp2 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp2; // Reset position
-                    _tmp2 = null; // Optional not present
                 }
                 // Expect ')'
                 var _tmp3 = Expect(")");
@@ -8257,7 +9059,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_With(a, b, NULL, EXTRA)
+                // Action: _PyAST_With(a, b, null, EXTRA)
                 _res = _PyAST_With(a, b, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
@@ -8352,11 +9154,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_tc;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? tc = _opt_tc;
-                if (tc == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (tc == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_tc; // Reset position
-                    tc = null; // Optional not present
                 }
                 // Call rule: block
                 var b = Block();
@@ -8367,7 +9178,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_With(a, b, NEW_TYPE_COMMENT(p, tc), EXTRA)
+                // Action: _PyAST_With(a, b, tc?.Value, EXTRA)
                 _res = _PyAST_With(a, b, tc?.Value, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
@@ -8465,11 +9276,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp3 = _opt__tmp3;
-                if (_tmp3 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp3 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp3; // Reset position
-                    _tmp3 = null; // Optional not present
                 }
                 // Expect ')'
                 var _tmp4 = Expect(")");
@@ -8498,9 +9318,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: CHECK_VERSION(stmt_ty, 5, "Async with statements are", _PyAST_AsyncWith(a, b, NULL, EXTRA))
+                // Action: CHECK_VERSION(stmt_ty, 5, "Async with statements are", _PyAST_AsyncWith(a, b, null, EXTRA))
                 // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedStmt);
+                _res = default(GeneratedStmt?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -8604,11 +9424,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_tc;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? tc = _opt_tc;
-                if (tc == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (tc == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_tc; // Reset position
-                    tc = null; // Optional not present
                 }
                 // Call rule: block
                 var b = Block();
@@ -8619,9 +9448,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: CHECK_VERSION(stmt_ty, 5, "Async with statements are", _PyAST_AsyncWith(a, b, NEW_TYPE_COMMENT(p, tc), EXTRA))
+                // Action: CHECK_VERSION(stmt_ty, 5, "Async with statements are", _PyAST_AsyncWith(a, b, tc?.Value, EXTRA))
                 // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedStmt);
+                _res = default(GeneratedStmt?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -8639,19 +9468,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_with_stmt
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_WITH_STMT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_WITH_STMT] Calling InvalidWithStmt()");
                     _tmp0 = InvalidWithStmt();
+                    Console.WriteLine($"[INVALID_WITH_STMT] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_WITH_STMT] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -8669,11 +9518,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: with_item from python.gram
-        public GeneratedWithitem WithItem()
+        public GeneratedWithitem? WithItem()
         {
             // CPython 3.12 PEG: with_item
             int _mark = _position;
-            GeneratedWithitem _res = null;
+            GeneratedWithitem? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -8738,9 +9587,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_withitem(e, t, p->arena)
+                // Action: _PyAST_withitem(e, t)
                 // Unknown AST function: _PyAST_withitem
-                _res = default(GeneratedWithitem);
+                _res = default(GeneratedWithitem?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -8758,19 +9607,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_with_item
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_WITH_ITEM] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_WITH_ITEM] Calling InvalidWithItem()");
                     _tmp0 = InvalidWithItem();
+                    Console.WriteLine($"[INVALID_WITH_ITEM] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_WITH_ITEM] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -8796,9 +9665,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_withitem(e, NULL, p->arena)
+                // Action: _PyAST_withitem(e, null)
                 // Unknown AST function: _PyAST_withitem
-                _res = default(GeneratedWithitem);
+                _res = default(GeneratedWithitem?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -8815,11 +9684,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: try_stmt from python.gram
-        public GeneratedStmt TryStmt()
+        public GeneratedStmt? TryStmt()
         {
             // CPython 3.12 PEG: try_stmt
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -8842,19 +9711,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_try_stmt
                 GeneratedPtr? _tmp0 = null;
+                Console.WriteLine($"[INVALID_TRY_STMT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_TRY_STMT] Calling InvalidTryStmt()");
                     _tmp0 = InvalidTryStmt();
+                    Console.WriteLine($"[INVALID_TRY_STMT] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_TRY_STMT] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -8912,7 +9801,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_Try(b, NULL, NULL, f, EXTRA)
+                // Action: _PyAST_Try(b, null, null, f, EXTRA)
                 _res = _PyAST_Try(b, null, null, f, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
@@ -8979,7 +9868,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: else_block
                 {
                     _position = _group_mark__opt_el;
-                    GeneratedStmtSeq _group_alt0__opt_el_item0 = ElseBlock();
+                    GeneratedStmtSeq? _group_alt0__opt_el_item0 = ElseBlock();
                     if (_group_alt0__opt_el_item0 != null)
                     {
                         _opt_el = _group_alt0__opt_el_item0;
@@ -8990,11 +9879,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_el;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedStmtSeq? el = _opt_el;
-                if (el == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (el == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_el; // Reset position
-                    el = null; // Optional not present
                 }
                 // Optional: [(finally_block)]
                 int _opt_mark_f = _position;
@@ -9004,7 +9902,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: finally_block
                 {
                     _position = _group_mark__opt_f;
-                    GeneratedStmtSeq _group_alt0__opt_f_item0 = FinallyBlock();
+                    GeneratedStmtSeq? _group_alt0__opt_f_item0 = FinallyBlock();
                     if (_group_alt0__opt_f_item0 != null)
                     {
                         _opt_f = _group_alt0__opt_f_item0;
@@ -9015,11 +9913,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_f;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedStmtSeq? f = _opt_f;
-                if (f == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (f == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_f; // Reset position
-                    f = null; // Optional not present
                 }
                 // Action: _PyAST_Try(b, ex, el, f, EXTRA)
                 _res = _PyAST_Try(b, ex, el, f, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
@@ -9088,7 +9995,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: else_block
                 {
                     _position = _group_mark__opt_el;
-                    GeneratedStmtSeq _group_alt0__opt_el_item0 = ElseBlock();
+                    GeneratedStmtSeq? _group_alt0__opt_el_item0 = ElseBlock();
                     if (_group_alt0__opt_el_item0 != null)
                     {
                         _opt_el = _group_alt0__opt_el_item0;
@@ -9099,11 +10006,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_el;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedStmtSeq? el = _opt_el;
-                if (el == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (el == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_el; // Reset position
-                    el = null; // Optional not present
                 }
                 // Optional: [(finally_block)]
                 int _opt_mark_f = _position;
@@ -9113,7 +10029,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: finally_block
                 {
                     _position = _group_mark__opt_f;
-                    GeneratedStmtSeq _group_alt0__opt_f_item0 = FinallyBlock();
+                    GeneratedStmtSeq? _group_alt0__opt_f_item0 = FinallyBlock();
                     if (_group_alt0__opt_f_item0 != null)
                     {
                         _opt_f = _group_alt0__opt_f_item0;
@@ -9124,17 +10040,26 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_f;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedStmtSeq? f = _opt_f;
-                if (f == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (f == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_f; // Reset position
-                    f = null; // Optional not present
                 }
                 // Action (multiline):
                 //   CHECK_VERSION(stmt_ty, 11, "Exception groups are",
                 //   _PyAST_TryStar(b, ex, el, f, EXTRA))
                 // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedStmt);
+                _res = default(GeneratedStmt?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -9151,11 +10076,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: except_block from python.gram
-        public GeneratedExceptHandler ExceptBlock()
+        public GeneratedExcepthandler? ExceptBlock()
         {
             // CPython 3.12 PEG: except_block
             int _mark = _position;
-            GeneratedExceptHandler _res = null;
+            GeneratedExcepthandler? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -9178,19 +10103,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_except_stmt_indent
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_EXCEPT_STMT_INDENT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_EXCEPT_STMT_INDENT] Calling InvalidExceptStmtIndent()");
                     _tmp0 = InvalidExceptStmtIndent();
+                    Console.WriteLine($"[INVALID_EXCEPT_STMT_INDENT] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_EXCEPT_STMT_INDENT] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -9248,11 +10193,20 @@ namespace SharpPy.Generated
                         }
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? t = _opt_t;
-                if (t == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (t == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_t; // Reset position
-                    t = null; // Optional not present
                 }
                 // Expect ':'
                 var _tmp1 = Expect(":");
@@ -9272,9 +10226,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_ExceptHandler(e, (t) ? ((expr_ty) t)->v.Name.id : NULL, b, EXTRA)
+                // Action: _PyAST_ExceptHandler(e, (t) ? (t).Id : null, b, EXTRA)
                 // Unknown AST function: _PyAST_ExceptHandler
-                _res = default(GeneratedExceptHandler);
+                _res = default(GeneratedExcepthandler?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -9317,9 +10271,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_ExceptHandler(NULL, NULL, b, EXTRA)
+                // Action: _PyAST_ExceptHandler(null, null, b, EXTRA)
                 // Unknown AST function: _PyAST_ExceptHandler
-                _res = default(GeneratedExceptHandler);
+                _res = default(GeneratedExcepthandler?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -9337,19 +10291,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_except_stmt
                 GeneratedPtr? _tmp0 = null;
+                Console.WriteLine($"[INVALID_EXCEPT_STMT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_EXCEPT_STMT] Calling InvalidExceptStmt()");
                     _tmp0 = InvalidExceptStmt();
+                    Console.WriteLine($"[INVALID_EXCEPT_STMT] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_EXCEPT_STMT] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -9367,11 +10341,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: except_star_block from python.gram
-        public GeneratedExceptHandler ExceptStarBlock()
+        public GeneratedExcepthandler? ExceptStarBlock()
         {
             // CPython 3.12 PEG: except_star_block
             int _mark = _position;
-            GeneratedExceptHandler _res = null;
+            GeneratedExcepthandler? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -9394,19 +10368,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_except_star_stmt_indent
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_EXCEPT_STAR_STMT_INDENT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_EXCEPT_STAR_STMT_INDENT] Calling InvalidExceptStarStmtIndent()");
                     _tmp0 = InvalidExceptStarStmtIndent();
+                    Console.WriteLine($"[INVALID_EXCEPT_STAR_STMT_INDENT] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_EXCEPT_STAR_STMT_INDENT] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -9473,11 +10467,20 @@ namespace SharpPy.Generated
                         }
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? t = _opt_t;
-                if (t == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (t == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_t; // Reset position
-                    t = null; // Optional not present
                 }
                 // Expect ':'
                 var _tmp2 = Expect(":");
@@ -9497,9 +10500,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_ExceptHandler(e, (t) ? ((expr_ty) t)->v.Name.id : NULL, b, EXTRA)
+                // Action: _PyAST_ExceptHandler(e, (t) ? (t).Id : null, b, EXTRA)
                 // Unknown AST function: _PyAST_ExceptHandler
-                _res = default(GeneratedExceptHandler);
+                _res = default(GeneratedExcepthandler?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -9517,19 +10520,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_except_stmt
                 GeneratedPtr? _tmp0 = null;
+                Console.WriteLine($"[INVALID_EXCEPT_STMT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_EXCEPT_STMT] Calling InvalidExceptStmt()");
                     _tmp0 = InvalidExceptStmt();
+                    Console.WriteLine($"[INVALID_EXCEPT_STMT] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_EXCEPT_STMT] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -9547,11 +10570,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: finally_block from python.gram
-        public GeneratedStmtSeq FinallyBlock()
+        public GeneratedStmtSeq? FinallyBlock()
         {
             // CPython 3.12 PEG: finally_block
             int _mark = _position;
-            GeneratedStmtSeq _res = null;
+            GeneratedStmtSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -9574,19 +10597,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_finally_stmt
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_FINALLY_STMT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_FINALLY_STMT] Calling InvalidFinallyStmt()");
                     _tmp0 = InvalidFinallyStmt();
+                    Console.WriteLine($"[INVALID_FINALLY_STMT] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_FINALLY_STMT] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -9636,7 +10679,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedStmtSeq)((GeneratedPtr?)a);
+                _res = (GeneratedStmtSeq?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -9653,11 +10696,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: match_stmt from python.gram
-        public GeneratedStmt MatchStmt()
+        public GeneratedStmt? MatchStmt()
         {
             // CPython 3.12 PEG: match_stmt
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -9749,7 +10792,7 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(DEDENT): result={(_tmp4 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: CHECK_VERSION(stmt_ty, 10, "Pattern matching is", _PyAST_Match(subject, cases, EXTRA))
                 // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedStmt);
+                _res = default(GeneratedStmt?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -9767,19 +10810,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_match_stmt
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_MATCH_STMT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_MATCH_STMT] Calling InvalidMatchStmt()");
                     _tmp0 = InvalidMatchStmt();
+                    Console.WriteLine($"[INVALID_MATCH_STMT] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_MATCH_STMT] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -9797,11 +10860,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: subject_expr from python.gram
-        public GeneratedExpr SubjectExpr()
+        public GeneratedExpr? SubjectExpr()
         {
             // CPython 3.12 PEG: subject_expr
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -9851,14 +10914,23 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExprSeq? values = _opt_values;
-                if (values == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_values; // Reset position
-                    values = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, value, values)), Load, EXTRA)
-                _res = _PyAST_Tuple(_PyPegen_seq_insert_in_front(value, values), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                else if (values == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_values; // Reset position
+                }
+                // Action: _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(value, values)), Load, EXTRA)
+                _res = _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(value, values)), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -9885,7 +10957,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -9902,11 +10974,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: case_block from python.gram
-        public GeneratedMatchCase CaseBlock()
+        public GeneratedMatchCase? CaseBlock()
         {
             // CPython 3.12 PEG: case_block
             int _mark = _position;
-            GeneratedMatchCase _res = null;
+            GeneratedMatchCase? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -9929,19 +11001,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_case_block
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_CASE_BLOCK] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_CASE_BLOCK] Calling InvalidCaseBlock()");
                     _tmp0 = InvalidCaseBlock();
+                    Console.WriteLine($"[INVALID_CASE_BLOCK] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_CASE_BLOCK] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -9987,11 +11079,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? guard = _opt_guard;
-                if (guard == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (guard == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_guard; // Reset position
-                    guard = null; // Optional not present
                 }
                 // Expect ':'
                 var _tmp1 = Expect(":");
@@ -10011,9 +11112,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_match_case(pattern, guard, body, p->arena)
+                // Action: _PyAST_match_case(pattern, guard, body)
                 // Unknown AST function: _PyAST_match_case
-                _res = default(GeneratedMatchCase);
+                _res = default(GeneratedMatchCase?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10030,11 +11131,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: guard from python.gram
-        public GeneratedExpr Guard()
+        public GeneratedExpr? Guard()
         {
             // CPython 3.12 PEG: guard
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -10074,7 +11175,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: guard
-                _res = (GeneratedExpr)((GeneratedPtr?)guard);
+                _res = (GeneratedExpr?)((GeneratedPtr?)guard);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10091,11 +11192,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: patterns from python.gram
-        public GeneratedPattern Patterns()
+        public GeneratedPattern? Patterns()
         {
             // CPython 3.12 PEG: patterns
             int _mark = _position;
-            GeneratedPattern _res = null;
+            GeneratedPattern? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -10127,7 +11228,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchSequence(patterns, EXTRA)
                 // Unknown AST function: _PyAST_MatchSequence
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10153,7 +11254,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)_tmp0;
+                _res = (GeneratedPattern?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10170,11 +11271,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: pattern from python.gram
-        public GeneratedPattern Pattern()
+        public GeneratedPattern? Pattern()
         {
             // CPython 3.12 PEG: pattern
             int _mark = _position;
-            GeneratedPattern _res = null;
+            GeneratedPattern? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -10205,7 +11306,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)_tmp0;
+                _res = (GeneratedPattern?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10231,7 +11332,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)_tmp0;
+                _res = (GeneratedPattern?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10248,11 +11349,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: as_pattern from python.gram
-        public GeneratedPattern AsPattern()
+        public GeneratedPattern? AsPattern()
         {
             // CPython 3.12 PEG: as_pattern
             int _mark = _position;
-            GeneratedPattern _res = null;
+            GeneratedPattern? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -10300,9 +11401,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_MatchAs(pattern, target->v.Name.id, EXTRA)
+                // Action: _PyAST_MatchAs(pattern, target.Id, EXTRA)
                 // Unknown AST function: _PyAST_MatchAs
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10320,19 +11421,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_as_pattern
                 GeneratedPtr? _tmp0 = null;
+                Console.WriteLine($"[INVALID_AS_PATTERN] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_AS_PATTERN] Calling InvalidAsPattern()");
                     _tmp0 = InvalidAsPattern();
+                    Console.WriteLine($"[INVALID_AS_PATTERN] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_AS_PATTERN] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -10350,11 +11471,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: or_pattern from python.gram
-        public GeneratedPattern OrPattern()
+        public GeneratedPattern? OrPattern()
         {
             // CPython 3.12 PEG: or_pattern
             int _mark = _position;
-            GeneratedPattern _res = null;
+            GeneratedPattern? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -10417,7 +11538,7 @@ namespace SharpPy.Generated
                 }
                 // Action: asdl_seq_LEN(patterns) == 1 ? asdl_seq_GET(patterns, 0) : _PyAST_MatchOr(patterns, EXTRA)
                 // Unknown AST function: _PyAST_MatchOr
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10434,18 +11555,18 @@ namespace SharpPy.Generated
         }
 
         // Rule: closed_pattern from python.gram
-        public GeneratedPattern ClosedPattern()
+        public GeneratedPattern? ClosedPattern()
         {
             // CPython 3.12: Memoized (non-left-recursive) - simple memoization
             // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return TryMemoized<GeneratedPattern>("ClosedPattern", _ClosedPattern);
+            return (GeneratedPattern?)TryMemoized("ClosedPattern", _ClosedPattern);
         }
 
-        private GeneratedPattern _ClosedPattern()
+        private GeneratedPattern? _ClosedPattern()
         {
             // CPython 3.12 PEG: closed_pattern
             int _mark = _position;
-            GeneratedPattern _res = null;
+            GeneratedPattern? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -10476,7 +11597,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)_tmp0;
+                _res = (GeneratedPattern?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10502,7 +11623,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)_tmp0;
+                _res = (GeneratedPattern?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10528,7 +11649,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)_tmp0;
+                _res = (GeneratedPattern?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10554,7 +11675,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)_tmp0;
+                _res = (GeneratedPattern?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10580,7 +11701,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)_tmp0;
+                _res = (GeneratedPattern?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10606,7 +11727,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)_tmp0;
+                _res = (GeneratedPattern?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10632,7 +11753,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)_tmp0;
+                _res = (GeneratedPattern?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10658,7 +11779,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)_tmp0;
+                _res = (GeneratedPattern?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10675,11 +11796,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: literal_pattern from python.gram
-        public GeneratedPattern LiteralPattern()
+        public GeneratedPattern? LiteralPattern()
         {
             // CPython 3.12 PEG: literal_pattern
             int _mark = _position;
-            GeneratedPattern _res = null;
+            GeneratedPattern? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -10724,7 +11845,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchValue(value, EXTRA)
                 // Unknown AST function: _PyAST_MatchValue
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10751,7 +11872,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchValue(value, EXTRA)
                 // Unknown AST function: _PyAST_MatchValue
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10778,7 +11899,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchValue(value, EXTRA)
                 // Unknown AST function: _PyAST_MatchValue
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10805,7 +11926,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchSingleton(Py_None, EXTRA)
                 // Unknown AST function: _PyAST_MatchSingleton
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10832,7 +11953,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchSingleton(Py_True, EXTRA)
                 // Unknown AST function: _PyAST_MatchSingleton
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10859,7 +11980,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchSingleton(Py_False, EXTRA)
                 // Unknown AST function: _PyAST_MatchSingleton
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10876,11 +11997,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: literal_expr from python.gram
-        public GeneratedExpr LiteralExpr()
+        public GeneratedExpr? LiteralExpr()
         {
             // CPython 3.12 PEG: literal_expr
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -10924,7 +12045,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10950,7 +12071,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -10976,7 +12097,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -11001,7 +12122,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_Constant(Py_None, NULL, EXTRA)
+                // Action: _PyAST_Constant(Py_None, null, EXTRA)
                 _res = _PyAST_Constant(Py_None, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
@@ -11028,7 +12149,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_Constant(Py_True, NULL, EXTRA)
+                // Action: _PyAST_Constant(Py_True, null, EXTRA)
                 _res = _PyAST_Constant(Py_True, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
@@ -11055,7 +12176,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_Constant(Py_False, NULL, EXTRA)
+                // Action: _PyAST_Constant(Py_False, null, EXTRA)
                 _res = _PyAST_Constant(Py_False, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
@@ -11074,11 +12195,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: complex_number from python.gram
-        public GeneratedExpr ComplexNumber()
+        public GeneratedExpr? ComplexNumber()
         {
             // CPython 3.12 PEG: complex_number
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -11190,11 +12311,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: signed_number from python.gram
-        public GeneratedExpr SignedNumber()
+        public GeneratedExpr? SignedNumber()
         {
             // CPython 3.12 PEG: signed_number
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -11285,11 +12406,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: signed_real_number from python.gram
-        public GeneratedExpr SignedRealNumber()
+        public GeneratedExpr? SignedRealNumber()
         {
             // CPython 3.12 PEG: signed_real_number
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -11320,7 +12441,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -11373,11 +12494,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: real_number from python.gram
-        public GeneratedExpr RealNumber()
+        public GeneratedExpr? RealNumber()
         {
             // CPython 3.12 PEG: real_number
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -11410,9 +12531,9 @@ namespace SharpPy.Generated
                 }
                 var real = NumberToken(_token_real);
                 Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): result={(real != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: _PyPegen_ensure_real(p, real)
+                // Action: _PyPegen_ensure_real(real)
                 // Unknown AST function: _PyPegen_ensure_real
-                _res = default(GeneratedExpr);
+                _res = default(GeneratedExpr?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11429,11 +12550,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: imaginary_number from python.gram
-        public GeneratedExpr ImaginaryNumber()
+        public GeneratedExpr? ImaginaryNumber()
         {
             // CPython 3.12 PEG: imaginary_number
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -11466,9 +12587,9 @@ namespace SharpPy.Generated
                 }
                 var imag = NumberToken(_token_imag);
                 Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): result={(imag != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: _PyPegen_ensure_imaginary(p, imag)
+                // Action: _PyPegen_ensure_imaginary(imag)
                 // Unknown AST function: _PyPegen_ensure_imaginary
-                _res = default(GeneratedExpr);
+                _res = default(GeneratedExpr?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11485,11 +12606,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: capture_pattern from python.gram
-        public GeneratedPattern CapturePattern()
+        public GeneratedPattern? CapturePattern()
         {
             // CPython 3.12 PEG: capture_pattern
             int _mark = _position;
-            GeneratedPattern _res = null;
+            GeneratedPattern? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -11519,9 +12640,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_MatchAs(NULL, target->v.Name.id, EXTRA)
+                // Action: _PyAST_MatchAs(null, target.Id, EXTRA)
                 // Unknown AST function: _PyAST_MatchAs
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11538,11 +12659,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: pattern_capture_target from python.gram
-        public GeneratedExpr PatternCaptureTarget()
+        public GeneratedExpr? PatternCaptureTarget()
         {
             // CPython 3.12 PEG: pattern_capture_target
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -11600,7 +12721,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_set_expr_context(p, name, Store)
+                // Action: _PyPegen_set_expr_context(name, Store)
                 _res = _PyPegen_set_expr_context(name, GeneratedStore.Instance);
                 if (_res != null) goto done;
             } while (false);
@@ -11618,11 +12739,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: wildcard_pattern from python.gram
-        public GeneratedPattern WildcardPattern()
+        public GeneratedPattern? WildcardPattern()
         {
             // CPython 3.12 PEG: wildcard_pattern
             int _mark = _position;
-            GeneratedPattern _res = null;
+            GeneratedPattern? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -11652,9 +12773,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_MatchAs(NULL, NULL, EXTRA)
+                // Action: _PyAST_MatchAs(null, null, EXTRA)
                 // Unknown AST function: _PyAST_MatchAs
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11671,11 +12792,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: value_pattern from python.gram
-        public GeneratedPattern ValuePattern()
+        public GeneratedPattern? ValuePattern()
         {
             // CPython 3.12 PEG: value_pattern
             int _mark = _position;
-            GeneratedPattern _res = null;
+            GeneratedPattern? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -11721,7 +12842,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchValue(attr, EXTRA)
                 // Unknown AST function: _PyAST_MatchValue
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11738,11 +12859,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: attr from python.gram
-        public GeneratedExpr Attr()
+        public GeneratedExpr? Attr()
         {
             // CPython 3.12 PEG: attr
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -11793,8 +12914,8 @@ namespace SharpPy.Generated
                 }
                 var attr = NameToken(_token_attr);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(attr != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: _PyAST_Attribute(value, attr->v.Name.id, Load, EXTRA)
-                _res = _PyAST_Attribute(value, ASTHelpers.ExtractStringValue(attr), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                // Action: _PyAST_Attribute(value, attr.Id, Load, EXTRA)
+                _res = _PyAST_Attribute(value, attr.Id, GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -11812,11 +12933,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: name_or_attr from python.gram
-        public GeneratedExpr NameOrAttr()
+        public GeneratedExpr? NameOrAttr()
         {
             // CPython 3.12 PEG: name_or_attr
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -11847,7 +12968,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -11894,11 +13015,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: group_pattern from python.gram
-        public GeneratedPattern GroupPattern()
+        public GeneratedPattern? GroupPattern()
         {
             // CPython 3.12 PEG: group_pattern
             int _mark = _position;
-            GeneratedPattern _res = null;
+            GeneratedPattern? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -11947,7 +13068,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: pattern
-                _res = (GeneratedPattern)((GeneratedPtr?)pattern);
+                _res = (GeneratedPattern?)((GeneratedPtr?)pattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11964,11 +13085,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: sequence_pattern from python.gram
-        public GeneratedPattern SequencePattern()
+        public GeneratedPattern? SequencePattern()
         {
             // CPython 3.12 PEG: sequence_pattern
             int _mark = _position;
-            GeneratedPattern _res = null;
+            GeneratedPattern? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -12009,11 +13130,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                GeneratedMixedSeq? patterns = _opt_patterns;
-                if (patterns == null)
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
+                GeneratedSeq? patterns = _opt_patterns;
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (patterns == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_patterns; // Reset position
-                    patterns = null; // Optional not present
                 }
                 // Expect ']'
                 var _tmp1 = Expect("]");
@@ -12026,7 +13156,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchSequence(patterns, EXTRA)
                 // Unknown AST function: _PyAST_MatchSequence
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12062,11 +13192,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                GeneratedMixedSeq? patterns = _opt_patterns;
-                if (patterns == null)
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
+                GeneratedSeq? patterns = _opt_patterns;
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (patterns == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_patterns; // Reset position
-                    patterns = null; // Optional not present
                 }
                 // Expect ')'
                 var _tmp1 = Expect(")");
@@ -12079,7 +13218,7 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyAST_MatchSequence(patterns, EXTRA)
                 // Unknown AST function: _PyAST_MatchSequence
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12096,11 +13235,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: open_sequence_pattern from python.gram
-        public GeneratedMixedSeq OpenSequencePattern()
+        public GeneratedSeq? OpenSequencePattern()
         {
             // CPython 3.12 PEG: open_sequence_pattern
             int _mark = _position;
-            GeneratedMixedSeq _res = null;
+            GeneratedSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -12150,13 +13289,22 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                GeneratedMixedSeq? patterns = _opt_patterns;
-                if (patterns == null)
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
+                GeneratedSeq? patterns = _opt_patterns;
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_patterns; // Reset position
-                    patterns = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyPegen_seq_insert_in_front(p, pattern, patterns)
+                else if (patterns == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_patterns; // Reset position
+                }
+                // Action: _PyPegen_seq_insert_in_front(pattern, patterns)
                 _res = _PyPegen_seq_insert_in_front(pattern, patterns);
                 if (_res != null) goto done;
             } while (false);
@@ -12174,11 +13322,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: maybe_sequence_pattern from python.gram
-        public GeneratedMixedSeq MaybeSequencePattern()
+        public GeneratedSeq? MaybeSequencePattern()
         {
             // CPython 3.12 PEG: maybe_sequence_pattern
             int _mark = _position;
-            GeneratedMixedSeq _res = null;
+            GeneratedSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -12250,14 +13398,23 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Action: patterns
-                _res = (GeneratedMixedSeq)((GeneratedPtr?)patterns);
+                _res = (GeneratedSeq?)((GeneratedPtr?)patterns);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12274,11 +13431,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: maybe_star_pattern from python.gram
-        public GeneratedPattern MaybeStarPattern()
+        public GeneratedPattern? MaybeStarPattern()
         {
             // CPython 3.12 PEG: maybe_star_pattern
             int _mark = _position;
-            GeneratedPattern _res = null;
+            GeneratedPattern? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -12309,7 +13466,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)_tmp0;
+                _res = (GeneratedPattern?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -12335,7 +13492,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedPattern)_tmp0;
+                _res = (GeneratedPattern?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -12352,18 +13509,18 @@ namespace SharpPy.Generated
         }
 
         // Rule: star_pattern from python.gram
-        public GeneratedPattern StarPattern()
+        public GeneratedPattern? StarPattern()
         {
             // CPython 3.12: Memoized (non-left-recursive) - simple memoization
             // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return TryMemoized<GeneratedPattern>("StarPattern", _StarPattern);
+            return (GeneratedPattern?)TryMemoized("StarPattern", _StarPattern);
         }
 
-        private GeneratedPattern _StarPattern()
+        private GeneratedPattern? _StarPattern()
         {
             // CPython 3.12 PEG: star_pattern
             int _mark = _position;
-            GeneratedPattern _res = null;
+            GeneratedPattern? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -12402,9 +13559,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_MatchStar(target->v.Name.id, EXTRA)
+                // Action: _PyAST_MatchStar(target.Id, EXTRA)
                 // Unknown AST function: _PyAST_MatchStar
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12438,9 +13595,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_MatchStar(NULL, EXTRA)
+                // Action: _PyAST_MatchStar(null, EXTRA)
                 // Unknown AST function: _PyAST_MatchStar
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12457,11 +13614,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: mapping_pattern from python.gram
-        public GeneratedPattern MappingPattern()
+        public GeneratedPattern? MappingPattern()
         {
             // CPython 3.12 PEG: mapping_pattern
             int _mark = _position;
-            GeneratedPattern _res = null;
+            GeneratedPattern? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -12500,9 +13657,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_MatchMapping(NULL, NULL, NULL, EXTRA)
+                // Action: _PyAST_MatchMapping(null, null, null, EXTRA)
                 // Unknown AST function: _PyAST_MatchMapping
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12547,11 +13704,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp1 = _opt__tmp1;
-                if (_tmp1 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp1 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp1; // Reset position
-                    _tmp1 = null; // Optional not present
                 }
                 // Expect '}'
                 var _tmp2 = Expect("}");
@@ -12562,9 +13728,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_MatchMapping(NULL, NULL, rest->v.Name.id, EXTRA)
+                // Action: _PyAST_MatchMapping(null, null, rest.Id, EXTRA)
                 // Unknown AST function: _PyAST_MatchMapping
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12627,11 +13793,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp2 = _opt__tmp2;
-                if (_tmp2 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp2 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp2; // Reset position
-                    _tmp2 = null; // Optional not present
                 }
                 // Expect '}'
                 var _tmp3 = Expect("}");
@@ -12644,12 +13819,12 @@ namespace SharpPy.Generated
                 }
                 // Action (multiline):
                 //   _PyAST_MatchMapping(
-                //   CHECK(asdl_expr_seq*, _PyPegen_get_pattern_keys(p, items)),
-                //   CHECK(asdl_pattern_seq*, _PyPegen_get_patterns(p, items)),
-                //   rest->v.Name.id,
+                //   CHECK<asdl_expr_seq>(_PyPegen_get_pattern_keys(items)),
+                //   CHECK<asdl_pattern_seq>(_PyPegen_get_patterns(items)),
+                //   rest.Id,
                 //   EXTRA)
                 // Unknown AST function: _PyAST_MatchMapping
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12694,11 +13869,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp1 = _opt__tmp1;
-                if (_tmp1 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp1 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp1; // Reset position
-                    _tmp1 = null; // Optional not present
                 }
                 // Expect '}'
                 var _tmp2 = Expect("}");
@@ -12711,12 +13895,12 @@ namespace SharpPy.Generated
                 }
                 // Action (multiline):
                 //   _PyAST_MatchMapping(
-                //   CHECK(asdl_expr_seq*, _PyPegen_get_pattern_keys(p, items)),
-                //   CHECK(asdl_pattern_seq*, _PyPegen_get_patterns(p, items)),
-                //   NULL,
+                //   CHECK<asdl_expr_seq>(_PyPegen_get_pattern_keys(items)),
+                //   CHECK<asdl_pattern_seq>(_PyPegen_get_patterns(items)),
+                //   null,
                 //   EXTRA)
                 // Unknown AST function: _PyAST_MatchMapping
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12733,11 +13917,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: items_pattern from python.gram
-        public GeneratedMixedSeq ItemsPattern()
+        public GeneratedSeq? ItemsPattern()
         {
             // CPython 3.12 PEG: items_pattern
             int _mark = _position;
-            GeneratedMixedSeq _res = null;
+            GeneratedSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -12759,7 +13943,7 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.key_value_pattern+
-                var _tmp0 = new GeneratedAstNodeSeq();
+                var _tmp0 = new GeneratedExprSeq();
                 // Parse first item (no separator)
                 // Call rule: key_value_pattern
                 var _first__tmp0 = KeyValuePattern();
@@ -12770,7 +13954,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                _tmp0.Add(_first__tmp0);
+                _tmp0.Add((GeneratedExpr)_first__tmp0);
                 // Parse remaining items (separator + item)
                 while (true)
                 {
@@ -12796,10 +13980,10 @@ namespace SharpPy.Generated
                         _position = _loop_mark; // Reset to before separator
                         break; // No item after separator
                     }
-                    _tmp0.Add(_loop_elem__tmp0);
+                    _tmp0.Add((GeneratedExpr)_loop_elem__tmp0);
                 }
                 // No action specified - using default result
-                _res = PegenHelpers.ToMixedSeq(_tmp0);
+                _res = (GeneratedSeq?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -12816,11 +14000,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: key_value_pattern from python.gram
-        public GeneratedAstNode? KeyValuePattern()
+        public GeneratedKeyPatternPair? KeyValuePattern()
         {
             // CPython 3.12 PEG: key_value_pattern
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedKeyPatternPair? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -12847,7 +14031,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: literal_expr
                 {
                     _position = _group_mark_key;
-                    GeneratedExpr _group_alt0_key_item0 = LiteralExpr();
+                    GeneratedExpr? _group_alt0_key_item0 = LiteralExpr();
                     if (_group_alt0_key_item0 != null)
                     {
                         key = _group_alt0_key_item0;
@@ -12862,7 +14046,7 @@ namespace SharpPy.Generated
                 if (key == null)
                 {
                     _position = _group_mark_key;
-                    GeneratedExpr _group_alt1_key_item0 = Attr();
+                    GeneratedExpr? _group_alt1_key_item0 = Attr();
                     if (_group_alt1_key_item0 != null)
                     {
                         key = _group_alt1_key_item0;
@@ -12898,9 +14082,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_key_pattern_pair(p, key, pattern)
+                // Action: _PyPegen_key_pattern_pair(key, pattern)
                 // Unknown AST function: _PyPegen_key_pattern_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedKeyPatternPair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12917,11 +14101,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: double_star_pattern from python.gram
-        public GeneratedExpr DoubleStarPattern()
+        public GeneratedExpr? DoubleStarPattern()
         {
             // CPython 3.12 PEG: double_star_pattern
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -12961,7 +14145,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: target
-                _res = (GeneratedExpr)((GeneratedPtr?)target);
+                _res = (GeneratedExpr?)((GeneratedPtr?)target);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12978,11 +14162,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: class_pattern from python.gram
-        public GeneratedPattern ClassPattern()
+        public GeneratedPattern? ClassPattern()
         {
             // CPython 3.12 PEG: class_pattern
             int _mark = _position;
-            GeneratedPattern _res = null;
+            GeneratedPattern? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -13030,9 +14214,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_MatchClass(cls, NULL, NULL, NULL, EXTRA)
+                // Action: _PyAST_MatchClass(cls, null, null, null, EXTRA)
                 // Unknown AST function: _PyAST_MatchClass
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13086,11 +14270,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp1 = _opt__tmp1;
-                if (_tmp1 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp1 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp1; // Reset position
-                    _tmp1 = null; // Optional not present
                 }
                 // Expect ')'
                 var _tmp2 = Expect(")");
@@ -13101,9 +14294,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_MatchClass(cls, patterns, NULL, NULL, EXTRA)
+                // Action: _PyAST_MatchClass(cls, patterns, null, null, EXTRA)
                 // Unknown AST function: _PyAST_MatchClass
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13157,11 +14350,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp1 = _opt__tmp1;
-                if (_tmp1 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp1 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp1; // Reset position
-                    _tmp1 = null; // Optional not present
                 }
                 // Expect ')'
                 var _tmp2 = Expect(")");
@@ -13174,13 +14376,13 @@ namespace SharpPy.Generated
                 }
                 // Action (multiline):
                 //   _PyAST_MatchClass(
-                //   cls, NULL,
-                //   CHECK(asdl_identifier_seq*, _PyPegen_map_names_to_ids(p,
-                //   CHECK(asdl_expr_seq*, _PyPegen_get_pattern_keys(p, keywords)))),
-                //   CHECK(asdl_pattern_seq*, _PyPegen_get_patterns(p, keywords)),
+                //   cls, null,
+                //   CHECK<asdl_identifier_seq>(_PyPegen_map_names_to_ids(
+                //   CHECK<asdl_expr_seq>(_PyPegen_get_pattern_keys(keywords)))),
+                //   CHECK<asdl_pattern_seq>(_PyPegen_get_patterns(keywords)),
                 //   EXTRA)
                 // Unknown AST function: _PyAST_MatchClass
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13252,11 +14454,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp2 = _opt__tmp2;
-                if (_tmp2 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp2 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp2; // Reset position
-                    _tmp2 = null; // Optional not present
                 }
                 // Expect ')'
                 var _tmp3 = Expect(")");
@@ -13271,12 +14482,12 @@ namespace SharpPy.Generated
                 //   _PyAST_MatchClass(
                 //   cls,
                 //   patterns,
-                //   CHECK(asdl_identifier_seq*, _PyPegen_map_names_to_ids(p,
-                //   CHECK(asdl_expr_seq*, _PyPegen_get_pattern_keys(p, keywords)))),
-                //   CHECK(asdl_pattern_seq*, _PyPegen_get_patterns(p, keywords)),
+                //   CHECK<asdl_identifier_seq>(_PyPegen_map_names_to_ids(
+                //   CHECK<asdl_expr_seq>(_PyPegen_get_pattern_keys(keywords)))),
+                //   CHECK<asdl_pattern_seq>(_PyPegen_get_patterns(keywords)),
                 //   EXTRA)
                 // Unknown AST function: _PyAST_MatchClass
-                _res = default(GeneratedPattern);
+                _res = default(GeneratedPattern?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13294,19 +14505,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_class_pattern
                 GeneratedSeq? _tmp0 = null;
+                Console.WriteLine($"[INVALID_CLASS_PATTERN] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_CLASS_PATTERN] Calling InvalidClassPattern()");
                     _tmp0 = InvalidClassPattern();
+                    Console.WriteLine($"[INVALID_CLASS_PATTERN] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_CLASS_PATTERN] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -13324,11 +14555,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: positional_patterns from python.gram
-        public GeneratedAstNodeSeq PositionalPatterns()
+        public GeneratedPatternSeq? PositionalPatterns()
         {
             // CPython 3.12 PEG: positional_patterns
             int _mark = _position;
-            GeneratedAstNodeSeq _res = null;
+            GeneratedPatternSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -13390,7 +14621,7 @@ namespace SharpPy.Generated
                     args.Add(_loop_elem_args);
                 }
                 // Action: args
-                _res = (GeneratedAstNodeSeq)((GeneratedPtr?)args);
+                _res = (GeneratedPatternSeq?)((GeneratedPtr?)args);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13407,11 +14638,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: keyword_patterns from python.gram
-        public GeneratedMixedSeq KeywordPatterns()
+        public GeneratedSeq? KeywordPatterns()
         {
             // CPython 3.12 PEG: keyword_patterns
             int _mark = _position;
-            GeneratedMixedSeq _res = null;
+            GeneratedSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -13433,7 +14664,7 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.keyword_pattern+
-                var _tmp0 = new GeneratedAstNodeSeq();
+                var _tmp0 = new GeneratedExprSeq();
                 // Parse first item (no separator)
                 // Call rule: keyword_pattern
                 var _first__tmp0 = KeywordPattern();
@@ -13444,7 +14675,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                _tmp0.Add(_first__tmp0);
+                _tmp0.Add((GeneratedExpr)_first__tmp0);
                 // Parse remaining items (separator + item)
                 while (true)
                 {
@@ -13470,10 +14701,10 @@ namespace SharpPy.Generated
                         _position = _loop_mark; // Reset to before separator
                         break; // No item after separator
                     }
-                    _tmp0.Add(_loop_elem__tmp0);
+                    _tmp0.Add((GeneratedExpr)_loop_elem__tmp0);
                 }
                 // No action specified - using default result
-                _res = PegenHelpers.ToMixedSeq(_tmp0);
+                _res = (GeneratedSeq?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -13490,11 +14721,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: keyword_pattern from python.gram
-        public GeneratedAstNode? KeywordPattern()
+        public GeneratedKeyPatternPair? KeywordPattern()
         {
             // CPython 3.12 PEG: keyword_pattern
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedKeyPatternPair? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -13545,9 +14776,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_key_pattern_pair(p, arg, value)
+                // Action: _PyPegen_key_pattern_pair(arg, value)
                 // Unknown AST function: _PyPegen_key_pattern_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedKeyPatternPair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13564,11 +14795,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: type_alias from python.gram
-        public GeneratedStmt TypeAlias()
+        public GeneratedStmt? TypeAlias()
         {
             // CPython 3.12 PEG: type_alias
             int _mark = _position;
-            GeneratedStmt _res = null;
+            GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -13618,7 +14849,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: type_params
                 {
                     _position = _group_mark__opt_t;
-                    GeneratedTypeParamSeq _group_alt0__opt_t_item0 = TypeParams();
+                    GeneratedTypeParamSeq? _group_alt0__opt_t_item0 = TypeParams();
                     if (_group_alt0__opt_t_item0 != null)
                     {
                         _opt_t = _group_alt0__opt_t_item0;
@@ -13629,11 +14860,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_t;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTypeParamSeq? t = _opt_t;
-                if (t == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (t == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_t; // Reset position
-                    t = null; // Optional not present
                 }
                 // Expect '='
                 var _tmp1 = Expect("=");
@@ -13655,9 +14895,9 @@ namespace SharpPy.Generated
                 }
                 // Action (multiline):
                 //   CHECK_VERSION(stmt_ty, 12, "Type statement is",
-                //   _PyAST_TypeAlias(CHECK(expr_ty, _PyPegen_set_expr_context(p, n, Store)), t, b, EXTRA))
+                //   _PyAST_TypeAlias(CHECK<expr_ty>(_PyPegen_set_expr_context(n, Store)), t, b, EXTRA))
                 // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedStmt);
+                _res = default(GeneratedStmt?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13674,11 +14914,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: type_params from python.gram
-        public GeneratedTypeParamSeq TypeParams()
+        public GeneratedTypeParamSeq? TypeParams()
         {
             // CPython 3.12 PEG: type_params
             int _mark = _position;
-            GeneratedTypeParamSeq _res = null;
+            GeneratedTypeParamSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -13728,7 +14968,7 @@ namespace SharpPy.Generated
                 }
                 // Action: CHECK_VERSION(asdl_type_param_seq *, 12, "Type parameter lists are", t)
                 // TODO: Complex action expression: CHECK_VERSION(asdl_type_param_seq *, 12, "Type parameter lists are", t)
-                _res = default(GeneratedTypeParamSeq);
+                _res = default(GeneratedTypeParamSeq?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13745,11 +14985,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: type_param_seq from python.gram
-        public GeneratedTypeParamSeq TypeParamSeq()
+        public GeneratedTypeParamSeq? TypeParamSeq()
         {
             // CPython 3.12 PEG: type_param_seq
             int _mark = _position;
-            GeneratedTypeParamSeq _res = null;
+            GeneratedTypeParamSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -13829,14 +15069,23 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Action: a
-                _res = (GeneratedTypeParamSeq)((GeneratedPtr?)a);
+                _res = (GeneratedTypeParamSeq?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13853,18 +15102,18 @@ namespace SharpPy.Generated
         }
 
         // Rule: type_param from python.gram
-        public GeneratedTypeParam TypeParam()
+        public GeneratedTypeParam? TypeParam()
         {
             // CPython 3.12: Memoized (non-left-recursive) - simple memoization
             // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return TryMemoized<GeneratedTypeParam>("TypeParam", _TypeParam);
+            return (GeneratedTypeParam?)TryMemoized("TypeParam", _TypeParam);
         }
 
-        private GeneratedTypeParam _TypeParam()
+        private GeneratedTypeParam? _TypeParam()
         {
             // CPython 3.12 PEG: type_param
             int _mark = _position;
-            GeneratedTypeParam _res = null;
+            GeneratedTypeParam? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -13905,7 +15154,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: type_param_bound
                 {
                     _position = _group_mark__opt_b;
-                    GeneratedExpr _group_alt0__opt_b_item0 = TypeParamBound();
+                    GeneratedExpr? _group_alt0__opt_b_item0 = TypeParamBound();
                     if (_group_alt0__opt_b_item0 != null)
                     {
                         _opt_b = _group_alt0__opt_b_item0;
@@ -13916,15 +15165,24 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_b;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? b = _opt_b;
-                if (b == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_b; // Reset position
-                    b = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyAST_TypeVar(a->v.Name.id, b, EXTRA)
+                else if (b == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_b; // Reset position
+                }
+                // Action: _PyAST_TypeVar(a.Id, b, EXTRA)
                 // Unknown AST function: _PyAST_TypeVar
-                _res = default(GeneratedTypeParam);
+                _res = default(GeneratedTypeParam?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13980,7 +15238,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action (multiline):
-                //   RAISE_SYNTAX_ERROR_STARTING_FROM(colon, e->kind == Tuple_kind
+                //   // CPython: e->kind == Tuple_kind
+                //   RAISE_SYNTAX_ERROR_STARTING_FROM(colon, e is GeneratedTuple
                 //   ? "cannot use constraints with TypeVarTuple"
                 //   : "cannot use bound with TypeVarTuple")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
@@ -14023,9 +15282,9 @@ namespace SharpPy.Generated
                 }
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: _PyAST_TypeVarTuple(a->v.Name.id, EXTRA)
+                // Action: _PyAST_TypeVarTuple(a.Id, EXTRA)
                 // Unknown AST function: _PyAST_TypeVarTuple
-                _res = default(GeneratedTypeParam);
+                _res = default(GeneratedTypeParam?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -14081,7 +15340,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action (multiline):
-                //   RAISE_SYNTAX_ERROR_STARTING_FROM(colon, e->kind == Tuple_kind
+                //   // CPython: e->kind == Tuple_kind
+                //   RAISE_SYNTAX_ERROR_STARTING_FROM(colon, e is GeneratedTuple
                 //   ? "cannot use constraints with ParamSpec"
                 //   : "cannot use bound with ParamSpec")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
@@ -14124,9 +15384,9 @@ namespace SharpPy.Generated
                 }
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: _PyAST_ParamSpec(a->v.Name.id, EXTRA)
+                // Action: _PyAST_ParamSpec(a.Id, EXTRA)
                 // Unknown AST function: _PyAST_ParamSpec
-                _res = default(GeneratedTypeParam);
+                _res = default(GeneratedTypeParam?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -14143,11 +15403,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: type_param_bound from python.gram
-        public GeneratedExpr TypeParamBound()
+        public GeneratedExpr? TypeParamBound()
         {
             // CPython 3.12 PEG: type_param_bound
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -14187,7 +15447,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: e
-                _res = (GeneratedExpr)((GeneratedPtr?)e);
+                _res = (GeneratedExpr?)((GeneratedPtr?)e);
                 if (_res != null) goto done;
             } while (false);
 
@@ -14204,11 +15464,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: expressions from python.gram
-        public GeneratedExpr Expressions()
+        public GeneratedExpr? Expressions()
         {
             // CPython 3.12 PEG: expressions
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -14266,14 +15526,23 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, a, b)), Load, EXTRA)
-                _res = _PyAST_Tuple(_PyPegen_seq_insert_in_front(a, b), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark__tmp0; // Reset position
+                }
+                // Action: _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(a, b)), Load, EXTRA)
+                _res = _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(a, b)), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -14308,8 +15577,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_singleton_seq(p, a)), Load, EXTRA)
-                _res = _PyAST_Tuple(_PyPegen_singleton_seq(a), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                // Action: _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_singleton_seq(a)), Load, EXTRA)
+                _res = _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_singleton_seq(a)), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -14336,7 +15605,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -14353,18 +15622,18 @@ namespace SharpPy.Generated
         }
 
         // Rule: expression from python.gram
-        public GeneratedExpr Expression()
+        public GeneratedExpr? Expression()
         {
             // CPython 3.12: Memoized (non-left-recursive) - simple memoization
             // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return TryMemoized<GeneratedExpr>("Expression", _Expression);
+            return (GeneratedExpr?)TryMemoized("Expression", _Expression);
         }
 
-        private GeneratedExpr _Expression()
+        private GeneratedExpr? _Expression()
         {
             // CPython 3.12 PEG: expression
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -14392,19 +15661,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_expression
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_EXPRESSION] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_EXPRESSION] Calling InvalidExpression()");
                     _tmp0 = InvalidExpression();
+                    Console.WriteLine($"[INVALID_EXPRESSION] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_EXPRESSION] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -14426,19 +15715,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_legacy_expression
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_LEGACY_EXPRESSION] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_LEGACY_EXPRESSION] Calling InvalidLegacyExpression()");
                     _tmp0 = InvalidLegacyExpression();
+                    Console.WriteLine($"[INVALID_LEGACY_EXPRESSION] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_LEGACY_EXPRESSION] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -14534,7 +15843,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -14563,7 +15872,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -14581,11 +15890,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: yield_expr from python.gram
-        public GeneratedExpr YieldExpr()
+        public GeneratedExpr? YieldExpr()
         {
             // CPython 3.12 PEG: yield_expr
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -14668,7 +15977,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: star_expressions
                 {
                     _position = _group_mark__opt_a;
-                    GeneratedExpr _group_alt0__opt_a_item0 = StarExpressions();
+                    GeneratedExpr? _group_alt0__opt_a_item0 = StarExpressions();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -14679,11 +15988,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_a;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? a = _opt_a;
-                if (a == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (a == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_a; // Reset position
-                    a = null; // Optional not present
                 }
                 // Action: _PyAST_Yield(a, EXTRA)
                 _res = _PyAST_Yield(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
@@ -14704,11 +16022,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: star_expressions from python.gram
-        public GeneratedExpr StarExpressions()
+        public GeneratedExpr? StarExpressions()
         {
             // CPython 3.12 PEG: star_expressions
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -14766,14 +16084,23 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, a, b)), Load, EXTRA)
-                _res = _PyAST_Tuple(_PyPegen_seq_insert_in_front(a, b), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark__tmp0; // Reset position
+                }
+                // Action: _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(a, b)), Load, EXTRA)
+                _res = _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(a, b)), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -14808,8 +16135,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_singleton_seq(p, a)), Load, EXTRA)
-                _res = _PyAST_Tuple(_PyPegen_singleton_seq(a), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                // Action: _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_singleton_seq(a)), Load, EXTRA)
+                _res = _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_singleton_seq(a)), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -14836,7 +16163,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -14853,18 +16180,18 @@ namespace SharpPy.Generated
         }
 
         // Rule: star_expression from python.gram
-        public GeneratedExpr StarExpression()
+        public GeneratedExpr? StarExpression()
         {
             // CPython 3.12: Memoized (non-left-recursive) - simple memoization
             // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return TryMemoized<GeneratedExpr>("StarExpression", _StarExpression);
+            return (GeneratedExpr?)TryMemoized("StarExpression", _StarExpression);
         }
 
-        private GeneratedExpr _StarExpression()
+        private GeneratedExpr? _StarExpression()
         {
             // CPython 3.12 PEG: star_expression
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -14931,7 +16258,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -14948,11 +16275,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: star_named_expressions from python.gram
-        public GeneratedExprSeq StarNamedExpressions()
+        public GeneratedExprSeq? StarNamedExpressions()
         {
             // CPython 3.12 PEG: star_named_expressions
             int _mark = _position;
-            GeneratedExprSeq _res = null;
+            GeneratedExprSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -15032,14 +16359,23 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Action: a
-                _res = (GeneratedExprSeq)((GeneratedPtr?)a);
+                _res = (GeneratedExprSeq?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -15056,11 +16392,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: star_named_expression from python.gram
-        public GeneratedExpr StarNamedExpression()
+        public GeneratedExpr? StarNamedExpression()
         {
             // CPython 3.12 PEG: star_named_expression
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -15127,7 +16463,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15144,11 +16480,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: assignment_expression from python.gram
-        public GeneratedExpr AssignmentExpression()
+        public GeneratedExpr? AssignmentExpression()
         {
             // CPython 3.12 PEG: assignment_expression
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -15203,9 +16539,9 @@ namespace SharpPy.Generated
                 }
                 // Action (multiline):
                 //   CHECK_VERSION(expr_ty, 8, "Assignment expressions are",
-                //   _PyAST_NamedExpr(CHECK(expr_ty, _PyPegen_set_expr_context(p, a, Store)), b, EXTRA))
+                //   _PyAST_NamedExpr(CHECK<expr_ty>(_PyPegen_set_expr_context(a, Store)), b, EXTRA))
                 // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedExpr);
+                _res = default(GeneratedExpr?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -15222,11 +16558,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: named_expression from python.gram
-        public GeneratedExpr NamedExpression()
+        public GeneratedExpr? NamedExpression()
         {
             // CPython 3.12 PEG: named_expression
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -15257,7 +16593,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15275,19 +16611,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_named_expression
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_NAMED_EXPRESSION] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_NAMED_EXPRESSION] Calling InvalidNamedExpression()");
                     _tmp0 = InvalidNamedExpression();
+                    Console.WriteLine($"[INVALID_NAMED_EXPRESSION] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_NAMED_EXPRESSION] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -15325,7 +16681,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15342,18 +16698,18 @@ namespace SharpPy.Generated
         }
 
         // Rule: disjunction from python.gram
-        public GeneratedExpr Disjunction()
+        public GeneratedExpr? Disjunction()
         {
             // CPython 3.12: Memoized (non-left-recursive) - simple memoization
             // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return TryMemoized<GeneratedExpr>("Disjunction", _Disjunction);
+            return (GeneratedExpr?)TryMemoized("Disjunction", _Disjunction);
         }
 
-        private GeneratedExpr _Disjunction()
+        private GeneratedExpr? _Disjunction()
         {
             // CPython 3.12 PEG: disjunction
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -15395,9 +16751,9 @@ namespace SharpPy.Generated
                 // Action (multiline):
                 //   _PyAST_BoolOp(
                 //   Or,
-                //   CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, a, b)),
+                //   CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(a, b)),
                 //   EXTRA)
-                _res = _PyAST_BoolOp(GeneratedOr.Instance, _PyPegen_seq_insert_in_front(a, b), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_BoolOp(GeneratedOr.Instance, CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(a, b)), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -15424,7 +16780,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15441,18 +16797,18 @@ namespace SharpPy.Generated
         }
 
         // Rule: conjunction from python.gram
-        public GeneratedExpr Conjunction()
+        public GeneratedExpr? Conjunction()
         {
             // CPython 3.12: Memoized (non-left-recursive) - simple memoization
             // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return TryMemoized<GeneratedExpr>("Conjunction", _Conjunction);
+            return (GeneratedExpr?)TryMemoized("Conjunction", _Conjunction);
         }
 
-        private GeneratedExpr _Conjunction()
+        private GeneratedExpr? _Conjunction()
         {
             // CPython 3.12 PEG: conjunction
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -15494,9 +16850,9 @@ namespace SharpPy.Generated
                 // Action (multiline):
                 //   _PyAST_BoolOp(
                 //   And,
-                //   CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, a, b)),
+                //   CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(a, b)),
                 //   EXTRA)
-                _res = _PyAST_BoolOp(GeneratedAnd.Instance, _PyPegen_seq_insert_in_front(a, b), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_BoolOp(GeneratedAnd.Instance, CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(a, b)), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -15523,7 +16879,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15540,18 +16896,18 @@ namespace SharpPy.Generated
         }
 
         // Rule: inversion from python.gram
-        public GeneratedExpr Inversion()
+        public GeneratedExpr? Inversion()
         {
             // CPython 3.12: Memoized (non-left-recursive) - simple memoization
             // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return TryMemoized<GeneratedExpr>("Inversion", _Inversion);
+            return (GeneratedExpr?)TryMemoized("Inversion", _Inversion);
         }
 
-        private GeneratedExpr _Inversion()
+        private GeneratedExpr? _Inversion()
         {
             // CPython 3.12 PEG: inversion
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -15618,7 +16974,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15635,11 +16991,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: comparison from python.gram
-        public GeneratedExpr Comparison()
+        public GeneratedExpr? Comparison()
         {
             // CPython 3.12 PEG: comparison
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -15681,10 +17037,10 @@ namespace SharpPy.Generated
                 // Action (multiline):
                 //   _PyAST_Compare(
                 //   a,
-                //   CHECK(asdl_int_seq*, _PyPegen_get_cmpops(p, b)),
-                //   CHECK(asdl_expr_seq*, _PyPegen_get_exprs(p, b)),
+                //   CHECK<asdl_int_seq>(_PyPegen_get_cmpops(b)),
+                //   CHECK<asdl_expr_seq>(_PyPegen_get_exprs(b)),
                 //   EXTRA)
-                _res = _PyAST_Compare(a, _PyPegen_get_cmpops(b), _PyPegen_get_exprs(b), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Compare(a, CHECK<asdl_int_seq>(_PyPegen_get_cmpops(b)), CHECK<asdl_expr_seq>(_PyPegen_get_exprs(b)), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -15711,7 +17067,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15728,11 +17084,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: compare_op_bitwise_or_pair from python.gram
-        public GeneratedAstNode? CompareOpBitwiseOrPair()
+        public GeneratedCmpopExprPair? CompareOpBitwiseOrPair()
         {
             // CPython 3.12 PEG: compare_op_bitwise_or_pair
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedCmpopExprPair? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -15763,7 +17119,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = (GeneratedCmpopExprPair?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15789,7 +17145,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = (GeneratedCmpopExprPair?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15815,7 +17171,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = (GeneratedCmpopExprPair?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15841,7 +17197,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = (GeneratedCmpopExprPair?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15867,7 +17223,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = (GeneratedCmpopExprPair?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15893,7 +17249,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = (GeneratedCmpopExprPair?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15919,7 +17275,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = (GeneratedCmpopExprPair?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15945,7 +17301,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = (GeneratedCmpopExprPair?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15971,7 +17327,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = (GeneratedCmpopExprPair?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -15997,7 +17353,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedAstNode?)_tmp0;
+                _res = (GeneratedCmpopExprPair?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -16014,11 +17370,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: eq_bitwise_or from python.gram
-        public GeneratedAstNode? EqBitwiseOr()
+        public GeneratedCmpopExprPair? EqBitwiseOr()
         {
             // CPython 3.12 PEG: eq_bitwise_or
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedCmpopExprPair? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -16057,9 +17413,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_cmpop_expr_pair(p, Eq, a)
+                // Action: _PyPegen_cmpop_expr_pair(Eq, a)
                 // Unknown AST function: _PyPegen_cmpop_expr_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedCmpopExprPair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -16076,11 +17432,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: noteq_bitwise_or from python.gram
-        public GeneratedAstNode? NoteqBitwiseOr()
+        public GeneratedCmpopExprPair? NoteqBitwiseOr()
         {
             // CPython 3.12 PEG: noteq_bitwise_or
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedCmpopExprPair? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -16101,10 +17457,10 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Group: (tok='!=' { _PyPegen_check_barry_as_flufl(p, tok) ? NULL : tok })
+                // Group: (tok='!=' { _PyPegen_check_barry_as_flufl(tok) ? null : tok })
                 GeneratedTokenInfo? _tmp0 = null;
                 int _group_mark__tmp0 = _position;
-                // Try group alternative 1: tok='!=' { _PyPegen_check_barry_as_flufl(p, tok) ? NULL : tok }
+                // Try group alternative 1: tok='!=' { _PyPegen_check_barry_as_flufl(tok) ? null : tok }
                 {
                     _position = _group_mark__tmp0;
                     GeneratedTokenInfo? _group_alt0__tmp0_item0 = Expect("!=");
@@ -16134,9 +17490,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_cmpop_expr_pair(p, NotEq, a)
+                // Action: _PyPegen_cmpop_expr_pair(NotEq, a)
                 // Unknown AST function: _PyPegen_cmpop_expr_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedCmpopExprPair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -16153,11 +17509,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lte_bitwise_or from python.gram
-        public GeneratedAstNode? LteBitwiseOr()
+        public GeneratedCmpopExprPair? LteBitwiseOr()
         {
             // CPython 3.12 PEG: lte_bitwise_or
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedCmpopExprPair? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -16196,9 +17552,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_cmpop_expr_pair(p, LtE, a)
+                // Action: _PyPegen_cmpop_expr_pair(LtE, a)
                 // Unknown AST function: _PyPegen_cmpop_expr_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedCmpopExprPair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -16215,11 +17571,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lt_bitwise_or from python.gram
-        public GeneratedAstNode? LtBitwiseOr()
+        public GeneratedCmpopExprPair? LtBitwiseOr()
         {
             // CPython 3.12 PEG: lt_bitwise_or
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedCmpopExprPair? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -16258,9 +17614,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_cmpop_expr_pair(p, Lt, a)
+                // Action: _PyPegen_cmpop_expr_pair(Lt, a)
                 // Unknown AST function: _PyPegen_cmpop_expr_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedCmpopExprPair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -16277,11 +17633,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: gte_bitwise_or from python.gram
-        public GeneratedAstNode? GteBitwiseOr()
+        public GeneratedCmpopExprPair? GteBitwiseOr()
         {
             // CPython 3.12 PEG: gte_bitwise_or
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedCmpopExprPair? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -16320,9 +17676,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_cmpop_expr_pair(p, GtE, a)
+                // Action: _PyPegen_cmpop_expr_pair(GtE, a)
                 // Unknown AST function: _PyPegen_cmpop_expr_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedCmpopExprPair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -16339,11 +17695,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: gt_bitwise_or from python.gram
-        public GeneratedAstNode? GtBitwiseOr()
+        public GeneratedCmpopExprPair? GtBitwiseOr()
         {
             // CPython 3.12 PEG: gt_bitwise_or
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedCmpopExprPair? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -16382,9 +17738,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_cmpop_expr_pair(p, Gt, a)
+                // Action: _PyPegen_cmpop_expr_pair(Gt, a)
                 // Unknown AST function: _PyPegen_cmpop_expr_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedCmpopExprPair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -16401,11 +17757,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: notin_bitwise_or from python.gram
-        public GeneratedAstNode? NotinBitwiseOr()
+        public GeneratedCmpopExprPair? NotinBitwiseOr()
         {
             // CPython 3.12 PEG: notin_bitwise_or
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedCmpopExprPair? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -16453,9 +17809,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_cmpop_expr_pair(p, NotIn, a)
+                // Action: _PyPegen_cmpop_expr_pair(NotIn, a)
                 // Unknown AST function: _PyPegen_cmpop_expr_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedCmpopExprPair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -16472,11 +17828,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: in_bitwise_or from python.gram
-        public GeneratedAstNode? InBitwiseOr()
+        public GeneratedCmpopExprPair? InBitwiseOr()
         {
             // CPython 3.12 PEG: in_bitwise_or
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedCmpopExprPair? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -16515,9 +17871,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_cmpop_expr_pair(p, In, a)
+                // Action: _PyPegen_cmpop_expr_pair(In, a)
                 // Unknown AST function: _PyPegen_cmpop_expr_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedCmpopExprPair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -16534,11 +17890,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: isnot_bitwise_or from python.gram
-        public GeneratedAstNode? IsnotBitwiseOr()
+        public GeneratedCmpopExprPair? IsnotBitwiseOr()
         {
             // CPython 3.12 PEG: isnot_bitwise_or
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedCmpopExprPair? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -16586,9 +17942,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_cmpop_expr_pair(p, IsNot, a)
+                // Action: _PyPegen_cmpop_expr_pair(IsNot, a)
                 // Unknown AST function: _PyPegen_cmpop_expr_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedCmpopExprPair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -16605,11 +17961,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: is_bitwise_or from python.gram
-        public GeneratedAstNode? IsBitwiseOr()
+        public GeneratedCmpopExprPair? IsBitwiseOr()
         {
             // CPython 3.12 PEG: is_bitwise_or
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedCmpopExprPair? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -16648,9 +18004,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_cmpop_expr_pair(p, Is, a)
+                // Action: _PyPegen_cmpop_expr_pair(Is, a)
                 // Unknown AST function: _PyPegen_cmpop_expr_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedCmpopExprPair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -16667,17 +18023,17 @@ namespace SharpPy.Generated
         }
 
         // Rule: bitwise_or from python.gram
-        public GeneratedExpr BitwiseOr()
+        public GeneratedExpr? BitwiseOr()
         {
             // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return TryLeftRecursive<GeneratedExpr>("BitwiseOr", _BitwiseOr);
+            return (GeneratedExpr?)TryLeftRecursive("BitwiseOr", _BitwiseOr);
         }
 
-        private GeneratedExpr _BitwiseOr()
+        private GeneratedExpr? _BitwiseOr()
         {
             // CPython 3.12 PEG: bitwise_or
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -16753,7 +18109,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -16770,17 +18126,17 @@ namespace SharpPy.Generated
         }
 
         // Rule: bitwise_xor from python.gram
-        public GeneratedExpr BitwiseXor()
+        public GeneratedExpr? BitwiseXor()
         {
             // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return TryLeftRecursive<GeneratedExpr>("BitwiseXor", _BitwiseXor);
+            return (GeneratedExpr?)TryLeftRecursive("BitwiseXor", _BitwiseXor);
         }
 
-        private GeneratedExpr _BitwiseXor()
+        private GeneratedExpr? _BitwiseXor()
         {
             // CPython 3.12 PEG: bitwise_xor
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -16856,7 +18212,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -16873,17 +18229,17 @@ namespace SharpPy.Generated
         }
 
         // Rule: bitwise_and from python.gram
-        public GeneratedExpr BitwiseAnd()
+        public GeneratedExpr? BitwiseAnd()
         {
             // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return TryLeftRecursive<GeneratedExpr>("BitwiseAnd", _BitwiseAnd);
+            return (GeneratedExpr?)TryLeftRecursive("BitwiseAnd", _BitwiseAnd);
         }
 
-        private GeneratedExpr _BitwiseAnd()
+        private GeneratedExpr? _BitwiseAnd()
         {
             // CPython 3.12 PEG: bitwise_and
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -16959,7 +18315,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -16976,17 +18332,17 @@ namespace SharpPy.Generated
         }
 
         // Rule: shift_expr from python.gram
-        public GeneratedExpr ShiftExpr()
+        public GeneratedExpr? ShiftExpr()
         {
             // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return TryLeftRecursive<GeneratedExpr>("ShiftExpr", _ShiftExpr);
+            return (GeneratedExpr?)TryLeftRecursive("ShiftExpr", _ShiftExpr);
         }
 
-        private GeneratedExpr _ShiftExpr()
+        private GeneratedExpr? _ShiftExpr()
         {
             // CPython 3.12 PEG: shift_expr
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -17107,7 +18463,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -17124,17 +18480,17 @@ namespace SharpPy.Generated
         }
 
         // Rule: sum from python.gram
-        public GeneratedExpr Sum()
+        public GeneratedExpr? Sum()
         {
             // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return TryLeftRecursive<GeneratedExpr>("Sum", _Sum);
+            return (GeneratedExpr?)TryLeftRecursive("Sum", _Sum);
         }
 
-        private GeneratedExpr _Sum()
+        private GeneratedExpr? _Sum()
         {
             // CPython 3.12 PEG: sum
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -17255,7 +18611,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -17272,17 +18628,17 @@ namespace SharpPy.Generated
         }
 
         // Rule: term from python.gram
-        public GeneratedExpr Term()
+        public GeneratedExpr? Term()
         {
             // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return TryLeftRecursive<GeneratedExpr>("Term", _Term);
+            return (GeneratedExpr?)TryLeftRecursive("Term", _Term);
         }
 
-        private GeneratedExpr _Term()
+        private GeneratedExpr? _Term()
         {
             // CPython 3.12 PEG: term
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -17512,7 +18868,7 @@ namespace SharpPy.Generated
                 }
                 // Action: CHECK_VERSION(expr_ty, 5, "The '@' operator is", _PyAST_BinOp(a, MatMult, b, EXTRA))
                 // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedExpr);
+                _res = default(GeneratedExpr?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -17538,7 +18894,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -17555,18 +18911,18 @@ namespace SharpPy.Generated
         }
 
         // Rule: factor from python.gram
-        public GeneratedExpr Factor()
+        public GeneratedExpr? Factor()
         {
             // CPython 3.12: Memoized (non-left-recursive) - simple memoization
             // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return TryMemoized<GeneratedExpr>("Factor", _Factor);
+            return (GeneratedExpr?)TryMemoized("Factor", _Factor);
         }
 
-        private GeneratedExpr _Factor()
+        private GeneratedExpr? _Factor()
         {
             // CPython 3.12 PEG: factor
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -17705,7 +19061,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -17722,11 +19078,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: power from python.gram
-        public GeneratedExpr Power()
+        public GeneratedExpr? Power()
         {
             // CPython 3.12 PEG: power
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -17802,7 +19158,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -17819,18 +19175,18 @@ namespace SharpPy.Generated
         }
 
         // Rule: await_primary from python.gram
-        public GeneratedExpr AwaitPrimary()
+        public GeneratedExpr? AwaitPrimary()
         {
             // CPython 3.12: Memoized (non-left-recursive) - simple memoization
             // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return TryMemoized<GeneratedExpr>("AwaitPrimary", _AwaitPrimary);
+            return (GeneratedExpr?)TryMemoized("AwaitPrimary", _AwaitPrimary);
         }
 
-        private GeneratedExpr _AwaitPrimary()
+        private GeneratedExpr? _AwaitPrimary()
         {
             // CPython 3.12 PEG: await_primary
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -17873,7 +19229,7 @@ namespace SharpPy.Generated
                 }
                 // Action: CHECK_VERSION(expr_ty, 5, "Await expressions are", _PyAST_Await(a, EXTRA))
                 // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedExpr);
+                _res = default(GeneratedExpr?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -17899,7 +19255,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -17916,17 +19272,17 @@ namespace SharpPy.Generated
         }
 
         // Rule: primary from python.gram
-        public GeneratedExpr Primary()
+        public GeneratedExpr? Primary()
         {
             // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return TryLeftRecursive<GeneratedExpr>("Primary", _Primary);
+            return (GeneratedExpr?)TryLeftRecursive("Primary", _Primary);
         }
 
-        private GeneratedExpr _Primary()
+        private GeneratedExpr? _Primary()
         {
             // CPython 3.12 PEG: primary
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -17977,8 +19333,8 @@ namespace SharpPy.Generated
                 }
                 var b = NameToken(_token_b);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: _PyAST_Attribute(a, b->v.Name.id, Load, EXTRA)
-                _res = _PyAST_Attribute(a, ASTHelpers.ExtractStringValue(b), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                // Action: _PyAST_Attribute(a, b.Id, Load, EXTRA)
+                _res = _PyAST_Attribute(a, b.Id, GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -18013,8 +19369,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_Call(a, CHECK(asdl_expr_seq*, (asdl_expr_seq*)_PyPegen_singleton_seq(p, b)), NULL, EXTRA)
-                _res = _PyAST_Call(a, _PyPegen_singleton_seq(b), null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                // Action: _PyAST_Call(a, CHECK<asdl_expr_seq>(_PyPegen_singleton_seq(b)), null, EXTRA)
+                _res = _PyAST_Call(a, CHECK<asdl_expr_seq>(_PyPegen_singleton_seq(b)), null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -18057,7 +19413,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: arguments
                 {
                     _position = _group_mark__opt_b;
-                    GeneratedExpr _group_alt0__opt_b_item0 = Arguments();
+                    GeneratedExpr? _group_alt0__opt_b_item0 = Arguments();
                     if (_group_alt0__opt_b_item0 != null)
                     {
                         _opt_b = _group_alt0__opt_b_item0;
@@ -18068,11 +19424,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_b;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? b = _opt_b;
-                if (b == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (b == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_b; // Reset position
-                    b = null; // Optional not present
                 }
                 // Expect ')'
                 var _tmp1 = Expect(")");
@@ -18085,10 +19450,10 @@ namespace SharpPy.Generated
                 }
                 // Action (multiline):
                 //   _PyAST_Call(a,
-                //   (b) ? ((expr_ty) b)->v.Call.args : NULL,
-                //   (b) ? ((expr_ty) b)->v.Call.keywords : NULL,
+                //   (b) ? ((GeneratedCall)b).Args : null!,
+                //   (b) ? ((GeneratedCall)b).Keywords : null!,
                 //   EXTRA)
-                _res = _PyAST_Call(a, ASTHelpers.ExtractCallArgs(b), ASTHelpers.ExtractCallKeywords(b), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Call(a, b != null ? ((GeneratedCall)b).Args : null!, b != null ? ((GeneratedCall)b).Keywords : null!, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -18169,7 +19534,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -18186,11 +19551,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: slices from python.gram
-        public GeneratedExpr Slices()
+        public GeneratedExpr? Slices()
         {
             // CPython 3.12 PEG: slices
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -18232,7 +19597,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExpr)((GeneratedPtr?)a);
+                _res = (GeneratedExpr?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -18257,7 +19622,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: slice
                 {
                     _position = _group_mark__first_a;
-                    GeneratedExpr _group_alt0__first_a_item0 = Slice();
+                    GeneratedExpr? _group_alt0__first_a_item0 = Slice();
                     if (_group_alt0__first_a_item0 != null)
                     {
                         _first_a = _group_alt0__first_a_item0;
@@ -18272,7 +19637,7 @@ namespace SharpPy.Generated
                 if (_first_a == null)
                 {
                     _position = _group_mark__first_a;
-                    GeneratedExpr _group_alt1__first_a_item0 = StarredExpression();
+                    GeneratedExpr? _group_alt1__first_a_item0 = StarredExpression();
                     if (_group_alt1__first_a_item0 != null)
                     {
                         _first_a = _group_alt1__first_a_item0;
@@ -18322,7 +19687,7 @@ namespace SharpPy.Generated
                     // Try group alternative 1: slice
                     {
                         _position = _group_mark__loop_elem_a;
-                        GeneratedExpr _group_alt0__loop_elem_a_item0 = Slice();
+                        GeneratedExpr? _group_alt0__loop_elem_a_item0 = Slice();
                         if (_group_alt0__loop_elem_a_item0 != null)
                         {
                             _loop_elem_a = _group_alt0__loop_elem_a_item0;
@@ -18337,7 +19702,7 @@ namespace SharpPy.Generated
                     if (_loop_elem_a == null)
                     {
                         _position = _group_mark__loop_elem_a;
-                        GeneratedExpr _group_alt1__loop_elem_a_item0 = StarredExpression();
+                        GeneratedExpr? _group_alt1__loop_elem_a_item0 = StarredExpression();
                         if (_group_alt1__loop_elem_a_item0 != null)
                         {
                             _loop_elem_a = _group_alt1__loop_elem_a_item0;
@@ -18381,11 +19746,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Action: _PyAST_Tuple(a, Load, EXTRA)
                 _res = _PyAST_Tuple(a, GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
@@ -18406,11 +19780,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: slice from python.gram
-        public GeneratedExpr Slice()
+        public GeneratedExpr? Slice()
         {
             // CPython 3.12 PEG: slice
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -18439,7 +19813,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: expression
                 {
                     _position = _group_mark__opt_a;
-                    GeneratedExpr _group_alt0__opt_a_item0 = Expression();
+                    GeneratedExpr? _group_alt0__opt_a_item0 = Expression();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -18450,11 +19824,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_a;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? a = _opt_a;
-                if (a == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (a == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_a; // Reset position
-                    a = null; // Optional not present
                 }
                 // Expect ':'
                 var _tmp0 = Expect(":");
@@ -18473,7 +19856,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: expression
                 {
                     _position = _group_mark__opt_b;
-                    GeneratedExpr _group_alt0__opt_b_item0 = Expression();
+                    GeneratedExpr? _group_alt0__opt_b_item0 = Expression();
                     if (_group_alt0__opt_b_item0 != null)
                     {
                         _opt_b = _group_alt0__opt_b_item0;
@@ -18484,11 +19867,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_b;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? b = _opt_b;
-                if (b == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (b == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_b; // Reset position
-                    b = null; // Optional not present
                 }
                 // Optional: [(':' d=[(expression)] { d })]
                 int _opt_mark_c = _position;
@@ -18509,7 +19901,7 @@ namespace SharpPy.Generated
                         // Try group alternative 1: expression
                         {
                             _position = _group_mark__opt__group_alt0__opt_c_item1;
-                            GeneratedExpr _group_alt0__opt__group_alt0__opt_c_item1_item0 = Expression();
+                            GeneratedExpr? _group_alt0__opt__group_alt0__opt_c_item1_item0 = Expression();
                             if (_group_alt0__opt__group_alt0__opt_c_item1_item0 != null)
                             {
                                 _opt__group_alt0__opt_c_item1 = _group_alt0__opt__group_alt0__opt_c_item1_item0;
@@ -18520,11 +19912,20 @@ namespace SharpPy.Generated
                                 _position = _group_mark__opt__group_alt0__opt_c_item1;
                             }
                         }
+                        // CPython: (a = expr, !p->error_indicator) - check error after optional
                         GeneratedExpr? _group_alt0__opt_c_item1 = _opt__group_alt0__opt_c_item1;
-                        if (_group_alt0__opt_c_item1 == null)
+                        if (_pendingSyntaxError != null)
                         {
+                            // CPython: error_indicator is set - optional pattern FAILS
+                            // This causes the entire alternative to fail (like && short-circuit in C)
+                            _position = _mark;
+                            _res = null;
+                            break;  // Exit alternative with error preserved
+                        }
+                        else if (_group_alt0__opt_c_item1 == null)
+                        {
+                            // CPython: No error, but expr returned NULL - optional not present
                             _position = _opt_mark__group_alt0__opt_c_item1; // Reset position
-                            _group_alt0__opt_c_item1 = null; // Optional not present
                         }
                         if (_group_alt0__opt_c_item1 != null)
                         {
@@ -18537,11 +19938,20 @@ namespace SharpPy.Generated
                         }
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? c = _opt_c;
-                if (c == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (c == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_c; // Reset position
-                    c = null; // Optional not present
                 }
                 // Action: _PyAST_Slice(a, b, c, EXTRA)
                 _res = _PyAST_Slice(a, b, c, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
@@ -18571,7 +19981,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExpr)((GeneratedPtr?)a);
+                _res = (GeneratedExpr?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -18588,11 +19998,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: atom from python.gram
-        public GeneratedExpr Atom()
+        public GeneratedExpr? Atom()
         {
             // CPython 3.12 PEG: atom
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -18652,7 +20062,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_Constant(Py_True, NULL, EXTRA)
+                // Action: _PyAST_Constant(Py_True, null, EXTRA)
                 _res = _PyAST_Constant(Py_True, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
@@ -18679,7 +20089,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_Constant(Py_False, NULL, EXTRA)
+                // Action: _PyAST_Constant(Py_False, null, EXTRA)
                 _res = _PyAST_Constant(Py_False, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
@@ -18706,7 +20116,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_Constant(Py_None, NULL, EXTRA)
+                // Action: _PyAST_Constant(Py_None, null, EXTRA)
                 _res = _PyAST_Constant(Py_None, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
@@ -18750,7 +20160,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp1;
+                _res = (GeneratedExpr?)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -18816,7 +20226,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: tuple
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt0__tmp1_item0 = Tuple();
+                    GeneratedExpr? _group_alt0__tmp1_item0 = Tuple();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -18831,7 +20241,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt1__tmp1_item0 = Group();
+                    GeneratedExpr? _group_alt1__tmp1_item0 = Group();
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -18846,7 +20256,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt2__tmp1_item0 = Genexp();
+                    GeneratedExpr? _group_alt2__tmp1_item0 = Genexp();
                     if (_group_alt2__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt2__tmp1_item0;
@@ -18865,7 +20275,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp1;
+                _res = (GeneratedExpr?)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -18901,7 +20311,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: list
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt0__tmp1_item0 = List();
+                    GeneratedExpr? _group_alt0__tmp1_item0 = List();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -18916,7 +20326,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt1__tmp1_item0 = Listcomp();
+                    GeneratedExpr? _group_alt1__tmp1_item0 = Listcomp();
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -18935,7 +20345,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp1;
+                _res = (GeneratedExpr?)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -18971,7 +20381,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: dict
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt0__tmp1_item0 = Dict();
+                    GeneratedExpr? _group_alt0__tmp1_item0 = Dict();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -18986,7 +20396,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt1__tmp1_item0 = Set();
+                    GeneratedExpr? _group_alt1__tmp1_item0 = Set();
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -19001,7 +20411,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt2__tmp1_item0 = Dictcomp();
+                    GeneratedExpr? _group_alt2__tmp1_item0 = Dictcomp();
                     if (_group_alt2__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt2__tmp1_item0;
@@ -19016,7 +20426,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt3__tmp1_item0 = Setcomp();
+                    GeneratedExpr? _group_alt3__tmp1_item0 = Setcomp();
                     if (_group_alt3__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt3__tmp1_item0;
@@ -19035,7 +20445,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp1;
+                _res = (GeneratedExpr?)_tmp1;
                 if (_res != null) goto done;
             } while (false);
 
@@ -19060,7 +20470,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_Constant(Py_Ellipsis, NULL, EXTRA)
+                // Action: _PyAST_Constant(Py_Ellipsis, null, EXTRA)
                 _res = _PyAST_Constant(Py_Ellipsis, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
@@ -19079,11 +20489,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: group from python.gram
-        public GeneratedExpr Group()
+        public GeneratedExpr? Group()
         {
             // CPython 3.12 PEG: group
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -19119,7 +20529,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark_a;
-                    GeneratedExpr _group_alt0_a_item0 = YieldExpr();
+                    GeneratedExpr? _group_alt0_a_item0 = YieldExpr();
                     if (_group_alt0_a_item0 != null)
                     {
                         a = _group_alt0_a_item0;
@@ -19134,7 +20544,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _group_mark_a;
-                    GeneratedExpr _group_alt1_a_item0 = NamedExpression();
+                    GeneratedExpr? _group_alt1_a_item0 = NamedExpression();
                     if (_group_alt1_a_item0 != null)
                     {
                         a = _group_alt1_a_item0;
@@ -19162,7 +20572,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExpr)((GeneratedPtr?)a);
+                _res = (GeneratedExpr?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19180,19 +20590,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_group
                 GeneratedPtr? _tmp0 = null;
+                Console.WriteLine($"[INVALID_GROUP] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_GROUP] Calling InvalidGroup()");
                     _tmp0 = InvalidGroup();
+                    Console.WriteLine($"[INVALID_GROUP] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_GROUP] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -19210,11 +20640,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lambdef from python.gram
-        public GeneratedExpr Lambdef()
+        public GeneratedExpr? Lambdef()
         {
             // CPython 3.12 PEG: lambdef
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -19252,7 +20682,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_params
                 {
                     _position = _group_mark__opt_a;
-                    GeneratedArguments _group_alt0__opt_a_item0 = LambdaParams();
+                    GeneratedArguments? _group_alt0__opt_a_item0 = LambdaParams();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -19263,11 +20693,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_a;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedArguments? a = _opt_a;
-                if (a == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (a == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_a; // Reset position
-                    a = null; // Optional not present
                 }
                 // Expect ':'
                 var _tmp1 = Expect(":");
@@ -19287,8 +20726,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_Lambda((a) ? a : CHECK(arguments_ty, _PyPegen_empty_arguments(p)), b, EXTRA)
-                _res = _PyAST_Lambda(a ?? _PyPegen_empty_arguments(), b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                // Action: _PyAST_Lambda((a) ? a : CHECK<arguments_ty>(_PyPegen_empty_arguments()), b, EXTRA)
+                _res = _PyAST_Lambda(a ?? CHECK<arguments_ty>(_PyPegen_empty_arguments()), b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -19306,11 +20745,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lambda_params from python.gram
-        public GeneratedArguments LambdaParams()
+        public GeneratedArguments? LambdaParams()
         {
             // CPython 3.12 PEG: lambda_params
             int _mark = _position;
-            GeneratedArguments _res = null;
+            GeneratedArguments? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -19333,19 +20772,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_lambda_parameters
                 GeneratedPtr? _tmp0 = null;
+                Console.WriteLine($"[INVALID_LAMBDA_PARAMETERS] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_LAMBDA_PARAMETERS] Calling InvalidLambdaParameters()");
                     _tmp0 = InvalidLambdaParameters();
+                    Console.WriteLine($"[INVALID_LAMBDA_PARAMETERS] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_LAMBDA_PARAMETERS] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -19372,7 +20831,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedArguments)_tmp0;
+                _res = (GeneratedArguments?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -19389,11 +20848,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lambda_parameters from python.gram
-        public GeneratedArguments LambdaParameters()
+        public GeneratedArguments? LambdaParameters()
         {
             // CPython 3.12 PEG: lambda_parameters
             int _mark = _position;
-            GeneratedArguments _res = null;
+            GeneratedArguments? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -19435,7 +20894,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_star_etc
                 {
                     _position = _group_mark__opt_d;
-                    GeneratedStarEtc _group_alt0__opt_d_item0 = LambdaStarEtc();
+                    GeneratedStarEtc? _group_alt0__opt_d_item0 = LambdaStarEtc();
                     if (_group_alt0__opt_d_item0 != null)
                     {
                         _opt_d = _group_alt0__opt_d_item0;
@@ -19446,15 +20905,24 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_d;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedStarEtc? d = _opt_d;
-                if (d == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_d; // Reset position
-                    d = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(p, a, NULL, b, c, d))
+                else if (d == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_d; // Reset position
+                }
+                // Action: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(a, null, b, c, d))
                 // No _PyAST_ or _PyPegen_ function in action: d)
-                _res = default(GeneratedArguments);
+                _res = default(GeneratedArguments?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19489,7 +20957,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_star_etc
                 {
                     _position = _group_mark__opt_c;
-                    GeneratedStarEtc _group_alt0__opt_c_item0 = LambdaStarEtc();
+                    GeneratedStarEtc? _group_alt0__opt_c_item0 = LambdaStarEtc();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -19500,15 +20968,24 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_c;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedStarEtc? c = _opt_c;
-                if (c == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_c; // Reset position
-                    c = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(p, NULL, a, NULL, b, c))
+                else if (c == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_c; // Reset position
+                }
+                // Action: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(null, a, null, b, c))
                 // No _PyAST_ or _PyPegen_ function in action: c)
-                _res = default(GeneratedArguments);
+                _res = default(GeneratedArguments?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19543,7 +21020,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_star_etc
                 {
                     _position = _group_mark__opt_c;
-                    GeneratedStarEtc _group_alt0__opt_c_item0 = LambdaStarEtc();
+                    GeneratedStarEtc? _group_alt0__opt_c_item0 = LambdaStarEtc();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -19554,15 +21031,24 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_c;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedStarEtc? c = _opt_c;
-                if (c == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_c; // Reset position
-                    c = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyPegen_make_arguments(p, NULL, NULL, a, b, c)
+                else if (c == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_c; // Reset position
+                }
+                // Action: _PyPegen_make_arguments(null, null, a, b, c)
                 // Unknown AST function: _PyPegen_make_arguments
-                _res = default(GeneratedArguments);
+                _res = default(GeneratedArguments?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19595,7 +21081,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_star_etc
                 {
                     _position = _group_mark__opt_b;
-                    GeneratedStarEtc _group_alt0__opt_b_item0 = LambdaStarEtc();
+                    GeneratedStarEtc? _group_alt0__opt_b_item0 = LambdaStarEtc();
                     if (_group_alt0__opt_b_item0 != null)
                     {
                         _opt_b = _group_alt0__opt_b_item0;
@@ -19606,15 +21092,24 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_b;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedStarEtc? b = _opt_b;
-                if (b == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_b; // Reset position
-                    b = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyPegen_make_arguments(p, NULL, NULL, NULL, a, b)
+                else if (b == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_b; // Reset position
+                }
+                // Action: _PyPegen_make_arguments(null, null, null, a, b)
                 // Unknown AST function: _PyPegen_make_arguments
-                _res = default(GeneratedArguments);
+                _res = default(GeneratedArguments?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19639,9 +21134,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_make_arguments(p, NULL, NULL, NULL, NULL, a)
+                // Action: _PyPegen_make_arguments(null, null, null, null, a)
                 // Unknown AST function: _PyPegen_make_arguments
-                _res = default(GeneratedArguments);
+                _res = default(GeneratedArguments?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19658,11 +21153,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lambda_slash_no_default from python.gram
-        public GeneratedAstNodeSeq LambdaSlashNoDefault()
+        public GeneratedArgSeq? LambdaSlashNoDefault()
         {
             // CPython 3.12 PEG: lambda_slash_no_default
             int _mark = _position;
-            GeneratedAstNodeSeq _res = null;
+            GeneratedArgSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -19711,7 +21206,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedAstNodeSeq)((GeneratedPtr?)a);
+                _res = (GeneratedArgSeq?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19760,7 +21255,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedAstNodeSeq)((GeneratedPtr?)a);
+                _res = (GeneratedArgSeq?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19777,11 +21272,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lambda_slash_with_default from python.gram
-        public GeneratedSlashWithDefault LambdaSlashWithDefault()
+        public GeneratedSlashWithDefault? LambdaSlashWithDefault()
         {
             // CPython 3.12 PEG: lambda_slash_with_default
             int _mark = _position;
-            GeneratedSlashWithDefault _res = null;
+            GeneratedSlashWithDefault? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -19831,9 +21326,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)
+                // Action: _PyPegen_slash_with_default((asdl_arg_seq *)a, b)
                 // Unknown AST function: _PyPegen_slash_with_default
-                _res = default(GeneratedSlashWithDefault);
+                _res = default(GeneratedSlashWithDefault?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19883,9 +21378,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_slash_with_default(p, (asdl_arg_seq *)a, b)
+                // Action: _PyPegen_slash_with_default((asdl_arg_seq *)a, b)
                 // Unknown AST function: _PyPegen_slash_with_default
-                _res = default(GeneratedSlashWithDefault);
+                _res = default(GeneratedSlashWithDefault?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -19902,11 +21397,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lambda_star_etc from python.gram
-        public GeneratedStarEtc LambdaStarEtc()
+        public GeneratedStarEtc? LambdaStarEtc()
         {
             // CPython 3.12 PEG: lambda_star_etc
             int _mark = _position;
-            GeneratedStarEtc _res = null;
+            GeneratedStarEtc? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -19929,19 +21424,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_lambda_star_etc
                 GeneratedPtr? _tmp0 = null;
+                Console.WriteLine($"[INVALID_LAMBDA_STAR_ETC] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_LAMBDA_STAR_ETC] Calling InvalidLambdaStarEtc()");
                     _tmp0 = InvalidLambdaStarEtc();
+                    Console.WriteLine($"[INVALID_LAMBDA_STAR_ETC] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_LAMBDA_STAR_ETC] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -19986,7 +21501,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_kwds
                 {
                     _position = _group_mark__opt_c;
-                    GeneratedArg _group_alt0__opt_c_item0 = LambdaKwds();
+                    GeneratedArg? _group_alt0__opt_c_item0 = LambdaKwds();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -19997,15 +21512,24 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_c;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedArg? c = _opt_c;
-                if (c == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_c; // Reset position
-                    c = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyPegen_star_etc(p, a, b, c)
+                else if (c == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_c; // Reset position
+                }
+                // Action: _PyPegen_star_etc(a, b, c)
                 // Unknown AST function: _PyPegen_star_etc
-                _res = default(GeneratedStarEtc);
+                _res = default(GeneratedStarEtc?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20056,7 +21580,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_kwds
                 {
                     _position = _group_mark__opt_c;
-                    GeneratedArg _group_alt0__opt_c_item0 = LambdaKwds();
+                    GeneratedArg? _group_alt0__opt_c_item0 = LambdaKwds();
                     if (_group_alt0__opt_c_item0 != null)
                     {
                         _opt_c = _group_alt0__opt_c_item0;
@@ -20067,15 +21591,24 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_c;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedArg? c = _opt_c;
-                if (c == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_c; // Reset position
-                    c = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyPegen_star_etc(p, NULL, b, c)
+                else if (c == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_c; // Reset position
+                }
+                // Action: _PyPegen_star_etc(null, b, c)
                 // Unknown AST function: _PyPegen_star_etc
-                _res = default(GeneratedStarEtc);
+                _res = default(GeneratedStarEtc?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20100,9 +21633,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_star_etc(p, NULL, NULL, a)
+                // Action: _PyPegen_star_etc(null, null, a)
                 // Unknown AST function: _PyPegen_star_etc
-                _res = default(GeneratedStarEtc);
+                _res = default(GeneratedStarEtc?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20119,11 +21652,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lambda_kwds from python.gram
-        public GeneratedArg LambdaKwds()
+        public GeneratedArg? LambdaKwds()
         {
             // CPython 3.12 PEG: lambda_kwds
             int _mark = _position;
-            GeneratedArg _res = null;
+            GeneratedArg? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -20146,19 +21679,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_lambda_kwds
                 GeneratedPtr? _tmp0 = null;
+                Console.WriteLine($"[INVALID_LAMBDA_KWDS] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_LAMBDA_KWDS] Calling InvalidLambdaKwds()");
                     _tmp0 = InvalidLambdaKwds();
+                    Console.WriteLine($"[INVALID_LAMBDA_KWDS] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_LAMBDA_KWDS] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -20194,7 +21747,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedArg)((GeneratedPtr?)a);
+                _res = (GeneratedArg?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20211,11 +21764,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lambda_param_no_default from python.gram
-        public GeneratedArg LambdaParamNoDefault()
+        public GeneratedArg? LambdaParamNoDefault()
         {
             // CPython 3.12 PEG: lambda_param_no_default
             int _mark = _position;
-            GeneratedArg _res = null;
+            GeneratedArg? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -20255,7 +21808,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedArg)((GeneratedPtr?)a);
+                _res = (GeneratedArg?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20295,7 +21848,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedArg)((GeneratedPtr?)a);
+                _res = (GeneratedArg?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20312,11 +21865,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lambda_param_with_default from python.gram
-        public GeneratedAstNode? LambdaParamWithDefault()
+        public GeneratedNameDefaultPair? LambdaParamWithDefault()
         {
             // CPython 3.12 PEG: lambda_param_with_default
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedNameDefaultPair? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -20364,9 +21917,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_name_default_pair(p, a, c, NULL)
+                // Action: _PyPegen_name_default_pair(a, c, null)
                 // Unknown AST function: _PyPegen_name_default_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedNameDefaultPair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20414,9 +21967,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_name_default_pair(p, a, c, NULL)
+                // Action: _PyPegen_name_default_pair(a, c, null)
                 // Unknown AST function: _PyPegen_name_default_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedNameDefaultPair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20433,11 +21986,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lambda_param_maybe_default from python.gram
-        public GeneratedAstNode? LambdaParamMaybeDefault()
+        public GeneratedNameDefaultPair? LambdaParamMaybeDefault()
         {
             // CPython 3.12 PEG: lambda_param_maybe_default
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedNameDefaultPair? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -20478,11 +22031,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? c = _opt_c;
-                if (c == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (c == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_c; // Reset position
-                    c = null; // Optional not present
                 }
                 // Expect ','
                 var _tmp0 = Expect(",");
@@ -20493,9 +22055,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_name_default_pair(p, a, c, NULL)
+                // Action: _PyPegen_name_default_pair(a, c, null)
                 // Unknown AST function: _PyPegen_name_default_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedNameDefaultPair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20531,11 +22093,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? c = _opt_c;
-                if (c == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (c == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_c; // Reset position
-                    c = null; // Optional not present
                 }
                 // Positive lookahead: &(':')
                 int _lookahead_mark_51 = _position;
@@ -20551,9 +22122,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_name_default_pair(p, a, c, NULL)
+                // Action: _PyPegen_name_default_pair(a, c, null)
                 // Unknown AST function: _PyPegen_name_default_pair
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedNameDefaultPair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20570,11 +22141,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: lambda_param from python.gram
-        public GeneratedArg LambdaParam()
+        public GeneratedArg? LambdaParam()
         {
             // CPython 3.12 PEG: lambda_param
             int _mark = _position;
-            GeneratedArg _res = null;
+            GeneratedArg? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -20607,9 +22178,9 @@ namespace SharpPy.Generated
                 }
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: _PyAST_arg(a->v.Name.id, NULL, NULL, EXTRA)
+                // Action: _PyAST_arg(a.Id, null, null, EXTRA)
                 // Unknown AST function: _PyAST_arg
-                _res = default(GeneratedArg);
+                _res = default(GeneratedArg?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20626,11 +22197,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: fstring_middle from python.gram
-        public GeneratedExpr FstringMiddle()
+        public GeneratedExpr? FstringMiddle()
         {
             // CPython 3.12 PEG: fstring_middle
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -20661,7 +22232,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -20688,9 +22259,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_MIDDLE): result={(t != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: _PyPegen_constant_from_token(p, t)
+                // Action: _PyPegen_constant_from_token(t)
                 // Unknown AST function: _PyPegen_constant_from_token
-                _res = default(GeneratedExpr);
+                _res = default(GeneratedExpr?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20707,11 +22278,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: fstring_replacement_field from python.gram
-        public GeneratedExpr FstringReplacementField()
+        public GeneratedExpr? FstringReplacementField()
         {
             // CPython 3.12 PEG: fstring_replacement_field
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -20747,7 +22318,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark_a;
-                    GeneratedExpr _group_alt0_a_item0 = YieldExpr();
+                    GeneratedExpr? _group_alt0_a_item0 = YieldExpr();
                     if (_group_alt0_a_item0 != null)
                     {
                         a = _group_alt0_a_item0;
@@ -20762,7 +22333,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _group_mark_a;
-                    GeneratedExpr _group_alt1_a_item0 = StarExpressions();
+                    GeneratedExpr? _group_alt1_a_item0 = StarExpressions();
                     if (_group_alt1_a_item0 != null)
                     {
                         a = _group_alt1_a_item0;
@@ -20791,21 +22362,30 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? debug_expr = _opt_debug_expr;
-                if (debug_expr == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (debug_expr == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_debug_expr; // Reset position
-                    debug_expr = null; // Optional not present
                 }
                 // Optional: [(fstring_conversion)]
                 int _opt_mark_conversion = _position;
                 // Group: (fstring_conversion)
-                GeneratedAstNode? _opt_conversion = null;
+                GeneratedResultTokenWithMetadata? _opt_conversion = null;
                 int _group_mark__opt_conversion = _position;
                 // Try group alternative 1: fstring_conversion
                 {
                     _position = _group_mark__opt_conversion;
-                    GeneratedAstNode? _group_alt0__opt_conversion_item0 = FstringConversion();
+                    GeneratedResultTokenWithMetadata? _group_alt0__opt_conversion_item0 = FstringConversion();
                     if (_group_alt0__opt_conversion_item0 != null)
                     {
                         _opt_conversion = _group_alt0__opt_conversion_item0;
@@ -20816,21 +22396,30 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_conversion;
                     }
                 }
-                GeneratedAstNode? conversion = _opt_conversion;
-                if (conversion == null)
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
+                GeneratedResultTokenWithMetadata? conversion = _opt_conversion;
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (conversion == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_conversion; // Reset position
-                    conversion = null; // Optional not present
                 }
                 // Optional: [(fstring_full_format_spec)]
                 int _opt_mark_format = _position;
                 // Group: (fstring_full_format_spec)
-                GeneratedAstNode? _opt_format = null;
+                GeneratedResultTokenWithMetadata? _opt_format = null;
                 int _group_mark__opt_format = _position;
                 // Try group alternative 1: fstring_full_format_spec
                 {
                     _position = _group_mark__opt_format;
-                    GeneratedAstNode? _group_alt0__opt_format_item0 = FstringFullFormatSpec();
+                    GeneratedResultTokenWithMetadata? _group_alt0__opt_format_item0 = FstringFullFormatSpec();
                     if (_group_alt0__opt_format_item0 != null)
                     {
                         _opt_format = _group_alt0__opt_format_item0;
@@ -20841,11 +22430,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_format;
                     }
                 }
-                GeneratedAstNode? format = _opt_format;
-                if (format == null)
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
+                GeneratedResultTokenWithMetadata? format = _opt_format;
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (format == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_format; // Reset position
-                    format = null; // Optional not present
                 }
                 // Expect '}'
                 var rbrace = Expect("}");
@@ -20856,9 +22454,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_formatted_value(p, a, debug_expr, conversion, format, rbrace, EXTRA)
+                // Action: _PyPegen_formatted_value(a, debug_expr, conversion, format, rbrace, EXTRA)
                 // Unknown AST function: _PyPegen_formatted_value
-                _res = default(GeneratedExpr);
+                _res = default(GeneratedExpr?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20876,19 +22474,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_replacement_field
                 GeneratedPtr? _tmp0 = null;
+                Console.WriteLine($"[INVALID_REPLACEMENT_FIELD] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_REPLACEMENT_FIELD] Calling InvalidReplacementField()");
                     _tmp0 = InvalidReplacementField();
+                    Console.WriteLine($"[INVALID_REPLACEMENT_FIELD] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_REPLACEMENT_FIELD] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -20906,11 +22524,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: fstring_conversion from python.gram
-        public GeneratedAstNode? FstringConversion()
+        public GeneratedResultTokenWithMetadata? FstringConversion()
         {
             // CPython 3.12 PEG: fstring_conversion
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedResultTokenWithMetadata? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -20952,9 +22570,9 @@ namespace SharpPy.Generated
                 }
                 var conv = NameToken(_token_conv);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(conv != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: _PyPegen_check_fstring_conversion(p, conv_token, conv)
+                // Action: _PyPegen_check_fstring_conversion(conv_token, conv)
                 // Unknown AST function: _PyPegen_check_fstring_conversion
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedResultTokenWithMetadata?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -20971,11 +22589,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: fstring_full_format_spec from python.gram
-        public GeneratedAstNode? FstringFullFormatSpec()
+        public GeneratedResultTokenWithMetadata? FstringFullFormatSpec()
         {
             // CPython 3.12 PEG: fstring_full_format_spec
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedResultTokenWithMetadata? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -21007,9 +22625,9 @@ namespace SharpPy.Generated
                 }
                 // Zero or more: fstring_format_spec* (CPython: _Loop0_N rule)
                 var spec = _Loop0_26();
-                // Action: _PyPegen_setup_full_format_spec(p, colon, (asdl_expr_seq *) spec, EXTRA)
+                // Action: _PyPegen_setup_full_format_spec(colon, (asdl_expr_seq *) spec, EXTRA)
                 // Unknown AST function: _PyPegen_setup_full_format_spec
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedResultTokenWithMetadata?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21026,11 +22644,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: fstring_format_spec from python.gram
-        public GeneratedExpr FstringFormatSpec()
+        public GeneratedExpr? FstringFormatSpec()
         {
             // CPython 3.12 PEG: fstring_format_spec
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -21062,9 +22680,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_MIDDLE): result={(t != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: _PyPegen_decoded_constant_from_token(p, t)
+                // Action: _PyPegen_decoded_constant_from_token(t)
                 // Unknown AST function: _PyPegen_decoded_constant_from_token
-                _res = default(GeneratedExpr);
+                _res = default(GeneratedExpr?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21090,7 +22708,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -21107,11 +22725,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: fstring from python.gram
-        public GeneratedExpr Fstring()
+        public GeneratedExpr? Fstring()
         {
             // CPython 3.12 PEG: fstring
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -21156,9 +22774,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_END): result={(c != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: _PyPegen_joined_str(p, a, (asdl_expr_seq*)b, c)
+                // Action: _PyPegen_joined_str(a, b, c)
                 // Unknown AST function: _PyPegen_joined_str
-                _res = default(GeneratedExpr);
+                _res = default(GeneratedExpr?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21175,17 +22793,17 @@ namespace SharpPy.Generated
         }
 
         // Rule: string from python.gram
-        public GeneratedExpr String()
+        public GeneratedExpr? String()
         {
             // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return TryLeftRecursive<GeneratedExpr>("String", _String);
+            return (GeneratedExpr?)TryLeftRecursive("String", _String);
         }
 
-        private GeneratedExpr _String()
+        private GeneratedExpr? _String()
         {
             // CPython 3.12 PEG: string
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -21218,7 +22836,7 @@ namespace SharpPy.Generated
                 }
                 var s = StringToken(_token_s);
                 Console.WriteLine($"[DEBUG] ExpectToken(STRING): result={(s != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: _PyPegen_constant_from_string(p, s)
+                // Action: _PyPegen_constant_from_string(s)
                 _res = _PyPegen_constant_from_string(s);
                 if (_res != null) goto done;
             } while (false);
@@ -21236,18 +22854,18 @@ namespace SharpPy.Generated
         }
 
         // Rule: strings from python.gram
-        public GeneratedExpr Strings()
+        public GeneratedExpr? Strings()
         {
             // CPython 3.12: Memoized (non-left-recursive) - simple memoization
             // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return TryMemoized<GeneratedExpr>("Strings", _Strings);
+            return (GeneratedExpr?)TryMemoized("Strings", _Strings);
         }
 
-        private GeneratedExpr _Strings()
+        private GeneratedExpr? _Strings()
         {
             // CPython 3.12 PEG: strings
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -21277,7 +22895,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_concatenate_strings(p, a, EXTRA)
+                // Action: _PyPegen_concatenate_strings(a, EXTRA)
                 _res = _PyPegen_concatenate_strings(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
@@ -21295,11 +22913,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: list from python.gram
-        public GeneratedExpr List()
+        public GeneratedExpr? List()
         {
             // CPython 3.12 PEG: list
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -21337,7 +22955,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: star_named_expressions
                 {
                     _position = _group_mark__opt_a;
-                    GeneratedExprSeq _group_alt0__opt_a_item0 = StarNamedExpressions();
+                    GeneratedExprSeq? _group_alt0__opt_a_item0 = StarNamedExpressions();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -21348,11 +22966,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_a;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExprSeq? a = _opt_a;
-                if (a == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (a == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_a; // Reset position
-                    a = null; // Optional not present
                 }
                 // Expect ']'
                 var _tmp1 = Expect("]");
@@ -21382,11 +23009,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: tuple from python.gram
-        public GeneratedExpr Tuple()
+        public GeneratedExpr? Tuple()
         {
             // CPython 3.12 PEG: tuple
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -21416,15 +23043,15 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Optional: [(y=star_named_expression ',' z=[(star_named_expressions)] { _PyPegen_seq_insert_in_front(p, y, z) })]
+                // Optional: [(y=star_named_expression ',' z=[(star_named_expressions)] { _PyPegen_seq_insert_in_front(y, z) })]
                 int _opt_mark_a = _position;
-                // Group: (y=star_named_expression ',' z=[(star_named_expressions)] { _PyPegen_seq_insert_in_front(p, y, z) })
+                // Group: (y=star_named_expression ',' z=[(star_named_expressions)] { _PyPegen_seq_insert_in_front(y, z) })
                 GeneratedExprSeq? _opt_a = null;
                 int _group_mark__opt_a = _position;
-                // Try group alternative 1: y=star_named_expression ',' z=[(star_named_expressions)] { _PyPegen_seq_insert_in_front(p, y, z) }
+                // Try group alternative 1: y=star_named_expression ',' z=[(star_named_expressions)] { _PyPegen_seq_insert_in_front(y, z) }
                 {
                     _position = _group_mark__opt_a;
-                    GeneratedExpr _group_alt0__opt_a_item0 = StarNamedExpression();
+                    GeneratedExpr? _group_alt0__opt_a_item0 = StarNamedExpression();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         GeneratedTokenInfo? _group_alt0__opt_a_item1 = Expect(",");
@@ -21438,7 +23065,7 @@ namespace SharpPy.Generated
                             // Try group alternative 1: star_named_expressions
                             {
                                 _position = _group_mark__opt__group_alt0__opt_a_item2;
-                                GeneratedExprSeq _group_alt0__opt__group_alt0__opt_a_item2_item0 = StarNamedExpressions();
+                                GeneratedExprSeq? _group_alt0__opt__group_alt0__opt_a_item2_item0 = StarNamedExpressions();
                                 if (_group_alt0__opt__group_alt0__opt_a_item2_item0 != null)
                                 {
                                     _opt__group_alt0__opt_a_item2 = _group_alt0__opt__group_alt0__opt_a_item2_item0;
@@ -21449,11 +23076,20 @@ namespace SharpPy.Generated
                                     _position = _group_mark__opt__group_alt0__opt_a_item2;
                                 }
                             }
+                            // CPython: (a = expr, !p->error_indicator) - check error after optional
                             GeneratedExprSeq? _group_alt0__opt_a_item2 = _opt__group_alt0__opt_a_item2;
-                            if (_group_alt0__opt_a_item2 == null)
+                            if (_pendingSyntaxError != null)
                             {
+                                // CPython: error_indicator is set - optional pattern FAILS
+                                // This causes the entire alternative to fail (like && short-circuit in C)
+                                _position = _mark;
+                                _res = null;
+                                break;  // Exit alternative with error preserved
+                            }
+                            else if (_group_alt0__opt_a_item2 == null)
+                            {
+                                // CPython: No error, but expr returned NULL - optional not present
                                 _position = _opt_mark__group_alt0__opt_a_item2; // Reset position
-                                _group_alt0__opt_a_item2 = null; // Optional not present
                             }
                             if (_group_alt0__opt_a_item2 != null)
                             {
@@ -21467,11 +23103,20 @@ namespace SharpPy.Generated
                         }
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExprSeq? a = _opt_a;
-                if (a == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (a == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_a; // Reset position
-                    a = null; // Optional not present
                 }
                 // Expect ')'
                 var _tmp1 = Expect(")");
@@ -21501,11 +23146,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: set from python.gram
-        public GeneratedExpr Set()
+        public GeneratedExpr? Set()
         {
             // CPython 3.12 PEG: set
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -21572,11 +23217,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: dict from python.gram
-        public GeneratedExpr Dict()
+        public GeneratedExpr? Dict()
         {
             // CPython 3.12 PEG: dict
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -21609,12 +23254,12 @@ namespace SharpPy.Generated
                 // Optional: [(double_starred_kvpairs)]
                 int _opt_mark_a = _position;
                 // Group: (double_starred_kvpairs)
-                GeneratedMixedSeq? _opt_a = null;
+                GeneratedSeq? _opt_a = null;
                 int _group_mark__opt_a = _position;
                 // Try group alternative 1: double_starred_kvpairs
                 {
                     _position = _group_mark__opt_a;
-                    GeneratedMixedSeq _group_alt0__opt_a_item0 = DoubleStarredKvpairs();
+                    GeneratedSeq? _group_alt0__opt_a_item0 = DoubleStarredKvpairs();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -21625,11 +23270,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_a;
                     }
                 }
-                GeneratedMixedSeq? a = _opt_a;
-                if (a == null)
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
+                GeneratedSeq? a = _opt_a;
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (a == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_a; // Reset position
-                    a = null; // Optional not present
                 }
                 // Expect '}'
                 var _tmp1 = Expect("}");
@@ -21642,10 +23296,10 @@ namespace SharpPy.Generated
                 }
                 // Action (multiline):
                 //   _PyAST_Dict(
-                //   CHECK(asdl_expr_seq*, _PyPegen_get_keys(p, a)),
-                //   CHECK(asdl_expr_seq*, _PyPegen_get_values(p, a)),
+                //   CHECK<asdl_expr_seq>(_PyPegen_get_keys(a)),
+                //   CHECK<asdl_expr_seq>(_PyPegen_get_values(a)),
                 //   EXTRA)
-                _res = _PyAST_Dict(_PyPegen_get_keys(a), _PyPegen_get_values(a), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Dict(CHECK<asdl_expr_seq>(_PyPegen_get_keys(a)), CHECK<asdl_expr_seq>(_PyPegen_get_values(a)), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -21673,14 +23327,27 @@ namespace SharpPy.Generated
                 }
                 // Call rule: invalid_double_starred_kvpairs
                 GeneratedAstNode? _tmp1 = null;
+                Console.WriteLine($"[INVALID_DOUBLE_STARRED_KVPAIRS] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_DOUBLE_STARRED_KVPAIRS] Calling InvalidDoubleStarredKvpairs()");
                     _tmp1 = InvalidDoubleStarredKvpairs();
+                    Console.WriteLine($"[INVALID_DOUBLE_STARRED_KVPAIRS] Returned {(_tmp1 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_DOUBLE_STARRED_KVPAIRS] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp1 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -21694,7 +23361,14 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -21712,11 +23386,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: double_starred_kvpairs from python.gram
-        public GeneratedMixedSeq DoubleStarredKvpairs()
+        public GeneratedSeq? DoubleStarredKvpairs()
         {
             // CPython 3.12 PEG: double_starred_kvpairs
             int _mark = _position;
-            GeneratedMixedSeq _res = null;
+            GeneratedSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -21738,7 +23412,7 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.double_starred_kvpair+
-                var a = new GeneratedMixedSeq();
+                var a = new GeneratedSeq();
                 // Parse first item (no separator)
                 // Call rule: double_starred_kvpair
                 var _first_a = DoubleStarredKvpair();
@@ -21796,14 +23470,23 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Action: a
-                _res = (GeneratedMixedSeq)((GeneratedPtr?)a);
+                _res = (GeneratedSeq?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21820,11 +23503,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: double_starred_kvpair from python.gram
-        public GeneratedKeyValuePair DoubleStarredKvpair()
+        public GeneratedKeyValuePair? DoubleStarredKvpair()
         {
             // CPython 3.12 PEG: double_starred_kvpair
             int _mark = _position;
-            GeneratedKeyValuePair _res = null;
+            GeneratedKeyValuePair? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -21863,9 +23546,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_key_value_pair(p, NULL, a)
+                // Action: _PyPegen_key_value_pair(null, a)
                 // Unknown AST function: _PyPegen_key_value_pair
-                _res = default(GeneratedKeyValuePair);
+                _res = default(GeneratedKeyValuePair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21891,7 +23574,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedKeyValuePair)_tmp0;
+                _res = (GeneratedKeyValuePair?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -21908,11 +23591,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: kvpair from python.gram
-        public GeneratedKeyValuePair Kvpair()
+        public GeneratedKeyValuePair? Kvpair()
         {
             // CPython 3.12 PEG: kvpair
             int _mark = _position;
-            GeneratedKeyValuePair _res = null;
+            GeneratedKeyValuePair? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -21960,9 +23643,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_key_value_pair(p, a, b)
+                // Action: _PyPegen_key_value_pair(a, b)
                 // Unknown AST function: _PyPegen_key_value_pair
-                _res = default(GeneratedKeyValuePair);
+                _res = default(GeneratedKeyValuePair?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21979,11 +23662,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: for_if_clauses from python.gram
-        public GeneratedComprehensionSeq ForIfClauses()
+        public GeneratedComprehensionSeq? ForIfClauses()
         {
             // CPython 3.12 PEG: for_if_clauses
             int _mark = _position;
-            GeneratedComprehensionSeq _res = null;
+            GeneratedComprehensionSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -22014,7 +23697,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedComprehensionSeq)((GeneratedPtr?)a);
+                _res = (GeneratedComprehensionSeq?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -22031,11 +23714,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: for_if_clause from python.gram
-        public GeneratedComprehension ForIfClause()
+        public GeneratedComprehension? ForIfClause()
         {
             // CPython 3.12 PEG: for_if_clause
             int _mark = _position;
-            GeneratedComprehension _res = null;
+            GeneratedComprehension? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -22107,9 +23790,9 @@ namespace SharpPy.Generated
                 }
                 // Zero or more: ('if' z=disjunction { z })* (CPython: _Loop0_N rule)
                 var c = _Loop0_30();
-                // Action: CHECK_VERSION(comprehension_ty, 6, "Async comprehensions are", _PyAST_comprehension(a, b, c, 1, p->arena))
-                // No _PyAST_ or _PyPegen_ function in action: p->arena)
-                _res = default(GeneratedComprehension);
+                // Action: CHECK_VERSION(comprehension_ty, 6, "Async comprehensions are", _PyAST_comprehension(a, b, c, 1))
+                // No _PyAST_ or _PyPegen_ function in action: 1)
+                _res = default(GeneratedComprehension?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -22165,9 +23848,9 @@ namespace SharpPy.Generated
                 }
                 // Zero or more: ('if' z=disjunction { z })* (CPython: _Loop0_N rule)
                 var c = _Loop0_31();
-                // Action: _PyAST_comprehension(a, b, c, 0, p->arena)
+                // Action: _PyAST_comprehension(a, b, c, 0)
                 // Unknown AST function: _PyAST_comprehension
-                _res = default(GeneratedComprehension);
+                _res = default(GeneratedComprehension?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -22185,19 +23868,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_for_target
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_FOR_TARGET] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_FOR_TARGET] Calling InvalidForTarget()");
                     _tmp0 = InvalidForTarget();
+                    Console.WriteLine($"[INVALID_FOR_TARGET] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_FOR_TARGET] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -22215,11 +23918,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: listcomp from python.gram
-        public GeneratedExpr Listcomp()
+        public GeneratedExpr? Listcomp()
         {
             // CPython 3.12 PEG: listcomp
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -22296,19 +23999,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_comprehension
                 GeneratedSeq? _tmp0 = null;
+                Console.WriteLine($"[INVALID_COMPREHENSION] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_COMPREHENSION] Calling InvalidComprehension()");
                     _tmp0 = InvalidComprehension();
+                    Console.WriteLine($"[INVALID_COMPREHENSION] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_COMPREHENSION] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -22326,11 +24049,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: setcomp from python.gram
-        public GeneratedExpr Setcomp()
+        public GeneratedExpr? Setcomp()
         {
             // CPython 3.12 PEG: setcomp
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -22407,19 +24130,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_comprehension
                 GeneratedSeq? _tmp0 = null;
+                Console.WriteLine($"[INVALID_COMPREHENSION] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_COMPREHENSION] Calling InvalidComprehension()");
                     _tmp0 = InvalidComprehension();
+                    Console.WriteLine($"[INVALID_COMPREHENSION] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_COMPREHENSION] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -22437,11 +24180,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: genexp from python.gram
-        public GeneratedExpr Genexp()
+        public GeneratedExpr? Genexp()
         {
             // CPython 3.12 PEG: genexp
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -22477,7 +24220,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: assignment_expression
                 {
                     _position = _group_mark_a;
-                    GeneratedExpr _group_alt0_a_item0 = AssignmentExpression();
+                    GeneratedExpr? _group_alt0_a_item0 = AssignmentExpression();
                     if (_group_alt0_a_item0 != null)
                     {
                         a = _group_alt0_a_item0;
@@ -22492,7 +24235,7 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _group_mark_a;
-                    GeneratedExpr _group_alt1_a_item0 = Expression();
+                    GeneratedExpr? _group_alt1_a_item0 = Expression();
                     if (_group_alt1_a_item0 != null)
                     {
                         // WARNING: Lookahead in value position - this is unusual
@@ -22564,19 +24307,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_comprehension
                 GeneratedSeq? _tmp0 = null;
+                Console.WriteLine($"[INVALID_COMPREHENSION] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_COMPREHENSION] Calling InvalidComprehension()");
                     _tmp0 = InvalidComprehension();
+                    Console.WriteLine($"[INVALID_COMPREHENSION] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_COMPREHENSION] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -22594,11 +24357,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: dictcomp from python.gram
-        public GeneratedExpr Dictcomp()
+        public GeneratedExpr? Dictcomp()
         {
             // CPython 3.12 PEG: dictcomp
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -22655,7 +24418,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_DictComp(a->key, a->value, b, EXTRA)
+                // Action: _PyAST_DictComp(a.Key, a.Value, b, EXTRA)
                 _res = _PyAST_DictComp(a.Key, a.Value, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
@@ -22675,19 +24438,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_dict_comprehension
                 GeneratedPtr? _tmp0 = null;
+                Console.WriteLine($"[INVALID_DICT_COMPREHENSION] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_DICT_COMPREHENSION] Calling InvalidDictComprehension()");
                     _tmp0 = InvalidDictComprehension();
+                    Console.WriteLine($"[INVALID_DICT_COMPREHENSION] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_DICT_COMPREHENSION] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -22705,18 +24488,18 @@ namespace SharpPy.Generated
         }
 
         // Rule: arguments from python.gram
-        public GeneratedExpr Arguments()
+        public GeneratedExpr? Arguments()
         {
             // CPython 3.12: Memoized (non-left-recursive) - simple memoization
             // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return TryMemoized<GeneratedExpr>("Arguments", _Arguments);
+            return (GeneratedExpr?)TryMemoized("Arguments", _Arguments);
         }
 
-        private GeneratedExpr _Arguments()
+        private GeneratedExpr? _Arguments()
         {
             // CPython 3.12 PEG: arguments
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -22765,11 +24548,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Positive lookahead: &(')')
                 int _lookahead_mark_53 = _position;
@@ -22786,7 +24578,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExpr)((GeneratedPtr?)a);
+                _res = (GeneratedExpr?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -22804,19 +24596,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_arguments
                 GeneratedPtr? _tmp0 = null;
+                Console.WriteLine($"[INVALID_ARGUMENTS] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_ARGUMENTS] Calling InvalidArguments()");
                     _tmp0 = InvalidArguments();
+                    Console.WriteLine($"[INVALID_ARGUMENTS] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_ARGUMENTS] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -22834,11 +24646,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: args from python.gram
-        public GeneratedExpr Args()
+        public GeneratedExpr? Args()
         {
             // CPython 3.12 PEG: args
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -22868,7 +24680,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: starred_expression
                 {
                     _position = _group_mark__first_a;
-                    GeneratedExpr _group_alt0__first_a_item0 = StarredExpression();
+                    GeneratedExpr? _group_alt0__first_a_item0 = StarredExpression();
                     if (_group_alt0__first_a_item0 != null)
                     {
                         _first_a = _group_alt0__first_a_item0;
@@ -22889,7 +24701,7 @@ namespace SharpPy.Generated
                     // Try group alternative 1: assignment_expression
                     {
                         _position = _group_mark__group_alt1__first_a_item0;
-                        GeneratedExpr _group_alt0__group_alt1__first_a_item0_item0 = AssignmentExpression();
+                        GeneratedExpr? _group_alt0__group_alt1__first_a_item0_item0 = AssignmentExpression();
                         if (_group_alt0__group_alt1__first_a_item0_item0 != null)
                         {
                             _group_alt1__first_a_item0 = _group_alt0__group_alt1__first_a_item0_item0;
@@ -22904,7 +24716,7 @@ namespace SharpPy.Generated
                     if (_group_alt1__first_a_item0 == null)
                     {
                         _position = _group_mark__group_alt1__first_a_item0;
-                        GeneratedExpr _group_alt1__group_alt1__first_a_item0_item0 = Expression();
+                        GeneratedExpr? _group_alt1__group_alt1__first_a_item0_item0 = Expression();
                         if (_group_alt1__group_alt1__first_a_item0_item0 != null)
                         {
                             // WARNING: Lookahead in value position - this is unusual
@@ -23003,7 +24815,7 @@ namespace SharpPy.Generated
                     // Try group alternative 1: starred_expression
                     {
                         _position = _group_mark__loop_elem_a;
-                        GeneratedExpr _group_alt0__loop_elem_a_item0 = StarredExpression();
+                        GeneratedExpr? _group_alt0__loop_elem_a_item0 = StarredExpression();
                         if (_group_alt0__loop_elem_a_item0 != null)
                         {
                             _loop_elem_a = _group_alt0__loop_elem_a_item0;
@@ -23024,7 +24836,7 @@ namespace SharpPy.Generated
                         // Try group alternative 1: assignment_expression
                         {
                             _position = _group_mark__group_alt1__loop_elem_a_item0;
-                            GeneratedExpr _group_alt0__group_alt1__loop_elem_a_item0_item0 = AssignmentExpression();
+                            GeneratedExpr? _group_alt0__group_alt1__loop_elem_a_item0_item0 = AssignmentExpression();
                             if (_group_alt0__group_alt1__loop_elem_a_item0_item0 != null)
                             {
                                 _group_alt1__loop_elem_a_item0 = _group_alt0__group_alt1__loop_elem_a_item0_item0;
@@ -23039,7 +24851,7 @@ namespace SharpPy.Generated
                         if (_group_alt1__loop_elem_a_item0 == null)
                         {
                             _position = _group_mark__group_alt1__loop_elem_a_item0;
-                            GeneratedExpr _group_alt1__group_alt1__loop_elem_a_item0_item0 = Expression();
+                            GeneratedExpr? _group_alt1__group_alt1__loop_elem_a_item0_item0 = Expression();
                             if (_group_alt1__group_alt1__loop_elem_a_item0_item0 != null)
                             {
                                 // WARNING: Lookahead in value position - this is unusual
@@ -23116,7 +24928,7 @@ namespace SharpPy.Generated
                 // Optional: [(',' k=kwargs { k })]
                 int _opt_mark_b = _position;
                 // Group: (',' k=kwargs { k })
-                GeneratedMixedSeq? _opt_b = null;
+                GeneratedSeq? _opt_b = null;
                 int _group_mark__opt_b = _position;
                 // Try group alternative 1: ',' k=kwargs { k }
                 {
@@ -23124,7 +24936,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__opt_b_item0 = Expect(",");
                     if (_group_alt0__opt_b_item0 != null)
                     {
-                        GeneratedMixedSeq _group_alt0__opt_b_item1 = Kwargs();
+                        GeneratedSeq? _group_alt0__opt_b_item1 = Kwargs();
                         if (_group_alt0__opt_b_item1 != null)
                         {
                             _opt_b = _group_alt0__opt_b_item1;
@@ -23136,15 +24948,24 @@ namespace SharpPy.Generated
                         }
                     }
                 }
-                GeneratedMixedSeq? b = _opt_b;
-                if (b == null)
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
+                GeneratedSeq? b = _opt_b;
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark_b; // Reset position
-                    b = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyPegen_collect_call_seqs(p, a, b, EXTRA)
+                else if (b == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark_b; // Reset position
+                }
+                // Action: _PyPegen_collect_call_seqs(a, b, EXTRA)
                 // Unknown AST function: _PyPegen_collect_call_seqs
-                _res = default(GeneratedExpr);
+                _res = default(GeneratedExpr?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23170,11 +24991,11 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action (multiline):
-                //   _PyAST_Call(_PyPegen_dummy_name(p),
-                //   CHECK_NULL_ALLOWED(asdl_expr_seq*, _PyPegen_seq_extract_starred_exprs(p, a)),
-                //   CHECK_NULL_ALLOWED(asdl_keyword_seq*, _PyPegen_seq_delete_starred_exprs(p, a)),
+                //   _PyAST_Call(_PyPegen_dummy_name(),
+                //   CHECK_NULL_ALLOWED<asdl_expr_seq>(_PyPegen_seq_extract_starred_exprs(a)),
+                //   CHECK_NULL_ALLOWED<asdl_keyword_seq>(_PyPegen_seq_delete_starred_exprs(a)),
                 //   EXTRA)
-                _res = _PyAST_Call(_PyPegen_dummy_name(), _PyPegen_seq_extract_starred_exprs(a), _PyPegen_seq_delete_starred_exprs(a), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Call(_PyPegen_dummy_name(), CHECK_NULL_ALLOWED<asdl_expr_seq>(_PyPegen_seq_extract_starred_exprs(a)), CHECK_NULL_ALLOWED<asdl_keyword_seq>(_PyPegen_seq_delete_starred_exprs(a)), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -23192,11 +25013,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: kwargs from python.gram
-        public GeneratedMixedSeq Kwargs()
+        public GeneratedSeq? Kwargs()
         {
             // CPython 3.12 PEG: kwargs
             int _mark = _position;
-            GeneratedMixedSeq _res = null;
+            GeneratedSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -23306,9 +25127,9 @@ namespace SharpPy.Generated
                     }
                     b.Add(_loop_elem_b);
                 }
-                // Action: _PyPegen_join_sequences(p, a, b)
+                // Action: _PyPegen_join_sequences(a, b)
                 // Unknown AST function: _PyPegen_join_sequences
-                _res = default(GeneratedMixedSeq);
+                _res = default(GeneratedSeq?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23365,7 +25186,7 @@ namespace SharpPy.Generated
                     _tmp0.Add(_loop_elem__tmp0);
                 }
                 // No action specified - using default result
-                _res = PegenHelpers.ToMixedSeq(_tmp0);
+                _res = (GeneratedSeq?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -23422,7 +25243,7 @@ namespace SharpPy.Generated
                     _tmp0.Add(_loop_elem__tmp0);
                 }
                 // No action specified - using default result
-                _res = PegenHelpers.ToMixedSeq(_tmp0);
+                _res = (GeneratedSeq?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -23439,11 +25260,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: starred_expression from python.gram
-        public GeneratedExpr StarredExpression()
+        public GeneratedExpr? StarredExpression()
         {
             // CPython 3.12 PEG: starred_expression
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -23466,19 +25287,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_starred_expression
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_STARRED_EXPRESSION] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_STARRED_EXPRESSION] Calling InvalidStarredExpression()");
                     _tmp0 = InvalidStarredExpression();
+                    Console.WriteLine($"[INVALID_STARRED_EXPRESSION] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_STARRED_EXPRESSION] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -23561,11 +25402,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: kwarg_or_starred from python.gram
-        public GeneratedKeywordOrStarred KwargOrStarred()
+        public GeneratedKeywordOrStarred? KwargOrStarred()
         {
             // CPython 3.12 PEG: kwarg_or_starred
             int _mark = _position;
-            GeneratedKeywordOrStarred _res = null;
+            GeneratedKeywordOrStarred? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -23588,19 +25429,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_kwarg
                 GeneratedPtr? _tmp0 = null;
+                Console.WriteLine($"[INVALID_KWARG] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_KWARG] Calling InvalidKwarg()");
                     _tmp0 = InvalidKwarg();
+                    Console.WriteLine($"[INVALID_KWARG] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_KWARG] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -23647,9 +25508,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_keyword_or_starred(p, CHECK(keyword_ty, _PyAST_keyword(a->v.Name.id, b, EXTRA)), 1)
+                // Action: _PyPegen_keyword_or_starred(CHECK<keyword_ty>(_PyAST_keyword(a.Id, b, EXTRA)), 1)
                 // Unknown AST function: _PyAST_keyword
-                _res = default(GeneratedKeywordOrStarred);
+                _res = default(GeneratedKeywordOrStarred?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23674,9 +25535,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_keyword_or_starred(p, a, 0)
+                // Action: _PyPegen_keyword_or_starred(a, 0)
                 // Unknown AST function: _PyPegen_keyword_or_starred
-                _res = default(GeneratedKeywordOrStarred);
+                _res = default(GeneratedKeywordOrStarred?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23693,11 +25554,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: kwarg_or_double_starred from python.gram
-        public GeneratedKeywordOrStarred KwargOrDoubleStarred()
+        public GeneratedKeywordOrStarred? KwargOrDoubleStarred()
         {
             // CPython 3.12 PEG: kwarg_or_double_starred
             int _mark = _position;
-            GeneratedKeywordOrStarred _res = null;
+            GeneratedKeywordOrStarred? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -23720,19 +25581,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_kwarg
                 GeneratedPtr? _tmp0 = null;
+                Console.WriteLine($"[INVALID_KWARG] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_KWARG] Calling InvalidKwarg()");
                     _tmp0 = InvalidKwarg();
+                    Console.WriteLine($"[INVALID_KWARG] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_KWARG] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -23779,9 +25660,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_keyword_or_starred(p, CHECK(keyword_ty, _PyAST_keyword(a->v.Name.id, b, EXTRA)), 1)
+                // Action: _PyPegen_keyword_or_starred(CHECK<keyword_ty>(_PyAST_keyword(a.Id, b, EXTRA)), 1)
                 // Unknown AST function: _PyAST_keyword
-                _res = default(GeneratedKeywordOrStarred);
+                _res = default(GeneratedKeywordOrStarred?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23815,9 +25696,9 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_keyword_or_starred(p, CHECK(keyword_ty, _PyAST_keyword(NULL, a, EXTRA)), 1)
+                // Action: _PyPegen_keyword_or_starred(CHECK<keyword_ty>(_PyAST_keyword(null, a, EXTRA)), 1)
                 // Unknown AST function: _PyAST_keyword
-                _res = default(GeneratedKeywordOrStarred);
+                _res = default(GeneratedKeywordOrStarred?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23834,11 +25715,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: star_targets from python.gram
-        public GeneratedExpr StarTargets()
+        public GeneratedExpr? StarTargets()
         {
             // CPython 3.12 PEG: star_targets
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -23880,7 +25761,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExpr)((GeneratedPtr?)a);
+                _res = (GeneratedExpr?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23926,14 +25807,23 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: _PyAST_Tuple(CHECK(asdl_expr_seq*, _PyPegen_seq_insert_in_front(p, a, b)), Store, EXTRA)
-                _res = _PyAST_Tuple(_PyPegen_seq_insert_in_front(a, b), GeneratedStore.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark__tmp0; // Reset position
+                }
+                // Action: _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(a, b)), Store, EXTRA)
+                _res = _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(a, b)), GeneratedStore.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -23951,11 +25841,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: star_targets_list_seq from python.gram
-        public GeneratedExprSeq StarTargetsListSeq()
+        public GeneratedExprSeq? StarTargetsListSeq()
         {
             // CPython 3.12 PEG: star_targets_list_seq
             int _mark = _position;
-            GeneratedExprSeq _res = null;
+            GeneratedExprSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -24035,14 +25925,23 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Action: a
-                _res = (GeneratedExprSeq)((GeneratedPtr?)a);
+                _res = (GeneratedExprSeq?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -24059,11 +25958,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: star_targets_tuple_seq from python.gram
-        public GeneratedExprSeq StarTargetsTupleSeq()
+        public GeneratedExprSeq? StarTargetsTupleSeq()
         {
             // CPython 3.12 PEG: star_targets_tuple_seq
             int _mark = _position;
-            GeneratedExprSeq _res = null;
+            GeneratedExprSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -24121,13 +26020,22 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
-                    _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
                 }
-                // Action: (asdl_expr_seq*) _PyPegen_seq_insert_in_front(p, a, b)
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
+                    _position = _opt_mark__tmp0; // Reset position
+                }
+                // Action: _PyPegen_seq_insert_in_front(a, b)
                 _res = _PyPegen_seq_insert_in_front(a, b);
                 if (_res != null) goto done;
             } while (false);
@@ -24162,7 +26070,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: (asdl_expr_seq*) _PyPegen_singleton_seq(p, a)
+                // Action: _PyPegen_singleton_seq(a)
                 _res = _PyPegen_singleton_seq(a);
                 if (_res != null) goto done;
             } while (false);
@@ -24180,18 +26088,18 @@ namespace SharpPy.Generated
         }
 
         // Rule: star_target from python.gram
-        public GeneratedExpr StarTarget()
+        public GeneratedExpr? StarTarget()
         {
             // CPython 3.12: Memoized (non-left-recursive) - simple memoization
             // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return TryMemoized<GeneratedExpr>("StarTarget", _StarTarget);
+            return (GeneratedExpr?)TryMemoized("StarTarget", _StarTarget);
         }
 
-        private GeneratedExpr _StarTarget()
+        private GeneratedExpr? _StarTarget()
         {
             // CPython 3.12 PEG: star_target
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -24242,7 +26150,7 @@ namespace SharpPy.Generated
                     bool _group_alt0_a_item0 = true; // Lookahead succeeded
                     if (_group_alt0_a_item0 != null)
                     {
-                        GeneratedExpr _group_alt0_a_item1 = StarTarget();
+                        GeneratedExpr? _group_alt0_a_item1 = StarTarget();
                         if (_group_alt0_a_item1 != null)
                         {
                             a = _group_alt0_a_item1;
@@ -24261,8 +26169,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_Starred(CHECK(expr_ty, _PyPegen_set_expr_context(p, a, Store)), Store, EXTRA)
-                _res = _PyAST_Starred(_PyPegen_set_expr_context(a, GeneratedStore.Instance), GeneratedStore.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                // Action: _PyAST_Starred(CHECK<expr_ty>(_PyPegen_set_expr_context(a, Store)), Store, EXTRA)
+                _res = _PyAST_Starred(CHECK<expr_ty>(_PyPegen_set_expr_context(a, GeneratedStore.Instance)), GeneratedStore.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -24289,7 +26197,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -24306,18 +26214,18 @@ namespace SharpPy.Generated
         }
 
         // Rule: target_with_star_atom from python.gram
-        public GeneratedExpr TargetWithStarAtom()
+        public GeneratedExpr? TargetWithStarAtom()
         {
             // CPython 3.12: Memoized (non-left-recursive) - simple memoization
             // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return TryMemoized<GeneratedExpr>("TargetWithStarAtom", _TargetWithStarAtom);
+            return (GeneratedExpr?)TryMemoized("TargetWithStarAtom", _TargetWithStarAtom);
         }
 
-        private GeneratedExpr _TargetWithStarAtom()
+        private GeneratedExpr? _TargetWithStarAtom()
         {
             // CPython 3.12 PEG: target_with_star_atom
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -24379,8 +26287,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_Attribute(a, b->v.Name.id, Store, EXTRA)
-                _res = _PyAST_Attribute(a, ASTHelpers.ExtractStringValue(b), GeneratedStore.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                // Action: _PyAST_Attribute(a, b.Id, Store, EXTRA)
+                _res = _PyAST_Attribute(a, b.Id, GeneratedStore.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -24472,7 +26380,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -24489,11 +26397,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: star_atom from python.gram
-        public GeneratedExpr StarAtom()
+        public GeneratedExpr? StarAtom()
         {
             // CPython 3.12 PEG: star_atom
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -24526,7 +26434,7 @@ namespace SharpPy.Generated
                 }
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: _PyPegen_set_expr_context(p, a, Store)
+                // Action: _PyPegen_set_expr_context(a, Store)
                 _res = _PyPegen_set_expr_context(a, GeneratedStore.Instance);
                 if (_res != null) goto done;
             } while (false);
@@ -24570,7 +26478,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_set_expr_context(p, a, Store)
+                // Action: _PyPegen_set_expr_context(a, Store)
                 _res = _PyPegen_set_expr_context(a, GeneratedStore.Instance);
                 if (_res != null) goto done;
             } while (false);
@@ -24604,7 +26512,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: star_targets_tuple_seq
                 {
                     _position = _group_mark__opt_a;
-                    GeneratedExprSeq _group_alt0__opt_a_item0 = StarTargetsTupleSeq();
+                    GeneratedExprSeq? _group_alt0__opt_a_item0 = StarTargetsTupleSeq();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -24615,11 +26523,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_a;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExprSeq? a = _opt_a;
-                if (a == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (a == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_a; // Reset position
-                    a = null; // Optional not present
                 }
                 // Expect ')'
                 var _tmp1 = Expect(")");
@@ -24665,7 +26582,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: star_targets_list_seq
                 {
                     _position = _group_mark__opt_a;
-                    GeneratedExprSeq _group_alt0__opt_a_item0 = StarTargetsListSeq();
+                    GeneratedExprSeq? _group_alt0__opt_a_item0 = StarTargetsListSeq();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -24676,11 +26593,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_a;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExprSeq? a = _opt_a;
-                if (a == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (a == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_a; // Reset position
-                    a = null; // Optional not present
                 }
                 // Expect ']'
                 var _tmp1 = Expect("]");
@@ -24710,11 +26636,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: single_target from python.gram
-        public GeneratedExpr SingleTarget()
+        public GeneratedExpr? SingleTarget()
         {
             // CPython 3.12 PEG: single_target
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -24745,7 +26671,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -24773,7 +26699,7 @@ namespace SharpPy.Generated
                 }
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: _PyPegen_set_expr_context(p, a, Store)
+                // Action: _PyPegen_set_expr_context(a, Store)
                 _res = _PyPegen_set_expr_context(a, GeneratedStore.Instance);
                 if (_res != null) goto done;
             } while (false);
@@ -24818,7 +26744,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExpr)((GeneratedPtr?)a);
+                _res = (GeneratedExpr?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -24835,11 +26761,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: single_subscript_attribute_target from python.gram
-        public GeneratedExpr SingleSubscriptAttributeTarget()
+        public GeneratedExpr? SingleSubscriptAttributeTarget()
         {
             // CPython 3.12 PEG: single_subscript_attribute_target
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -24901,8 +26827,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_Attribute(a, b->v.Name.id, Store, EXTRA)
-                _res = _PyAST_Attribute(a, ASTHelpers.ExtractStringValue(b), GeneratedStore.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                // Action: _PyAST_Attribute(a, b.Id, Store, EXTRA)
+                _res = _PyAST_Attribute(a, b.Id, GeneratedStore.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -24985,17 +26911,17 @@ namespace SharpPy.Generated
         }
 
         // Rule: t_primary from python.gram
-        public GeneratedExpr TPrimary()
+        public GeneratedExpr? TPrimary()
         {
             // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return TryLeftRecursive<GeneratedExpr>("TPrimary", _TPrimary);
+            return (GeneratedExpr?)TryLeftRecursive("TPrimary", _TPrimary);
         }
 
-        private GeneratedExpr _TPrimary()
+        private GeneratedExpr? _TPrimary()
         {
             // CPython 3.12 PEG: t_primary
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -25060,8 +26986,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_Attribute(a, b->v.Name.id, Load, EXTRA)
-                _res = _PyAST_Attribute(a, ASTHelpers.ExtractStringValue(b), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                // Action: _PyAST_Attribute(a, b.Id, Load, EXTRA)
+                _res = _PyAST_Attribute(a, b.Id, GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -25178,8 +27104,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_Call(a, CHECK(asdl_expr_seq*, (asdl_expr_seq*)_PyPegen_singleton_seq(p, b)), NULL, EXTRA)
-                _res = _PyAST_Call(a, _PyPegen_singleton_seq(b), null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                // Action: _PyAST_Call(a, CHECK<asdl_expr_seq>(_PyPegen_singleton_seq(b)), null, EXTRA)
+                _res = _PyAST_Call(a, CHECK<asdl_expr_seq>(_PyPegen_singleton_seq(b)), null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -25222,7 +27148,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: arguments
                 {
                     _position = _group_mark__opt_b;
-                    GeneratedExpr _group_alt0__opt_b_item0 = Arguments();
+                    GeneratedExpr? _group_alt0__opt_b_item0 = Arguments();
                     if (_group_alt0__opt_b_item0 != null)
                     {
                         _opt_b = _group_alt0__opt_b_item0;
@@ -25233,11 +27159,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_b;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? b = _opt_b;
-                if (b == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (b == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_b; // Reset position
-                    b = null; // Optional not present
                 }
                 // Expect ')'
                 var _tmp1 = Expect(")");
@@ -25264,10 +27199,10 @@ namespace SharpPy.Generated
                 }
                 // Action (multiline):
                 //   _PyAST_Call(a,
-                //   (b) ? ((expr_ty) b)->v.Call.args : NULL,
-                //   (b) ? ((expr_ty) b)->v.Call.keywords : NULL,
+                //   (b) ? ((GeneratedCall)b).Args : null!,
+                //   (b) ? ((GeneratedCall)b).Keywords : null!,
                 //   EXTRA)
-                _res = _PyAST_Call(a, ASTHelpers.ExtractCallArgs(b), ASTHelpers.ExtractCallKeywords(b), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Call(a, b != null ? ((GeneratedCall)b).Args : null!, b != null ? ((GeneratedCall)b).Keywords : null!, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -25308,7 +27243,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExpr)((GeneratedPtr?)a);
+                _res = (GeneratedExpr?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -25429,11 +27364,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: del_targets from python.gram
-        public GeneratedExprSeq DelTargets()
+        public GeneratedExprSeq? DelTargets()
         {
             // CPython 3.12 PEG: del_targets
             int _mark = _position;
-            GeneratedExprSeq _res = null;
+            GeneratedExprSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -25513,14 +27448,23 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Action: a
-                _res = (GeneratedExprSeq)((GeneratedPtr?)a);
+                _res = (GeneratedExprSeq?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -25537,18 +27481,18 @@ namespace SharpPy.Generated
         }
 
         // Rule: del_target from python.gram
-        public GeneratedExpr DelTarget()
+        public GeneratedExpr? DelTarget()
         {
             // CPython 3.12: Memoized (non-left-recursive) - simple memoization
             // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return TryMemoized<GeneratedExpr>("DelTarget", _DelTarget);
+            return (GeneratedExpr?)TryMemoized("DelTarget", _DelTarget);
         }
 
-        private GeneratedExpr _DelTarget()
+        private GeneratedExpr? _DelTarget()
         {
             // CPython 3.12 PEG: del_target
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -25610,8 +27554,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_Attribute(a, b->v.Name.id, Del, EXTRA)
-                _res = _PyAST_Attribute(a, ASTHelpers.ExtractStringValue(b), GeneratedDel.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                // Action: _PyAST_Attribute(a, b.Id, Del, EXTRA)
+                _res = _PyAST_Attribute(a, b.Id, GeneratedDel.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -25703,7 +27647,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -25720,11 +27664,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: del_t_atom from python.gram
-        public GeneratedExpr DelTAtom()
+        public GeneratedExpr? DelTAtom()
         {
             // CPython 3.12 PEG: del_t_atom
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -25757,7 +27701,7 @@ namespace SharpPy.Generated
                 }
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Action: _PyPegen_set_expr_context(p, a, Del)
+                // Action: _PyPegen_set_expr_context(a, Del)
                 _res = _PyPegen_set_expr_context(a, GeneratedDel.Instance);
                 if (_res != null) goto done;
             } while (false);
@@ -25801,7 +27745,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_set_expr_context(p, a, Del)
+                // Action: _PyPegen_set_expr_context(a, Del)
                 _res = _PyPegen_set_expr_context(a, GeneratedDel.Instance);
                 if (_res != null) goto done;
             } while (false);
@@ -25835,7 +27779,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: del_targets
                 {
                     _position = _group_mark__opt_a;
-                    GeneratedExprSeq _group_alt0__opt_a_item0 = DelTargets();
+                    GeneratedExprSeq? _group_alt0__opt_a_item0 = DelTargets();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -25846,11 +27790,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_a;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExprSeq? a = _opt_a;
-                if (a == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (a == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_a; // Reset position
-                    a = null; // Optional not present
                 }
                 // Expect ')'
                 var _tmp1 = Expect(")");
@@ -25896,7 +27849,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: del_targets
                 {
                     _position = _group_mark__opt_a;
-                    GeneratedExprSeq _group_alt0__opt_a_item0 = DelTargets();
+                    GeneratedExprSeq? _group_alt0__opt_a_item0 = DelTargets();
                     if (_group_alt0__opt_a_item0 != null)
                     {
                         _opt_a = _group_alt0__opt_a_item0;
@@ -25907,11 +27860,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt_a;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExprSeq? a = _opt_a;
-                if (a == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (a == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_a; // Reset position
-                    a = null; // Optional not present
                 }
                 // Expect ']'
                 var _tmp1 = Expect("]");
@@ -25941,11 +27903,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: type_expressions from python.gram
-        public GeneratedExprSeq TypeExpressions()
+        public GeneratedExprSeq? TypeExpressions()
         {
             // CPython 3.12 PEG: type_expressions
             int _mark = _position;
-            GeneratedExprSeq _res = null;
+            GeneratedExprSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -26061,11 +28023,10 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action (multiline):
-                //   (asdl_expr_seq*)_PyPegen_seq_append_to_end(
-                //   p,
-                //   CHECK(asdl_seq*, _PyPegen_seq_append_to_end(p, a, b)),
+                //   _PyPegen_seq_append_to_end(
+                //   CHECK<asdl_seq>(_PyPegen_seq_append_to_end(a, b)),
                 //   c)
-                _res = _PyPegen_seq_append_to_end(_PyPegen_seq_append_to_end(a, b), c);
+                _res = _PyPegen_seq_append_to_end(CHECK<asdl_seq>(_PyPegen_seq_append_to_end(a, b)), c);
                 if (_res != null) goto done;
             } while (false);
 
@@ -26148,7 +28109,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: (asdl_expr_seq*)_PyPegen_seq_append_to_end(p, a, b)
+                // Action: _PyPegen_seq_append_to_end(a, b)
                 _res = _PyPegen_seq_append_to_end(a, b);
                 if (_res != null) goto done;
             } while (false);
@@ -26232,7 +28193,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: (asdl_expr_seq*)_PyPegen_seq_append_to_end(p, a, b)
+                // Action: _PyPegen_seq_append_to_end(a, b)
                 _res = _PyPegen_seq_append_to_end(a, b);
                 if (_res != null) goto done;
             } while (false);
@@ -26295,11 +28256,10 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action (multiline):
-                //   (asdl_expr_seq*)_PyPegen_seq_append_to_end(
-                //   p,
-                //   CHECK(asdl_seq*, _PyPegen_singleton_seq(p, a)),
+                //   _PyPegen_seq_append_to_end(
+                //   CHECK<asdl_seq>(_PyPegen_singleton_seq(a)),
                 //   b)
-                _res = _PyPegen_seq_append_to_end(_PyPegen_singleton_seq(a), b);
+                _res = _PyPegen_seq_append_to_end(CHECK<asdl_seq>(_PyPegen_singleton_seq(a)), b);
                 if (_res != null) goto done;
             } while (false);
 
@@ -26333,7 +28293,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: (asdl_expr_seq*)_PyPegen_singleton_seq(p, a)
+                // Action: _PyPegen_singleton_seq(a)
                 _res = _PyPegen_singleton_seq(a);
                 if (_res != null) goto done;
             } while (false);
@@ -26368,7 +28328,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: (asdl_expr_seq*)_PyPegen_singleton_seq(p, a)
+                // Action: _PyPegen_singleton_seq(a)
                 _res = _PyPegen_singleton_seq(a);
                 if (_res != null) goto done;
             } while (false);
@@ -26426,7 +28386,7 @@ namespace SharpPy.Generated
                     a.Add(_loop_elem_a);
                 }
                 // Action: a
-                _res = (GeneratedExprSeq)((GeneratedPtr?)a);
+                _res = (GeneratedExprSeq?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -26443,11 +28403,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: func_type_comment from python.gram
-        public GeneratedTokenInfo FuncTypeComment()
+        public GeneratedTokenInfo? FuncTypeComment()
         {
             // CPython 3.12 PEG: func_type_comment
             int _mark = _position;
-            GeneratedTokenInfo _res = null;
+            GeneratedTokenInfo? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -26506,7 +28466,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: t
-                _res = (GeneratedTokenInfo)((GeneratedPtr?)t);
+                _res = (GeneratedTokenInfo?)((GeneratedPtr?)t);
                 if (_res != null) goto done;
             } while (false);
 
@@ -26524,19 +28484,39 @@ namespace SharpPy.Generated
 
                 // Call rule: invalid_double_type_comments
                 GeneratedAstNode? _tmp0 = null;
+                Console.WriteLine($"[INVALID_DOUBLE_TYPE_COMMENTS] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_DOUBLE_TYPE_COMMENTS] Calling InvalidDoubleTypeComments()");
                     _tmp0 = InvalidDoubleTypeComments();
+                    Console.WriteLine($"[INVALID_DOUBLE_TYPE_COMMENTS] Returned {(_tmp0 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_DOUBLE_TYPE_COMMENTS] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp0 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -26565,7 +28545,7 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // No action specified - using default result
-                _res = (GeneratedTokenInfo)_tmp0;
+                _res = (GeneratedTokenInfo?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -26608,13 +28588,13 @@ namespace SharpPy.Generated
                 }
 
                 // Group: ((','.(starred_expression | (assignment_expression | expression !':=') !'=')+ ',' kwargs) | kwargs)
-                GeneratedMixedSeq? _tmp0 = null;
+                GeneratedSeq? _tmp0 = null;
                 int _group_mark__tmp0 = _position;
                 // Try group alternative 1: (','.(starred_expression | (assignment_expression | expression !':=') !'=')+ ',' kwargs)
                 {
                     _position = _group_mark__tmp0;
                     // Group: (','.(starred_expression | (assignment_expression | expression !':=') !'=')+ ',' kwargs)
-                    GeneratedMixedSeq? _group_alt0__tmp0_item0 = null;
+                    GeneratedSeq? _group_alt0__tmp0_item0 = null;
                     int _group_mark__group_alt0__tmp0_item0 = _position;
                     // Try group alternative 1: ','.(starred_expression | (assignment_expression | expression !':=') !'=')+ ',' kwargs
                     {
@@ -26628,7 +28608,7 @@ namespace SharpPy.Generated
                         // Try group alternative 1: starred_expression
                         {
                             _position = _group_mark__first__group_alt0__group_alt0__tmp0_item0_item0;
-                            GeneratedExpr _group_alt0__first__group_alt0__group_alt0__tmp0_item0_item0_item0 = StarredExpression();
+                            GeneratedExpr? _group_alt0__first__group_alt0__group_alt0__tmp0_item0_item0_item0 = StarredExpression();
                             if (_group_alt0__first__group_alt0__group_alt0__tmp0_item0_item0_item0 != null)
                             {
                                 _first__group_alt0__group_alt0__tmp0_item0_item0 = _group_alt0__first__group_alt0__group_alt0__tmp0_item0_item0_item0;
@@ -26649,7 +28629,7 @@ namespace SharpPy.Generated
                             // Try group alternative 1: assignment_expression
                             {
                                 _position = _group_mark__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0;
-                                GeneratedExpr _group_alt0__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 = AssignmentExpression();
+                                GeneratedExpr? _group_alt0__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 = AssignmentExpression();
                                 if (_group_alt0__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 != null)
                                 {
                                     _group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0 = _group_alt0__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0;
@@ -26664,7 +28644,7 @@ namespace SharpPy.Generated
                             if (_group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0 == null)
                             {
                                 _position = _group_mark__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0;
-                                GeneratedExpr _group_alt1__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 = Expression();
+                                GeneratedExpr? _group_alt1__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 = Expression();
                                 if (_group_alt1__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 != null)
                                 {
                                     // WARNING: Lookahead in value position - this is unusual
@@ -26763,7 +28743,7 @@ namespace SharpPy.Generated
                             // Try group alternative 1: starred_expression
                             {
                                 _position = _group_mark__loop_elem__group_alt0__group_alt0__tmp0_item0_item0;
-                                GeneratedExpr _group_alt0__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 = StarredExpression();
+                                GeneratedExpr? _group_alt0__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 = StarredExpression();
                                 if (_group_alt0__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 != null)
                                 {
                                     _loop_elem__group_alt0__group_alt0__tmp0_item0_item0 = _group_alt0__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0;
@@ -26784,7 +28764,7 @@ namespace SharpPy.Generated
                                 // Try group alternative 1: assignment_expression
                                 {
                                     _position = _group_mark__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0;
-                                    GeneratedExpr _group_alt0__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 = AssignmentExpression();
+                                    GeneratedExpr? _group_alt0__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 = AssignmentExpression();
                                     if (_group_alt0__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 != null)
                                     {
                                         _group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 = _group_alt0__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0;
@@ -26799,7 +28779,7 @@ namespace SharpPy.Generated
                                 if (_group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 == null)
                                 {
                                     _position = _group_mark__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0;
-                                    GeneratedExpr _group_alt1__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 = Expression();
+                                    GeneratedExpr? _group_alt1__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 = Expression();
                                     if (_group_alt1__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 != null)
                                     {
                                         // WARNING: Lookahead in value position - this is unusual
@@ -26878,7 +28858,7 @@ namespace SharpPy.Generated
                             GeneratedTokenInfo? _group_alt0__group_alt0__tmp0_item0_item1 = Expect(",");
                             if (_group_alt0__group_alt0__tmp0_item0_item1 != null)
                             {
-                                GeneratedMixedSeq _group_alt0__group_alt0__tmp0_item0_item2 = Kwargs();
+                                GeneratedSeq? _group_alt0__group_alt0__tmp0_item0_item2 = Kwargs();
                                 if (_group_alt0__group_alt0__tmp0_item0_item2 != null)
                                 {
                                     _group_alt0__tmp0_item0 = _group_alt0__group_alt0__tmp0_item0_item2;
@@ -26912,7 +28892,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _group_mark__tmp0;
-                    GeneratedMixedSeq _group_alt1__tmp0_item0 = Kwargs();
+                    GeneratedSeq? _group_alt1__tmp0_item0 = Kwargs();
                     if (_group_alt1__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt1__tmp0_item0;
@@ -26948,7 +28928,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: starred_expression !'='
                 {
                     _position = _group_mark__first__tmp1;
-                    GeneratedExpr _group_alt0__first__tmp1_item0 = StarredExpression();
+                    GeneratedExpr? _group_alt0__first__tmp1_item0 = StarredExpression();
                     if (_group_alt0__first__tmp1_item0 != null)
                     {
                         // WARNING: Lookahead in value position - this is unusual
@@ -27014,7 +28994,7 @@ namespace SharpPy.Generated
                     // Try group alternative 1: starred_expression !'='
                     {
                         _position = _group_mark__loop_elem__tmp1;
-                        GeneratedExpr _group_alt0__loop_elem__tmp1_item0 = StarredExpression();
+                        GeneratedExpr? _group_alt0__loop_elem__tmp1_item0 = StarredExpression();
                         if (_group_alt0__loop_elem__tmp1_item0 != null)
                         {
                             // WARNING: Lookahead in value position - this is unusual
@@ -27110,7 +29090,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: args
                 {
                     _position = _group_mark__opt__tmp1;
-                    GeneratedExpr _group_alt0__opt__tmp1_item0 = Args();
+                    GeneratedExpr? _group_alt0__opt__tmp1_item0 = Args();
                     if (_group_alt0__opt__tmp1_item0 != null)
                     {
                         _opt__tmp1 = _group_alt0__opt__tmp1_item0;
@@ -27121,11 +29101,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp1;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? _tmp1 = _opt__tmp1;
-                if (_tmp1 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp1 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp1; // Reset position
-                    _tmp1 = null; // Optional not present
                 }
                 // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, _PyPegen_get_last_comprehension_item(PyPegen_last_item(b, comprehension_ty)), "Generator expression must be parenthesized")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
@@ -27186,12 +29175,10 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?")
-                // CPython 3.12: Invalid syntax detected - set error and return immediately
-                _pendingSyntaxError = "invalid syntax. Maybe you meant '==' or ':=' instead of '='?";
-                _pendingErrorPosition = _position;
-                _res = null;
-                goto done;  // CPython: Skip remaining alternatives after RAISE_SYNTAX_ERROR
+                // Action: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?")
+                // TODO: Complex action expression: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?")
+                _res = default(GeneratedPtr?);
+                if (_res != null) goto done;
             } while (false);
 
             // Alternative 4
@@ -27214,7 +29201,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: args ','
                 {
                     _position = _group_mark__opt__tmp0;
-                    GeneratedExpr _group_alt0__opt__tmp0_item0 = Args();
+                    GeneratedExpr? _group_alt0__opt__tmp0_item0 = Args();
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         GeneratedTokenInfo? _group_alt0__opt__tmp0_item1 = Expect(",");
@@ -27229,11 +29216,20 @@ namespace SharpPy.Generated
                         }
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
@@ -27272,12 +29268,10 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "expected argument value expression")
-                // CPython 3.12: Invalid syntax detected - set error and return immediately
-                _pendingSyntaxError = "expected argument value expression";
-                _pendingErrorPosition = _position;
-                _res = null;
-                goto done;  // CPython: Skip remaining alternatives after RAISE_SYNTAX_ERROR
+                // Action: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "expected argument value expression")
+                // TODO: Complex action expression: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "expected argument value expression")
+                _res = default(GeneratedPtr?);
+                if (_res != null) goto done;
             } while (false);
 
             // Alternative 5
@@ -27310,7 +29304,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_nonparen_genexp_in_call(p, a, b)
+                // Action: _PyPegen_nonparen_genexp_in_call(a, b)
                 // Unknown AST function: _PyPegen_nonparen_genexp_in_call
                 _res = default(GeneratedPtr?);
                 if (_res != null) goto done;
@@ -27411,7 +29405,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_arguments_parsing_error(p, a)
+                // Action: _PyPegen_arguments_parsing_error(a)
                 // Unknown AST function: _PyPegen_arguments_parsing_error
                 _res = default(GeneratedPtr?);
                 if (_res != null) goto done;
@@ -27518,12 +29512,10 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "cannot assign to %s", PyBytes_AS_STRING(a->bytes))
-                // CPython 3.12: Invalid syntax detected - set error and return immediately
-                _pendingSyntaxError = "cannot assign to %s";
-                _pendingErrorPosition = _position;
-                _res = null;
-                goto done;  // CPython: Skip remaining alternatives after RAISE_SYNTAX_ERROR
+                // Action: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, $"cannot assign to %s"))
+                // TODO: Complex action expression: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, $"cannot assign to %s"))
+                _res = default(GeneratedPtr?);
+                if (_res != null) goto done;
             } while (false);
 
             // Alternative 2
@@ -27577,12 +29569,10 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?")
-                // CPython 3.12: Invalid syntax detected - set error and return immediately
-                _pendingSyntaxError = "invalid syntax. Maybe you meant '==' or ':=' instead of '='?";
-                _pendingErrorPosition = _position;
-                _res = null;
-                goto done;  // CPython: Skip remaining alternatives after RAISE_SYNTAX_ERROR
+                // Action: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?")
+                // TODO: Complex action expression: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?")
+                _res = default(GeneratedPtr?);
+                if (_res != null) goto done;
             } while (false);
 
             // Alternative 3
@@ -27684,12 +29674,10 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "cannot assign to keyword argument unpacking")
-                // CPython 3.12: Invalid syntax detected - set error and return immediately
-                _pendingSyntaxError = "cannot assign to keyword argument unpacking";
-                _pendingErrorPosition = _position;
-                _res = null;
-                goto done;  // CPython: Skip remaining alternatives after RAISE_SYNTAX_ERROR
+                // Action: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "cannot assign to keyword argument unpacking")
+                // TODO: Complex action expression: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "cannot assign to keyword argument unpacking")
+                _res = default(GeneratedPtr?);
+                if (_res != null) goto done;
             } while (false);
 
             _position = _mark;
@@ -27705,11 +29693,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: expression_without_invalid from python.gram
-        public GeneratedExpr ExpressionWithoutInvalid()
+        public GeneratedExpr? ExpressionWithoutInvalid()
         {
             // CPython 3.12 PEG: expression_without_invalid
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // CPython 3.12: Disable invalid rules for expression_without_invalid
             bool _prev_call_invalid = _callInvalidRules;
@@ -27807,7 +29795,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -27833,7 +29821,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -27908,14 +29896,10 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action (multiline):
-                //   _PyPegen_check_legacy_stmt(p, a) ? RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b,
-                //   "Missing parentheses in call to '%U'. Did you mean %U(...)?", a->v.Name.id, a->v.Name.id) : NULL
-                // CPython 3.12: Invalid syntax detected - set error and return immediately
-                _pendingSyntaxError = "Missing parentheses in call to '%U'. Did you mean %U(...)?";
-                _pendingErrorPosition = _position;
-                _res = null;
-                goto done;  // CPython: Skip remaining alternatives after RAISE_SYNTAX_ERROR
+                // Action: PegenHelpers.CheckLegacyStmt(a) ? PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, $"Missing parentheses in call to '{a.Id}'. Did you mean {a.Id}(...)?") : null
+                // TODO: Complex action expression: PegenHelpers.CheckLegacyStmt(a) ? PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, $"Missing parentheses in call to '{a.Id}'. Did you mean {a.Id}(...)?") : null
+                _res = default(GeneratedAstNode?);
+                if (_res != null) goto done;
             } while (false);
 
             _position = _mark;
@@ -27986,13 +29970,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action (multiline):
-                //   _PyPegen_check_legacy_stmt(p, a) ? NULL : p->tokens[p->mark-1]->level == 0 ? NULL :
-                //   RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "invalid syntax. Perhaps you forgot a comma?")
-                // CPython 3.12: Invalid syntax detected - set error and return immediately
-                _pendingSyntaxError = "invalid syntax. Perhaps you forgot a comma?";
-                _pendingErrorPosition = _position;
-                _res = null;
-                goto done;  // CPython: Skip remaining alternatives after RAISE_SYNTAX_ERROR
+                //   PegenHelpers.CheckLegacyStmt(a) ? null : _tokens[_mark-1].Level == 0 ? null :
+                //   PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "invalid syntax. Perhaps you forgot a comma?")
+                // TODO: Complex action expression (multiline):
+                //   PegenHelpers.CheckLegacyStmt(a) ? null : _tokens[_mark-1].Level == 0 ? null :
+                //   PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "invalid syntax. Perhaps you forgot a comma?")
+                _res = default(GeneratedAstNode?);
+                if (_res != null) goto done;
             } while (false);
 
             // Alternative 2
@@ -28047,12 +30031,10 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "expected 'else' after 'if' expression")
-                // CPython 3.12: Invalid syntax detected - set error and return immediately
-                _pendingSyntaxError = "expected 'else' after 'if' expression";
-                _pendingErrorPosition = _position;
-                _res = null;
-                goto done;  // CPython: Skip remaining alternatives after RAISE_SYNTAX_ERROR
+                // Action: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "expected 'else' after 'if' expression")
+                // TODO: Complex action expression: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "expected 'else' after 'if' expression")
+                _res = default(GeneratedAstNode?);
+                if (_res != null) goto done;
             } while (false);
 
             // Alternative 3
@@ -28084,7 +30066,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_params
                 {
                     _position = _group_mark__opt__tmp0;
-                    GeneratedArguments _group_alt0__opt__tmp0_item0 = LambdaParams();
+                    GeneratedArguments? _group_alt0__opt__tmp0_item0 = LambdaParams();
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -28095,11 +30077,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedArguments? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Expect ':'
                 var b = Expect(":");
@@ -28124,12 +30115,10 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "f-string: lambda expressions are not allowed without parentheses")
-                // CPython 3.12: Invalid syntax detected - set error and return immediately
-                _pendingSyntaxError = "f-string: lambda expressions are not allowed without parentheses";
-                _pendingErrorPosition = _position;
-                _res = null;
-                goto done;  // CPython: Skip remaining alternatives after RAISE_SYNTAX_ERROR
+                // Action: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "f-string: lambda expressions are not allowed without parentheses")
+                // TODO: Complex action expression: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "f-string: lambda expressions are not allowed without parentheses")
+                _res = default(GeneratedAstNode?);
+                if (_res != null) goto done;
             } while (false);
 
             _position = _mark;
@@ -28149,7 +30138,7 @@ namespace SharpPy.Generated
         {
             // CPython 3.12: Memoized (non-left-recursive) - simple memoization
             // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return TryMemoized<GeneratedAstNode?>("InvalidNamedExpression", _InvalidNamedExpression);
+            return (GeneratedAstNode?)TryMemoized("InvalidNamedExpression", _InvalidNamedExpression);
         }
 
         private GeneratedAstNode? _InvalidNamedExpression()
@@ -28269,12 +30258,10 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?")
-                // CPython 3.12: Invalid syntax detected - set error and return immediately
-                _pendingSyntaxError = "invalid syntax. Maybe you meant '==' or ':=' instead of '='?";
-                _pendingErrorPosition = _position;
-                _res = null;
-                goto done;  // CPython: Skip remaining alternatives after RAISE_SYNTAX_ERROR
+                // Action: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?")
+                // TODO: Complex action expression: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?")
+                _res = default(GeneratedAstNode?);
+                if (_res != null) goto done;
             } while (false);
 
             // Alternative 3
@@ -28392,15 +30379,28 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_ann_assign_target
-                GeneratedExpr a = null;
+                GeneratedExpr? a = null;
+                Console.WriteLine($"[INVALID_ANN_ASSIGN_TARGET] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_ANN_ASSIGN_TARGET] Calling InvalidAnnAssignTarget()");
                     a = InvalidAnnAssignTarget();
+                    Console.WriteLine($"[INVALID_ANN_ASSIGN_TARGET] Returned {(a == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_ANN_ASSIGN_TARGET] SKIP due to _callInvalidRules=false");
                 }
                 if (a == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28656,7 +30656,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt0__tmp1_item0 = YieldExpr();
+                    GeneratedExpr? _group_alt0__tmp1_item0 = YieldExpr();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -28671,7 +30671,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt1__tmp1_item0 = StarExpressions();
+                    GeneratedExpr? _group_alt1__tmp1_item0 = StarExpressions();
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -28715,11 +30715,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_ann_assign_target from python.gram
-        public GeneratedExpr InvalidAnnAssignTarget()
+        public GeneratedExpr? InvalidAnnAssignTarget()
         {
             // CPython 3.12 PEG: invalid_ann_assign_target
             int _mark = _position;
-            GeneratedExpr _res = null;
+            GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -28750,7 +30750,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -28776,7 +30776,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedExpr)_tmp0;
+                _res = (GeneratedExpr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -28802,15 +30802,28 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: invalid_ann_assign_target
-                GeneratedExpr a = null;
+                GeneratedExpr? a = null;
+                Console.WriteLine($"[INVALID_ANN_ASSIGN_TARGET] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_ANN_ASSIGN_TARGET] Calling InvalidAnnAssignTarget()");
                     a = InvalidAnnAssignTarget();
+                    Console.WriteLine($"[INVALID_ANN_ASSIGN_TARGET] Returned {(a == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_ANN_ASSIGN_TARGET] SKIP due to _callInvalidRules=false");
                 }
                 if (a == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -28824,7 +30837,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedExpr)((GeneratedPtr?)a);
+                _res = (GeneratedExpr?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -29253,12 +31266,10 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "did you forget parentheses around the comprehension target?")
-                // CPython 3.12: Invalid syntax detected - set error and return immediately
-                _pendingSyntaxError = "did you forget parentheses around the comprehension target?";
-                _pendingErrorPosition = _position;
-                _res = null;
-                goto done;  // CPython: Skip remaining alternatives after RAISE_SYNTAX_ERROR
+                // Action: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "did you forget parentheses around the comprehension target?")
+                // TODO: Complex action expression: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "did you forget parentheses around the comprehension target?")
+                _res = default(GeneratedSeq?);
+                if (_res != null) goto done;
             } while (false);
 
             _position = _mark;
@@ -29436,7 +31447,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: slash_no_default
                 {
                     _position = _group_mark__tmp0;
-                    GeneratedAstNodeSeq _group_alt0__tmp0_item0 = SlashNoDefault();
+                    GeneratedArgSeq? _group_alt0__tmp0_item0 = SlashNoDefault();
                     if (_group_alt0__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt0__tmp0_item0;
@@ -29451,7 +31462,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _group_mark__tmp0;
-                    GeneratedSlashWithDefault _group_alt1__tmp0_item0 = SlashWithDefault();
+                    GeneratedSlashWithDefault? _group_alt1__tmp0_item0 = SlashWithDefault();
                     if (_group_alt1__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt1__tmp0_item0;
@@ -29511,24 +31522,46 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                GeneratedAstNodeSeq? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
+                GeneratedArgSeq? _tmp0 = _opt__tmp0;
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Zero or more: param_no_default* (CPython: _Loop0_N rule)
                 var _tmp1 = _Loop0_6();
                 // Call rule: invalid_parameters_helper
                 GeneratedSeq? _tmp2 = null;
+                Console.WriteLine($"[INVALID_PARAMETERS_HELPER] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_PARAMETERS_HELPER] Calling InvalidParametersHelper()");
                     _tmp2 = InvalidParametersHelper();
+                    Console.WriteLine($"[INVALID_PARAMETERS_HELPER] Returned {(_tmp2 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_PARAMETERS_HELPER] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp2 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -29592,11 +31625,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp2 = _opt__tmp2;
-                if (_tmp2 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp2 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp2; // Reset position
-                    _tmp2 = null; // Optional not present
                 }
                 // Expect ')'
                 var b = Expect(")");
@@ -29607,12 +31649,10 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "Function parameters cannot be parenthesized")
-                // CPython 3.12: Invalid syntax detected - set error and return immediately
-                _pendingSyntaxError = "Function parameters cannot be parenthesized";
-                _pendingErrorPosition = _position;
-                _res = null;
-                goto done;  // CPython: Skip remaining alternatives after RAISE_SYNTAX_ERROR
+                // Action: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "Function parameters cannot be parenthesized")
+                // TODO: Complex action expression: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "Function parameters cannot be parenthesized")
+                _res = default(GeneratedPtr?);
+                if (_res != null) goto done;
             } while (false);
 
             // Alternative 5
@@ -29637,7 +31677,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: slash_no_default
                 {
                     _position = _group_mark__opt__tmp0;
-                    GeneratedAstNodeSeq _group_alt0__opt__tmp0_item0 = SlashNoDefault();
+                    GeneratedArgSeq? _group_alt0__opt__tmp0_item0 = SlashNoDefault();
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -29652,7 +31692,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp0 == null)
                 {
                     _position = _group_mark__opt__tmp0;
-                    GeneratedSlashWithDefault _group_alt1__opt__tmp0_item0 = SlashWithDefault();
+                    GeneratedSlashWithDefault? _group_alt1__opt__tmp0_item0 = SlashWithDefault();
                     if (_group_alt1__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt1__opt__tmp0_item0;
@@ -29663,11 +31703,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedPtr? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Zero or more: param_maybe_default* (CPython: _Loop0_N rule)
                 var _tmp1 = _Loop0_10();
@@ -29703,7 +31752,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _group_mark__tmp3;
-                    GeneratedArg _group_alt1__tmp3_item0 = ParamNoDefault();
+                    GeneratedArg? _group_alt1__tmp3_item0 = ParamNoDefault();
                     if (_group_alt1__tmp3_item0 != null)
                     {
                         _tmp3 = _group_alt1__tmp3_item0;
@@ -30119,7 +32168,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: param_no_default
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedArg _group_alt0__tmp1_item0 = ParamNoDefault();
+                    GeneratedArg? _group_alt0__tmp1_item0 = ParamNoDefault();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -30171,7 +32220,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: param_no_default
                 {
                     _position = _group_mark__tmp3;
-                    GeneratedArg _group_alt0__tmp3_item0 = ParamNoDefault();
+                    GeneratedArg? _group_alt0__tmp3_item0 = ParamNoDefault();
                     if (_group_alt0__tmp3_item0 != null)
                     {
                         _tmp3 = _group_alt0__tmp3_item0;
@@ -30489,7 +32538,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_singleton_seq(p, a)
+                // Action: _PyPegen_singleton_seq(a)
                 _res = _PyPegen_singleton_seq(a);
                 if (_res != null) goto done;
             } while (false);
@@ -30604,7 +32653,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_slash_no_default
                 {
                     _position = _group_mark__tmp0;
-                    GeneratedAstNodeSeq _group_alt0__tmp0_item0 = LambdaSlashNoDefault();
+                    GeneratedArgSeq? _group_alt0__tmp0_item0 = LambdaSlashNoDefault();
                     if (_group_alt0__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt0__tmp0_item0;
@@ -30619,7 +32668,7 @@ namespace SharpPy.Generated
                 if (_tmp0 == null)
                 {
                     _position = _group_mark__tmp0;
-                    GeneratedSlashWithDefault _group_alt1__tmp0_item0 = LambdaSlashWithDefault();
+                    GeneratedSlashWithDefault? _group_alt1__tmp0_item0 = LambdaSlashWithDefault();
                     if (_group_alt1__tmp0_item0 != null)
                     {
                         _tmp0 = _group_alt1__tmp0_item0;
@@ -30679,24 +32728,46 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                GeneratedAstNodeSeq? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
+                GeneratedArgSeq? _tmp0 = _opt__tmp0;
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Zero or more: lambda_param_no_default* (CPython: _Loop0_N rule)
                 var _tmp1 = _Loop0_20();
                 // Call rule: invalid_lambda_parameters_helper
                 GeneratedSeq? _tmp2 = null;
+                Console.WriteLine($"[INVALID_LAMBDA_PARAMETERS_HELPER] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_LAMBDA_PARAMETERS_HELPER] Calling InvalidLambdaParametersHelper()");
                     _tmp2 = InvalidLambdaParametersHelper();
+                    Console.WriteLine($"[INVALID_LAMBDA_PARAMETERS_HELPER] Returned {(_tmp2 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_LAMBDA_PARAMETERS_HELPER] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp2 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -30791,11 +32862,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp2 = _opt__tmp2;
-                if (_tmp2 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp2 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp2; // Reset position
-                    _tmp2 = null; // Optional not present
                 }
                 // Expect ')'
                 var b = Expect(")");
@@ -30806,12 +32886,10 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "Lambda expression parameters cannot be parenthesized")
-                // CPython 3.12: Invalid syntax detected - set error and return immediately
-                _pendingSyntaxError = "Lambda expression parameters cannot be parenthesized";
-                _pendingErrorPosition = _position;
-                _res = null;
-                goto done;  // CPython: Skip remaining alternatives after RAISE_SYNTAX_ERROR
+                // Action: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "Lambda expression parameters cannot be parenthesized")
+                // TODO: Complex action expression: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "Lambda expression parameters cannot be parenthesized")
+                _res = default(GeneratedPtr?);
+                if (_res != null) goto done;
             } while (false);
 
             // Alternative 5
@@ -30836,7 +32914,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_slash_no_default
                 {
                     _position = _group_mark__opt__tmp0;
-                    GeneratedAstNodeSeq _group_alt0__opt__tmp0_item0 = LambdaSlashNoDefault();
+                    GeneratedArgSeq? _group_alt0__opt__tmp0_item0 = LambdaSlashNoDefault();
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -30851,7 +32929,7 @@ namespace SharpPy.Generated
                 if (_opt__tmp0 == null)
                 {
                     _position = _group_mark__opt__tmp0;
-                    GeneratedSlashWithDefault _group_alt1__opt__tmp0_item0 = LambdaSlashWithDefault();
+                    GeneratedSlashWithDefault? _group_alt1__opt__tmp0_item0 = LambdaSlashWithDefault();
                     if (_group_alt1__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt1__opt__tmp0_item0;
@@ -30862,11 +32940,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedPtr? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Zero or more: lambda_param_maybe_default* (CPython: _Loop0_N rule)
                 var _tmp1 = _Loop0_24();
@@ -30902,7 +32989,7 @@ namespace SharpPy.Generated
                 if (_tmp3 == null)
                 {
                     _position = _group_mark__tmp3;
-                    GeneratedArg _group_alt1__tmp3_item0 = LambdaParamNoDefault();
+                    GeneratedArg? _group_alt1__tmp3_item0 = LambdaParamNoDefault();
                     if (_group_alt1__tmp3_item0 != null)
                     {
                         _tmp3 = _group_alt1__tmp3_item0;
@@ -31033,7 +33120,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_singleton_seq(p, a)
+                // Action: _PyPegen_singleton_seq(a)
                 _res = _PyPegen_singleton_seq(a);
                 if (_res != null) goto done;
             } while (false);
@@ -31276,7 +33363,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_param_no_default
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedArg _group_alt0__tmp1_item0 = LambdaParamNoDefault();
+                    GeneratedArg? _group_alt0__tmp1_item0 = LambdaParamNoDefault();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -31328,7 +33415,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: lambda_param_no_default
                 {
                     _position = _group_mark__tmp3;
-                    GeneratedArg _group_alt0__tmp3_item0 = LambdaParamNoDefault();
+                    GeneratedArg? _group_alt0__tmp3_item0 = LambdaParamNoDefault();
                     if (_group_alt0__tmp3_item0 != null)
                     {
                         _tmp3 = _group_alt0__tmp3_item0;
@@ -31841,11 +33928,20 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_opt__tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Expect 'for'
                 var _tmp1 = Expect("for");
@@ -32247,11 +34343,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Expect 'with'
                 var _tmp1 = Expect("with");
@@ -32368,11 +34473,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Expect 'with'
                 var _tmp1 = Expect("with");
@@ -32459,11 +34573,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp4 = _opt__tmp4;
-                if (_tmp4 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp4 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp4; // Reset position
-                    _tmp4 = null; // Optional not present
                 }
                 // Expect ')'
                 var _tmp5 = Expect(")");
@@ -32550,11 +34673,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Expect 'with'
                 var a = Expect("with");
@@ -32652,7 +34784,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'with' statement on line %d", a->lineno)
+                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'with' statement on line %d", a.LineNo)
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected an indented block after 'with' statement on line %d";
                 _pendingErrorPosition = _position;
@@ -32691,11 +34823,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Expect 'with'
                 var a = Expect("with");
@@ -32782,11 +34923,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp3 = _opt__tmp3;
-                if (_tmp3 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp3 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp3; // Reset position
-                    _tmp3 = null; // Optional not present
                 }
                 // Expect ')'
                 var _tmp4 = Expect(")");
@@ -32828,7 +34978,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'with' statement on line %d", a->lineno)
+                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'with' statement on line %d", a.LineNo)
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected an indented block after 'with' statement on line %d";
                 _pendingErrorPosition = _position;
@@ -32914,7 +35064,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'try' statement on line %d", a->lineno)
+                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'try' statement on line %d", a.LineNo)
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected an indented block after 'try' statement on line %d";
                 _pendingErrorPosition = _position;
@@ -33050,12 +35200,10 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "cannot have both 'except' and 'except*' on the same 'try'")
-                // CPython 3.12: Invalid syntax detected - set error and return immediately
-                _pendingSyntaxError = "cannot have both 'except' and 'except*' on the same 'try'";
-                _pendingErrorPosition = _position;
-                _res = null;
-                goto done;  // CPython: Skip remaining alternatives after RAISE_SYNTAX_ERROR
+                // Action: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "cannot have both 'except' and 'except*' on the same 'try'")
+                // TODO: Complex action expression: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "cannot have both 'except' and 'except*' on the same 'try'")
+                _res = default(GeneratedPtr?);
+                if (_res != null) goto done;
             } while (false);
 
             // Alternative 4
@@ -33117,11 +35265,20 @@ namespace SharpPy.Generated
                 {
                     _position = _group_mark__opt__tmp4;
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedAstNode? _tmp4 = _opt__tmp4;
-                if (_tmp4 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp4 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp4; // Reset position
-                    _tmp4 = null; // Optional not present
                 }
                 // Expect ':'
                 var _tmp5 = Expect(":");
@@ -33198,11 +35355,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp1 = _opt__tmp1;
-                if (_tmp1 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp1 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp1; // Reset position
-                    _tmp1 = null; // Optional not present
                 }
                 // Call rule: expression
                 var a = Expression();
@@ -33271,11 +35437,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
@@ -33491,7 +35666,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'finally' statement on line %d", a->lineno)
+                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'finally' statement on line %d", a.LineNo)
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected an indented block after 'finally' statement on line %d";
                 _pendingErrorPosition = _position;
@@ -33577,7 +35752,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'except' statement on line %d", a->lineno)
+                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'except' statement on line %d", a.LineNo)
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected an indented block after 'except' statement on line %d";
                 _pendingErrorPosition = _position;
@@ -33637,7 +35812,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'except' statement on line %d", a->lineno)
+                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'except' statement on line %d", a.LineNo)
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected an indented block after 'except' statement on line %d";
                 _pendingErrorPosition = _position;
@@ -33732,7 +35907,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'except*' statement on line %d", a->lineno)
+                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'except*' statement on line %d", a.LineNo)
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected an indented block after 'except*' statement on line %d";
                 _pendingErrorPosition = _position;
@@ -33876,7 +36051,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'match' statement on line %d", a->lineno)
+                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'match' statement on line %d", a.LineNo)
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected an indented block after 'match' statement on line %d";
                 _pendingErrorPosition = _position;
@@ -33951,11 +36126,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? _tmp2 = _opt__tmp2;
-                if (_tmp2 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp2 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp2; // Reset position
-                    _tmp2 = null; // Optional not present
                 }
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
@@ -34017,11 +36201,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? _tmp1 = _opt__tmp1;
-                if (_tmp1 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp1 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp1; // Reset position
-                    _tmp1 = null; // Optional not present
                 }
                 // Expect ':'
                 var _tmp2 = Expect(":");
@@ -34054,7 +36247,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'case' statement on line %d", a->lineno)
+                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'case' statement on line %d", a.LineNo)
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected an indented block after 'case' statement on line %d";
                 _pendingErrorPosition = _position;
@@ -34250,15 +36443,28 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: invalid_class_argument_pattern
-                GeneratedAstNodeSeq a = null;
+                GeneratedPatternSeq? a = null;
+                Console.WriteLine($"[INVALID_CLASS_ARGUMENT_PATTERN] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_CLASS_ARGUMENT_PATTERN] Calling InvalidClassArgumentPattern()");
                     a = InvalidClassArgumentPattern();
+                    Console.WriteLine($"[INVALID_CLASS_ARGUMENT_PATTERN] Returned {(a == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_CLASS_ARGUMENT_PATTERN] SKIP due to _callInvalidRules=false");
                 }
                 if (a == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -34287,11 +36493,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_class_argument_pattern from python.gram
-        public GeneratedAstNodeSeq InvalidClassArgumentPattern()
+        public GeneratedPatternSeq? InvalidClassArgumentPattern()
         {
             // CPython 3.12 PEG: invalid_class_argument_pattern
             int _mark = _position;
-            GeneratedAstNodeSeq _res = null;
+            GeneratedPatternSeq? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -34320,7 +36526,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: positional_patterns ','
                 {
                     _position = _group_mark__opt__tmp0;
-                    GeneratedAstNodeSeq _group_alt0__opt__tmp0_item0 = PositionalPatterns();
+                    GeneratedPatternSeq? _group_alt0__opt__tmp0_item0 = PositionalPatterns();
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         GeneratedTokenInfo? _group_alt0__opt__tmp0_item1 = Expect(",");
@@ -34335,11 +36541,20 @@ namespace SharpPy.Generated
                         }
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Call rule: keyword_patterns
                 var _tmp1 = KeywordPatterns();
@@ -34369,7 +36584,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: a
-                _res = (GeneratedAstNodeSeq)((GeneratedPtr?)a);
+                _res = (GeneratedPatternSeq?)((GeneratedPtr?)a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -34509,7 +36724,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'if' statement on line %d", a->lineno)
+                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'if' statement on line %d", a.LineNo)
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected an indented block after 'if' statement on line %d";
                 _pendingErrorPosition = _position;
@@ -34653,7 +36868,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'elif' statement on line %d", a->lineno)
+                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'elif' statement on line %d", a.LineNo)
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected an indented block after 'elif' statement on line %d";
                 _pendingErrorPosition = _position;
@@ -34739,7 +36954,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'else' statement on line %d", a->lineno)
+                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'else' statement on line %d", a.LineNo)
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected an indented block after 'else' statement on line %d";
                 _pendingErrorPosition = _position;
@@ -34883,7 +37098,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'while' statement on line %d", a->lineno)
+                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'while' statement on line %d", a.LineNo)
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected an indented block after 'while' statement on line %d";
                 _pendingErrorPosition = _position;
@@ -34948,11 +37163,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Expect 'for'
                 var _tmp1 = Expect("for");
@@ -35040,11 +37264,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Expect 'for'
                 var a = Expect("for");
@@ -35113,7 +37346,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'for' statement on line %d", a->lineno)
+                // Action: RAISE_INDENTATION_ERROR("expected an indented block after 'for' statement on line %d", a.LineNo)
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected an indented block after 'for' statement on line %d";
                 _pendingErrorPosition = _position;
@@ -35178,11 +37411,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp0;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
-                if (_tmp0 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp0 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
-                    _tmp0 = null; // Optional not present
                 }
                 // Expect 'def'
                 var a = Expect("def");
@@ -35210,7 +37452,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: params
                 {
                     _position = _group_mark__opt__tmp1;
-                    GeneratedArguments _group_alt0__opt__tmp1_item0 = Params();
+                    GeneratedArguments? _group_alt0__opt__tmp1_item0 = Params();
                     if (_group_alt0__opt__tmp1_item0 != null)
                     {
                         _opt__tmp1 = _group_alt0__opt__tmp1_item0;
@@ -35221,11 +37463,20 @@ namespace SharpPy.Generated
                         _position = _group_mark__opt__tmp1;
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedArguments? _tmp1 = _opt__tmp1;
-                if (_tmp1 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp1 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp1; // Reset position
-                    _tmp1 = null; // Optional not present
                 }
                 // Expect ')'
                 var _tmp2 = Expect(")");
@@ -35247,7 +37498,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__opt__tmp3_item0 = Expect("->");
                     if (_group_alt0__opt__tmp3_item0 != null)
                     {
-                        GeneratedExpr _group_alt0__opt__tmp3_item1 = Expression();
+                        GeneratedExpr? _group_alt0__opt__tmp3_item1 = Expression();
                         if (_group_alt0__opt__tmp3_item1 != null)
                         {
                             _opt__tmp3 = _group_alt0__opt__tmp3_item1;
@@ -35259,11 +37510,20 @@ namespace SharpPy.Generated
                         }
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? _tmp3 = _opt__tmp3;
-                if (_tmp3 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp3 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp3; // Reset position
-                    _tmp3 = null; // Optional not present
                 }
                 // Expect ':'
                 var _tmp4 = Expect(":");
@@ -35296,7 +37556,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_INDENTATION_ERROR("expected an indented block after function definition on line %d", a->lineno)
+                // Action: RAISE_INDENTATION_ERROR("expected an indented block after function definition on line %d", a.LineNo)
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected an indented block after function definition on line %d";
                 _pendingErrorPosition = _position;
@@ -35370,7 +37630,7 @@ namespace SharpPy.Generated
                         // Try group alternative 1: arguments
                         {
                             _position = _group_mark__opt__group_alt0__opt_NAME_item1;
-                            GeneratedExpr _group_alt0__opt__group_alt0__opt_NAME_item1_item0 = Arguments();
+                            GeneratedExpr? _group_alt0__opt__group_alt0__opt_NAME_item1_item0 = Arguments();
                             if (_group_alt0__opt__group_alt0__opt_NAME_item1_item0 != null)
                             {
                                 _opt__group_alt0__opt_NAME_item1 = _group_alt0__opt__group_alt0__opt_NAME_item1_item0;
@@ -35381,11 +37641,20 @@ namespace SharpPy.Generated
                                 _position = _group_mark__opt__group_alt0__opt_NAME_item1;
                             }
                         }
+                        // CPython: (a = expr, !p->error_indicator) - check error after optional
                         GeneratedExpr? _group_alt0__opt_NAME_item1 = _opt__group_alt0__opt_NAME_item1;
-                        if (_group_alt0__opt_NAME_item1 == null)
+                        if (_pendingSyntaxError != null)
                         {
+                            // CPython: error_indicator is set - optional pattern FAILS
+                            // This causes the entire alternative to fail (like && short-circuit in C)
+                            _position = _mark;
+                            _res = null;
+                            break;  // Exit alternative with error preserved
+                        }
+                        else if (_group_alt0__opt_NAME_item1 == null)
+                        {
+                            // CPython: No error, but expr returned NULL - optional not present
                             _position = _opt_mark__group_alt0__opt_NAME_item1; // Reset position
-                            _group_alt0__opt_NAME_item1 = null; // Optional not present
                         }
                         if (_group_alt0__opt_NAME_item1 != null)
                         {
@@ -35402,11 +37671,20 @@ namespace SharpPy.Generated
                         }
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? NAME = _opt_NAME;
-                if (NAME == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (NAME == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_NAME; // Reset position
-                    NAME = null; // Optional not present
                 }
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
@@ -35467,7 +37745,7 @@ namespace SharpPy.Generated
                         // Try group alternative 1: arguments
                         {
                             _position = _group_mark__opt__group_alt0__opt_NAME_item1;
-                            GeneratedExpr _group_alt0__opt__group_alt0__opt_NAME_item1_item0 = Arguments();
+                            GeneratedExpr? _group_alt0__opt__group_alt0__opt_NAME_item1_item0 = Arguments();
                             if (_group_alt0__opt__group_alt0__opt_NAME_item1_item0 != null)
                             {
                                 _opt__group_alt0__opt_NAME_item1 = _group_alt0__opt__group_alt0__opt_NAME_item1_item0;
@@ -35478,11 +37756,20 @@ namespace SharpPy.Generated
                                 _position = _group_mark__opt__group_alt0__opt_NAME_item1;
                             }
                         }
+                        // CPython: (a = expr, !p->error_indicator) - check error after optional
                         GeneratedExpr? _group_alt0__opt_NAME_item1 = _opt__group_alt0__opt_NAME_item1;
-                        if (_group_alt0__opt_NAME_item1 == null)
+                        if (_pendingSyntaxError != null)
                         {
+                            // CPython: error_indicator is set - optional pattern FAILS
+                            // This causes the entire alternative to fail (like && short-circuit in C)
+                            _position = _mark;
+                            _res = null;
+                            break;  // Exit alternative with error preserved
+                        }
+                        else if (_group_alt0__opt_NAME_item1 == null)
+                        {
+                            // CPython: No error, but expr returned NULL - optional not present
                             _position = _opt_mark__group_alt0__opt_NAME_item1; // Reset position
-                            _group_alt0__opt_NAME_item1 = null; // Optional not present
                         }
                         if (_group_alt0__opt_NAME_item1 != null)
                         {
@@ -35499,11 +37786,20 @@ namespace SharpPy.Generated
                         }
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? NAME = _opt_NAME;
-                if (NAME == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (NAME == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_NAME; // Reset position
-                    NAME = null; // Optional not present
                 }
                 // Expect ':'
                 var _tmp0 = Expect(":");
@@ -35536,7 +37832,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_INDENTATION_ERROR("expected an indented block after class definition on line %d", a->lineno)
+                // Action: RAISE_INDENTATION_ERROR("expected an indented block after class definition on line %d", a.LineNo)
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "expected an indented block after class definition on line %d";
                 _pendingErrorPosition = _position;
@@ -35583,7 +37879,7 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.double_starred_kvpair+
-                var _tmp0 = new GeneratedMixedSeq();
+                var _tmp0 = new GeneratedSeq();
                 // Parse first item (no separator)
                 // Call rule: double_starred_kvpair
                 var _first__tmp0 = DoubleStarredKvpair();
@@ -35633,19 +37929,39 @@ namespace SharpPy.Generated
                 }
                 // Call rule: invalid_kvpair
                 GeneratedAstNode? _tmp2 = null;
+                Console.WriteLine($"[INVALID_KVPAIR] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_KVPAIR] Calling InvalidKvpair()");
                     _tmp2 = InvalidKvpair();
+                    Console.WriteLine($"[INVALID_KVPAIR] Returned {(_tmp2 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_KVPAIR] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp2 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -35819,7 +38135,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_ERROR_KNOWN_LOCATION(p, PyExc_SyntaxError, a->lineno, a->end_col_offset - 1, a->end_lineno, -1, "':' expected after dictionary key")
+                // Action: RAISE_ERROR_KNOWN_LOCATION(PyExc_SyntaxError, a.LineNo, a.EndColOffset - 1, a.EndLineNo, -1, "':' expected after dictionary key")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "':' expected after dictionary key";
                 _pendingErrorPosition = _position;
@@ -36011,12 +38327,10 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: RAISE_SYNTAX_ERROR_KNOWN_RANGE(a, b, "cannot assign to iterable argument unpacking")
-                // CPython 3.12: Invalid syntax detected - set error and return immediately
-                _pendingSyntaxError = "cannot assign to iterable argument unpacking";
-                _pendingErrorPosition = _position;
-                _res = null;
-                goto done;  // CPython: Skip remaining alternatives after RAISE_SYNTAX_ERROR
+                // Action: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "cannot assign to iterable argument unpacking")
+                // TODO: Complex action expression: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "cannot assign to iterable argument unpacking")
+                _res = default(GeneratedAstNode?);
+                if (_res != null) goto done;
             } while (false);
 
             _position = _mark;
@@ -36264,7 +38578,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt0__tmp1_item0 = YieldExpr();
+                    GeneratedExpr? _group_alt0__tmp1_item0 = YieldExpr();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -36279,7 +38593,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt1__tmp1_item0 = StarExpressions();
+                    GeneratedExpr? _group_alt1__tmp1_item0 = StarExpressions();
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -36312,7 +38626,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '=', or '!', or ':', or '}'")
+                // Action: PyErr_Occurred() ? null : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '=', or '!', or ':', or '}'")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "f-string: expecting '=', or '!', or ':', or '}'";
                 _pendingErrorPosition = _position;
@@ -36347,7 +38661,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt0__tmp1_item0 = YieldExpr();
+                    GeneratedExpr? _group_alt0__tmp1_item0 = YieldExpr();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -36362,7 +38676,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt1__tmp1_item0 = StarExpressions();
+                    GeneratedExpr? _group_alt1__tmp1_item0 = StarExpressions();
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -36403,7 +38717,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '!', or ':', or '}'")
+                // Action: PyErr_Occurred() ? null : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '!', or ':', or '}'")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "f-string: expecting '!', or ':', or '}'";
                 _pendingErrorPosition = _position;
@@ -36438,7 +38752,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt0__tmp1_item0 = YieldExpr();
+                    GeneratedExpr? _group_alt0__tmp1_item0 = YieldExpr();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -36453,7 +38767,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt1__tmp1_item0 = StarExpressions();
+                    GeneratedExpr? _group_alt1__tmp1_item0 = StarExpressions();
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -36482,27 +38796,56 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp2 = _opt__tmp2;
-                if (_tmp2 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp2 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp2; // Reset position
-                    _tmp2 = null; // Optional not present
                 }
                 // Call rule: invalid_conversion_character
                 GeneratedAstNode? _tmp3 = null;
+                Console.WriteLine($"[INVALID_CONVERSION_CHARACTER] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
+                    Console.WriteLine($"[INVALID_CONVERSION_CHARACTER] Calling InvalidConversionCharacter()");
                     _tmp3 = InvalidConversionCharacter();
+                    Console.WriteLine($"[INVALID_CONVERSION_CHARACTER] Returned {(_tmp3 == null ? "null" : "non-null")}");
+                }
+                else
+                {
+                    Console.WriteLine($"[INVALID_CONVERSION_CHARACTER] SKIP due to _callInvalidRules=false");
                 }
                 if (_tmp3 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    // CPython 3.12: invalid_* rule returned NULL - check if error was set
+                    // If error is set, preserve it and exit. Otherwise, try next alternative.
+                    if (_pendingSyntaxError != null)
+                    {
+                        _res = null;
+                        break;  // Exit with error set
+                    }
                     _res = null;
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                // Error recovery alternative - return null
+                // CPython 3.12: invalid_* rule matched - check if error was set
+                if (_pendingSyntaxError != null)
+                {
+                    // Error was set by invalid_* rule - exit rule immediately
+                    _res = null;
+                    goto done;
+                }
+                // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
                 if (_res != null) goto done;
             } while (false);
@@ -36534,7 +38877,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt0__tmp1_item0 = YieldExpr();
+                    GeneratedExpr? _group_alt0__tmp1_item0 = YieldExpr();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -36549,7 +38892,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt1__tmp1_item0 = StarExpressions();
+                    GeneratedExpr? _group_alt1__tmp1_item0 = StarExpressions();
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -36578,11 +38921,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp2 = _opt__tmp2;
-                if (_tmp2 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp2 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp2; // Reset position
-                    _tmp2 = null; // Optional not present
                 }
                 // Optional: [('!' NAME)]
                 int _opt_mark__tmp3 = _position;
@@ -36607,11 +38959,20 @@ namespace SharpPy.Generated
                         }
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp3 = _opt__tmp3;
-                if (_tmp3 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp3 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp3; // Reset position
-                    _tmp3 = null; // Optional not present
                 }
                 // Negative lookahead: !((':' | '}'))
                 GeneratedTokenInfo? _lookahead_test_114 = null;
@@ -36626,7 +38987,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting ':' or '}'")
+                // Action: PyErr_Occurred() ? null : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting ':' or '}'")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "f-string: expecting ':' or '}'";
                 _pendingErrorPosition = _position;
@@ -36661,7 +39022,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt0__tmp1_item0 = YieldExpr();
+                    GeneratedExpr? _group_alt0__tmp1_item0 = YieldExpr();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -36676,7 +39037,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt1__tmp1_item0 = StarExpressions();
+                    GeneratedExpr? _group_alt1__tmp1_item0 = StarExpressions();
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -36705,11 +39066,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp2 = _opt__tmp2;
-                if (_tmp2 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp2 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp2; // Reset position
-                    _tmp2 = null; // Optional not present
                 }
                 // Optional: [('!' NAME)]
                 int _opt_mark__tmp3 = _position;
@@ -36734,11 +39104,20 @@ namespace SharpPy.Generated
                         }
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp3 = _opt__tmp3;
-                if (_tmp3 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp3 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp3; // Reset position
-                    _tmp3 = null; // Optional not present
                 }
                 // Expect ':'
                 var _tmp4 = Expect(":");
@@ -36762,7 +39141,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '}', or format specs")
+                // Action: PyErr_Occurred() ? null : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '}', or format specs")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "f-string: expecting '}', or format specs";
                 _pendingErrorPosition = _position;
@@ -36797,7 +39176,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: yield_expr
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt0__tmp1_item0 = YieldExpr();
+                    GeneratedExpr? _group_alt0__tmp1_item0 = YieldExpr();
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -36812,7 +39191,7 @@ namespace SharpPy.Generated
                 if (_tmp1 == null)
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedExpr _group_alt1__tmp1_item0 = StarExpressions();
+                    GeneratedExpr? _group_alt1__tmp1_item0 = StarExpressions();
                     if (_group_alt1__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt1__tmp1_item0;
@@ -36841,11 +39220,20 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp2 = _opt__tmp2;
-                if (_tmp2 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp2 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp2; // Reset position
-                    _tmp2 = null; // Optional not present
                 }
                 // Optional: [('!' NAME)]
                 int _opt_mark__tmp3 = _position;
@@ -36870,11 +39258,20 @@ namespace SharpPy.Generated
                         }
                     }
                 }
+                // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp3 = _opt__tmp3;
-                if (_tmp3 == null)
+                if (_pendingSyntaxError != null)
                 {
+                    // CPython: error_indicator is set - optional pattern FAILS
+                    // This causes the entire alternative to fail (like && short-circuit in C)
+                    _position = _mark;
+                    _res = null;
+                    break;  // Exit alternative with error preserved
+                }
+                else if (_tmp3 == null)
+                {
+                    // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp3; // Reset position
-                    _tmp3 = null; // Optional not present
                 }
                 // Negative lookahead: !('}')
                 GeneratedTokenInfo? _lookahead_test_116 = null;
@@ -36887,7 +39284,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '}'")
+                // Action: PyErr_Occurred() ? null : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '}'")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
                 _pendingSyntaxError = "f-string: expecting '}'";
                 _pendingErrorPosition = _position;
@@ -37086,7 +39483,7 @@ namespace SharpPy.Generated
             // Try group alternative 1: z=star_targets '=' { z }
             {
                 _position = _group_mark__first;
-                GeneratedExpr _group_alt0__first_item0 = StarTargets();
+                GeneratedExpr? _group_alt0__first_item0 = StarTargets();
                 if (_group_alt0__first_item0 != null)
                 {
                     GeneratedTokenInfo? _group_alt0__first_item1 = Expect("=");
@@ -37112,7 +39509,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: z=star_targets '=' { z }
                 {
                     _position = _group_mark__item;
-                    GeneratedExpr _group_alt0__item_item0 = StarTargets();
+                    GeneratedExpr? _group_alt0__item_item0 = StarTargets();
                     if (_group_alt0__item_item0 != null)
                     {
                         GeneratedTokenInfo? _group_alt0__item_item1 = Expect("=");
@@ -37294,7 +39691,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _group_alt0__first_item0 = Expect("@");
                 if (_group_alt0__first_item0 != null)
                 {
-                    GeneratedExpr _group_alt0__first_item1 = NamedExpression();
+                    GeneratedExpr? _group_alt0__first_item1 = NamedExpression();
                     if (_group_alt0__first_item1 != null)
                     {
                         GeneratedTokenInfo? _group_alt0__first_item2 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -37324,7 +39721,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__item_item0 = Expect("@");
                     if (_group_alt0__item_item0 != null)
                     {
-                        GeneratedExpr _group_alt0__item_item1 = NamedExpression();
+                        GeneratedExpr? _group_alt0__item_item1 = NamedExpression();
                         if (_group_alt0__item_item1 != null)
                         {
                             GeneratedTokenInfo? _group_alt0__item_item2 = ExpectToken(GeneratedTokenType.NEWLINE);
@@ -37377,9 +39774,9 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedAstNodeSeq? _Loop0_7()
+        private GeneratedExprSeq? _Loop0_7()
         {
-            var _items = new GeneratedAstNodeSeq();
+            var _items = new GeneratedExprSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
             while (true)
             {
@@ -37427,9 +39824,9 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedAstNodeSeq? _Loop1_9()
+        private GeneratedExprSeq? _Loop1_9()
         {
-            var _items = new GeneratedAstNodeSeq();
+            var _items = new GeneratedExprSeq();
             // CPython: First element required
             // Call rule: param_with_default
             var _first = ParamWithDefault();
@@ -37454,9 +39851,9 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedAstNodeSeq? _Loop0_10()
+        private GeneratedExprSeq? _Loop0_10()
         {
-            var _items = new GeneratedAstNodeSeq();
+            var _items = new GeneratedExprSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
             while (true)
             {
@@ -37477,9 +39874,9 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedAstNodeSeq? _Loop1_11()
+        private GeneratedExprSeq? _Loop1_11()
         {
-            var _items = new GeneratedAstNodeSeq();
+            var _items = new GeneratedExprSeq();
             // CPython: First element required
             // Call rule: param_maybe_default
             var _first = ParamMaybeDefault();
@@ -37504,9 +39901,9 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExcepthandlerSeq? _Loop1_12()
+        private GeneratedExprSeq? _Loop1_12()
         {
-            var _items = new GeneratedExcepthandlerSeq();
+            var _items = new GeneratedExprSeq();
             // CPython: First element required
             // Call rule: except_block
             var _first = ExceptBlock();
@@ -37531,9 +39928,9 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExcepthandlerSeq? _Loop1_13()
+        private GeneratedExprSeq? _Loop1_13()
         {
-            var _items = new GeneratedExcepthandlerSeq();
+            var _items = new GeneratedExprSeq();
             // CPython: First element required
             // Call rule: except_star_block
             var _first = ExceptStarBlock();
@@ -37598,7 +39995,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _group_alt0__first_item0 = Expect(",");
                 if (_group_alt0__first_item0 != null)
                 {
-                    GeneratedExpr _group_alt0__first_item1 = Expression();
+                    GeneratedExpr? _group_alt0__first_item1 = Expression();
                     if (_group_alt0__first_item1 != null)
                     {
                         _first = _group_alt0__first_item1;
@@ -37624,7 +40021,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__item_item0 = Expect(",");
                     if (_group_alt0__item_item0 != null)
                     {
-                        GeneratedExpr _group_alt0__item_item1 = Expression();
+                        GeneratedExpr? _group_alt0__item_item1 = Expression();
                         if (_group_alt0__item_item1 != null)
                         {
                             _item = _group_alt0__item_item1;
@@ -37663,7 +40060,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _group_alt0__first_item0 = Expect(",");
                 if (_group_alt0__first_item0 != null)
                 {
-                    GeneratedExpr _group_alt0__first_item1 = StarExpression();
+                    GeneratedExpr? _group_alt0__first_item1 = StarExpression();
                     if (_group_alt0__first_item1 != null)
                     {
                         _first = _group_alt0__first_item1;
@@ -37689,7 +40086,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__item_item0 = Expect(",");
                     if (_group_alt0__item_item0 != null)
                     {
-                        GeneratedExpr _group_alt0__item_item1 = StarExpression();
+                        GeneratedExpr? _group_alt0__item_item1 = StarExpression();
                         if (_group_alt0__item_item1 != null)
                         {
                             _item = _group_alt0__item_item1;
@@ -37728,7 +40125,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _group_alt0__first_item0 = Expect("or");
                 if (_group_alt0__first_item0 != null)
                 {
-                    GeneratedExpr _group_alt0__first_item1 = Conjunction();
+                    GeneratedExpr? _group_alt0__first_item1 = Conjunction();
                     if (_group_alt0__first_item1 != null)
                     {
                         _first = _group_alt0__first_item1;
@@ -37754,7 +40151,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__item_item0 = Expect("or");
                     if (_group_alt0__item_item0 != null)
                     {
-                        GeneratedExpr _group_alt0__item_item1 = Conjunction();
+                        GeneratedExpr? _group_alt0__item_item1 = Conjunction();
                         if (_group_alt0__item_item1 != null)
                         {
                             _item = _group_alt0__item_item1;
@@ -37793,7 +40190,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _group_alt0__first_item0 = Expect("and");
                 if (_group_alt0__first_item0 != null)
                 {
-                    GeneratedExpr _group_alt0__first_item1 = Inversion();
+                    GeneratedExpr? _group_alt0__first_item1 = Inversion();
                     if (_group_alt0__first_item1 != null)
                     {
                         _first = _group_alt0__first_item1;
@@ -37819,7 +40216,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__item_item0 = Expect("and");
                     if (_group_alt0__item_item0 != null)
                     {
-                        GeneratedExpr _group_alt0__item_item1 = Inversion();
+                        GeneratedExpr? _group_alt0__item_item1 = Inversion();
                         if (_group_alt0__item_item1 != null)
                         {
                             _item = _group_alt0__item_item1;
@@ -37845,9 +40242,9 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedAstNodeSeq? _Loop1_19()
+        private GeneratedExprSeq? _Loop1_19()
         {
-            var _items = new GeneratedAstNodeSeq();
+            var _items = new GeneratedExprSeq();
             // CPython: First element required
             // Call rule: compare_op_bitwise_or_pair
             var _first = CompareOpBitwiseOrPair();
@@ -37895,9 +40292,9 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedAstNodeSeq? _Loop0_21()
+        private GeneratedExprSeq? _Loop0_21()
         {
-            var _items = new GeneratedAstNodeSeq();
+            var _items = new GeneratedExprSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
             while (true)
             {
@@ -37945,9 +40342,9 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedAstNodeSeq? _Loop1_23()
+        private GeneratedExprSeq? _Loop1_23()
         {
-            var _items = new GeneratedAstNodeSeq();
+            var _items = new GeneratedExprSeq();
             // CPython: First element required
             // Call rule: lambda_param_with_default
             var _first = LambdaParamWithDefault();
@@ -37972,9 +40369,9 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedAstNodeSeq? _Loop0_24()
+        private GeneratedExprSeq? _Loop0_24()
         {
-            var _items = new GeneratedAstNodeSeq();
+            var _items = new GeneratedExprSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
             while (true)
             {
@@ -37995,9 +40392,9 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedAstNodeSeq? _Loop1_25()
+        private GeneratedExprSeq? _Loop1_25()
         {
-            var _items = new GeneratedAstNodeSeq();
+            var _items = new GeneratedExprSeq();
             // CPython: First element required
             // Call rule: lambda_param_maybe_default
             var _first = LambdaParamMaybeDefault();
@@ -38078,7 +40475,7 @@ namespace SharpPy.Generated
             // Try group alternative 1: fstring
             {
                 _position = _group_mark__first;
-                GeneratedExpr _group_alt0__first_item0 = Fstring();
+                GeneratedExpr? _group_alt0__first_item0 = Fstring();
                 if (_group_alt0__first_item0 != null)
                 {
                     _first = _group_alt0__first_item0;
@@ -38093,7 +40490,7 @@ namespace SharpPy.Generated
             if (_first == null)
             {
                 _position = _group_mark__first;
-                GeneratedExpr _group_alt1__first_item0 = String();
+                GeneratedExpr? _group_alt1__first_item0 = String();
                 if (_group_alt1__first_item0 != null)
                 {
                     _first = _group_alt1__first_item0;
@@ -38115,7 +40512,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: fstring
                 {
                     _position = _group_mark__item;
-                    GeneratedExpr _group_alt0__item_item0 = Fstring();
+                    GeneratedExpr? _group_alt0__item_item0 = Fstring();
                     if (_group_alt0__item_item0 != null)
                     {
                         _item = _group_alt0__item_item0;
@@ -38130,7 +40527,7 @@ namespace SharpPy.Generated
                 if (_item == null)
                 {
                     _position = _group_mark__item;
-                    GeneratedExpr _group_alt1__item_item0 = String();
+                    GeneratedExpr? _group_alt1__item_item0 = String();
                     if (_group_alt1__item_item0 != null)
                     {
                         _item = _group_alt1__item_item0;
@@ -38197,7 +40594,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__item_item0 = Expect("if");
                     if (_group_alt0__item_item0 != null)
                     {
-                        GeneratedExpr _group_alt0__item_item1 = Disjunction();
+                        GeneratedExpr? _group_alt0__item_item1 = Disjunction();
                         if (_group_alt0__item_item1 != null)
                         {
                             _item = _group_alt0__item_item1;
@@ -38239,7 +40636,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__item_item0 = Expect("if");
                     if (_group_alt0__item_item0 != null)
                     {
-                        GeneratedExpr _group_alt0__item_item1 = Disjunction();
+                        GeneratedExpr? _group_alt0__item_item1 = Disjunction();
                         if (_group_alt0__item_item1 != null)
                         {
                             _item = _group_alt0__item_item1;
@@ -38281,7 +40678,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__item_item0 = Expect(",");
                     if (_group_alt0__item_item0 != null)
                     {
-                        GeneratedExpr _group_alt0__item_item1 = StarTarget();
+                        GeneratedExpr? _group_alt0__item_item1 = StarTarget();
                         if (_group_alt0__item_item1 != null)
                         {
                             _item = _group_alt0__item_item1;
@@ -38321,7 +40718,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _group_alt0__first_item0 = Expect(",");
                 if (_group_alt0__first_item0 != null)
                 {
-                    GeneratedExpr _group_alt0__first_item1 = StarTarget();
+                    GeneratedExpr? _group_alt0__first_item1 = StarTarget();
                     if (_group_alt0__first_item1 != null)
                     {
                         _first = _group_alt0__first_item1;
@@ -38347,7 +40744,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__item_item0 = Expect(",");
                     if (_group_alt0__item_item0 != null)
                     {
-                        GeneratedExpr _group_alt0__item_item1 = StarTarget();
+                        GeneratedExpr? _group_alt0__item_item1 = StarTarget();
                         if (_group_alt0__item_item1 != null)
                         {
                             _item = _group_alt0__item_item1;
@@ -38408,7 +40805,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: star_targets '='
                 {
                     _position = _group_mark__item;
-                    GeneratedExpr _group_alt0__item_item0 = StarTargets();
+                    GeneratedExpr? _group_alt0__item_item0 = StarTargets();
                     if (_group_alt0__item_item0 != null)
                     {
                         GeneratedTokenInfo? _group_alt0__item_item1 = Expect("=");
@@ -38450,7 +40847,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: star_targets '='
                 {
                     _position = _group_mark__item;
-                    GeneratedExpr _group_alt0__item_item0 = StarTargets();
+                    GeneratedExpr? _group_alt0__item_item0 = StarTargets();
                     if (_group_alt0__item_item0 != null)
                     {
                         GeneratedTokenInfo? _group_alt0__item_item1 = Expect("=");
@@ -38623,15 +41020,56 @@ namespace SharpPy.Generated
             return null;
         }
 
-        /// <summary>
-        /// file[mod_ty]: a=[statements] ENDMARKER { _PyPegen_make_module(p, a) }
-        /// </summary>
-        public GeneratedModule ParseFile()
-        {
-            var statements = Statements();
-            ExpectToken(GeneratedTokenType.ENDMARKER);
-            return _PyPegen_make_module(statements);
-        }
+        // ============ Entry Points from @trailer ============
+        
+// CPython 3.12: Entry point for file parsing
+public GeneratedModule ParseFile()
+{
+    var result = File();
+    if (result == null || _pendingSyntaxError != null)
+    {
+        var errorMsg = _pendingSyntaxError ?? "Parsing failed";
+        throw new PySyntaxErrorException(errorMsg);
+    }
+    return result;
+}
+
+// CPython 3.12: Entry point for interactive parsing
+public GeneratedModule ParseInteractive()
+{
+    var result = Interactive();
+    if (result == null || _pendingSyntaxError != null)
+    {
+        var errorMsg = _pendingSyntaxError ?? "Parsing failed";
+        throw new PySyntaxErrorException(errorMsg);
+    }
+    return result;
+}
+
+// CPython 3.12: Entry point for eval parsing
+public GeneratedExpr ParseEval()
+{
+    var result = Eval();
+    if (result == null || _pendingSyntaxError != null)
+    {
+        var errorMsg = _pendingSyntaxError ?? "Parsing failed";
+        throw new PySyntaxErrorException(errorMsg);
+    }
+    return result;
+}
+
+// CPython 3.12: Entry point for function type parsing
+public GeneratedModule ParseFuncType()
+{
+    var result = FuncType();
+    if (result == null || _pendingSyntaxError != null)
+    {
+        var errorMsg = _pendingSyntaxError ?? "Parsing failed";
+        throw new PySyntaxErrorException(errorMsg);
+    }
+    return result;
+}
+
 
         // ========================================
         // Embedded PEG Interpreter - Complete Copy
@@ -38781,7 +41219,7 @@ namespace SharpPy.Generated
 
         // CPython: _PyPegen_constant_from_string
         // Convert STRING token to Constant AST node - accepts both token and already-converted constant
-        private GeneratedExpr _PyPegen_constant_from_string(object tokenOrConstant)
+        private GeneratedExpr _PyPegen_constant_from_string(GeneratedPtr tokenOrConstant)
         {
             // Handle if already converted to constant (from StringToken)
             if (tokenOrConstant is GeneratedConstant constant)

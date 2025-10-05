@@ -202,12 +202,9 @@ namespace SharpPy.PegGenerator.Asdl
                 }
             }
 
-            // Base class for all sequence types - CPython void* compatibility
-            WriteLine("/// <summary>");
-            WriteLine("/// Base class for all sequence types");
-            WriteLine("/// CPython 3.12: All asdl_seq types inherit from this for void* compatibility");
-            WriteLine("/// </summary>");
-            WriteLine("public abstract class GeneratedSeq : GeneratedPtr { }");
+            // CPython 3.12: GeneratedSeq is now defined in PyTokenizer.cs (base types layer)
+            // All sequence types inherit from GeneratedSeq which is defined in the tokenizer
+            WriteLine("// Note: GeneratedSeq base class is defined in PyTokenizer.cs");
             WriteLine();
 
             foreach (var typeName in typeNames.OrderBy(x => x))
@@ -220,35 +217,34 @@ namespace SharpPy.PegGenerator.Asdl
 
                 WriteLine($"/// <summary>");
                 WriteLine($"/// Sequence of {typeName} - CPython: asdl_{typeName}_seq");
-                WriteLine($"/// C# GC optimized: List<T> with GeneratedSeq inheritance");
+                WriteLine($"/// Simple wrapper over GeneratedSeq with type constraints");
                 WriteLine($"/// </summary>");
-                WriteLine($"public class {seqClassName} : GeneratedSeq, System.Collections.Generic.IList<{itemType}>");
+                WriteLine($"public class {seqClassName} : GeneratedSeq");
                 WriteLine("{");
                 _indentLevel++;
-                WriteLine($"private readonly List<{itemType}> _items = new();");
                 WriteLine($"public static readonly {seqClassName} Empty = new();");
                 WriteLine();
                 WriteLine($"public {seqClassName}() {{ }}");
-                WriteLine($"public {seqClassName}(int capacity) {{ _items = new List<{itemType}>(capacity); }}");
-                WriteLine($"public {seqClassName}(IEnumerable<{itemType}> collection) {{ _items = new List<{itemType}>(collection); }}");
+                WriteLine($"public {seqClassName}(int capacity) : base(capacity) {{ }}");
+                WriteLine($"public {seqClassName}(IEnumerable<{itemType}> collection)");
+                WriteLine("{");
+                _indentLevel++;
+                WriteLine("foreach (var item in collection) Add(item);");
+                _indentLevel--;
+                WriteLine("}");
                 WriteLine();
-                WriteLine($"// IList<T> implementation");
-                WriteLine($"public {itemType} this[int index] {{ get => _items[index]; set => _items[index] = value; }}");
-                WriteLine($"public int Count => _items.Count;");
-                WriteLine($"public bool IsReadOnly => false;");
-                WriteLine($"public void Add({itemType} item) => _items.Add(item);");
-                WriteLine($"public void Clear() => _items.Clear();");
-                WriteLine($"public bool Contains({itemType} item) => _items.Contains(item);");
-                WriteLine($"public void CopyTo({itemType}[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);");
-                WriteLine($"public System.Collections.Generic.IEnumerator<{itemType}> GetEnumerator() => _items.GetEnumerator();");
-                WriteLine($"System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();");
-                WriteLine($"public int IndexOf({itemType} item) => _items.IndexOf(item);");
-                WriteLine($"public void Insert(int index, {itemType} item) => _items.Insert(index, item);");
-                WriteLine($"public bool Remove({itemType} item) => _items.Remove(item);");
-                WriteLine($"public void RemoveAt(int index) => _items.RemoveAt(index);");
+                WriteLine($"// Type-constrained wrappers");
+                WriteLine($"public new void Add({itemType} item) => base.Add(item);");
+                WriteLine($"public new {itemType} this[int index]");
+                WriteLine("{");
+                _indentLevel++;
+                WriteLine($"get => ({itemType})base[index];");
+                WriteLine("set => base[index] = value;");
+                _indentLevel--;
+                WriteLine("}");
                 WriteLine();
-                WriteLine($"// Additional List<T> methods for compatibility");
-                WriteLine($"public void AddRange(System.Collections.Generic.IEnumerable<{itemType}> collection) => _items.AddRange(collection);");
+                WriteLine($"// Typed enumeration");
+                WriteLine($"public new System.Collections.Generic.IEnumerable<{itemType}> ToEnumerable() => base.ToEnumerable<{itemType}>();");
                 _indentLevel--;
                 WriteLine("}");
                 WriteLine();
@@ -260,6 +256,26 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("// ============================================================");
             WriteLine("// Helper Types");
             WriteLine("// ============================================================");
+            WriteLine();
+
+            // GeneratedIdentifier - string wrapper for type consistency
+            WriteLine("/// <summary>");
+            WriteLine("/// Wrapper for Python identifier (ASDL builtin)");
+            WriteLine("/// CPython 3.12: PyObject* string, wrapped for type consistency");
+            WriteLine("/// </summary>");
+            WriteLine("public class GeneratedIdentifier : GeneratedPtr");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("public string Value { get; set; }");
+            WriteLine();
+            WriteLine("public GeneratedIdentifier(string value) { Value = value; }");
+            WriteLine();
+            WriteLine("public static implicit operator string(GeneratedIdentifier id) => id.Value;");
+            WriteLine("public static implicit operator GeneratedIdentifier(string value) => new GeneratedIdentifier(value);");
+            WriteLine();
+            WriteLine("public override string ToString() => Value;");
+            _indentLevel--;
+            WriteLine("}");
             WriteLine();
 
             // arguments, keyword, comprehension, alias, withitem 등은
@@ -425,25 +441,19 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("/// <summary>");
             WriteLine("/// Sequence type for GeneratedSlashWithDefault");
             WriteLine("/// CPython 3.12: Used in arguments parsing (slash_with_default*)");
+            WriteLine("/// Simple wrapper over GeneratedSeq with type constraints");
             WriteLine("/// </summary>");
-            WriteLine("public class GeneratedSlashWithDefaultSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedSlashWithDefault>");
+            WriteLine("public class GeneratedSlashWithDefaultSeq : GeneratedSeq");
             WriteLine("{");
             _indentLevel++;
-            WriteLine("private readonly List<GeneratedSlashWithDefault> _items = new();");
-            WriteLine("public int Count => _items.Count;");
-            WriteLine("public bool IsReadOnly => false;");
-            WriteLine("public GeneratedSlashWithDefault this[int index] { get => _items[index]; set => _items[index] = value; }");
-            WriteLine("public void Add(GeneratedSlashWithDefault item) => _items.Add(item);");
-            WriteLine("public void AddRange(System.Collections.Generic.IEnumerable<GeneratedSlashWithDefault> collection) => _items.AddRange(collection);");
-            WriteLine("public void Clear() => _items.Clear();");
-            WriteLine("public bool Contains(GeneratedSlashWithDefault item) => _items.Contains(item);");
-            WriteLine("public void CopyTo(GeneratedSlashWithDefault[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);");
-            WriteLine("public System.Collections.Generic.IEnumerator<GeneratedSlashWithDefault> GetEnumerator() => _items.GetEnumerator();");
-            WriteLine("System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();");
-            WriteLine("public int IndexOf(GeneratedSlashWithDefault item) => _items.IndexOf(item);");
-            WriteLine("public void Insert(int index, GeneratedSlashWithDefault item) => _items.Insert(index, item);");
-            WriteLine("public bool Remove(GeneratedSlashWithDefault item) => _items.Remove(item);");
-            WriteLine("public void RemoveAt(int index) => _items.RemoveAt(index);");
+            WriteLine("public new void Add(GeneratedSlashWithDefault item) => base.Add(item);");
+            WriteLine("public new GeneratedSlashWithDefault this[int index]");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("get => (GeneratedSlashWithDefault)base[index];");
+            WriteLine("set => base[index] = value;");
+            _indentLevel--;
+            WriteLine("}");
             _indentLevel--;
             WriteLine("}");
             WriteLine();
@@ -451,25 +461,19 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("/// <summary>");
             WriteLine("/// Sequence type for GeneratedStarEtc");
             WriteLine("/// CPython 3.12: Used in arguments parsing (star_etc*)");
+            WriteLine("/// Simple wrapper over GeneratedSeq with type constraints");
             WriteLine("/// </summary>");
-            WriteLine("public class GeneratedStarEtcSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedStarEtc>");
+            WriteLine("public class GeneratedStarEtcSeq : GeneratedSeq");
             WriteLine("{");
             _indentLevel++;
-            WriteLine("private readonly List<GeneratedStarEtc> _items = new();");
-            WriteLine("public int Count => _items.Count;");
-            WriteLine("public bool IsReadOnly => false;");
-            WriteLine("public GeneratedStarEtc this[int index] { get => _items[index]; set => _items[index] = value; }");
-            WriteLine("public void Add(GeneratedStarEtc item) => _items.Add(item);");
-            WriteLine("public void AddRange(System.Collections.Generic.IEnumerable<GeneratedStarEtc> collection) => _items.AddRange(collection);");
-            WriteLine("public void Clear() => _items.Clear();");
-            WriteLine("public bool Contains(GeneratedStarEtc item) => _items.Contains(item);");
-            WriteLine("public void CopyTo(GeneratedStarEtc[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);");
-            WriteLine("public System.Collections.Generic.IEnumerator<GeneratedStarEtc> GetEnumerator() => _items.GetEnumerator();");
-            WriteLine("System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();");
-            WriteLine("public int IndexOf(GeneratedStarEtc item) => _items.IndexOf(item);");
-            WriteLine("public void Insert(int index, GeneratedStarEtc item) => _items.Insert(index, item);");
-            WriteLine("public bool Remove(GeneratedStarEtc item) => _items.Remove(item);");
-            WriteLine("public void RemoveAt(int index) => _items.RemoveAt(index);");
+            WriteLine("public new void Add(GeneratedStarEtc item) => base.Add(item);");
+            WriteLine("public new GeneratedStarEtc this[int index]");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("get => (GeneratedStarEtc)base[index];");
+            WriteLine("set => base[index] = value;");
+            _indentLevel--;
+            WriteLine("}");
             _indentLevel--;
             WriteLine("}");
             WriteLine();
@@ -477,25 +481,19 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("/// <summary>");
             WriteLine("/// Sequence type for GeneratedKeywordOrStarred");
             WriteLine("/// CPython 3.12: Used in call arguments parsing (','.kwarg_or_starred+)");
+            WriteLine("/// Simple wrapper over GeneratedSeq with type constraints");
             WriteLine("/// </summary>");
-            WriteLine("public class GeneratedKeywordOrStarredSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedKeywordOrStarred>");
+            WriteLine("public class GeneratedKeywordOrStarredSeq : GeneratedSeq");
             WriteLine("{");
             _indentLevel++;
-            WriteLine("private readonly List<GeneratedKeywordOrStarred> _items = new();");
-            WriteLine("public int Count => _items.Count;");
-            WriteLine("public bool IsReadOnly => false;");
-            WriteLine("public GeneratedKeywordOrStarred this[int index] { get => _items[index]; set => _items[index] = value; }");
-            WriteLine("public void Add(GeneratedKeywordOrStarred item) => _items.Add(item);");
-            WriteLine("public void AddRange(System.Collections.Generic.IEnumerable<GeneratedKeywordOrStarred> collection) => _items.AddRange(collection);");
-            WriteLine("public void Clear() => _items.Clear();");
-            WriteLine("public bool Contains(GeneratedKeywordOrStarred item) => _items.Contains(item);");
-            WriteLine("public void CopyTo(GeneratedKeywordOrStarred[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);");
-            WriteLine("public System.Collections.Generic.IEnumerator<GeneratedKeywordOrStarred> GetEnumerator() => _items.GetEnumerator();");
-            WriteLine("System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();");
-            WriteLine("public int IndexOf(GeneratedKeywordOrStarred item) => _items.IndexOf(item);");
-            WriteLine("public void Insert(int index, GeneratedKeywordOrStarred item) => _items.Insert(index, item);");
-            WriteLine("public bool Remove(GeneratedKeywordOrStarred item) => _items.Remove(item);");
-            WriteLine("public void RemoveAt(int index) => _items.RemoveAt(index);");
+            WriteLine("public new void Add(GeneratedKeywordOrStarred item) => base.Add(item);");
+            WriteLine("public new GeneratedKeywordOrStarred this[int index]");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("get => (GeneratedKeywordOrStarred)base[index];");
+            WriteLine("set => base[index] = value;");
+            _indentLevel--;
+            WriteLine("}");
             _indentLevel--;
             WriteLine("}");
             WriteLine();
@@ -514,40 +512,6 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("}");
             WriteLine();
 
-            // GeneratedMixedSeq (non-generic) - GeneratedPtr list
-            WriteLine("/// <summary>");
-            WriteLine("/// Non-generic sequence for mixed types - parser intermediate");
-            WriteLine("/// CPython 3.12: asdl_seq* equivalent - no boxing/unboxing");
-            WriteLine("/// </summary>");
-            WriteLine("public class GeneratedMixedSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedPtr>");
-            WriteLine("{");
-            _indentLevel++;
-            WriteLine("private readonly List<GeneratedPtr> _items = new();");
-            WriteLine();
-            WriteLine("public GeneratedMixedSeq() { }");
-            WriteLine("public GeneratedMixedSeq(int capacity) { _items = new List<GeneratedPtr>(capacity); }");
-            WriteLine("public GeneratedMixedSeq(IEnumerable<GeneratedPtr> collection) { _items = new List<GeneratedPtr>(collection); }");
-            WriteLine();
-            WriteLine("// IList<GeneratedPtr> implementation");
-            WriteLine("public GeneratedPtr this[int index] { get => _items[index]; set => _items[index] = value; }");
-            WriteLine("public int Count => _items.Count;");
-            WriteLine("public bool IsReadOnly => false;");
-            WriteLine("public void Add(GeneratedPtr item) => _items.Add(item);");
-            WriteLine("public void Clear() => _items.Clear();");
-            WriteLine("public bool Contains(GeneratedPtr item) => _items.Contains(item);");
-            WriteLine("public void CopyTo(GeneratedPtr[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);");
-            WriteLine("public System.Collections.Generic.IEnumerator<GeneratedPtr> GetEnumerator() => _items.GetEnumerator();");
-            WriteLine("System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();");
-            WriteLine("public int IndexOf(GeneratedPtr item) => _items.IndexOf(item);");
-            WriteLine("public void Insert(int index, GeneratedPtr item) => _items.Insert(index, item);");
-            WriteLine("public bool Remove(GeneratedPtr item) => _items.Remove(item);");
-            WriteLine("public void RemoveAt(int index) => _items.RemoveAt(index);");
-            WriteLine();
-            WriteLine("// Additional List<T> methods for compatibility");
-            WriteLine("public void AddRange(System.Collections.Generic.IEnumerable<GeneratedPtr> collection) => _items.AddRange(collection);");
-            _indentLevel--;
-            WriteLine("}");
-            WriteLine();
 
             // GeneratedAstNodeSeq - AST node list
             WriteLine("/// <summary>");
@@ -604,12 +568,12 @@ namespace SharpPy.PegGenerator.Asdl
         {
             return asdlType switch
             {
-                "identifier" => "string",
+                "identifier" => "GeneratedIdentifier",
                 "int" => "int",
                 "string" => "string",
                 "constant" => "GeneratedPyConstant",
                 "singleton" => "bool?",
-                _ => "object"
+                _ => "GeneratedPtr"
             };
         }
 

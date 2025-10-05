@@ -58,6 +58,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private readonly Dictionary<string, Atom> _loopRuleAtoms = new(); // rule name -> Atom (for complex patterns)
         private int _loopRuleCounter = 0;
 
+        // Memoization cache for rule return types to prevent infinite recursion
+        private readonly Dictionary<string, string> _ruleReturnTypeCache = new();
+        private readonly HashSet<string> _ruleReturnTypeInProgress = new();
+
         public CSharpCodeGenerator(Grammar.Grammar grammar, List<TokenDefinition> tokens)
         {
             _grammar = grammar;
@@ -404,6 +408,20 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GenerateParserClass()
         {
             WriteLine("using SharpPy.Tokenizer;");
+            WriteLine();
+            WriteLine("// CPython 3.12: Type aliases for grammar compatibility");
+            WriteLine("using stmt_ty = SharpPy.Generated.GeneratedStmt;");
+            WriteLine("using expr_ty = SharpPy.Generated.GeneratedExpr;");
+            WriteLine("using alias_ty = SharpPy.Generated.GeneratedAlias;");
+            WriteLine("using arguments_ty = SharpPy.Generated.GeneratedArguments;");
+            WriteLine("using asdl_stmt_seq = SharpPy.Generated.GeneratedStmtSeq;");
+            WriteLine("using asdl_expr_seq = SharpPy.Generated.GeneratedExprSeq;");
+            WriteLine("using asdl_identifier_seq = SharpPy.Generated.GeneratedIdentifierSeq;");
+            WriteLine("using asdl_pattern_seq = SharpPy.Generated.GeneratedPatternSeq;");
+            WriteLine("using asdl_int_seq = SharpPy.Generated.GeneratedCmpopSeq;");
+            WriteLine("using asdl_keyword_seq = SharpPy.Generated.GeneratedKeywordSeq;");
+            WriteLine("using asdl_seq = SharpPy.Generated.GeneratedSeq;");
+            WriteLine("using keyword_ty = SharpPy.Generated.GeneratedKeyword;");
             WriteLine();
             WriteLine("namespace SharpPy.Generated");
             WriteLine("{");
@@ -1394,17 +1412,57 @@ namespace SharpPy.PegGenerator.CodeGenerator
         /// <summary>
         /// Translate PEG type to C# type
         /// </summary>
-        private string TranslatePegTypeToCS(string pegType)
+        public string TranslatePegTypeToCS(string pegType)
         {
             return pegType switch
             {
-                "mod_ty" => "GeneratedModule?",
-                "stmt_ty" => "GeneratedStmt?",
-                "expr_ty" => "GeneratedExpr?",
-                "asdl_stmt_seq*" => "GeneratedStmtSeq?",
-                "asdl_expr_seq*" => "GeneratedExprSeq?",
-                "asdl_identifier_seq*" => "GeneratedIdentifierSeq?",
-                _ => "GeneratedPtr?"  // CPython 3.12: void* equivalent for untyped rules
+                // AST types (from ASDL) - CPython 3.12: All non-nullable at declaration, null checks at usage
+                "mod_ty" => "GeneratedModule",
+                "stmt_ty" => "GeneratedStmt",
+                "expr_ty" => "GeneratedExpr",
+                "pattern_ty" => "GeneratedPattern",
+                "type_param_ty" => "GeneratedTypeParam",
+                "comprehension_ty" => "GeneratedComprehension",
+                "excepthandler_ty" => "GeneratedExcepthandler",
+                "match_case_ty" => "GeneratedMatchCase",
+                "alias_ty" => "GeneratedAlias",
+                "withitem_ty" => "GeneratedWithitem",
+                "arg_ty" => "GeneratedArg",
+                "arguments_ty" => "GeneratedArguments",
+
+                // Sequence types (from ASDL) - CPython 3.12: asdl_seq* is non-nullable pointer
+                "asdl_stmt_seq*" => "GeneratedStmtSeq",
+                "asdl_expr_seq*" => "GeneratedExprSeq",
+                "asdl_identifier_seq*" => "GeneratedIdentifierSeq",
+                "asdl_alias_seq*" => "GeneratedAliasSeq",
+                "asdl_arg_seq*" => "GeneratedArgSeq",
+                "asdl_comprehension_seq*" => "GeneratedComprehensionSeq",
+                "asdl_excepthandler_seq*" => "GeneratedExcepthandlerSeq",
+                "asdl_match_case_seq*" => "GeneratedMatchCaseSeq",
+                "asdl_pattern_seq*" => "GeneratedPatternSeq",
+                "asdl_type_param_seq*" => "GeneratedTypeParamSeq",
+                "asdl_withitem_seq*" => "GeneratedWithitemSeq",
+                "asdl_seq*" => "GeneratedSeq",  // Generic sequence (CPython: void* seq)
+
+                // Special parser types (not in ASDL, defined in parser)
+                "KeyValuePair*" => "GeneratedKeyValuePair",
+                "CmpopExprPair*" => "GeneratedCmpopExprPair",
+                "KeyPatternPair*" => "GeneratedKeyPatternPair",
+                "KeywordOrStarred*" => "GeneratedKeywordOrStarred",
+                "NameDefaultPair*" => "GeneratedNameDefaultPair",
+                "SlashWithDefault*" => "GeneratedSlashWithDefault",
+                "StarEtc*" => "GeneratedStarEtc",
+                "ResultTokenWithMetadata*" => "GeneratedResultTokenWithMetadata",
+
+                // Operators and tokens
+                "AugOperator*" => "GeneratedOperator",
+                "Token*" => "GeneratedTokenInfo",
+
+                // String types
+                "func_type_comment" => "string",
+                "return_type" => "string",
+
+                _ => "GeneratedPtr"  // CPython 3.12: void* equivalent for untyped rules
             };
         }
 
@@ -1479,13 +1537,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 if (isLeftRecursive)
                 {
                     WriteLine($"// CPython 3.12: Left recursion - use Warth et al. algorithm");
-                    WriteLine($"return TryLeftRecursive<{returnType}>(\"{methodName}\", _{methodName});");
+                    WriteLine($"return ({returnType})TryLeftRecursive(\"{methodName}\", _{methodName});");
                 }
                 else
                 {
                     WriteLine($"// CPython 3.12: Memoized (non-left-recursive) - simple memoization");
                     WriteLine($"// Pattern: CHECK CACHE → PARSE → UPDATE CACHE");
-                    WriteLine($"return TryMemoized<{returnType}>(\"{methodName}\", _{methodName});");
+                    WriteLine($"return ({returnType})TryMemoized(\"{methodName}\", _{methodName});");
                 }
 
                 Dedent();
@@ -2254,172 +2312,31 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 char.ToUpper(p[0]) + p.Substring(1).ToLower()));
         }
 
-        public string TranslateCTypeToCS(string cType)
-        {
-            // Convert CPython C types to C# types - CPython 3.12 compatible
-            return cType switch
-            {
-                "mod_ty" => "GeneratedModule", // Python module type
-                "asdl_stmt_seq*" => "GeneratedStmtSeq", // Statement sequence
-                "asdl_expr_seq*" => "GeneratedExprSeq", // Expression sequence
-                "asdl_comprehension_seq*" => "GeneratedComprehensionSeq", // Comprehension sequence
-                "asdl_alias_seq*" => "GeneratedAliasSeq", // Alias sequence
-                "asdl_arg_seq*" => "GeneratedAstNodeSeq", // Argument sequence (use generic until specific type needed)
-                "SlashWithDefault*" => "GeneratedSlashWithDefault", // Helper type for parameter parsing with /
-                "StarEtc*" => "GeneratedStarEtc", // Helper type for *args/**kwargs parsing
-                "asdl_excepthandler_seq*" => "GeneratedExceptHandlerSeq", // Exception handler sequence
-                "asdl_match_case_seq*" => "GeneratedMatchCaseSeq", // Match case sequence
-                "asdl_pattern_seq*" => "GeneratedAstNodeSeq", // Pattern sequence (use generic until specific type needed)
-                "asdl_type_param_seq*" => "GeneratedTypeParamSeq", // Type parameter sequence
-                "asdl_withitem_seq*" => "GeneratedWithitemSeq", // With item sequence (lowercase 'i' matches Python.asdl)
-                "stmt_ty" => "GeneratedStmt", // Statement type
-                "expr_ty" => "GeneratedExpr", // Expression type
-                "pattern_ty" => "GeneratedPattern", // Pattern type (CPython 3.10+)
-                "alias_ty" => "GeneratedAlias", // Import alias type
-                "arg_ty" => "GeneratedArg", // Function argument type
-                "arguments_ty" => "GeneratedArguments", // Function arguments type
-                "comprehension_ty" => "GeneratedComprehension", // List/dict comprehension type
-                "excepthandler_ty" => "GeneratedExceptHandler", // Exception handler type
-                "match_case_ty" => "GeneratedMatchCase", // Match case type (CPython 3.10+)
-                "type_param_ty" => "GeneratedTypeParam", // Type parameter (CPython 3.12+)
-                "withitem_ty" => "GeneratedWithitem", // With statement item type (lowercase 'i' matches Python.asdl)
-                "asdl_seq*" => "GeneratedMixedSeq", // Generic sequence (mixed types)
-                "asdl_identifier_seq*" => "GeneratedIdentifierSeq", // Identifier sequence
-                "KeywordOrStarred*" => "GeneratedKeywordOrStarred", // Keyword or starred argument
-                "string" => "string",
-                "int" => "int",
-                "void" => "GeneratedAstNode?", // void returns nothing (null AST node)
-                "PyObject*" => "GeneratedPyObject", // Python object
-                "token*" => "GeneratedTokenInfo", // Token type (lowercase)
-                "Token*" => "GeneratedTokenInfo", // Token type (capitalized - used in grammar)
-                "KeyValuePair*" => "GeneratedKeyValuePair", // Key-value pair for dict comprehensions
-                _ when cType.EndsWith("_ty") => "GeneratedAstNode?", // Unknown AST node types
-                _ when cType.EndsWith("*") => "GeneratedAstNode?", // Unknown pointer types (likely AST nodes)
-                _ => cType // Keep as-is for standard types
-            };
-        }
-
         public string GetRuleReturnType(Rule rule)
         {
+            // Check cache first
+            if (_ruleReturnTypeCache.TryGetValue(rule.Name, out string cachedType))
+            {
+                return cachedType;
+            }
+
+            string returnType;
+
+            // CPython 3.12: Use declared type annotation if available
             if (!string.IsNullOrEmpty(rule.ReturnType))
             {
-                return TranslateCTypeToCS(rule.ReturnType);
+                returnType = TranslatePegTypeToCS(rule.ReturnType) + "?";
             }
-
-            // Analyze rule alternatives to determine return type
-            // CPython 3.12: Rules can return Seq, Token, or AstNode types
-            if (rule.Alternatives != null && rule.Alternatives.Count > 0)
+            else
             {
-                var alternativeTypes = new List<string>();
-
-                foreach (var alt in rule.Alternatives)
-                {
-                    var altType = AnalyzeAlternativeReturnType(alt, rule);
-                    if (altType != null)
-                    {
-                        alternativeTypes.Add(altType);
-                    }
-                }
-
-                if (alternativeTypes.Count > 0)
-                {
-                    // Check if all alternatives return Seq types
-                    var cleanTypes = alternativeTypes.Select(t => t.TrimEnd('?')).Distinct().ToList();
-                    bool allSeqTypes = cleanTypes.All(t => t.EndsWith("Seq"));
-                    bool hasSeqTypes = cleanTypes.Any(t => t.EndsWith("Seq"));
-                    bool hasNonSeqTypes = cleanTypes.Any(t => !t.EndsWith("Seq"));
-
-                    if (allSeqTypes)
-                    {
-                        // All return Seq → use GeneratedSeq as common base
-                        return "GeneratedSeq?";
-                    }
-                    else if (hasSeqTypes && hasNonSeqTypes)
-                    {
-                        // Mixed Seq and non-Seq → use GeneratedPtr as common base
-                        return "GeneratedPtr?";
-                    }
-                    else if (cleanTypes.Contains("GeneratedTokenInfo"))
-                    {
-                        // Has TokenInfo → use GeneratedPtr as common base
-                        return "GeneratedPtr?";
-                    }
-                }
+                // No type annotation: use GeneratedPtr? (for invalid_* rules, lookaheads, etc.)
+                returnType = "GeneratedPtr?";
             }
 
-            // Default: rules without explicit return type use base AST node type
-            // CPython 3.12: All AST nodes inherit from GeneratedAstNode
-            return "GeneratedAstNode?";
+            _ruleReturnTypeCache[rule.Name] = returnType;
+            return returnType;
         }
 
-        private string? AnalyzeAlternativeReturnType(Alternative alt, Rule rule)
-        {
-            var items = alt.Items.ToList();
-            if (items.Count == 0) return null;
-
-            // Find result item (action variable or last item)
-            int resultItemIndex = -1;
-            if (!string.IsNullOrWhiteSpace(alt.Action))
-            {
-                var actionContent = alt.Action.Trim();
-                // Check for sequence creation functions
-                if (actionContent.Contains("_PyPegen_singleton_seq") ||
-                    actionContent.Contains("_PyPegen_seq"))
-                {
-                    return "GeneratedAstNodeSeq";
-                }
-
-                // Check if action is a simple variable reference
-                if (actionContent.Length > 0 && char.IsLetter(actionContent[0]) &&
-                    actionContent.All(c => char.IsLetterOrDigit(c) || c == '_'))
-                {
-                    // Find which item has this name
-                    for (int i = 0; i < items.Count; i++)
-                    {
-                        if (items[i].Name == actionContent)
-                        {
-                            resultItemIndex = i;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // If no action or action variable not found, use last value-producing item
-            if (resultItemIndex < 0)
-            {
-                resultItemIndex = items.Count - 1;
-            }
-
-            if (resultItemIndex >= 0 && resultItemIndex < items.Count)
-            {
-                return DetermineItemType(items[resultItemIndex].Atom);
-            }
-
-            return null;
-        }
-
-        private string DetermineItemType(object atom)
-        {
-            switch (atom)
-            {
-                case RuleRef ruleRef:
-                    return GetRuleReturnType(ruleRef.Name);
-                case StringLiteral _:
-                    return "GeneratedTokenInfo";
-                case OneOrMore _:
-                case ZeroOrMore _:
-                case Gather _:
-                    return "GeneratedAstNodeSeq";
-                case Optional opt:
-                    return DetermineItemType(opt.Expression);
-                case Grammar.Group _:
-                    // Group type already handled by FindCommonBaseType in ItemCodeGenerator
-                    return "GeneratedPtr?";
-                default:
-                    return "GeneratedAstNode?";
-            }
-        }
 
         /// <summary>
         /// Get return type for a rule by name
@@ -4935,8 +4852,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // Generate helper methods first (including SkipNL)
             GenerateHelperMethods();
 
-            // Generate File method (entry point)
-            GenerateFileMethod();
+            // Generate entry point methods from @trailer
+            GenerateTrailerMethods();
 
             // CPython 3.12: ALL rules are auto-generated from grammar
             // No manual expression hierarchy generation needed
@@ -5704,20 +5621,15 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
         }
 
-        private void GenerateFileMethod()
+        private void GenerateTrailerMethods()
         {
-            WriteLine("/// <summary>");
-            WriteLine("/// file[mod_ty]: a=[statements] ENDMARKER { _PyPegen_make_module(p, a) }");
-            WriteLine("/// </summary>");
-            WriteLine("public GeneratedModule ParseFile()");
-            WriteLine("{");
-            Indent();
-            WriteLine("var statements = Statements();");
-            WriteLine("ExpectToken(GeneratedTokenType.ENDMARKER);");
-            WriteLine("return _PyPegen_make_module(statements);");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
+            // CPython 3.12: Output @trailer code from grammar file
+            if (!string.IsNullOrWhiteSpace(_grammar.Trailer))
+            {
+                WriteLine("// ============ Entry Points from @trailer ============");
+                WriteLine(_grammar.Trailer);
+                WriteLine();
+            }
         }
 
         private void GenerateStatementMethods()
@@ -8589,12 +8501,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
         /// </summary>
         private void GenerateLoop0Rule(string ruleName, string returnType, string innerPattern)
         {
-            WriteLine($"private {returnType}? {ruleName}()");
+            // CPython 3.12: returnType is non-nullable (e.g., GeneratedExprSeq)
+            WriteLine($"private {returnType}? {ruleName}()");  // Add '?' for nullable return (can return null)
             WriteLine("{");
             Indent();
 
             // CPython pattern: Save mark after each success, restore on failure
-            WriteLine($"var _items = new {returnType.TrimEnd('?')}();");
+            WriteLine($"var _items = new {returnType}();");
             WriteLine("int _loop_mark = _position;  // CPython: int _mark = p->mark");
             WriteLine("while (true)");
             WriteLine("{");
@@ -8645,12 +8558,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
         /// </summary>
         private void GenerateLoop1Rule(string ruleName, string returnType, string innerPattern)
         {
-            WriteLine($"private {returnType}? {ruleName}()");
+            // CPython 3.12: returnType is non-nullable (e.g., GeneratedExprSeq)
+            WriteLine($"private {returnType}? {ruleName}()");  // Add '?' for nullable return (can return null)
             WriteLine("{");
             Indent();
 
             // CPython pattern: Save mark after each success, restore on failure
-            WriteLine($"var _items = new {returnType.TrimEnd('?')}();");
+            WriteLine($"var _items = new {returnType}();");
             WriteLine("// CPython: First element required");
 
             // First element
@@ -8716,7 +8630,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // _PyPegen_constant_from_string
             WriteLine("// CPython: _PyPegen_constant_from_string");
             WriteLine("// Convert STRING token to Constant AST node - accepts both token and already-converted constant");
-            WriteLine("private GeneratedExpr _PyPegen_constant_from_string(object tokenOrConstant)");
+            WriteLine("private GeneratedExpr _PyPegen_constant_from_string(GeneratedPtr tokenOrConstant)");
             WriteLine("{");
             Indent();
             WriteLine("// Handle if already converted to constant (from StringToken)");

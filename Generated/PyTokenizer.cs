@@ -21,6 +21,92 @@ namespace SharpPy.Generated
     }
 
     /// <summary>
+    /// CPython 3.12: Base class for all ASDL sequence types
+    /// Equivalent to C's asdl_seq* - generic sequence container
+    /// Contains List<GeneratedPtr> for void* sequence handling
+    /// </summary>
+    public class GeneratedSeq : GeneratedPtr, System.Collections.Generic.IList<GeneratedPtr>
+    {
+        protected readonly List<GeneratedPtr> _items = new();
+
+        public GeneratedSeq() { }
+        public GeneratedSeq(int capacity) { _items = new List<GeneratedPtr>(capacity); }
+        public GeneratedSeq(IEnumerable<GeneratedPtr> collection) { _items = new List<GeneratedPtr>(collection); }
+
+        // IList<GeneratedPtr> implementation
+        public GeneratedPtr this[int index] { get => _items[index]; set => _items[index] = value; }
+        public int Count => _items.Count;
+        public bool IsReadOnly => false;
+        public void Add(GeneratedPtr item) => _items.Add(item);
+        public void Clear() => _items.Clear();
+        public bool Contains(GeneratedPtr item) => _items.Contains(item);
+        public void CopyTo(GeneratedPtr[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
+        public System.Collections.Generic.IEnumerator<GeneratedPtr> GetEnumerator() => _items.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
+        public int IndexOf(GeneratedPtr item) => _items.IndexOf(item);
+        public void Insert(int index, GeneratedPtr item) => _items.Insert(index, item);
+        public bool Remove(GeneratedPtr item) => _items.Remove(item);
+        public void RemoveAt(int index) => _items.RemoveAt(index);
+
+        // Additional List<T> methods for compatibility
+        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedPtr> collection) => _items.AddRange(collection);
+
+        // Conversion methods
+        /// <summary>Returns raw List<GeneratedPtr></summary>
+        public List<GeneratedPtr> ToRawList() => _items;
+
+        /// <summary>Converts to typed List<T> with casting</summary>
+        public List<T> ToList<T>() where T : GeneratedPtr
+        {
+            var result = new List<T>(_items.Count);
+            foreach (var item in _items) result.Add((T)item);
+            return result;
+        }
+
+        /// <summary>Converts to typed IEnumerable<T> with casting - LINQ replacement</summary>
+        public System.Collections.Generic.IEnumerable<T> ToEnumerable<T>() where T : GeneratedPtr
+        {
+            foreach (var item in _items) yield return (T)item;
+        }
+
+        /// <summary>Filters sequence by predicate - LINQ Where replacement</summary>
+        public GeneratedSeq Where(System.Func<GeneratedPtr, bool> predicate)
+        {
+            var result = new GeneratedSeq();
+            foreach (var item in _items)
+            {
+                if (predicate(item)) result.Add(item);
+            }
+            return result;
+        }
+
+        /// <summary>Maps sequence by selector - LINQ Select replacement</summary>
+        public GeneratedSeq Select<T>(System.Func<GeneratedPtr, T> selector) where T : GeneratedPtr
+        {
+            var result = new GeneratedSeq(_items.Count);
+            foreach (var item in _items) result.Add(selector(item));
+            return result;
+        }
+
+        // Type checking methods
+        /// <summary>
+        /// Checks if sequence contains mixed types (different runtime types)
+        /// Returns false if all items are the same type, true if mixed
+        /// Empty or single-item sequences return false
+        /// </summary>
+        public bool IsMixed()
+        {
+            if (_items.Count <= 1) return false;
+            var firstType = _items[0]?.GetType();
+            for (int i = 1; i < _items.Count; i++)
+            {
+                if (_items[i]?.GetType() != firstType) return true;
+            }
+            return false;
+        }
+    }
+
+    /// <summary>
     /// CPython 3.12 compatible token types
     /// </summary>
     public enum GeneratedTokenType
@@ -104,7 +190,7 @@ namespace SharpPy.Generated
         /// <summary>Rule type name (CPython uses int type ID, we use string for clarity)</summary>
         public string RuleType { get; set; } = "";
         /// <summary>Parsed result node (can be null for failed parse)</summary>
-        public object? Node { get; set; }
+        public GeneratedPtr? Node { get; set; }
         /// <summary>Parser mark (position) after parsing this rule</summary>
         public int Mark { get; set; }
         // Note: CPython uses linked list (next pointer), we use List<MemoEntry> in Token

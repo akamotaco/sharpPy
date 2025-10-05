@@ -171,6 +171,19 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             switch (funcName)
             {
+                case "_PyPegen_augoperator":
+                    // _PyPegen_augoperator(op) → Generated{op}.Instance
+                    // CPython: augassign returns operator (singleton class in C#)
+                    if (filteredArgs.Count >= 1)
+                    {
+                        var op = filteredArgs[0].Trim();
+                        // Special case: Mod → Mod_ to avoid conflict with GeneratedMod (module type)
+                        if (op == "Mod")
+                            op = "Mod_";
+                        return $"_res = Generated{op}.Instance;";
+                    }
+                    break;
+
                 case "_PyPegen_set_expr_context":
                     // _PyPegen_set_expr_context(p, expr, context) → _PyPegen_set_expr_context(expr, context)
                     if (filteredArgs.Count >= 2)
@@ -278,11 +291,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
         /// </summary>
         private string TranslateToCSharp(string expr, Dictionary<string, string> variables)
         {
+            // CPython 3.12: python_cs.gram already contains C# code
+            // Only perform essential macro expansions, no C→C# translation needed
+
             // Whitespace/empty
             if (string.IsNullOrWhiteSpace(expr))
                 return "null";
 
-            // NULL literal
+            // NULL literal (CPython macro)
             if (expr == "NULL")
                 return "null";
 
@@ -465,20 +481,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 return expr;
             }
 
-            // Simple variable reference - check if it's in variables dict
-            if (variables.ContainsKey(expr))
-            {
-                // Check if it's a C# keyword and needs @ prefix
-                return EscapeCSharpKeyword(expr);
-            }
-
-            // Check if expression is a simple identifier that needs escaping
-            if (System.Text.RegularExpressions.Regex.IsMatch(expr, @"^[a-zA-Z_][a-zA-Z0-9_]*$"))
-            {
-                return EscapeCSharpKeyword(expr);
-            }
-
-            // Complex expression - keep as-is
+            // python_cs.gram already contains C# code - no escaping needed
+            // Just return expression as-is
             return expr;
         }
 

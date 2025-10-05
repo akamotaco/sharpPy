@@ -16,7 +16,7 @@ namespace SharpPy.PegGenerator
                 Console.WriteLine("===========================");
 
                 // Default paths relative to the main SharpPy project
-                var grammarPath = Path.Combine("..", "Grammar", "python.gram");
+                var grammarPath = Path.Combine("..", "Grammar", "python_cs.gram");
                 var tokensPath = Path.Combine("..", "Grammar", "Tokens");
                 var asdlPath = Path.Combine("..", "Grammar", "Python.asdl");
                 var parserOutputPath = Path.Combine("..", "Generated", "PyParser.cs");

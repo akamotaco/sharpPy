@@ -983,7 +983,8 @@ namespace SharpPy
                     {
                         if (globalStmt.Names != null && globalStmt.Names.Count > 0)
                         {
-                            return new GlobalStatement(globalStmt.Names.ToList());
+                            var names = globalStmt.Names.ToEnumerable<GeneratedIdentifier>().Select(id => id.Value).ToList();
+                            return new GlobalStatement(names);
                         }
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
@@ -993,7 +994,8 @@ namespace SharpPy
                     {
                         if (nonlocalStmt.Names != null && nonlocalStmt.Names.Count > 0)
                         {
-                            return new NonlocalStatement(nonlocalStmt.Names.ToList());
+                            var names = nonlocalStmt.Names.ToEnumerable<GeneratedIdentifier>().Select(id => id.Value).ToList();
+                            return new NonlocalStatement(names);
                         }
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
@@ -1566,7 +1568,7 @@ namespace SharpPy
                 // CPython 3.12: operators are types, not strings
                 GeneratedBoolOp boolOp => new BoolOpExpression(
                     ConvertGeneratedBoolop(boolOp.Op),
-                    boolOp.Values.AsEnumerable().Select(v => ConvertAnyExpression(v)).ToList()
+                    boolOp.Values.ToEnumerable<GeneratedExpr>().Select(v => ConvertAnyExpression(v)).ToList()
                 ),
 
                 GeneratedUnaryOp unaryOp => new UnaryOpExpression(
@@ -1576,7 +1578,7 @@ namespace SharpPy
 
                 // F-strings
                 GeneratedJoinedStr joinedStr => new JoinedStrExpression(
-                    joinedStr.Values.AsEnumerable().Select(v => ConvertAnyExpression(v)).ToList()
+                    joinedStr.Values.ToEnumerable<GeneratedExpr>().Select(v => ConvertAnyExpression(v)).ToList()
                 ),
 
                 GeneratedFormattedValue formattedValue => new FormattedValueExpression(
@@ -1602,14 +1604,14 @@ namespace SharpPy
                 GeneratedCompare compare => new CompareExpression(
                     ConvertAnyExpression(compare.Left),
                     string.Join(" ", compare.Ops),
-                    ConvertAnyExpression(compare.Comparators.AsEnumerable().First())
+                    ConvertAnyExpression(compare.Comparators.ToEnumerable<GeneratedExpr>().First())
                 ),
 
                 // Function calls and attribute access
                 GeneratedCall call => new CallExpression(
                     ConvertAnyExpression(call.Func),
-                    call.Args.AsEnumerable().Select(a => ConvertAnyExpression(a)).ToList(),
-                    call.Keywords.AsEnumerable().Select(k => ConvertKeyword(k)).ToList()
+                    call.Args.ToEnumerable<GeneratedExpr>().Select(a => ConvertAnyExpression(a)).ToList(),
+                    call.Keywords.ToEnumerable<GeneratedKeyword>().Select(k => ConvertKeyword(k)).ToList()
                 ),
 
                 GeneratedAttribute attr => new AttributeExpression(
@@ -1624,44 +1626,44 @@ namespace SharpPy
 
                 // Collections
                 GeneratedList list => new ListExpression(
-                    list.Elts.AsEnumerable().Select(e => ConvertAnyExpression(e)).ToList()
+                    list.Elts.ToEnumerable<GeneratedExpr>().Select(e => ConvertAnyExpression(e)).ToList()
                 ),
 
                 GeneratedTuple tuple => new TupleExpression(
-                    tuple.Elts.AsEnumerable().Select(e => ConvertAnyExpression(e)).ToList()
+                    tuple.Elts.ToEnumerable<GeneratedExpr>().Select(e => ConvertAnyExpression(e)).ToList()
                 ),
 
                 GeneratedDict dict => new DictExpression(
-                    dict.Keys.AsEnumerable().Zip(dict.Values.AsEnumerable(), (k, v) => (
+                    dict.Keys.ToEnumerable<GeneratedExpr>().Zip(dict.Values.ToEnumerable<GeneratedExpr>(), (k, v) => (
                         Key: ConvertAnyExpression(k),
                         Value: ConvertAnyExpression(v))
                     ).ToList()
                 ),
 
                 GeneratedSet set => new SetExpression(
-                    set.Elts.AsEnumerable().Select(e => ConvertAnyExpression(e)).ToList()
+                    set.Elts.ToEnumerable<GeneratedExpr>().Select(e => ConvertAnyExpression(e)).ToList()
                 ),
 
                 // Comprehensions
                 GeneratedListComp listComp => new ListComprehension(
                     ConvertAnyExpression(listComp.Elt),
-                    listComp.Generators.AsEnumerable().Select(g => ConvertComprehension(g)).ToList()
+                    listComp.Generators.ToEnumerable<GeneratedComprehension>().Select(g => ConvertComprehension(g)).ToList()
                 ),
 
                 GeneratedSetComp setComp => new SetComprehension(
                     ConvertAnyExpression(setComp.Elt),
-                    setComp.Generators.AsEnumerable().Select(g => ConvertComprehension(g)).ToList()
+                    setComp.Generators.ToEnumerable<GeneratedComprehension>().Select(g => ConvertComprehension(g)).ToList()
                 ),
 
                 GeneratedDictComp dictComp => new DictComprehension(
                     ConvertAnyExpression(dictComp.Key),
                     ConvertAnyExpression(dictComp.Value),
-                    dictComp.Generators.AsEnumerable().Select(g => ConvertComprehension(g)).ToList()
+                    dictComp.Generators.ToEnumerable<GeneratedComprehension>().Select(g => ConvertComprehension(g)).ToList()
                 ),
 
                 GeneratedGeneratorExp genExp => new GeneratorExpression(
                     ConvertAnyExpression(genExp.Elt),
-                    genExp.Generators.AsEnumerable().Select(g => ConvertComprehension(g)).ToList()
+                    genExp.Generators.ToEnumerable<GeneratedComprehension>().Select(g => ConvertComprehension(g)).ToList()
                 ),
 
                 // Lambda expressions
@@ -1869,7 +1871,7 @@ namespace SharpPy
 
             var target = ConvertAnyExpression(comp.Target);
             var iter = ConvertAnyExpression(comp.Iter);
-            var ifs = comp.Ifs?.AsEnumerable().Select(ifExpr => ConvertAnyExpression(ifExpr)).ToList() ?? new List<Expression>();
+            var ifs = comp.Ifs?.ToEnumerable<GeneratedExpr>().Select(ifExpr => ConvertAnyExpression(ifExpr)).ToList() ?? new List<Expression>();
 
             // Note: isAsync is tracked in comp.IsAsync but not used in Comprehension constructor
             return new Comprehension(target, iter, ifs);
@@ -1887,13 +1889,13 @@ namespace SharpPy
 
             return new FunctionArguments
             {
-                PosOnlyArgs = argsObj.Posonlyargs?.Select(a => ConvertArg(a)).ToList() ?? new List<Arg>(),
-                Args = argsObj.Args?.Select(a => ConvertArg(a)).ToList() ?? new List<Arg>(),
+                PosOnlyArgs = argsObj.Posonlyargs?.ToEnumerable<GeneratedArg>().Select(a => ConvertArg(a)).ToList() ?? new List<Arg>(),
+                Args = argsObj.Args?.ToEnumerable<GeneratedArg>().Select(a => ConvertArg(a)).ToList() ?? new List<Arg>(),
                 VarArg = argsObj.Vararg != null ? ConvertArg(argsObj.Vararg) : null,
-                KwOnlyArgs = argsObj.Kwonlyargs?.Select(a => ConvertArg(a)).ToList() ?? new List<Arg>(),
+                KwOnlyArgs = argsObj.Kwonlyargs?.ToEnumerable<GeneratedArg>().Select(a => ConvertArg(a)).ToList() ?? new List<Arg>(),
                 KwArg = argsObj.Kwarg != null ? ConvertArg(argsObj.Kwarg) : null,
-                Defaults = argsObj.Defaults?.AsEnumerable().Select(d => ConvertAnyExpression(d)).ToList() ?? new List<Expression?>(),
-                KwDefaults = argsObj.KwDefaults?.AsEnumerable().Select(d => d != null ? ConvertAnyExpression(d) : null).ToList() ?? new List<Expression?>()
+                Defaults = argsObj.Defaults?.ToEnumerable<GeneratedExpr>().Select(d => ConvertAnyExpression(d)).ToList() ?? new List<Expression?>(),
+                KwDefaults = argsObj.KwDefaults?.ToEnumerable<GeneratedExpr>().Select(d => d != null ? ConvertAnyExpression(d) : null).ToList() ?? new List<Expression?>()
             };
         }
 
