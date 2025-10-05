@@ -1,4 +1,5 @@
 # PEG grammar for Python
+# 괄호로 묶어야 pyparser.cs 파일 생성시 인식함 : (생성할 내용물)
 
 @trailer '''
 // CPython 3.12: Entry point for file parsing
@@ -26,7 +27,7 @@ public GeneratedModule ParseInteractive()
 }
 
 // CPython 3.12: Entry point for eval parsing
-public GeneratedExpr ParseEval()
+public GeneratedModule ParseEval()
 {
     var result = Eval();
     if (result == null || _pendingSyntaxError != null)
@@ -1129,13 +1130,13 @@ del_t_atom[expr_ty]:
 type_expressions[asdl_expr_seq*]:
     | a=','.expression+ ',' '*' b=expression ',' '**' c=expression {
         _PyPegen_seq_append_to_end(
-            CHECK<asdl_seq>(_PyPegen_seq_append_to_end(a, b)),
+            (CHECK<asdl_seq>(_PyPegen_seq_append_to_end(a, b)).ToSeq<GeneratedExprSeq>()),
             c) }
     | a=','.expression+ ',' '*' b=expression { _PyPegen_seq_append_to_end(a, b) }
     | a=','.expression+ ',' '**' b=expression { _PyPegen_seq_append_to_end(a, b) }
     | '*' a=expression ',' '**' b=expression {
         _PyPegen_seq_append_to_end(
-            CHECK<asdl_seq>(_PyPegen_singleton_seq(a)),
+            (CHECK<asdl_seq>(_PyPegen_singleton_seq(a)).ToSeq<GeneratedExprSeq>()),
             b) }
     | '*' a=expression { _PyPegen_singleton_seq(a) }
     | '**' a=expression { _PyPegen_singleton_seq(a) }
