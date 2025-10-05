@@ -127,7 +127,7 @@ namespace SharpPy.Generated
             _level++;
             try
             {
-                #if DEBUG_LOG
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[LR] {ruleName}: Starting at pos={_position}, seeding with FAIL");
                 #endif
                 // SEED PHASE: Start with FAIL seed
@@ -135,7 +135,7 @@ namespace SharpPy.Generated
 
                 // First attempt - base case should execute
                 var result = ruleFunc();
-                #if DEBUG_LOG
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[LR] {ruleName}: First attempt result={(result == null ? "null" : "not-null")}, pos={_position}");
                 #endif
 
@@ -153,20 +153,20 @@ namespace SharpPy.Generated
 
                 while (true)
                 {
-                    #if DEBUG_LOG
+                    #if DEBUG_PARSE_LOG
                     Console.WriteLine($"[LR] {ruleName}: Growth attempt, resetting to pos={key.Item1}");
                     #endif
                     // Reset to start position for next growth attempt
                     _position = key.Item1;
                     var newResult = ruleFunc();
-                    #if DEBUG_LOG
+                    #if DEBUG_PARSE_LOG
                     Console.WriteLine($"[LR] {ruleName}: Growth result={(newResult == null ? "null" : "not-null")}, pos={_position}, lastEndPos={lastEndPos}");
                     #endif
 
                     // Termination: no progress made
                     if (newResult == null || _position <= lastEndPos)
                     {
-                        #if DEBUG_LOG
+                        #if DEBUG_PARSE_LOG
                         Console.WriteLine($"[LR] {ruleName}: Terminating, returning lastResult at pos={lastEndPos}");
                         #endif
                         _position = lastEndPos;
@@ -174,7 +174,7 @@ namespace SharpPy.Generated
                         return lastResult;
                     }
 
-                    #if DEBUG_LOG
+                    #if DEBUG_PARSE_LOG
                     Console.WriteLine($"[LR] {ruleName}: Growth succeeded, updating seed");
                     #endif
                     // Grow: update seed with new result
@@ -200,13 +200,13 @@ namespace SharpPy.Generated
         /// </summary>
         protected T? TryMemoized<T>(string ruleName, Func<T?> ruleFunc) where T : class
         {
-            #if DEBUG_LOG
+            #if DEBUG_PARSE_LOG
             Console.WriteLine($"[MEMO] {ruleName} at pos={_position}");
             #endif
             // STEP 1: Get current token (CPython: Token *t = p->tokens[p->mark])
             if (_position >= _tokens.Count)
             {
-                #if DEBUG_LOG
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[MEMO] {ruleName}: Beyond token count, parsing directly");
                 #endif
                 // ENDMARKER or beyond - don't memoize, just parse
@@ -223,7 +223,7 @@ namespace SharpPy.Generated
                 var cached = token.Memo.FirstOrDefault(m => m.RuleType == ruleName);
                 if (cached != null)
                 {
-                    #if DEBUG_LOG
+                    #if DEBUG_PARSE_LOG
                     Console.WriteLine($"[MEMO] {ruleName}: Cache HIT at pos={_position}, returning cached result (null={cached.Node == null}), newPos={cached.Mark}");
                     #endif
                     // Cache HIT - restore mark and return cached result
@@ -232,14 +232,14 @@ namespace SharpPy.Generated
                     return cached.Node as T;
                 }
             }
-            #if DEBUG_LOG
+            #if DEBUG_PARSE_LOG
             Console.WriteLine($"[MEMO] {ruleName}: Cache MISS at pos={_position}, parsing...");
             #endif
 
             // STEP 3: Cache MISS - parse the rule
             var result = ruleFunc();
             int endMark = _position;
-            #if DEBUG_LOG
+            #if DEBUG_PARSE_LOG
             Console.WriteLine($"[MEMO] {ruleName}: Parse completed, result={(result == null ? "null" : "not-null")}, pos={startMark}->{endMark}");
             #endif
 
@@ -253,7 +253,7 @@ namespace SharpPy.Generated
             var existing = token.Memo.FirstOrDefault(m => m.RuleType == ruleName);
             if (existing != null)
             {
-                #if DEBUG_LOG
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[MEMO] {ruleName}: Updating existing cache entry");
                 #endif
                 // Update existing entry (shouldn't happen in normal flow, but CPython does this)
@@ -262,7 +262,7 @@ namespace SharpPy.Generated
             }
             else
             {
-                #if DEBUG_LOG
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[MEMO] {ruleName}: Adding new cache entry");
                 #endif
                 // Insert new memo entry

@@ -328,7 +328,7 @@ namespace SharpPy.Generated
         /// </summary>
         public List<GeneratedTokenInfo> Tokenize()
         {
-            #if DEBUG_LOG
+            #if DEBUG_TOKEN_LOG
             Console.WriteLine("[DEBUG] Tokenize() method started");
             #endif
             _tokens.Clear();
@@ -336,31 +336,31 @@ namespace SharpPy.Generated
             _line = 1;
             _column = 0; // CPython uses 0-based column indexing
             _currentLineHasRealTokens = false; // Reset line state tracking
-            #if DEBUG_LOG
+            #if DEBUG_TOKEN_LOG
             Console.WriteLine($"[DEBUG] Source length: {_source.Length}, Source: '{_source}'");
             #endif
 
             // Skip ENCODING token for compatibility with CPython generate_tokens()
             // AddToken(GeneratedTokenType.ENCODING, "utf-8", 0, 0);
 
-            #if DEBUG_LOG
+            #if DEBUG_TOKEN_LOG
             Console.WriteLine("[DEBUG] Starting main tokenization loop");
             #endif
             while (_position < _source.Length)
             {
                 var startPosition = _position; // Track position for infinite loop detection
-                #if DEBUG_LOG
+                #if DEBUG_TOKEN_LOG
                 Console.WriteLine($"[DEBUG] Loop iteration: position={_position}, char='{CurrentChar}', ASCII={(int)CurrentChar}");
                 #endif
 
                 // Process indentation at start of line before any other tokens
                 if (_atLineStart)
                 {
-                    #if DEBUG_LOG
+                    #if DEBUG_TOKEN_LOG
                     Console.WriteLine("[DEBUG] Calling HandleIndentation");
                     #endif
                     HandleIndentation();
-                    #if DEBUG_LOG
+                    #if DEBUG_TOKEN_LOG
                     Console.WriteLine("[DEBUG] HandleIndentation completed");
                     #endif
                     ProcessPendingTokens();
@@ -368,7 +368,7 @@ namespace SharpPy.Generated
 
                 if (char.IsWhiteSpace(CurrentChar) || CurrentChar == '\r')
                 {
-                    #if DEBUG_LOG
+                    #if DEBUG_TOKEN_LOG
                     Console.WriteLine($"[DEBUG] Calling HandleWhitespace at position {_position}, char='{CurrentChar}', ASCII={(int)CurrentChar}");
                     #endif
                     HandleWhitespace();
@@ -490,19 +490,19 @@ namespace SharpPy.Generated
         {
             while (_position < _source.Length && char.IsWhiteSpace(CurrentChar))
             {
-                #if DEBUG_LOG
+                #if DEBUG_TOKEN_LOG
                 Console.WriteLine($"[DEBUG] HandleWhitespace loop: position={_position}, char='{CurrentChar}', ASCII={(int)CurrentChar}");
                 #endif
                 if (CurrentChar == '\r')
                 {
                     // Handle \r character - could be part of \r\n sequence
-                    #if DEBUG_LOG
+                    #if DEBUG_TOKEN_LOG
                     Console.WriteLine($"[DEBUG] Found \r at position {_position}, checking next char...");
                     #endif
                     // Check if next character is \n for Windows line ending
                     if (_position + 1 < _source.Length && _source[_position + 1] == '\n')
                     {
-                        #if DEBUG_LOG
+                        #if DEBUG_TOKEN_LOG
                         Console.WriteLine($"[DEBUG] Found \r\n sequence: skipping \r, will process \n next");
                         #endif
                         // This is a \r\n sequence, advance past \r and let \n handler process it
@@ -516,12 +516,12 @@ namespace SharpPy.Generated
                         var newlineValue = "\r";
 
                         // CPython 3.12: Colon-followed-by-newline always generates NEWLINE token
-                        #if DEBUG_LOG
+                        #if DEBUG_TOKEN_LOG
                         Console.WriteLine($"[DEBUG] Standalone \r: checking _lastTokenWasColon: {_lastTokenWasColon}");
                         #endif
                         if (_lastTokenWasColon)
                         {
-                            #if DEBUG_LOG
+                            #if DEBUG_TOKEN_LOG
                             Console.WriteLine($"[DEBUG] Generating NEWLINE token after colon (standalone \r): value='{newlineValue}', line={_line}, col={newlineColumn}");
                             #endif
                             AddToken(GeneratedTokenType.NEWLINE, newlineValue, _line, newlineColumn);
@@ -559,7 +559,7 @@ namespace SharpPy.Generated
                 }
                 else if (CurrentChar == '\n')
                 {
-                    #if DEBUG_LOG
+                    #if DEBUG_TOKEN_LOG
                     Console.WriteLine($"[DEBUG] Found \n at position {_position}, processing newline...");
                     #endif
                     // Store newline position before advancing - CPython uses start position
@@ -573,12 +573,12 @@ namespace SharpPy.Generated
                     }
 
                     // CPython 3.12: Colon-followed-by-newline always generates NEWLINE token
-                    #if DEBUG_LOG
+                    #if DEBUG_TOKEN_LOG
                     Console.WriteLine($"[DEBUG] \n processing: checking _lastTokenWasColon: {_lastTokenWasColon}, newlineValue='{newlineValue}'");
                     #endif
                     if (_lastTokenWasColon)
                     {
-                        #if DEBUG_LOG
+                        #if DEBUG_TOKEN_LOG
                         Console.WriteLine($"[DEBUG] Generating NEWLINE token after colon (\n processing): value='{newlineValue}', line={_line}, col={newlineColumn}");
                         #endif
                         AddToken(GeneratedTokenType.NEWLINE, newlineValue, _line, newlineColumn);
@@ -615,7 +615,7 @@ namespace SharpPy.Generated
                 }
                 Advance();
             }
-            #if DEBUG_LOG
+            #if DEBUG_TOKEN_LOG
             Console.WriteLine($"[DEBUG] HandleWhitespace method ended: position={_position}, char='{CurrentChar}', ASCII={(int)CurrentChar}");
             #endif
         }
@@ -1188,7 +1188,7 @@ namespace SharpPy.Generated
                     // CPython 3.12: Track colon tokens for compound statement NEWLINE generation
                     if (op == ":")
                     {
-                        #if DEBUG_LOG
+                        #if DEBUG_TOKEN_LOG
                         Console.WriteLine($"[DEBUG] Colon token detected: setting _lastTokenWasColon = true");
                         #endif
                         _lastTokenWasColon = true;
@@ -1207,14 +1207,14 @@ namespace SharpPy.Generated
 
         private void HandleIndentation()
         {
-            #if DEBUG_LOG
+            #if DEBUG_TOKEN_LOG
             Console.WriteLine($"[DEBUG] HandleIndentation: _atLineStart={_atLineStart}, position={_position}");
             #endif
             if (!_atLineStart) return;
             // Skip indentation processing inside parentheses
             if (IsInsideParentheses)
             {
-                #if DEBUG_LOG
+                #if DEBUG_TOKEN_LOG
                 Console.WriteLine("[DEBUG] Inside parentheses, setting _atLineStart=false");
                 #endif
                 _atLineStart = false; // CRITICAL: Must set this to avoid infinite loop
@@ -1231,12 +1231,12 @@ namespace SharpPy.Generated
             }
 
             // CPython 3.12: Handle empty lines and comments for indentation
-            #if DEBUG_LOG
+            #if DEBUG_TOKEN_LOG
             Console.WriteLine($"[DEBUG] Checking empty line: position={_position}, length={_source.Length}, char='{CurrentChar}'");
             #endif
             if (_position >= _source.Length || CurrentChar == '\n' || CurrentChar == '#')
             {
-                #if DEBUG_LOG
+                #if DEBUG_TOKEN_LOG
                 Console.WriteLine("[DEBUG] Empty line detected, setting _atLineStart=false");
                 #endif
                 _atLineStart = false; // CRITICAL: Must set this to avoid infinite loop
@@ -1254,7 +1254,7 @@ namespace SharpPy.Generated
                 _indentStack.Push(indent);
                 var indentText = new string(' ', indent);
                 AddToken(GeneratedTokenType.INDENT, indentText, _line, indentStartColumn);
-                #if DEBUG_LOG
+                #if DEBUG_TOKEN_LOG
                 Console.WriteLine($"[DEBUG] Generated INDENT token: level {currentLevel} -> {indent}");
                 #endif
             }
@@ -1276,13 +1276,13 @@ namespace SharpPy.Generated
                 }
             }
 
-            #if DEBUG_LOG
+            #if DEBUG_TOKEN_LOG
             Console.WriteLine("[DEBUG] Setting _atLineStart=false at end of HandleIndentation");
             #endif
             _atLineStart = false;
             // Now that we're starting to process this line, reset the line state for real token tracking
             _currentLineHasRealTokens = false;
-            #if DEBUG_LOG
+            #if DEBUG_TOKEN_LOG
             Console.WriteLine("[DEBUG] HandleIndentation method ending normally");
             #endif
         }

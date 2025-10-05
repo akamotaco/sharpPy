@@ -20,7 +20,7 @@ namespace SharpPy
         public static List<Statement> ParseSource(string source, string filename = "<string>")
         {
             Console.WriteLine($"[DEBUG] GeneratedParserBridge.ParseSource START for {filename}");
-#if DEBUG_LOG
+#if DEBUG_PARSE_LOG
             Console.WriteLine($"[DEBUG] GeneratedParserBridge: Using auto-generated CPython 3.12 tokenizer + parser for {filename}");
 #endif
 
@@ -38,7 +38,7 @@ namespace SharpPy
             var parseResult = parser.ParseFile();
             Console.WriteLine($"[DEBUG] ParseFile returned: {parseResult?.GetType()?.Name ?? "null"}");
 
-#if DEBUG_LOG
+#if DEBUG_PARSE_LOG
             Console.WriteLine($"[DEBUG] Parse result type: {parseResult?.GetType()?.Name ?? "null"}");
             if (parseResult != null)
             {
@@ -98,7 +98,7 @@ namespace SharpPy
                 // Convert each statement in the module body
                 foreach (var stmt in module.Body.AsEnumerable())
                 {
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                     Console.WriteLine($"[DEBUG] Module statement: Type={stmt.GetType().Name}");
 #endif
                     // Regular statement conversion - all assignments are already properly structured
@@ -117,7 +117,7 @@ namespace SharpPy
         /// </summary>
         private static Statement? ConvertStatement(GeneratedStmt stmt, bool insideLoop = false, bool insideFunction = false)
         {
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] ConvertStatement: Converting statement type '{stmt.GetType().Name}' (insideLoop: {insideLoop})");
 #endif
 
@@ -158,7 +158,7 @@ namespace SharpPy
 
                             if (targetName == null)
                             {
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                                 Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign: Failed to extract target name");
 #endif
                                 return null;
@@ -170,7 +170,7 @@ namespace SharpPy
                             // Convert value (optional)
                             Expression? valueExpr = annAssign.Value != null ? ConvertAnyExpression(annAssign.Value) : null;
 
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                             Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign: Creating AnnAssignStatement with name='{targetName}'");
 #endif
 
@@ -178,7 +178,7 @@ namespace SharpPy
                         }
                         catch (Exception ex)
                         {
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                             Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign error: {ex.Message}");
 #endif
                             return null;
@@ -191,7 +191,7 @@ namespace SharpPy
                         var targets = assignStmt.Targets;  // Already GeneratedExprSeq (List<GeneratedExpr>)
                         var valueExpr = assignStmt.Value;   // Already GeneratedExpr
 
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                         Console.WriteLine($"[DEBUG] ConvertStatement Assignment: Targets.Count={targets?.Count ?? 0}, Value={valueExpr != null}");
 #endif
 
@@ -230,7 +230,7 @@ namespace SharpPy
                         var op = augAssign.Op;  // GeneratedOperator
                         var value = augAssign.Value;
 
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                         Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Target={target != null}, Op={op?.GetType().Name}, Value={value != null}");
 #endif
 
@@ -247,7 +247,7 @@ namespace SharpPy
 
                             if (targetExpr is NameExpression nameExpr)
                             {
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                                 Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Creating AugAssignStatement with target='{nameExpr.Name}', op={opNode.OperatorType}");
 #endif
                                 return new AugAssignStatement(nameExpr.Name, opNode, valueExpr);
@@ -436,7 +436,7 @@ namespace SharpPy
                 case GeneratedTry tryStmt:
                     // Try statement (try: body except: handler)
                     {
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                         Console.WriteLine($"[DEBUG] try case: tryStmt.Body count = {tryStmt.Body?.Count}, Handlers count = {tryStmt.Handlers?.Count}");
 #endif
 
@@ -454,7 +454,7 @@ namespace SharpPy
                         foreach (var exceptBlock in tryStmt.Handlers.AsEnumerable())
                         {
                             var exceptData = exceptBlock as dynamic;
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                             Console.WriteLine($"[DEBUG] exceptData type: {exceptData?.GetType()?.Name}");
 #endif
                             // Convert except body statements
@@ -865,7 +865,7 @@ namespace SharpPy
                             var decoratorExpressions = new List<DecoratorExpression>();
                             if (funcDef.DecoratorList != null && funcDef.DecoratorList.Count > 0)
                             {
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                                 Console.WriteLine($"[DEBUG] Function '{name}' has {funcDef.DecoratorList.Count} decorators");
 #endif
                                 // Convert decorators to expressions
@@ -878,7 +878,7 @@ namespace SharpPy
                                         {
                                             // Wrap the expression in a DecoratorExpression
                                             decoratorExpressions.Add(new DecoratorExpression(convertedDecorator));
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                                             Console.WriteLine($"[DEBUG] Added decorator: {convertedDecorator}");
 #endif
                                         }
@@ -918,7 +918,7 @@ namespace SharpPy
                 case GeneratedClassDef classDef:
                     // Class definition from parser (class name: body)
                     {
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                         Console.WriteLine($"[DEBUG] ConvertStatement: Processing class statement");
                         Console.WriteLine($"[DEBUG] classDef.Name: {classDef.Name}");
                         Console.WriteLine($"[DEBUG] classDef.Bases count: {classDef.Bases.Count}");
@@ -944,7 +944,7 @@ namespace SharpPy
                                 }
                                 catch (Exception ex)
                                 {
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                                     Console.WriteLine($"[DEBUG] Class base class conversion error: {ex.Message}");
 #endif
                                 }
@@ -965,14 +965,14 @@ namespace SharpPy
                                 }
                                 catch (Exception ex)
                                 {
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                                     Console.WriteLine($"[DEBUG] Class body statement conversion error: {ex.Message}");
 #endif
                                 }
                             }
                         }
 
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                         Console.WriteLine($"[DEBUG] ConvertStatement: Creating ClassDefStatement with name='{className}', bases={baseClassExprs.Count}, body={classBodyStmts.Count}");
 #endif
                         return new ClassDefStatement(className, baseClassExprs, classBodyStmts);
@@ -1020,7 +1020,7 @@ namespace SharpPy
                 case GeneratedImport importStmt:
                     // Import statement (import module)
                     {
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                         Console.WriteLine($"[DEBUG] Import case triggered");
                         Console.WriteLine($"  importStmt.Names count: {importStmt.Names?.Count ?? 0}");
 #endif
@@ -1057,13 +1057,13 @@ namespace SharpPy
 
                             if (names.Count > 0)
                             {
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                                 Console.WriteLine($"[DEBUG] Import: Creating ImportStatement with {names.Count} modules: {string.Join(", ", names)}");
 #endif
                                 return new ImportStatement(names);
                             }
                         }
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                         Console.WriteLine($"[DEBUG] Import: No valid modules found - returning fallback");
 #endif
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
@@ -1227,7 +1227,7 @@ namespace SharpPy
                                 {
                                     foreach (var bodyStmt in caseData.body)
                                     {
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                                         Console.WriteLine($"[DEBUG] Match case body statement type: {bodyStmt?.GetType()?.Name}");
                                         Console.WriteLine($"[DEBUG] Match case body statement value: {bodyStmt}");
 #endif
@@ -1240,7 +1240,7 @@ namespace SharpPy
                                         }
                                         else if (bodyStmt is IList<object> bodyList)
                                         {
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                                             Console.WriteLine($"[DEBUG] Converting List body with {bodyList.Count} statements");
 #endif
                                             // Convert each statement in the list
@@ -1254,7 +1254,7 @@ namespace SharpPy
                                                 }
                                                 else
                                                 {
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                                                     Console.WriteLine($"[DEBUG] List item not GeneratedStmt: {listItem?.GetType()?.Name}");
 #endif
                                                 }
@@ -1262,7 +1262,7 @@ namespace SharpPy
                                         }
                                         else
                                         {
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                                             Console.WriteLine($"[DEBUG] Skipping unsupported body statement type: {bodyStmt?.GetType()?.Name}");
 #endif
                                             // For now, create a simple pass statement as fallback
@@ -1283,7 +1283,7 @@ namespace SharpPy
 
                 default:
                     // Fallback for unhandled statement types
-#if DEBUG_LOG
+#if DEBUG_AST_LOG
                     Console.WriteLine($"[DEBUG] ConvertStatement: Unhandled statement type '{stmt.GetType().Name}'");
 #endif
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));

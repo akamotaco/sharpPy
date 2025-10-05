@@ -31,8 +31,64 @@
 - **utf-8 인코딩 설정** : `set PYTHONUTF8=1` 또는 `export PYTHONUTF8=1`
 - **최적화 비사용** : `--no-optimize`
 - **토큰 시각화** : ` --tokens`
-- **세부 디버그 로그 트리거** : `<DefineConstants>DEBUG;TRACE;DEBUG_LOG</DefineConstants>`
 - **빌드 순서** : Tokenizer 빌드&실행 -> PEG Interpreter 빌드&실행 -> SharpPy 빌드&실행
+
+### 🔍 **디버그 로그 카테고리**
+
+SharpPy는 세분화된 디버그 로그를 지원합니다. sharppy.csproj에서 필요한 로그만 활성화하세요:
+
+```xml
+<!-- 모든 로그 활성화 (Debug 모드 기본값) -->
+<DefineConstants>DEBUG;TRACE;DEBUG_TOKEN_LOG;DEBUG_PARSE_LOG;DEBUG_AST_LOG;DEBUG_COMPILER_LOG;DEBUG_VM_LOG</DefineConstants>
+
+<!-- 특정 로그만 활성화 예시 -->
+<DefineConstants>DEBUG;TRACE;DEBUG_PARSE_LOG;DEBUG_AST_LOG</DefineConstants>
+
+<!-- Release 모드: 모든 로그 비활성화 -->
+<DefineConstants>TRACE</DefineConstants>
+```
+
+**로그 카테고리:**
+- `DEBUG_TOKEN_LOG`: 토크나이저 로그
+  - 토큰 생성 과정
+  - 들여쓰기 처리 (INDENT/DEDENT)
+  - 줄바꿈 및 공백 처리
+  - 위치: `Generated/PyTokenizer.cs` (CSharpTokenizerGenerator에서 생성)
+
+- `DEBUG_PARSE_LOG`: 파서 로그
+  - 문법 규칙 매칭 과정
+  - 메모이제이션 (캐시 히트/미스)
+  - Left recursion 처리
+  - 위치: `Generated/PyParserBase.cs`, `Generated/PyParser.cs`
+
+- `DEBUG_AST_LOG`: AST 변환 로그
+  - Generated AST → SharpPy AST 변환
+  - AST 노드 생성
+  - 위치: `runtime/GeneratedParserBridge.cs`
+
+- `DEBUG_COMPILER_LOG`: 컴파일러 로그
+  - 심볼 테이블 구축
+  - AST → 바이트코드 변환
+  - 최적화 과정
+  - 위치: `SharpPy.Compiler/*.cs`
+
+- `DEBUG_VM_LOG`: VM 실행 로그
+  - 바이트코드 실행 과정
+  - 스택 상태
+  - 변수 조회 (LEGB)
+  - 위치: `SharpPy.VM/*.cs`
+
+**사용 예시:**
+```bash
+# 파싱만 디버그 (토큰화 + 파서 규칙)
+dotnet build /p:DefineConstants="DEBUG;TRACE;DEBUG_TOKEN_LOG;DEBUG_PARSE_LOG"
+
+# AST 변환만 디버그
+dotnet build /p:DefineConstants="DEBUG;TRACE;DEBUG_AST_LOG"
+
+# 전체 디버그 로그 비활성화 (빠른 실행)
+dotnet run -c Release test.py
+```
 
 ## 🎯 **개발/테스트 원칙**
 - **구현 정책** : 간단하고 쉬운 방법보다는 올바른 방법으로 해결하라
