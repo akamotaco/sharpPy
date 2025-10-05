@@ -55,11 +55,11 @@ namespace SharpPy.Generated
         /// <summary>Returns raw List<GeneratedPtr></summary>
         public List<GeneratedPtr> ToRawList() => _items;
 
-        /// <summary>Converts to typed List<T> with casting</summary>
-        public List<T> ToList<T>() where T : GeneratedPtr
+        /// <summary>Converts GeneratedSeq to typed Seq subclass (e.g., GeneratedExprSeq)</summary>
+        public T ToSeq<T>() where T : GeneratedSeq, new()
         {
-            var result = new List<T>(_items.Count);
-            foreach (var item in _items) result.Add((T)item);
+            var result = new T();
+            result.AddRange(this._items);
             return result;
         }
 

@@ -40,18 +40,18 @@ namespace SharpPy.Generated
         protected int _pendingErrorPosition = -1;
         protected bool _callInvalidRules = true;
         // CPython 3.12: Memo cache uses (position, rule_name) tuple keys
-        protected Dictionary<(int, string), GeneratedAstNode?> _memoCache = new();
+        protected Dictionary<(int, string), GeneratedAstNode> _memoCache = new();
 
         // CPython Parser fields for recursion and error tracking
         protected int _level = 0;  // Nesting depth for recursion limit
-        protected GeneratedTokenInfo? _knownErrToken = null;  // Error location tracking
+        protected GeneratedTokenInfo _knownErrToken = null;  // Error location tracking
         protected int _errorIndicator = 0;  // Error state flag
         protected const int MAX_RECURSION_DEPTH = 1000;  // Python's recursion limit
 
         // Left-recursion handling (Warth et al. algorithm)
         protected class LREntry
         {
-            public GeneratedPtr? Result { get; set; }
+            public GeneratedPtr Result { get; set; }
             public int EndPos { get; set; }
             public bool IsGrowing { get; set; }
         }
@@ -71,7 +71,7 @@ namespace SharpPy.Generated
             _filename = filename;
         }
 
-        protected GeneratedTokenInfo? CurrentToken
+        protected GeneratedTokenInfo CurrentToken
         {
             get => _position < _tokens.Count ? _tokens[_position] : null;
         }
@@ -84,7 +84,7 @@ namespace SharpPy.Generated
             throw new NotImplementedException("ParseFile must be overridden");
         }
 
-        protected GeneratedTokenInfo? ExpectToken(GeneratedTokenType type)
+        protected GeneratedTokenInfo ExpectToken(GeneratedTokenType type)
         {
             var token = CurrentToken;
             if (token != null && token.Type == type)
@@ -95,7 +95,7 @@ namespace SharpPy.Generated
             return null;
         }
 
-        protected GeneratedTokenInfo? Expect(GeneratedTokenType type, string value)
+        protected GeneratedTokenInfo Expect(GeneratedTokenType type, string value)
         {
             var token = CurrentToken;
             if (token != null && token.Type == type && token.Value == value)
@@ -106,7 +106,7 @@ namespace SharpPy.Generated
             return null;
         }
 
-        protected GeneratedTokenInfo? ExpectName()
+        protected GeneratedTokenInfo ExpectName()
         {
             var token = CurrentToken;
             if (token != null && token.Type == GeneratedTokenType.NAME)
@@ -122,7 +122,7 @@ namespace SharpPy.Generated
         /// CPython 3.12: Implements Warth et al. 'Packrat Parsers Can Support Left Recursion'
         /// Algorithm: SEED (FAIL) → BASE CASE → GROW → TERMINATE
         /// </summary>
-        protected GeneratedPtr? TryLeftRecursive(string ruleName, Func<GeneratedPtr?> ruleFunc)
+        protected GeneratedPtr TryLeftRecursive(string ruleName, Func<GeneratedPtr> ruleFunc)
         {
             // Check recursion depth
             if (_level >= MAX_RECURSION_DEPTH)
@@ -162,7 +162,7 @@ namespace SharpPy.Generated
                 }
 
                 // GROWTH PHASE: Seed succeeded, now grow
-                GeneratedPtr? lastResult = result;
+                GeneratedPtr lastResult = result;
                 int lastEndPos = _position;
                 _lrCache[key] = new LREntry { Result = result, EndPos = _position, IsGrowing = true };
 
@@ -213,7 +213,7 @@ namespace SharpPy.Generated
         ///   3. If hit: p->mark = m->mark; return m->node
         ///   4. If miss: parse, then update token's memo list
         /// </summary>
-        protected GeneratedPtr? TryMemoized(string ruleName, Func<GeneratedPtr?> ruleFunc)
+        protected GeneratedPtr TryMemoized(string ruleName, Func<GeneratedPtr> ruleFunc)
         {
             #if DEBUG_PARSE_LOG
             Console.WriteLine($"[MEMO] {ruleName} at pos={_position}");
@@ -301,7 +301,7 @@ namespace SharpPy.Generated
         /// Convert NAME token to AST Name expression
         /// CPython 3.12: Used in grammar actions
         /// </summary>
-        protected GeneratedName? NameToken(GeneratedTokenInfo? token)
+        protected GeneratedName NameToken(GeneratedTokenInfo token)
         {
             if (token == null) return null;
             var name = new GeneratedName();
@@ -318,7 +318,7 @@ namespace SharpPy.Generated
         /// Convert NUMBER token to AST Constant expression
         /// CPython 3.12: Numbers are represented as Constant nodes
         /// </summary>
-        protected GeneratedConstant? NumberToken(GeneratedTokenInfo? token)
+        protected GeneratedConstant NumberToken(GeneratedTokenInfo token)
         {
             if (token == null) return null;
             var constant = new GeneratedConstant();
@@ -342,7 +342,7 @@ namespace SharpPy.Generated
         /// Convert STRING token to AST Constant expression
         /// CPython 3.12: Strings are represented as Constant nodes
         /// </summary>
-        protected GeneratedConstant? StringToken(GeneratedTokenInfo? token)
+        protected GeneratedConstant StringToken(GeneratedTokenInfo token)
         {
             if (token == null) return null;
             var constant = new GeneratedConstant();
@@ -1778,7 +1778,7 @@ namespace SharpPy.Generated
         // CPython: _PyPegen_seq_flatten
         // Flatten list of sequences into single sequence
         // CPython 3.12: Returns NULL if total size is 0 (assert fails in CPython)
-        public static GeneratedStmtSeq? _PyPegen_seq_flatten(System.Collections.Generic.List<GeneratedStmtSeq> sequences)
+        public static GeneratedStmtSeq _PyPegen_seq_flatten(System.Collections.Generic.List<GeneratedStmtSeq> sequences)
         {
             // CPython: Calculate flattened size
             int totalSize = 0;
@@ -1850,8 +1850,23 @@ namespace SharpPy.Generated
             return newSeq;
         }
 
+        // CPython 3.12: Generic version for asdl_seq* - matches CPython's void* signature
+        public static GeneratedSeq _PyPegen_seq_insert_in_front(GeneratedPtr item, GeneratedSeq seq)
+        {
+            if (seq == null)
+            {
+                var singletonSeq = new GeneratedSeq();
+                singletonSeq.Add(item);
+                return singletonSeq;
+            }
+            var newSeq = new GeneratedSeq(seq.Count + 1);
+            newSeq.Add(item);
+            newSeq.AddRange(seq);
+            return newSeq;
+        }
+
         // CPython: _PyPegen_seq_count_dots
-        public static int _PyPegen_seq_count_dots(GeneratedIdentifierSeq? seq)
+        public static int _PyPegen_seq_count_dots(GeneratedIdentifierSeq seq)
         {
             return seq?.Count ?? 0;
         }
@@ -1962,7 +1977,7 @@ namespace SharpPy.Generated
         }
 
         // CPython: _PyPegen_make_module
-        public static GeneratedModule _PyPegen_make_module(GeneratedStmtSeq? body)
+        public static GeneratedModule _PyPegen_make_module(GeneratedStmtSeq body)
         {
             var module = new GeneratedModule();
             module.Body = body ?? GeneratedStmtSeq.Empty;
@@ -2076,7 +2091,7 @@ namespace SharpPy.Generated
 
         // CPython: _PyPegen_key_value_pair
         // Create a key-value pair for dictionary literals
-        public static GeneratedKeyValuePair _PyPegen_key_value_pair(GeneratedExpr? key, GeneratedExpr value)
+        public static GeneratedKeyValuePair _PyPegen_key_value_pair(GeneratedExpr key, GeneratedExpr value)
         {
             return new GeneratedKeyValuePair { Key = key ?? value, Value = value };
         }
@@ -2174,7 +2189,7 @@ namespace SharpPy.Generated
 
         // CPython: _PyPegen_check_legacy_stmt
         // Check if NAME is 'print' or 'exec' (legacy Python 2 statements)
-        public static bool CheckLegacyStmt(GeneratedExpr? expr)
+        public static bool CheckLegacyStmt(GeneratedExpr expr)
         {
             if (expr is not GeneratedName name)
             {
@@ -2186,11 +2201,11 @@ namespace SharpPy.Generated
         }
 
         // Legacy alias for backward compatibility
-        public static bool _PyPegen_check_legacy_stmt(GeneratedExpr? expr) => CheckLegacyStmt(expr);
+        public static bool _PyPegen_check_legacy_stmt(GeneratedExpr expr) => CheckLegacyStmt(expr);
 
         // CPython: RAISE_SYNTAX_ERROR_KNOWN_RANGE macro
         // Raise syntax error with range information
-        public static GeneratedPtr? RaiseSyntaxErrorKnownRange(GeneratedAstNode? start, GeneratedAstNode? end, string message)
+        public static GeneratedPtr RaiseSyntaxErrorKnownRange(GeneratedAstNode start, GeneratedAstNode end, string message)
         {
             // Extract location info from start/end nodes
             var startLine = start?.LineNo ?? 1;
@@ -2247,6 +2262,10 @@ namespace SharpPy.Generated
     {
         public GeneratedExpr Key { get; set; }
         public GeneratedPattern Pattern { get; set; }
+    }
+
+    public class GeneratedKeyPatternPairSeq : GeneratedSeq
+    {
     }
 
     public class GeneratedCmpopExprPair : GeneratedPtr

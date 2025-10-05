@@ -409,15 +409,24 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // Example: GeneratedExprSeq → GeneratedExpr
             string expectedItemType = InferItemTypeFromSeqType(seqType);
 
+            // Check if item is a token that needs conversion (NAME → expr_ty)
+            bool isTokenToExpr = gather.Item is StringLiteral tokenLiteral &&
+                                 tokenLiteral.Value.ToUpper() == "NAME" &&
+                                 (expectedItemType == "GeneratedExpr" || expectedItemType == "GeneratedExpr?");
+
             // First item (no separator before it)
             _parent.WriteLine($"// Parse first item (no separator)");
             var firstItemVarName = $"_first_{_varName}";
             var firstItemGen = new ItemCodeGenerator(_parent, new Item { Atom = gather.Item, Name = null }, firstItemVarName, _labelPrefix, insideRepeater: true);
             firstItemGen.Generate();
 
-            // CPython 3.12: Determine if cast is necessary (C# explicit cast, C uses implicit void*)
-            string actualItemType = DetermineItemType(gather.Item);
-            bool needsCast = actualItemType != expectedItemType && actualItemType.Replace("?", "") != expectedItemType.Replace("?", "");
+            // CPython 3.12: Convert token to AST node if necessary (like _PyPegen_name_token)
+            string convertedVarName = firstItemVarName;
+            if (isTokenToExpr)
+            {
+                convertedVarName = $"_converted_{firstItemVarName}";
+                _parent.WriteLine($"var {convertedVarName} = NameToken({firstItemVarName});  // CPython: _PyPegen_name_token");
+            }
 
             if (gather.IsOneOrMore)
             {
@@ -431,14 +440,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 _parent.WriteLine("break;  // Exit this alternative");
                 _parent.Dedent();
                 _parent.WriteLine("}");
-                if (needsCast)
-                {
-                    _parent.WriteLine($"{_varName}.Add(({expectedItemType}){firstItemVarName});");
-                }
-                else
-                {
-                    _parent.WriteLine($"{_varName}.Add({firstItemVarName});");
-                }
+                _parent.WriteLine($"{_varName}.Add({convertedVarName});");
             }
             else
             {
@@ -446,14 +448,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 _parent.WriteLine($"if ({firstItemVarName} != null)");
                 _parent.WriteLine("{");
                 _parent.Indent();
-                if (needsCast)
-                {
-                    _parent.WriteLine($"{_varName}.Add(({expectedItemType}){firstItemVarName});");
-                }
-                else
-                {
-                    _parent.WriteLine($"{_varName}.Add({firstItemVarName});");
-                }
+                _parent.WriteLine($"{_varName}.Add({convertedVarName});");
                 _parent.Dedent();
                 _parent.WriteLine("}");
             }
@@ -491,15 +486,16 @@ namespace SharpPy.PegGenerator.CodeGenerator
             _parent.Dedent();
             _parent.WriteLine("}");
 
-            // Add to list with cast if necessary (reuse needsCast from above)
-            if (needsCast)
+            // CPython 3.12: Convert token to AST node if necessary (loop items)
+            string convertedItemVarName = itemVarName;
+            if (isTokenToExpr)
             {
-                _parent.WriteLine($"{_varName}.Add(({expectedItemType}){itemVarName});");
+                convertedItemVarName = $"_converted_{itemVarName}";
+                _parent.WriteLine($"var {convertedItemVarName} = NameToken({itemVarName});  // CPython: _PyPegen_name_token");
             }
-            else
-            {
-                _parent.WriteLine($"{_varName}.Add({itemVarName});");
-            }
+
+            // Add to list
+            _parent.WriteLine($"{_varName}.Add({convertedItemVarName});");
 
             _parent.Dedent();
             _parent.WriteLine("}");

@@ -486,7 +486,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: simple_stmts
-                var a = SimpleStmts();
+                GeneratedStmtSeq a = (GeneratedStmtSeq)SimpleStmts();
                 if (a == null)
                 {
                     _position = _mark;
@@ -734,6 +734,7 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ';'.simple_stmt+
+                // Using type annotation: asdl_stmt_seq* → GeneratedStmtSeq
                 var a = new GeneratedStmtSeq();
                 // Parse first item (no separator)
                 // Call rule: simple_stmt
@@ -1948,7 +1949,8 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: (z=star_targets '=' { z })+ (CPython: _Loop1_N rule)
-                var a = _Loop1_2();
+                // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
+                GeneratedExprSeq a = (GeneratedExprSeq)_Loop1_2();
                 if (a == null)
                 {
                     _position = _mark;
@@ -2878,7 +2880,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Gather: ','.NAME+
-                var a = new List<GeneratedTokenInfo>();
+                // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
+                var a = new GeneratedExprSeq();
                 // Parse first item (no separator)
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
@@ -2975,7 +2978,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Gather: ','.NAME+
-                var a = new List<GeneratedTokenInfo>();
+                // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
+                var a = new GeneratedExprSeq();
                 // Parse first item (no separator)
                 // Expect token: NAME
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
@@ -3115,7 +3119,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_del_stmt
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_DEL_STMT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -3345,7 +3349,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_import
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_IMPORT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -3813,7 +3817,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_import_from_targets
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_IMPORT_FROM_TARGETS] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -3890,6 +3894,7 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.import_from_as_name+
+                // Using type annotation: asdl_alias_seq* → GeneratedAliasSeq
                 var a = new GeneratedAliasSeq();
                 // Parse first item (no separator)
                 // Call rule: import_from_as_name
@@ -4070,6 +4075,7 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.dotted_as_name+
+                // Using type annotation: asdl_alias_seq* → GeneratedAliasSeq
                 var a = new GeneratedAliasSeq();
                 // Parse first item (no separator)
                 // Call rule: dotted_as_name
@@ -4449,7 +4455,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_block
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_BLOCK] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -4526,7 +4532,8 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: ('@' f=named_expression NEWLINE { f })+ (CPython: _Loop1_N rule)
-                var a = _Loop1_5();
+                // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
+                GeneratedExprSeq a = (GeneratedExprSeq)_Loop1_5();
                 if (a == null)
                 {
                     _position = _mark;
@@ -4666,7 +4673,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_class_def_raw
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_CLASS_DEF_RAW] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -5001,7 +5008,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_def_raw
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_DEF_RAW] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -5662,7 +5669,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_no_default* (CPython: _Loop0_N rule)
-                var b = _Loop0_6();
+                // Using type annotation: asdl_arg_seq* → GeneratedArgSeq
+                GeneratedArgSeq b = (GeneratedArgSeq)_Loop0_6();
                 // Zero or more: param_with_default* (CPython: _Loop0_N rule)
                 var c = _Loop0_7();
                 // Optional: [(star_etc)]
@@ -5781,7 +5789,8 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: param_no_default+ (CPython: _Loop1_N rule)
-                var a = _Loop1_8();
+                // Using type annotation: asdl_arg_seq* → GeneratedArgSeq
+                GeneratedArgSeq a = (GeneratedArgSeq)_Loop1_8();
                 if (a == null)
                 {
                     _position = _mark;
@@ -5958,7 +5967,8 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: param_no_default+ (CPython: _Loop1_N rule)
-                var a = _Loop1_8();
+                // Using type annotation: asdl_arg_seq* → GeneratedArgSeq
+                GeneratedArgSeq a = (GeneratedArgSeq)_Loop1_8();
                 if (a == null)
                 {
                     _position = _mark;
@@ -6002,7 +6012,8 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: param_no_default+ (CPython: _Loop1_N rule)
-                var a = _Loop1_8();
+                // Using type annotation: asdl_arg_seq* → GeneratedArgSeq
+                GeneratedArgSeq a = (GeneratedArgSeq)_Loop1_8();
                 if (a == null)
                 {
                     _position = _mark;
@@ -7651,7 +7662,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_default
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_DEFAULT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -7728,7 +7739,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_if_stmt
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_IF_STMT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -7956,7 +7967,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_elif_stmt
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_ELIF_STMT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -8184,7 +8195,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_else_stmt
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_ELSE_STMT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -8310,7 +8321,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_while_stmt
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_WHILE_STMT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -8475,7 +8486,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_for_stmt
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_FOR_STMT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -8821,7 +8832,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_for_target
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_FOR_TARGET] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -8898,7 +8909,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_with_stmt_indent
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_WITH_STMT_INDENT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -8967,6 +8978,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Gather: ','.with_item+
+                // Using type annotation: asdl_withitem_seq* → GeneratedWithitemSeq
                 var a = new GeneratedWithitemSeq();
                 // Parse first item (no separator)
                 // Call rule: with_item
@@ -9087,6 +9099,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Gather: ','.with_item+
+                // Using type annotation: asdl_withitem_seq* → GeneratedWithitemSeq
                 var a = new GeneratedWithitemSeq();
                 // Parse first item (no separator)
                 // Call rule: with_item
@@ -9226,6 +9239,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Gather: ','.with_item+
+                // Using type annotation: asdl_withitem_seq* → GeneratedWithitemSeq
                 var a = new GeneratedWithitemSeq();
                 // Parse first item (no separator)
                 // Call rule: with_item
@@ -9357,6 +9371,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Gather: ','.with_item+
+                // Using type annotation: asdl_withitem_seq* → GeneratedWithitemSeq
                 var a = new GeneratedWithitemSeq();
                 // Parse first item (no separator)
                 // Call rule: with_item
@@ -9467,7 +9482,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_with_stmt
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_WITH_STMT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -9606,7 +9621,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_with_item
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_WITH_ITEM] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -9852,7 +9867,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: except_block+ (CPython: _Loop1_N rule)
-                var ex = _Loop1_12();
+                // Using type annotation: asdl_excepthandler_seq* → GeneratedExcepthandlerSeq
+                GeneratedExcepthandlerSeq ex = (GeneratedExcepthandlerSeq)_Loop1_12();
                 if (ex == null)
                 {
                     _position = _mark;
@@ -9979,7 +9995,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: except_star_block+ (CPython: _Loop1_N rule)
-                var ex = _Loop1_13();
+                // Using type annotation: asdl_excepthandler_seq* → GeneratedExcepthandlerSeq
+                GeneratedExcepthandlerSeq ex = (GeneratedExcepthandlerSeq)_Loop1_13();
                 if (ex == null)
                 {
                     _position = _mark;
@@ -10102,7 +10119,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_except_stmt_indent
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_EXCEPT_STMT_INDENT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -10367,7 +10384,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_except_star_stmt_indent
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_EXCEPT_STAR_STMT_INDENT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -10596,7 +10613,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_finally_stmt
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_FINALLY_STMT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -10771,7 +10788,8 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(INDENT): result={(_tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // One or more: case_block+ (CPython: _Loop1_N rule)
-                var cases = _Loop1_14();
+                // Using type annotation: asdl_match_case_seq* → GeneratedMatchCaseSeq
+                GeneratedMatchCaseSeq cases = (GeneratedMatchCaseSeq)_Loop1_14();
                 if (cases == null)
                 {
                     _position = _mark;
@@ -10809,7 +10827,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_match_stmt
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_MATCH_STMT] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -11000,7 +11018,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_case_block
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_CASE_BLOCK] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -11218,7 +11236,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: open_sequence_pattern
-                var patterns = OpenSequencePattern();
+                GeneratedPatternSeq patterns = (GeneratedPatternSeq)OpenSequencePattern();
                 if (patterns == null)
                 {
                     _position = _mark;
@@ -11497,6 +11515,7 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: '|'.closed_pattern+
+                // Using type annotation: asdl_pattern_seq* → GeneratedPatternSeq
                 var patterns = new GeneratedPatternSeq();
                 // Parse first item (no separator)
                 // Call rule: closed_pattern
@@ -13954,7 +13973,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                _tmp0.Add((GeneratedExpr)_first__tmp0);
+                _tmp0.Add(_first__tmp0);
                 // Parse remaining items (separator + item)
                 while (true)
                 {
@@ -13980,7 +13999,7 @@ namespace SharpPy.Generated
                         _position = _loop_mark; // Reset to before separator
                         break; // No item after separator
                     }
-                    _tmp0.Add((GeneratedExpr)_loop_elem__tmp0);
+                    _tmp0.Add(_loop_elem__tmp0);
                 }
                 // No action specified - using default result
                 _res = (GeneratedSeq?)_tmp0;
@@ -14504,7 +14523,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_class_pattern
-                GeneratedSeq? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_CLASS_PATTERN] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -14581,6 +14600,7 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.pattern+
+                // Using type annotation: asdl_pattern_seq* → GeneratedPatternSeq
                 var args = new GeneratedPatternSeq();
                 // Parse first item (no separator)
                 // Call rule: pattern
@@ -14675,7 +14695,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                _tmp0.Add((GeneratedExpr)_first__tmp0);
+                _tmp0.Add(_first__tmp0);
                 // Parse remaining items (separator + item)
                 while (true)
                 {
@@ -14701,7 +14721,7 @@ namespace SharpPy.Generated
                         _position = _loop_mark; // Reset to before separator
                         break; // No item after separator
                     }
-                    _tmp0.Add((GeneratedExpr)_loop_elem__tmp0);
+                    _tmp0.Add(_loop_elem__tmp0);
                 }
                 // No action specified - using default result
                 _res = (GeneratedSeq?)_tmp0;
@@ -15011,6 +15031,7 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.type_param+
+                // Using type annotation: asdl_type_param_seq* → GeneratedTypeParamSeq
                 var a = new GeneratedTypeParamSeq();
                 // Parse first item (no separator)
                 // Call rule: type_param
@@ -15660,7 +15681,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_expression
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_EXPRESSION] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -15714,7 +15735,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_legacy_expression
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_LEGACY_EXPRESSION] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -16301,6 +16322,7 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.star_named_expression+
+                // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
                 var a = new GeneratedExprSeq();
                 // Parse first item (no separator)
                 // Call rule: star_named_expression
@@ -16610,7 +16632,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_named_expression
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_NAMED_EXPRESSION] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -19614,6 +19636,7 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.(slice | starred_expression)+
+                // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
                 var a = new GeneratedExprSeq();
                 // Parse first item (no separator)
                 // Group: (slice | starred_expression)
@@ -20883,7 +20906,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_no_default* (CPython: _Loop0_N rule)
-                var b = _Loop0_20();
+                // Using type annotation: asdl_arg_seq* → GeneratedArgSeq
+                GeneratedArgSeq b = (GeneratedArgSeq)_Loop0_20();
                 // Zero or more: lambda_param_with_default* (CPython: _Loop0_N rule)
                 var c = _Loop0_21();
                 // Optional: [(lambda_star_etc)]
@@ -21002,7 +21026,8 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: lambda_param_no_default+ (CPython: _Loop1_N rule)
-                var a = _Loop1_22();
+                // Using type annotation: asdl_arg_seq* → GeneratedArgSeq
+                GeneratedArgSeq a = (GeneratedArgSeq)_Loop1_22();
                 if (a == null)
                 {
                     _position = _mark;
@@ -21179,7 +21204,8 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: lambda_param_no_default+ (CPython: _Loop1_N rule)
-                var a = _Loop1_22();
+                // Using type annotation: asdl_arg_seq* → GeneratedArgSeq
+                GeneratedArgSeq a = (GeneratedArgSeq)_Loop1_22();
                 if (a == null)
                 {
                     _position = _mark;
@@ -21223,7 +21249,8 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: lambda_param_no_default+ (CPython: _Loop1_N rule)
-                var a = _Loop1_22();
+                // Using type annotation: asdl_arg_seq* → GeneratedArgSeq
+                GeneratedArgSeq a = (GeneratedArgSeq)_Loop1_22();
                 if (a == null)
                 {
                     _position = _mark;
@@ -22887,7 +22914,8 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: (fstring | string)+ (CPython: _Loop1_N rule)
-                var a = _Loop1_28();
+                // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
+                GeneratedExprSeq a = (GeneratedExprSeq)_Loop1_28();
                 if (a == null)
                 {
                     _position = _mark;
@@ -23326,7 +23354,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: invalid_double_starred_kvpairs
-                GeneratedAstNode? _tmp1 = null;
+                GeneratedPtr? _tmp1 = null;
                 Console.WriteLine($"[INVALID_DOUBLE_STARRED_KVPAIRS] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -23423,7 +23451,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                a.Add((GeneratedAstNode)_first_a);
+                a.Add(_first_a);
                 // Parse remaining items (separator + item)
                 while (true)
                 {
@@ -23449,7 +23477,7 @@ namespace SharpPy.Generated
                         _position = _loop_mark; // Reset to before separator
                         break; // No item after separator
                     }
-                    a.Add((GeneratedAstNode)_loop_elem_a);
+                    a.Add(_loop_elem_a);
                 }
                 // Optional: [(',')]
                 int _opt_mark__tmp0 = _position;
@@ -23688,7 +23716,8 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: for_if_clause+ (CPython: _Loop1_N rule)
-                var a = _Loop1_29();
+                // Using type annotation: asdl_comprehension_seq* → GeneratedComprehensionSeq
+                GeneratedComprehensionSeq a = (GeneratedComprehensionSeq)_Loop1_29();
                 if (a == null)
                 {
                     _position = _mark;
@@ -23789,7 +23818,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: ('if' z=disjunction { z })* (CPython: _Loop0_N rule)
-                var c = _Loop0_30();
+                // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
+                GeneratedExprSeq c = (GeneratedExprSeq)_Loop0_30();
                 // Action: CHECK_VERSION(comprehension_ty, 6, "Async comprehensions are", _PyAST_comprehension(a, b, c, 1))
                 // No _PyAST_ or _PyPegen_ function in action: 1)
                 _res = default(GeneratedComprehension?);
@@ -23847,7 +23877,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: ('if' z=disjunction { z })* (CPython: _Loop0_N rule)
-                var c = _Loop0_31();
+                // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
+                GeneratedExprSeq c = (GeneratedExprSeq)_Loop0_31();
                 // Action: _PyAST_comprehension(a, b, c, 0)
                 // Unknown AST function: _PyAST_comprehension
                 _res = default(GeneratedComprehension?);
@@ -23867,7 +23898,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_for_target
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_FOR_TARGET] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -23998,7 +24029,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_comprehension
-                GeneratedSeq? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_COMPREHENSION] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -24129,7 +24160,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_comprehension
-                GeneratedSeq? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_COMPREHENSION] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -24306,7 +24337,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_comprehension
-                GeneratedSeq? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_COMPREHENSION] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -24672,6 +24703,7 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.(starred_expression | (assignment_expression | expression !':=') !'=')+
+                // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
                 var a = new GeneratedExprSeq();
                 // Parse first item (no separator)
                 // Group: (starred_expression | (assignment_expression | expression !':=') !'=')
@@ -25286,7 +25318,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_starred_expression
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_STARRED_EXPRESSION] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -25867,6 +25899,7 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.star_target+
+                // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
                 var a = new GeneratedExprSeq();
                 // Parse first item (no separator)
                 // Call rule: star_target
@@ -27390,6 +27423,7 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.del_target+
+                // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
                 var a = new GeneratedExprSeq();
                 // Parse first item (no separator)
                 // Call rule: del_target
@@ -28024,9 +28058,9 @@ namespace SharpPy.Generated
                 }
                 // Action (multiline):
                 //   _PyPegen_seq_append_to_end(
-                //   CHECK<asdl_seq>(_PyPegen_seq_append_to_end(a, b)),
+                //   (CHECK<asdl_seq>(_PyPegen_seq_append_to_end(a, b)).ToSeq<GeneratedExprSeq>()),
                 //   c)
-                _res = _PyPegen_seq_append_to_end(CHECK<asdl_seq>(_PyPegen_seq_append_to_end(a, b)), c);
+                _res = _PyPegen_seq_append_to_end((CHECK<asdl_seq>(_PyPegen_seq_append_to_end(a, b)).ToSeq<GeneratedExprSeq>()), c);
                 if (_res != null) goto done;
             } while (false);
 
@@ -28257,9 +28291,9 @@ namespace SharpPy.Generated
                 }
                 // Action (multiline):
                 //   _PyPegen_seq_append_to_end(
-                //   CHECK<asdl_seq>(_PyPegen_singleton_seq(a)),
+                //   (CHECK<asdl_seq>(_PyPegen_singleton_seq(a)).ToSeq<GeneratedExprSeq>()),
                 //   b)
-                _res = _PyPegen_seq_append_to_end(CHECK<asdl_seq>(_PyPegen_singleton_seq(a)), b);
+                _res = _PyPegen_seq_append_to_end((CHECK<asdl_seq>(_PyPegen_singleton_seq(a)).ToSeq<GeneratedExprSeq>()), b);
                 if (_res != null) goto done;
             } while (false);
 
@@ -28346,6 +28380,7 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.expression+
+                // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
                 var a = new GeneratedExprSeq();
                 // Parse first item (no separator)
                 // Call rule: expression
@@ -28483,7 +28518,7 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: invalid_double_type_comments
-                GeneratedAstNode? _tmp0 = null;
+                GeneratedPtr? _tmp0 = null;
                 Console.WriteLine($"[INVALID_DOUBLE_TYPE_COMMENTS] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -29839,11 +29874,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_legacy_expression from python.gram
-        public GeneratedAstNode? InvalidLegacyExpression()
+        public GeneratedPtr? InvalidLegacyExpression()
         {
             // CPython 3.12 PEG: invalid_legacy_expression
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -29898,7 +29933,7 @@ namespace SharpPy.Generated
                 }
                 // Action: PegenHelpers.CheckLegacyStmt(a) ? PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, $"Missing parentheses in call to '{a.Id}'. Did you mean {a.Id}(...)?") : null
                 // TODO: Complex action expression: PegenHelpers.CheckLegacyStmt(a) ? PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, $"Missing parentheses in call to '{a.Id}'. Did you mean {a.Id}(...)?") : null
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedPtr?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -29915,11 +29950,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_expression from python.gram
-        public GeneratedAstNode? InvalidExpression()
+        public GeneratedPtr? InvalidExpression()
         {
             // CPython 3.12 PEG: invalid_expression
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -29975,7 +30010,7 @@ namespace SharpPy.Generated
                 // TODO: Complex action expression (multiline):
                 //   PegenHelpers.CheckLegacyStmt(a) ? null : _tokens[_mark-1].Level == 0 ? null :
                 //   PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "invalid syntax. Perhaps you forgot a comma?")
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedPtr?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -30033,7 +30068,7 @@ namespace SharpPy.Generated
                 }
                 // Action: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "expected 'else' after 'if' expression")
                 // TODO: Complex action expression: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "expected 'else' after 'if' expression")
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedPtr?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -30117,7 +30152,7 @@ namespace SharpPy.Generated
                 }
                 // Action: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "f-string: lambda expressions are not allowed without parentheses")
                 // TODO: Complex action expression: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "f-string: lambda expressions are not allowed without parentheses")
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedPtr?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -30134,18 +30169,18 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_named_expression from python.gram
-        public GeneratedAstNode? InvalidNamedExpression()
+        public GeneratedPtr? InvalidNamedExpression()
         {
             // CPython 3.12: Memoized (non-left-recursive) - simple memoization
             // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return (GeneratedAstNode?)TryMemoized("InvalidNamedExpression", _InvalidNamedExpression);
+            return (GeneratedPtr?)TryMemoized("InvalidNamedExpression", _InvalidNamedExpression);
         }
 
-        private GeneratedAstNode? _InvalidNamedExpression()
+        private GeneratedPtr? _InvalidNamedExpression()
         {
             // CPython 3.12 PEG: invalid_named_expression
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -30260,7 +30295,7 @@ namespace SharpPy.Generated
                 }
                 // Action: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?")
                 // TODO: Complex action expression: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?")
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedPtr?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -30854,11 +30889,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_del_stmt from python.gram
-        public GeneratedAstNode? InvalidDelStmt()
+        public GeneratedPtr? InvalidDelStmt()
         {
             // CPython 3.12 PEG: invalid_del_stmt
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -30918,11 +30953,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_block from python.gram
-        public GeneratedAstNode? InvalidBlock()
+        public GeneratedPtr? InvalidBlock()
         {
             // CPython 3.12 PEG: invalid_block
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -30986,11 +31021,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_comprehension from python.gram
-        public GeneratedSeq? InvalidComprehension()
+        public GeneratedPtr? InvalidComprehension()
         {
             // CPython 3.12 PEG: invalid_comprehension
             int _mark = _position;
-            GeneratedSeq? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -31268,7 +31303,7 @@ namespace SharpPy.Generated
                 }
                 // Action: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "did you forget parentheses around the comprehension target?")
                 // TODO: Complex action expression: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "did you forget parentheses around the comprehension target?")
-                _res = default(GeneratedSeq?);
+                _res = default(GeneratedPtr?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -31540,7 +31575,7 @@ namespace SharpPy.Generated
                 // Zero or more: param_no_default* (CPython: _Loop0_N rule)
                 var _tmp1 = _Loop0_6();
                 // Call rule: invalid_parameters_helper
-                GeneratedSeq? _tmp2 = null;
+                GeneratedPtr? _tmp2 = null;
                 Console.WriteLine($"[INVALID_PARAMETERS_HELPER] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -31849,11 +31884,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_default from python.gram
-        public GeneratedAstNode? InvalidDefault()
+        public GeneratedPtr? InvalidDefault()
         {
             // CPython 3.12 PEG: invalid_default
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -32504,11 +32539,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_parameters_helper from python.gram
-        public GeneratedSeq? InvalidParametersHelper()
+        public GeneratedPtr? InvalidParametersHelper()
         {
             // CPython 3.12 PEG: invalid_parameters_helper
             int _mark = _position;
-            GeneratedSeq? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -32565,7 +32600,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq?)_tmp0;
+                _res = (GeneratedPtr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -32746,7 +32781,7 @@ namespace SharpPy.Generated
                 // Zero or more: lambda_param_no_default* (CPython: _Loop0_N rule)
                 var _tmp1 = _Loop0_20();
                 // Call rule: invalid_lambda_parameters_helper
-                GeneratedSeq? _tmp2 = null;
+                GeneratedPtr? _tmp2 = null;
                 Console.WriteLine($"[INVALID_LAMBDA_PARAMETERS_HELPER] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -33086,11 +33121,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_lambda_parameters_helper from python.gram
-        public GeneratedSeq? InvalidLambdaParametersHelper()
+        public GeneratedPtr? InvalidLambdaParametersHelper()
         {
             // CPython 3.12 PEG: invalid_lambda_parameters_helper
             int _mark = _position;
-            GeneratedSeq? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -33147,7 +33182,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // No action specified - using default result
-                _res = (GeneratedSeq?)_tmp0;
+                _res = (GeneratedPtr?)_tmp0;
                 if (_res != null) goto done;
             } while (false);
 
@@ -33699,11 +33734,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_double_type_comments from python.gram
-        public GeneratedAstNode? InvalidDoubleTypeComments()
+        public GeneratedPtr? InvalidDoubleTypeComments()
         {
             // CPython 3.12 PEG: invalid_double_type_comments
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -33800,11 +33835,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_with_item from python.gram
-        public GeneratedAstNode? InvalidWithItem()
+        public GeneratedPtr? InvalidWithItem()
         {
             // CPython 3.12 PEG: invalid_with_item
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -33890,11 +33925,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_for_target from python.gram
-        public GeneratedAstNode? InvalidForTarget()
+        public GeneratedPtr? InvalidForTarget()
         {
             // CPython 3.12 PEG: invalid_for_target
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -34111,11 +34146,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_import from python.gram
-        public GeneratedAstNode? InvalidImport()
+        public GeneratedPtr? InvalidImport()
         {
             // CPython 3.12 PEG: invalid_import
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -34224,11 +34259,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_import_from_targets from python.gram
-        public GeneratedAstNode? InvalidImportFromTargets()
+        public GeneratedPtr? InvalidImportFromTargets()
         {
             // CPython 3.12 PEG: invalid_import_from_targets
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -34299,11 +34334,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_with_stmt from python.gram
-        public GeneratedAstNode? InvalidWithStmt()
+        public GeneratedPtr? InvalidWithStmt()
         {
             // CPython 3.12 PEG: invalid_with_stmt
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -34387,7 +34422,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                _tmp2.Add((GeneratedExpr)_first__tmp2);
+                _tmp2.Add(_first__tmp2);
                 // Parse remaining items (separator + item)
                 while (true)
                 {
@@ -34421,7 +34456,7 @@ namespace SharpPy.Generated
                         _position = _loop_mark; // Reset to before separator
                         break; // No item after separator
                     }
-                    _tmp2.Add((GeneratedExpr)_loop_elem__tmp2);
+                    _tmp2.Add(_loop_elem__tmp2);
                 }
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
@@ -34526,7 +34561,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                _tmp3.Add((GeneratedExpr)_first__tmp3);
+                _tmp3.Add(_first__tmp3);
                 // Parse remaining items (separator + item)
                 while (true)
                 {
@@ -34560,7 +34595,7 @@ namespace SharpPy.Generated
                         _position = _loop_mark; // Reset to before separator
                         break; // No item after separator
                     }
-                    _tmp3.Add((GeneratedExpr)_loop_elem__tmp3);
+                    _tmp3.Add(_loop_elem__tmp3);
                 }
                 // Optional: [',']
                 int _opt_mark__tmp4 = _position;
@@ -34629,11 +34664,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_with_stmt_indent from python.gram
-        public GeneratedAstNode? InvalidWithStmtIndent()
+        public GeneratedPtr? InvalidWithStmtIndent()
         {
             // CPython 3.12 PEG: invalid_with_stmt_indent
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -34717,7 +34752,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                _tmp1.Add((GeneratedExpr)_first__tmp1);
+                _tmp1.Add(_first__tmp1);
                 // Parse remaining items (separator + item)
                 while (true)
                 {
@@ -34751,7 +34786,7 @@ namespace SharpPy.Generated
                         _position = _loop_mark; // Reset to before separator
                         break; // No item after separator
                     }
-                    _tmp1.Add((GeneratedExpr)_loop_elem__tmp1);
+                    _tmp1.Add(_loop_elem__tmp1);
                 }
                 // Expect ':'
                 var _tmp2 = Expect(":");
@@ -34876,7 +34911,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                _tmp2.Add((GeneratedExpr)_first__tmp2);
+                _tmp2.Add(_first__tmp2);
                 // Parse remaining items (separator + item)
                 while (true)
                 {
@@ -34910,7 +34945,7 @@ namespace SharpPy.Generated
                         _position = _loop_mark; // Reset to before separator
                         break; // No item after separator
                     }
-                    _tmp2.Add((GeneratedExpr)_loop_elem__tmp2);
+                    _tmp2.Add(_loop_elem__tmp2);
                 }
                 // Optional: [',']
                 int _opt_mark__tmp3 = _position;
@@ -35601,11 +35636,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_finally_stmt from python.gram
-        public GeneratedAstNode? InvalidFinallyStmt()
+        public GeneratedPtr? InvalidFinallyStmt()
         {
             // CPython 3.12 PEG: invalid_finally_stmt
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -35687,11 +35722,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_except_stmt_indent from python.gram
-        public GeneratedAstNode? InvalidExceptStmtIndent()
+        public GeneratedPtr? InvalidExceptStmtIndent()
         {
             // CPython 3.12 PEG: invalid_except_stmt_indent
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -35833,11 +35868,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_except_star_stmt_indent from python.gram
-        public GeneratedAstNode? InvalidExceptStarStmtIndent()
+        public GeneratedPtr? InvalidExceptStarStmtIndent()
         {
             // CPython 3.12 PEG: invalid_except_star_stmt_indent
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -35928,11 +35963,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_match_stmt from python.gram
-        public GeneratedAstNode? InvalidMatchStmt()
+        public GeneratedPtr? InvalidMatchStmt()
         {
             // CPython 3.12 PEG: invalid_match_stmt
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -36072,11 +36107,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_case_block from python.gram
-        public GeneratedAstNode? InvalidCaseBlock()
+        public GeneratedPtr? InvalidCaseBlock()
         {
             // CPython 3.12 PEG: invalid_case_block
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -36399,11 +36434,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_class_pattern from python.gram
-        public GeneratedSeq? InvalidClassPattern()
+        public GeneratedPtr? InvalidClassPattern()
         {
             // CPython 3.12 PEG: invalid_class_pattern
             int _mark = _position;
-            GeneratedSeq? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -36601,11 +36636,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_if_stmt from python.gram
-        public GeneratedAstNode? InvalidIfStmt()
+        public GeneratedPtr? InvalidIfStmt()
         {
             // CPython 3.12 PEG: invalid_if_stmt
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -36745,11 +36780,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_elif_stmt from python.gram
-        public GeneratedAstNode? InvalidElifStmt()
+        public GeneratedPtr? InvalidElifStmt()
         {
             // CPython 3.12 PEG: invalid_elif_stmt
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -36889,11 +36924,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_else_stmt from python.gram
-        public GeneratedAstNode? InvalidElseStmt()
+        public GeneratedPtr? InvalidElseStmt()
         {
             // CPython 3.12 PEG: invalid_else_stmt
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -36975,11 +37010,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_while_stmt from python.gram
-        public GeneratedAstNode? InvalidWhileStmt()
+        public GeneratedPtr? InvalidWhileStmt()
         {
             // CPython 3.12 PEG: invalid_while_stmt
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -37119,11 +37154,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_for_stmt from python.gram
-        public GeneratedAstNode? InvalidForStmt()
+        public GeneratedPtr? InvalidForStmt()
         {
             // CPython 3.12 PEG: invalid_for_stmt
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -37367,11 +37402,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_def_raw from python.gram
-        public GeneratedAstNode? InvalidDefRaw()
+        public GeneratedPtr? InvalidDefRaw()
         {
             // CPython 3.12 PEG: invalid_def_raw
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -37577,11 +37612,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_class_def_raw from python.gram
-        public GeneratedAstNode? InvalidClassDefRaw()
+        public GeneratedPtr? InvalidClassDefRaw()
         {
             // CPython 3.12 PEG: invalid_class_def_raw
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -37853,11 +37888,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_double_starred_kvpairs from python.gram
-        public GeneratedAstNode? InvalidDoubleStarredKvpairs()
+        public GeneratedPtr? InvalidDoubleStarredKvpairs()
         {
             // CPython 3.12 PEG: invalid_double_starred_kvpairs
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -37890,7 +37925,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                _tmp0.Add((GeneratedAstNode)_first__tmp0);
+                _tmp0.Add(_first__tmp0);
                 // Parse remaining items (separator + item)
                 while (true)
                 {
@@ -37916,7 +37951,7 @@ namespace SharpPy.Generated
                         _position = _loop_mark; // Reset to before separator
                         break; // No item after separator
                     }
-                    _tmp0.Add((GeneratedAstNode)_loop_elem__tmp0);
+                    _tmp0.Add(_loop_elem__tmp0);
                 }
                 // Expect ','
                 var _tmp1 = Expect(",");
@@ -37928,7 +37963,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: invalid_kvpair
-                GeneratedAstNode? _tmp2 = null;
+                GeneratedPtr? _tmp2 = null;
                 Console.WriteLine($"[INVALID_KVPAIR] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -38089,11 +38124,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_kvpair from python.gram
-        public GeneratedAstNode? InvalidKvpair()
+        public GeneratedPtr? InvalidKvpair()
         {
             // CPython 3.12 PEG: invalid_kvpair
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -38266,11 +38301,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_starred_expression from python.gram
-        public GeneratedAstNode? InvalidStarredExpression()
+        public GeneratedPtr? InvalidStarredExpression()
         {
             // CPython 3.12 PEG: invalid_starred_expression
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -38329,7 +38364,7 @@ namespace SharpPy.Generated
                 }
                 // Action: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "cannot assign to iterable argument unpacking")
                 // TODO: Complex action expression: PegenHelpers.RaiseSyntaxErrorKnownRange(a, b, "cannot assign to iterable argument unpacking")
-                _res = default(GeneratedAstNode?);
+                _res = default(GeneratedPtr?);
                 if (_res != null) goto done;
             } while (false);
 
@@ -38812,7 +38847,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp2; // Reset position
                 }
                 // Call rule: invalid_conversion_character
-                GeneratedAstNode? _tmp3 = null;
+                GeneratedPtr? _tmp3 = null;
                 Console.WriteLine($"[INVALID_CONVERSION_CHARACTER] _callInvalidRules={_callInvalidRules}");
                 if (_callInvalidRules)
                 {
@@ -39305,11 +39340,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: invalid_conversion_character from python.gram
-        public GeneratedAstNode? InvalidConversionCharacter()
+        public GeneratedPtr? InvalidConversionCharacter()
         {
             // CPython 3.12 PEG: invalid_conversion_character
             int _mark = _position;
-            GeneratedAstNode? _res = null;
+            GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -39901,9 +39936,9 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop1_12()
+        private GeneratedExcepthandlerSeq? _Loop1_12()
         {
-            var _items = new GeneratedExprSeq();
+            var _items = new GeneratedExcepthandlerSeq();
             // CPython: First element required
             // Call rule: except_block
             var _first = ExceptBlock();
@@ -39928,9 +39963,9 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop1_13()
+        private GeneratedExcepthandlerSeq? _Loop1_13()
         {
-            var _items = new GeneratedExprSeq();
+            var _items = new GeneratedExcepthandlerSeq();
             // CPython: First element required
             // Call rule: except_star_block
             var _first = ExceptStarBlock();
@@ -41047,7 +41082,7 @@ public GeneratedModule ParseInteractive()
 }
 
 // CPython 3.12: Entry point for eval parsing
-public GeneratedExpr ParseEval()
+public GeneratedModule ParseEval()
 {
     var result = Eval();
     if (result == null || _pendingSyntaxError != null)
