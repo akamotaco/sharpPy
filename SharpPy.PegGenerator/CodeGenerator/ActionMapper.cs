@@ -215,6 +215,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     {
                         var item = TranslateToCSharp(filteredArgs[0].Trim(), variables);
                         var seq = TranslateToCSharp(filteredArgs[1].Trim(), variables);
+                        // CPython 3.12: Cast result to specific seq type if needed
+                        if (!string.IsNullOrEmpty(typeCast))
+                        {
+                            return $"_res = _PyPegen_seq_insert_in_front({item}, {seq}).Cast<{typeCast}>();";
+                        }
                         return $"_res = _PyPegen_seq_insert_in_front({item}, {seq});";
                     }
                     break;
@@ -272,6 +277,49 @@ namespace SharpPy.PegGenerator.CodeGenerator
                         var strings = TranslateToCSharp(filteredArgs[0].Trim(), variables);
                         // EXTRA parameters are added separately, extract from remaining args
                         return $"_res = _PyPegen_concatenate_strings({strings}, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);";
+                    }
+                    break;
+
+                case "_PyPegen_keyword_or_starred":
+                    // _PyPegen_keyword_or_starred(p, element, is_keyword) → construct KeywordOrStarred
+                    // CPython 3.12: kwarg_or_starred: '*' a=expression { _PyPegen_keyword_or_starred(p, a, 0) }
+                    if (filteredArgs.Count >= 2)
+                    {
+                        var element = TranslateToCSharp(filteredArgs[0].Trim(), variables);
+                        var is_keyword = TranslateToCSharp(filteredArgs[1].Trim(), variables);
+                        return $"_res = _PyPegen_keyword_or_starred({element}, {is_keyword});";
+                    }
+                    break;
+
+                case "_PyPegen_seq_extract_starred_exprs":
+                    // _PyPegen_seq_extract_starred_exprs(p, kwargs) → extract starred expressions
+                    // CPython 3.12: Used in call argument processing
+                    if (filteredArgs.Count >= 1)
+                    {
+                        var kwargs = TranslateToCSharp(filteredArgs[0].Trim(), variables);
+                        return $"_res = _PyPegen_seq_extract_starred_exprs({kwargs});";
+                    }
+                    break;
+
+                case "_PyPegen_seq_delete_starred_exprs":
+                    // _PyPegen_seq_delete_starred_exprs(p, kwargs) → extract only keywords
+                    // CPython 3.12: Used in call argument processing
+                    if (filteredArgs.Count >= 1)
+                    {
+                        var kwargs = TranslateToCSharp(filteredArgs[0].Trim(), variables);
+                        return $"_res = _PyPegen_seq_delete_starred_exprs({kwargs});";
+                    }
+                    break;
+
+                case "_PyPegen_collect_call_seqs":
+                    // _PyPegen_collect_call_seqs(p, a, b, EXTRA) → collect arguments and keywords
+                    // CPython 3.12: args[expr_ty]: a=','.(expr)+ b=[kwargs] { _PyPegen_collect_call_seqs(p, a, b, EXTRA) }
+                    if (filteredArgs.Count >= 2)
+                    {
+                        var a = TranslateToCSharp(filteredArgs[0].Trim(), variables);
+                        var b = TranslateToCSharp(filteredArgs[1].Trim(), variables);
+                        // EXTRA (lineno, col_offset, end_lineno, end_col_offset) are added automatically
+                        return $"_res = _PyPegen_collect_call_seqs({a}, {b}, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);";
                     }
                     break;
             }

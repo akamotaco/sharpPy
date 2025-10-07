@@ -699,7 +699,7 @@ namespace SharpPy.Generated
                 if (CurrentToken?.Value == ";") { _lookahead_test_0 = CurrentToken; }
                 if (_lookahead_test_0 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -735,44 +735,13 @@ namespace SharpPy.Generated
 
                 // Gather: ';'.simple_stmt+
                 // Using type annotation: asdl_stmt_seq* → GeneratedStmtSeq
-                var a = new GeneratedStmtSeq();
-                // Parse first item (no separator)
-                // Call rule: simple_stmt
-                var _first_a = SimpleStmt();
-                if (_first_a == null)
+                var a = _Gather_4();
+                if (a == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                a.Add(_first_a);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ';'
-                    var _sep_a = Expect(";");
-                    if (_sep_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_a == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: simple_stmt
-                    var _loop_elem_a = SimpleStmt();
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    a.Add(_loop_elem_a);
                 }
                 // Optional: [(';')]
                 int _opt_mark__tmp0 = _position;
@@ -839,15 +808,15 @@ namespace SharpPy.Generated
         // Rule: simple_stmt from python.gram
         public GeneratedStmt? SimpleStmt()
         {
-            // CPython 3.12: Memoized (non-left-recursive) - simple memoization
-            // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return (GeneratedStmt?)TryMemoized("SimpleStmt", _SimpleStmt);
-        }
+            // CPython 3.12: Memoized (non-left-recursive)
+            if (TryGetMemoized("SimpleStmt", out var _memoized))
+            {
+                return (GeneratedStmt?)_memoized;
+            }
 
-        private GeneratedStmt? _SimpleStmt()
-        {
-            // CPython 3.12 PEG: simple_stmt
             int _mark = _position;
+
+            // CPython 3.12 PEG: simple_stmt
             GeneratedStmt? _res = null;
 
             // Position tracking for EXTRA parameters
@@ -863,6 +832,7 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[SIMPLE_STMT-ALT1] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -889,6 +859,7 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[SIMPLE_STMT-ALT2] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -929,6 +900,7 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[SIMPLE_STMT-ALT3] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -956,6 +928,7 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[SIMPLE_STMT-ALT4] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -996,6 +969,7 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[SIMPLE_STMT-ALT5] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1038,6 +1012,7 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[SIMPLE_STMT-ALT6] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1078,6 +1053,7 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[SIMPLE_STMT-ALT7] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1105,6 +1081,7 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[SIMPLE_STMT-ALT8] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1145,6 +1122,7 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[SIMPLE_STMT-ALT9] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1185,6 +1163,7 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[SIMPLE_STMT-ALT10] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1225,6 +1204,7 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[SIMPLE_STMT-ALT11] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1252,6 +1232,7 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[SIMPLE_STMT-ALT12] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1279,6 +1260,7 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[SIMPLE_STMT-ALT13] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1319,6 +1301,7 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[SIMPLE_STMT-ALT14] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1365,6 +1348,8 @@ namespace SharpPy.Generated
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
             Console.WriteLine($"[SIMPLE_STMT] RETURN {(_res == null ? "null" : "not-null")} at pos={_position}");
+            // CPython: _PyPegen_insert_memo(p, _mark, SimpleStmt_type, _res)
+            UpdateMemoized("SimpleStmt", _mark, _res, _position);
             return _res;
         }
 
@@ -1727,6 +1712,7 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[ASSIGNMENT-ALT1] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1819,6 +1805,7 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[ASSIGNMENT-ALT2] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1940,6 +1927,7 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[ASSIGNMENT-ALT3] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1950,7 +1938,7 @@ namespace SharpPy.Generated
 
                 // One or more: (z=star_targets '=' { z })+ (CPython: _Loop1_N rule)
                 // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
-                GeneratedExprSeq a = (GeneratedExprSeq)_Loop1_2();
+                GeneratedExprSeq a = (GeneratedExprSeq)_Loop1_4();
                 if (a == null)
                 {
                     _position = _mark;
@@ -2002,7 +1990,7 @@ namespace SharpPy.Generated
                 if (CurrentToken?.Value == "=") { _lookahead_test_17 = CurrentToken; }
                 if (_lookahead_test_17 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -2052,6 +2040,7 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[ASSIGNMENT-ALT4] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -2129,6 +2118,7 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                Console.WriteLine($"[ASSIGNMENT-ALT5] START at pos={_position}");
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -2881,48 +2871,13 @@ namespace SharpPy.Generated
                 }
                 // Gather: ','.NAME+
                 // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
-                var a = new GeneratedExprSeq();
-                // Parse first item (no separator)
-                // Expect token: NAME
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var _first_a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_first_a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (_first_a == null)
+                var a = _Gather_7();
+                if (a == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                a.Add(_first_a);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_a = Expect(",");
-                    if (_sep_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_a == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Expect token: NAME
-                    Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                    var _loop_elem_a = ExpectToken(GeneratedTokenType.NAME);
-                    Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_loop_elem_a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    a.Add(_loop_elem_a);
                 }
                 // Action: _PyAST_Global(CHECK<asdl_identifier_seq>(_PyPegen_map_names_to_ids(a)), EXTRA)
                 _res = _PyAST_Global(CHECK<asdl_identifier_seq>(_PyPegen_map_names_to_ids(a)), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
@@ -2979,48 +2934,13 @@ namespace SharpPy.Generated
                 }
                 // Gather: ','.NAME+
                 // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
-                var a = new GeneratedExprSeq();
-                // Parse first item (no separator)
-                // Expect token: NAME
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                var _first_a = ExpectToken(GeneratedTokenType.NAME);
-                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_first_a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                if (_first_a == null)
+                var a = _Gather_7();
+                if (a == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                a.Add(_first_a);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_a = Expect(",");
-                    if (_sep_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_a == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Expect token: NAME
-                    Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
-                    var _loop_elem_a = ExpectToken(GeneratedTokenType.NAME);
-                    Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(_loop_elem_a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    a.Add(_loop_elem_a);
                 }
                 // Action: _PyAST_Nonlocal(CHECK<asdl_identifier_seq>(_PyPegen_map_names_to_ids(a)), EXTRA)
                 _res = _PyAST_Nonlocal(CHECK<asdl_identifier_seq>(_PyPegen_map_names_to_ids(a)), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
@@ -3549,7 +3469,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: ('.' | '...')* (CPython: _Loop0_N rule)
-                var a = _Loop0_3();
+                var a = _Loop0_7();
                 // Call rule: dotted_name
                 var b = DottedName();
                 if (b == null)
@@ -3605,7 +3525,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: ('.' | '...')+ (CPython: _Loop1_N rule)
-                var a = _Loop1_4();
+                var a = _Loop1_8();
                 if (a == null)
                 {
                     _position = _mark;
@@ -3767,7 +3687,7 @@ namespace SharpPy.Generated
                 if (CurrentToken?.Value == ",") { _lookahead_test_19 = CurrentToken; }
                 if (_lookahead_test_19 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -3895,44 +3815,13 @@ namespace SharpPy.Generated
 
                 // Gather: ','.import_from_as_name+
                 // Using type annotation: asdl_alias_seq* → GeneratedAliasSeq
-                var a = new GeneratedAliasSeq();
-                // Parse first item (no separator)
-                // Call rule: import_from_as_name
-                var _first_a = ImportFromAsName();
-                if (_first_a == null)
+                var a = _Gather_11();
+                if (a == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                a.Add(_first_a);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_a = Expect(",");
-                    if (_sep_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_a == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: import_from_as_name
-                    var _loop_elem_a = ImportFromAsName();
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    a.Add(_loop_elem_a);
                 }
                 // Action: a
                 _res = (GeneratedAliasSeq?)((GeneratedPtr?)a);
@@ -4076,44 +3965,13 @@ namespace SharpPy.Generated
 
                 // Gather: ','.dotted_as_name+
                 // Using type annotation: asdl_alias_seq* → GeneratedAliasSeq
-                var a = new GeneratedAliasSeq();
-                // Parse first item (no separator)
-                // Call rule: dotted_as_name
-                var _first_a = DottedAsName();
-                if (_first_a == null)
+                var a = _Gather_13();
+                if (a == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                a.Add(_first_a);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_a = Expect(",");
-                    if (_sep_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_a == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: dotted_as_name
-                    var _loop_elem_a = DottedAsName();
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    a.Add(_loop_elem_a);
                 }
                 // Action: a
                 _res = (GeneratedAliasSeq?)((GeneratedPtr?)a);
@@ -4229,11 +4087,58 @@ namespace SharpPy.Generated
         // Rule: dotted_name from python.gram
         public GeneratedExpr? DottedName()
         {
-            // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return (GeneratedExpr?)TryLeftRecursive("DottedName", _DottedName);
+            // CPython 3.12: Left-recursive leader - growth loop pattern
+            GeneratedExpr? _res = null;
+            if (TryGetMemoized("DottedName", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
+
+            int _mark = _position;
+            int _resmark = _position;
+            int _iteration = 0;
+
+            while (true)
+            {
+                _iteration++;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] DottedName iteration {_iteration}: _mark={_mark}, _resmark={_resmark}, _res={(_res == null ? "null" : "non-null")}");
+                #endif
+
+                // Update memo with current result
+                UpdateMemoized("DottedName", _mark, _res, _resmark);
+
+                _position = _mark;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] DottedName calling DottedName_raw() at pos={_position}");
+                #endif
+                var _raw = DottedName_raw();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] DottedName_raw() returned: {(_raw == null ? "null" : "non-null")}, _position={_position}");
+                #endif
+
+                if (_pendingSyntaxError != null)
+                {
+                    return null;
+                }
+
+                if (_raw == null || _position <= _resmark)
+                {
+                    #if DEBUG_PARSE_LOG
+                    Console.WriteLine($"[GROWTH-LOOP] DottedName terminating: _raw={(_raw == null ? "null" : "non-null")}, _position={_position}, _resmark={_resmark}");
+                    #endif
+                    break;
+                }
+
+                _resmark = _position;
+                _res = _raw;
+            }
+
+            _position = _resmark;
+            return _res;
         }
 
-        private GeneratedExpr? _DottedName()
+        private GeneratedExpr? DottedName_raw()
         {
             // CPython 3.12 PEG: dotted_name
             int _mark = _position;
@@ -4339,15 +4244,15 @@ namespace SharpPy.Generated
         // Rule: block from python.gram
         public GeneratedStmtSeq? Block()
         {
-            // CPython 3.12: Memoized (non-left-recursive) - simple memoization
-            // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return (GeneratedStmtSeq?)TryMemoized("Block", _Block);
-        }
+            // CPython 3.12: Memoized (non-left-recursive)
+            if (TryGetMemoized("Block", out var _memoized))
+            {
+                return (GeneratedStmtSeq?)_memoized;
+            }
 
-        private GeneratedStmtSeq? _Block()
-        {
-            // CPython 3.12 PEG: block
             int _mark = _position;
+
+            // CPython 3.12 PEG: block
             GeneratedStmtSeq? _res = null;
 
             // Position tracking for EXTRA parameters
@@ -4502,6 +4407,8 @@ namespace SharpPy.Generated
             var _end_token = CurrentToken ?? _start_token;
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
+            // CPython: _PyPegen_insert_memo(p, _mark, Block_type, _res)
+            UpdateMemoized("Block", _mark, _res, _position);
             return _res;
         }
 
@@ -4533,7 +4440,7 @@ namespace SharpPy.Generated
 
                 // One or more: ('@' f=named_expression NEWLINE { f })+ (CPython: _Loop1_N rule)
                 // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
-                GeneratedExprSeq a = (GeneratedExprSeq)_Loop1_5();
+                GeneratedExprSeq a = (GeneratedExprSeq)_Loop1_13();
                 if (a == null)
                 {
                     _position = _mark;
@@ -5670,9 +5577,9 @@ namespace SharpPy.Generated
                 }
                 // Zero or more: param_no_default* (CPython: _Loop0_N rule)
                 // Using type annotation: asdl_arg_seq* → GeneratedArgSeq
-                GeneratedArgSeq b = (GeneratedArgSeq)_Loop0_6();
+                GeneratedArgSeq b = (GeneratedArgSeq)_Loop0_14();
                 // Zero or more: param_with_default* (CPython: _Loop0_N rule)
-                var c = _Loop0_7();
+                var c = _Loop0_15();
                 // Optional: [(star_etc)]
                 int _opt_mark_d = _position;
                 // Group: (star_etc)
@@ -5735,7 +5642,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_with_default* (CPython: _Loop0_N rule)
-                var b = _Loop0_7();
+                var b = _Loop0_15();
                 // Optional: [(star_etc)]
                 int _opt_mark_c = _position;
                 // Group: (star_etc)
@@ -5790,7 +5697,7 @@ namespace SharpPy.Generated
 
                 // One or more: param_no_default+ (CPython: _Loop1_N rule)
                 // Using type annotation: asdl_arg_seq* → GeneratedArgSeq
-                GeneratedArgSeq a = (GeneratedArgSeq)_Loop1_8();
+                GeneratedArgSeq a = (GeneratedArgSeq)_Loop1_16();
                 if (a == null)
                 {
                     _position = _mark;
@@ -5799,7 +5706,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_with_default* (CPython: _Loop0_N rule)
-                var b = _Loop0_7();
+                var b = _Loop0_15();
                 // Optional: [(star_etc)]
                 int _opt_mark_c = _position;
                 // Group: (star_etc)
@@ -5853,7 +5760,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: param_with_default+ (CPython: _Loop1_N rule)
-                var a = _Loop1_9();
+                var a = _Loop1_17();
                 if (a == null)
                 {
                     _position = _mark;
@@ -5968,7 +5875,7 @@ namespace SharpPy.Generated
 
                 // One or more: param_no_default+ (CPython: _Loop1_N rule)
                 // Using type annotation: asdl_arg_seq* → GeneratedArgSeq
-                GeneratedArgSeq a = (GeneratedArgSeq)_Loop1_8();
+                GeneratedArgSeq a = (GeneratedArgSeq)_Loop1_16();
                 if (a == null)
                 {
                     _position = _mark;
@@ -6013,7 +5920,7 @@ namespace SharpPy.Generated
 
                 // One or more: param_no_default+ (CPython: _Loop1_N rule)
                 // Using type annotation: asdl_arg_seq* → GeneratedArgSeq
-                GeneratedArgSeq a = (GeneratedArgSeq)_Loop1_8();
+                GeneratedArgSeq a = (GeneratedArgSeq)_Loop1_16();
                 if (a == null)
                 {
                     _position = _mark;
@@ -6088,9 +5995,9 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: param_no_default* (CPython: _Loop0_N rule)
-                var a = _Loop0_6();
+                var a = _Loop0_14();
                 // One or more: param_with_default+ (CPython: _Loop1_N rule)
-                var b = _Loop1_9();
+                var b = _Loop1_17();
                 if (b == null)
                 {
                     _position = _mark;
@@ -6135,9 +6042,9 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: param_no_default* (CPython: _Loop0_N rule)
-                var a = _Loop0_6();
+                var a = _Loop0_14();
                 // One or more: param_with_default+ (CPython: _Loop1_N rule)
-                var b = _Loop1_9();
+                var b = _Loop1_17();
                 if (b == null)
                 {
                     _position = _mark;
@@ -6282,7 +6189,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_maybe_default* (CPython: _Loop0_N rule)
-                var b = _Loop0_10();
+                var b = _Loop0_18();
                 // Optional: [(kwds)]
                 int _opt_mark_c = _position;
                 // Group: (kwds)
@@ -6354,7 +6261,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_maybe_default* (CPython: _Loop0_N rule)
-                var b = _Loop0_10();
+                var b = _Loop0_18();
                 // Optional: [(kwds)]
                 int _opt_mark_c = _position;
                 // Group: (kwds)
@@ -6426,7 +6333,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: param_maybe_default+ (CPython: _Loop1_N rule)
-                var b = _Loop1_11();
+                var b = _Loop1_19();
                 if (b == null)
                 {
                     _position = _mark;
@@ -8979,44 +8886,13 @@ namespace SharpPy.Generated
                 }
                 // Gather: ','.with_item+
                 // Using type annotation: asdl_withitem_seq* → GeneratedWithitemSeq
-                var a = new GeneratedWithitemSeq();
-                // Parse first item (no separator)
-                // Call rule: with_item
-                var _first_a = WithItem();
-                if (_first_a == null)
+                var a = _Gather_22();
+                if (a == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                a.Add(_first_a);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_a = Expect(",");
-                    if (_sep_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_a == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: with_item
-                    var _loop_elem_a = WithItem();
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    a.Add(_loop_elem_a);
                 }
                 // Optional: [',']
                 int _opt_mark__tmp2 = _position;
@@ -9100,44 +8976,13 @@ namespace SharpPy.Generated
                 }
                 // Gather: ','.with_item+
                 // Using type annotation: asdl_withitem_seq* → GeneratedWithitemSeq
-                var a = new GeneratedWithitemSeq();
-                // Parse first item (no separator)
-                // Call rule: with_item
-                var _first_a = WithItem();
-                if (_first_a == null)
+                var a = _Gather_22();
+                if (a == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                a.Add(_first_a);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_a = Expect(",");
-                    if (_sep_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_a == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: with_item
-                    var _loop_elem_a = WithItem();
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    a.Add(_loop_elem_a);
                 }
                 // Expect ':'
                 var _tmp1 = Expect(":");
@@ -9240,44 +9085,13 @@ namespace SharpPy.Generated
                 }
                 // Gather: ','.with_item+
                 // Using type annotation: asdl_withitem_seq* → GeneratedWithitemSeq
-                var a = new GeneratedWithitemSeq();
-                // Parse first item (no separator)
-                // Call rule: with_item
-                var _first_a = WithItem();
-                if (_first_a == null)
+                var a = _Gather_22();
+                if (a == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                a.Add(_first_a);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_a = Expect(",");
-                    if (_sep_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_a == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: with_item
-                    var _loop_elem_a = WithItem();
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    a.Add(_loop_elem_a);
                 }
                 // Optional: [',']
                 int _opt_mark__tmp3 = _position;
@@ -9372,44 +9186,13 @@ namespace SharpPy.Generated
                 }
                 // Gather: ','.with_item+
                 // Using type annotation: asdl_withitem_seq* → GeneratedWithitemSeq
-                var a = new GeneratedWithitemSeq();
-                // Parse first item (no separator)
-                // Call rule: with_item
-                var _first_a = WithItem();
-                if (_first_a == null)
+                var a = _Gather_22();
+                if (a == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                a.Add(_first_a);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_a = Expect(",");
-                    if (_sep_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_a == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: with_item
-                    var _loop_elem_a = WithItem();
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    a.Add(_loop_elem_a);
                 }
                 // Expect ':'
                 var _tmp2 = Expect(":");
@@ -9868,7 +9651,7 @@ namespace SharpPy.Generated
                 }
                 // One or more: except_block+ (CPython: _Loop1_N rule)
                 // Using type annotation: asdl_excepthandler_seq* → GeneratedExcepthandlerSeq
-                GeneratedExcepthandlerSeq ex = (GeneratedExcepthandlerSeq)_Loop1_12();
+                GeneratedExcepthandlerSeq ex = (GeneratedExcepthandlerSeq)_Loop1_22();
                 if (ex == null)
                 {
                     _position = _mark;
@@ -9996,7 +9779,7 @@ namespace SharpPy.Generated
                 }
                 // One or more: except_star_block+ (CPython: _Loop1_N rule)
                 // Using type annotation: asdl_excepthandler_seq* → GeneratedExcepthandlerSeq
-                GeneratedExcepthandlerSeq ex = (GeneratedExcepthandlerSeq)_Loop1_13();
+                GeneratedExcepthandlerSeq ex = (GeneratedExcepthandlerSeq)_Loop1_23();
                 if (ex == null)
                 {
                     _position = _mark;
@@ -10789,7 +10572,7 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(INDENT): result={(_tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // One or more: case_block+ (CPython: _Loop1_N rule)
                 // Using type annotation: asdl_match_case_seq* → GeneratedMatchCaseSeq
-                GeneratedMatchCaseSeq cases = (GeneratedMatchCaseSeq)_Loop1_14();
+                GeneratedMatchCaseSeq cases = (GeneratedMatchCaseSeq)_Loop1_24();
                 if (cases == null)
                 {
                     _position = _mark;
@@ -11516,44 +11299,13 @@ namespace SharpPy.Generated
 
                 // Gather: '|'.closed_pattern+
                 // Using type annotation: asdl_pattern_seq* → GeneratedPatternSeq
-                var patterns = new GeneratedPatternSeq();
-                // Parse first item (no separator)
-                // Call rule: closed_pattern
-                var _first_patterns = ClosedPattern();
-                if (_first_patterns == null)
+                var patterns = _Gather_27();
+                if (patterns == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                patterns.Add(_first_patterns);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect '|'
-                    var _sep_patterns = Expect("|");
-                    if (_sep_patterns == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_patterns == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: closed_pattern
-                    var _loop_elem_patterns = ClosedPattern();
-                    if (_loop_elem_patterns == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    patterns.Add(_loop_elem_patterns);
                 }
                 // Action: asdl_seq_LEN(patterns) == 1 ? asdl_seq_GET(patterns, 0) : _PyAST_MatchOr(patterns, EXTRA)
                 // Unknown AST function: _PyAST_MatchOr
@@ -11576,15 +11328,15 @@ namespace SharpPy.Generated
         // Rule: closed_pattern from python.gram
         public GeneratedPattern? ClosedPattern()
         {
-            // CPython 3.12: Memoized (non-left-recursive) - simple memoization
-            // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return (GeneratedPattern?)TryMemoized("ClosedPattern", _ClosedPattern);
-        }
+            // CPython 3.12: Memoized (non-left-recursive)
+            if (TryGetMemoized("ClosedPattern", out var _memoized))
+            {
+                return (GeneratedPattern?)_memoized;
+            }
 
-        private GeneratedPattern? _ClosedPattern()
-        {
-            // CPython 3.12 PEG: closed_pattern
             int _mark = _position;
+
+            // CPython 3.12 PEG: closed_pattern
             GeneratedPattern? _res = null;
 
             // Position tracking for EXTRA parameters
@@ -11811,6 +11563,8 @@ namespace SharpPy.Generated
             var _end_token = CurrentToken ?? _start_token;
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
+            // CPython: _PyPegen_insert_memo(p, _mark, ClosedPattern_type, _res)
+            UpdateMemoized("ClosedPattern", _mark, _res, _position);
             return _res;
         }
 
@@ -11856,7 +11610,7 @@ namespace SharpPy.Generated
                 if (CurrentToken?.Value == "-") { _lookahead_test_36 = CurrentToken; }
                 if (_lookahead_test_36 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -12057,7 +11811,7 @@ namespace SharpPy.Generated
                 if (CurrentToken?.Value == "-") { _lookahead_test_37 = CurrentToken; }
                 if (_lookahead_test_37 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -12708,7 +12462,7 @@ namespace SharpPy.Generated
                 if (CurrentToken?.Value == "\"_\"") { _lookahead_test_38 = CurrentToken; }
                 if (_lookahead_test_38 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -12734,7 +12488,7 @@ namespace SharpPy.Generated
                 if (CurrentToken?.Value == "=") { _lookahead_test_39 = CurrentToken; }
                 if (_lookahead_test_39 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -12853,7 +12607,7 @@ namespace SharpPy.Generated
                 if (CurrentToken?.Value == "=") { _lookahead_test_40 = CurrentToken; }
                 if (_lookahead_test_40 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -12879,6 +12633,59 @@ namespace SharpPy.Generated
 
         // Rule: attr from python.gram
         public GeneratedExpr? Attr()
+        {
+            // CPython 3.12: Left-recursive leader - growth loop pattern
+            GeneratedExpr? _res = null;
+            if (TryGetMemoized("Attr", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
+
+            int _mark = _position;
+            int _resmark = _position;
+            int _iteration = 0;
+
+            while (true)
+            {
+                _iteration++;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] Attr iteration {_iteration}: _mark={_mark}, _resmark={_resmark}, _res={(_res == null ? "null" : "non-null")}");
+                #endif
+
+                // Update memo with current result
+                UpdateMemoized("Attr", _mark, _res, _resmark);
+
+                _position = _mark;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] Attr calling Attr_raw() at pos={_position}");
+                #endif
+                var _raw = Attr_raw();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] Attr_raw() returned: {(_raw == null ? "null" : "non-null")}, _position={_position}");
+                #endif
+
+                if (_pendingSyntaxError != null)
+                {
+                    return null;
+                }
+
+                if (_raw == null || _position <= _resmark)
+                {
+                    #if DEBUG_PARSE_LOG
+                    Console.WriteLine($"[GROWTH-LOOP] Attr terminating: _raw={(_raw == null ? "null" : "non-null")}, _position={_position}, _resmark={_resmark}");
+                    #endif
+                    break;
+                }
+
+                _resmark = _position;
+                _res = _raw;
+            }
+
+            _position = _resmark;
+            return _res;
+        }
+
+        private GeneratedExpr? Attr_raw()
         {
             // CPython 3.12 PEG: attr
             int _mark = _position;
@@ -13324,7 +13131,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_patterns; // Reset position
                 }
                 // Action: _PyPegen_seq_insert_in_front(pattern, patterns)
-                _res = _PyPegen_seq_insert_in_front(pattern, patterns);
+                _res = _PyPegen_seq_insert_in_front(pattern, patterns).Cast<GeneratedSeq>();
                 if (_res != null) goto done;
             } while (false);
 
@@ -13367,44 +13174,13 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.maybe_star_pattern+
-                var patterns = new GeneratedPatternSeq();
-                // Parse first item (no separator)
-                // Call rule: maybe_star_pattern
-                var _first_patterns = MaybeStarPattern();
-                if (_first_patterns == null)
+                var patterns = _Gather_29();
+                if (patterns == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                patterns.Add(_first_patterns);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_patterns = Expect(",");
-                    if (_sep_patterns == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_patterns == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: maybe_star_pattern
-                    var _loop_elem_patterns = MaybeStarPattern();
-                    if (_loop_elem_patterns == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    patterns.Add(_loop_elem_patterns);
                 }
                 // Optional: [',']
                 int _opt_mark__tmp0 = _position;
@@ -13530,15 +13306,15 @@ namespace SharpPy.Generated
         // Rule: star_pattern from python.gram
         public GeneratedPattern? StarPattern()
         {
-            // CPython 3.12: Memoized (non-left-recursive) - simple memoization
-            // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return (GeneratedPattern?)TryMemoized("StarPattern", _StarPattern);
-        }
+            // CPython 3.12: Memoized (non-left-recursive)
+            if (TryGetMemoized("StarPattern", out var _memoized))
+            {
+                return (GeneratedPattern?)_memoized;
+            }
 
-        private GeneratedPattern? _StarPattern()
-        {
-            // CPython 3.12 PEG: star_pattern
             int _mark = _position;
+
+            // CPython 3.12 PEG: star_pattern
             GeneratedPattern? _res = null;
 
             // Position tracking for EXTRA parameters
@@ -13629,6 +13405,8 @@ namespace SharpPy.Generated
             var _end_token = CurrentToken ?? _start_token;
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
+            // CPython: _PyPegen_insert_memo(p, _mark, StarPattern_type, _res)
+            UpdateMemoized("StarPattern", _mark, _res, _position);
             return _res;
         }
 
@@ -13962,44 +13740,13 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.key_value_pattern+
-                var _tmp0 = new GeneratedExprSeq();
-                // Parse first item (no separator)
-                // Call rule: key_value_pattern
-                var _first__tmp0 = KeyValuePattern();
-                if (_first__tmp0 == null)
+                var _tmp0 = _Gather_31();
+                if (_tmp0 == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                _tmp0.Add(_first__tmp0);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep__tmp0 = Expect(",");
-                    if (_sep__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep__tmp0 == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: key_value_pattern
-                    var _loop_elem__tmp0 = KeyValuePattern();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
                 }
                 // No action specified - using default result
                 _res = (GeneratedSeq?)_tmp0;
@@ -14601,44 +14348,13 @@ namespace SharpPy.Generated
 
                 // Gather: ','.pattern+
                 // Using type annotation: asdl_pattern_seq* → GeneratedPatternSeq
-                var args = new GeneratedPatternSeq();
-                // Parse first item (no separator)
-                // Call rule: pattern
-                var _first_args = Pattern();
-                if (_first_args == null)
+                var args = _Gather_33();
+                if (args == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                args.Add(_first_args);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_args = Expect(",");
-                    if (_sep_args == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_args == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: pattern
-                    var _loop_elem_args = Pattern();
-                    if (_loop_elem_args == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    args.Add(_loop_elem_args);
                 }
                 // Action: args
                 _res = (GeneratedPatternSeq?)((GeneratedPtr?)args);
@@ -14684,44 +14400,13 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.keyword_pattern+
-                var _tmp0 = new GeneratedExprSeq();
-                // Parse first item (no separator)
-                // Call rule: keyword_pattern
-                var _first__tmp0 = KeywordPattern();
-                if (_first__tmp0 == null)
+                var _tmp0 = _Gather_35();
+                if (_tmp0 == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                _tmp0.Add(_first__tmp0);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep__tmp0 = Expect(",");
-                    if (_sep__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep__tmp0 == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: keyword_pattern
-                    var _loop_elem__tmp0 = KeywordPattern();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
                 }
                 // No action specified - using default result
                 _res = (GeneratedSeq?)_tmp0;
@@ -15032,44 +14717,13 @@ namespace SharpPy.Generated
 
                 // Gather: ','.type_param+
                 // Using type annotation: asdl_type_param_seq* → GeneratedTypeParamSeq
-                var a = new GeneratedTypeParamSeq();
-                // Parse first item (no separator)
-                // Call rule: type_param
-                var _first_a = TypeParam();
-                if (_first_a == null)
+                var a = _Gather_37();
+                if (a == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                a.Add(_first_a);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_a = Expect(",");
-                    if (_sep_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_a == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: type_param
-                    var _loop_elem_a = TypeParam();
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    a.Add(_loop_elem_a);
                 }
                 // Optional: [(',')]
                 int _opt_mark__tmp0 = _position;
@@ -15125,15 +14779,15 @@ namespace SharpPy.Generated
         // Rule: type_param from python.gram
         public GeneratedTypeParam? TypeParam()
         {
-            // CPython 3.12: Memoized (non-left-recursive) - simple memoization
-            // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return (GeneratedTypeParam?)TryMemoized("TypeParam", _TypeParam);
-        }
+            // CPython 3.12: Memoized (non-left-recursive)
+            if (TryGetMemoized("TypeParam", out var _memoized))
+            {
+                return (GeneratedTypeParam?)_memoized;
+            }
 
-        private GeneratedTypeParam? _TypeParam()
-        {
-            // CPython 3.12 PEG: type_param
             int _mark = _position;
+
+            // CPython 3.12 PEG: type_param
             GeneratedTypeParam? _res = null;
 
             // Position tracking for EXTRA parameters
@@ -15420,6 +15074,8 @@ namespace SharpPy.Generated
             var _end_token = CurrentToken ?? _start_token;
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
+            // CPython: _PyPegen_insert_memo(p, _mark, TypeParam_type, _res)
+            UpdateMemoized("TypeParam", _mark, _res, _position);
             return _res;
         }
 
@@ -15520,7 +15176,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: (',' c=expression { c })+ (CPython: _Loop1_N rule)
-                var b = _Loop1_15();
+                var b = _Loop1_37();
                 if (b == null)
                 {
                     _position = _mark;
@@ -15645,15 +15301,15 @@ namespace SharpPy.Generated
         // Rule: expression from python.gram
         public GeneratedExpr? Expression()
         {
-            // CPython 3.12: Memoized (non-left-recursive) - simple memoization
-            // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return (GeneratedExpr?)TryMemoized("Expression", _Expression);
-        }
+            // CPython 3.12: Memoized (non-left-recursive)
+            if (TryGetMemoized("Expression", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
 
-        private GeneratedExpr? _Expression()
-        {
-            // CPython 3.12 PEG: expression
             int _mark = _position;
+
+            // CPython 3.12 PEG: expression
             GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
@@ -15907,6 +15563,8 @@ namespace SharpPy.Generated
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
             Console.WriteLine($"[EXPRESSION] RETURN {(_res == null ? "null" : "not-null")} at pos={_position}");
+            // CPython: _PyPegen_insert_memo(p, _mark, Expression_type, _res)
+            UpdateMemoized("Expression", _mark, _res, _position);
             return _res;
         }
 
@@ -16078,7 +15736,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: (',' c=star_expression { c })+ (CPython: _Loop1_N rule)
-                var b = _Loop1_16();
+                var b = _Loop1_38();
                 if (b == null)
                 {
                     _position = _mark;
@@ -16203,15 +15861,15 @@ namespace SharpPy.Generated
         // Rule: star_expression from python.gram
         public GeneratedExpr? StarExpression()
         {
-            // CPython 3.12: Memoized (non-left-recursive) - simple memoization
-            // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return (GeneratedExpr?)TryMemoized("StarExpression", _StarExpression);
-        }
+            // CPython 3.12: Memoized (non-left-recursive)
+            if (TryGetMemoized("StarExpression", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
 
-        private GeneratedExpr? _StarExpression()
-        {
-            // CPython 3.12 PEG: star_expression
             int _mark = _position;
+
+            // CPython 3.12 PEG: star_expression
             GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
@@ -16292,6 +15950,8 @@ namespace SharpPy.Generated
             var _end_token = CurrentToken ?? _start_token;
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
+            // CPython: _PyPegen_insert_memo(p, _mark, StarExpression_type, _res)
+            UpdateMemoized("StarExpression", _mark, _res, _position);
             return _res;
         }
 
@@ -16323,44 +15983,13 @@ namespace SharpPy.Generated
 
                 // Gather: ','.star_named_expression+
                 // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
-                var a = new GeneratedExprSeq();
-                // Parse first item (no separator)
-                // Call rule: star_named_expression
-                var _first_a = StarNamedExpression();
-                if (_first_a == null)
+                var a = _Gather_41();
+                if (a == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                a.Add(_first_a);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_a = Expect(",");
-                    if (_sep_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_a == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: star_named_expression
-                    var _loop_elem_a = StarNamedExpression();
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    a.Add(_loop_elem_a);
                 }
                 // Optional: [(',')]
                 int _opt_mark__tmp0 = _position;
@@ -16696,7 +16325,7 @@ namespace SharpPy.Generated
                 if (CurrentToken?.Value == ":=") { _lookahead_test_41 = CurrentToken; }
                 if (_lookahead_test_41 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -16722,15 +16351,15 @@ namespace SharpPy.Generated
         // Rule: disjunction from python.gram
         public GeneratedExpr? Disjunction()
         {
-            // CPython 3.12: Memoized (non-left-recursive) - simple memoization
-            // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return (GeneratedExpr?)TryMemoized("Disjunction", _Disjunction);
-        }
+            // CPython 3.12: Memoized (non-left-recursive)
+            if (TryGetMemoized("Disjunction", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
 
-        private GeneratedExpr? _Disjunction()
-        {
-            // CPython 3.12 PEG: disjunction
             int _mark = _position;
+
+            // CPython 3.12 PEG: disjunction
             GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
@@ -16762,7 +16391,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: ('or' c=conjunction { c })+ (CPython: _Loop1_N rule)
-                var b = _Loop1_17();
+                var b = _Loop1_41();
                 if (b == null)
                 {
                     _position = _mark;
@@ -16815,21 +16444,23 @@ namespace SharpPy.Generated
             var _end_token = CurrentToken ?? _start_token;
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
+            // CPython: _PyPegen_insert_memo(p, _mark, Disjunction_type, _res)
+            UpdateMemoized("Disjunction", _mark, _res, _position);
             return _res;
         }
 
         // Rule: conjunction from python.gram
         public GeneratedExpr? Conjunction()
         {
-            // CPython 3.12: Memoized (non-left-recursive) - simple memoization
-            // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return (GeneratedExpr?)TryMemoized("Conjunction", _Conjunction);
-        }
+            // CPython 3.12: Memoized (non-left-recursive)
+            if (TryGetMemoized("Conjunction", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
 
-        private GeneratedExpr? _Conjunction()
-        {
-            // CPython 3.12 PEG: conjunction
             int _mark = _position;
+
+            // CPython 3.12 PEG: conjunction
             GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
@@ -16861,7 +16492,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: ('and' c=inversion { c })+ (CPython: _Loop1_N rule)
-                var b = _Loop1_18();
+                var b = _Loop1_42();
                 if (b == null)
                 {
                     _position = _mark;
@@ -16914,21 +16545,23 @@ namespace SharpPy.Generated
             var _end_token = CurrentToken ?? _start_token;
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
+            // CPython: _PyPegen_insert_memo(p, _mark, Conjunction_type, _res)
+            UpdateMemoized("Conjunction", _mark, _res, _position);
             return _res;
         }
 
         // Rule: inversion from python.gram
         public GeneratedExpr? Inversion()
         {
-            // CPython 3.12: Memoized (non-left-recursive) - simple memoization
-            // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return (GeneratedExpr?)TryMemoized("Inversion", _Inversion);
-        }
+            // CPython 3.12: Memoized (non-left-recursive)
+            if (TryGetMemoized("Inversion", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
 
-        private GeneratedExpr? _Inversion()
-        {
-            // CPython 3.12 PEG: inversion
             int _mark = _position;
+
+            // CPython 3.12 PEG: inversion
             GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
@@ -17009,6 +16642,8 @@ namespace SharpPy.Generated
             var _end_token = CurrentToken ?? _start_token;
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
+            // CPython: _PyPegen_insert_memo(p, _mark, Inversion_type, _res)
+            UpdateMemoized("Inversion", _mark, _res, _position);
             return _res;
         }
 
@@ -17048,7 +16683,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: compare_op_bitwise_or_pair+ (CPython: _Loop1_N rule)
-                var b = _Loop1_19();
+                var b = _Loop1_43();
                 if (b == null)
                 {
                     _position = _mark;
@@ -18047,11 +17682,58 @@ namespace SharpPy.Generated
         // Rule: bitwise_or from python.gram
         public GeneratedExpr? BitwiseOr()
         {
-            // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return (GeneratedExpr?)TryLeftRecursive("BitwiseOr", _BitwiseOr);
+            // CPython 3.12: Left-recursive leader - growth loop pattern
+            GeneratedExpr? _res = null;
+            if (TryGetMemoized("BitwiseOr", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
+
+            int _mark = _position;
+            int _resmark = _position;
+            int _iteration = 0;
+
+            while (true)
+            {
+                _iteration++;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] BitwiseOr iteration {_iteration}: _mark={_mark}, _resmark={_resmark}, _res={(_res == null ? "null" : "non-null")}");
+                #endif
+
+                // Update memo with current result
+                UpdateMemoized("BitwiseOr", _mark, _res, _resmark);
+
+                _position = _mark;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] BitwiseOr calling BitwiseOr_raw() at pos={_position}");
+                #endif
+                var _raw = BitwiseOr_raw();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] BitwiseOr_raw() returned: {(_raw == null ? "null" : "non-null")}, _position={_position}");
+                #endif
+
+                if (_pendingSyntaxError != null)
+                {
+                    return null;
+                }
+
+                if (_raw == null || _position <= _resmark)
+                {
+                    #if DEBUG_PARSE_LOG
+                    Console.WriteLine($"[GROWTH-LOOP] BitwiseOr terminating: _raw={(_raw == null ? "null" : "non-null")}, _position={_position}, _resmark={_resmark}");
+                    #endif
+                    break;
+                }
+
+                _resmark = _position;
+                _res = _raw;
+            }
+
+            _position = _resmark;
+            return _res;
         }
 
-        private GeneratedExpr? _BitwiseOr()
+        private GeneratedExpr? BitwiseOr_raw()
         {
             // CPython 3.12 PEG: bitwise_or
             int _mark = _position;
@@ -18150,11 +17832,58 @@ namespace SharpPy.Generated
         // Rule: bitwise_xor from python.gram
         public GeneratedExpr? BitwiseXor()
         {
-            // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return (GeneratedExpr?)TryLeftRecursive("BitwiseXor", _BitwiseXor);
+            // CPython 3.12: Left-recursive leader - growth loop pattern
+            GeneratedExpr? _res = null;
+            if (TryGetMemoized("BitwiseXor", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
+
+            int _mark = _position;
+            int _resmark = _position;
+            int _iteration = 0;
+
+            while (true)
+            {
+                _iteration++;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] BitwiseXor iteration {_iteration}: _mark={_mark}, _resmark={_resmark}, _res={(_res == null ? "null" : "non-null")}");
+                #endif
+
+                // Update memo with current result
+                UpdateMemoized("BitwiseXor", _mark, _res, _resmark);
+
+                _position = _mark;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] BitwiseXor calling BitwiseXor_raw() at pos={_position}");
+                #endif
+                var _raw = BitwiseXor_raw();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] BitwiseXor_raw() returned: {(_raw == null ? "null" : "non-null")}, _position={_position}");
+                #endif
+
+                if (_pendingSyntaxError != null)
+                {
+                    return null;
+                }
+
+                if (_raw == null || _position <= _resmark)
+                {
+                    #if DEBUG_PARSE_LOG
+                    Console.WriteLine($"[GROWTH-LOOP] BitwiseXor terminating: _raw={(_raw == null ? "null" : "non-null")}, _position={_position}, _resmark={_resmark}");
+                    #endif
+                    break;
+                }
+
+                _resmark = _position;
+                _res = _raw;
+            }
+
+            _position = _resmark;
+            return _res;
         }
 
-        private GeneratedExpr? _BitwiseXor()
+        private GeneratedExpr? BitwiseXor_raw()
         {
             // CPython 3.12 PEG: bitwise_xor
             int _mark = _position;
@@ -18253,11 +17982,58 @@ namespace SharpPy.Generated
         // Rule: bitwise_and from python.gram
         public GeneratedExpr? BitwiseAnd()
         {
-            // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return (GeneratedExpr?)TryLeftRecursive("BitwiseAnd", _BitwiseAnd);
+            // CPython 3.12: Left-recursive leader - growth loop pattern
+            GeneratedExpr? _res = null;
+            if (TryGetMemoized("BitwiseAnd", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
+
+            int _mark = _position;
+            int _resmark = _position;
+            int _iteration = 0;
+
+            while (true)
+            {
+                _iteration++;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] BitwiseAnd iteration {_iteration}: _mark={_mark}, _resmark={_resmark}, _res={(_res == null ? "null" : "non-null")}");
+                #endif
+
+                // Update memo with current result
+                UpdateMemoized("BitwiseAnd", _mark, _res, _resmark);
+
+                _position = _mark;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] BitwiseAnd calling BitwiseAnd_raw() at pos={_position}");
+                #endif
+                var _raw = BitwiseAnd_raw();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] BitwiseAnd_raw() returned: {(_raw == null ? "null" : "non-null")}, _position={_position}");
+                #endif
+
+                if (_pendingSyntaxError != null)
+                {
+                    return null;
+                }
+
+                if (_raw == null || _position <= _resmark)
+                {
+                    #if DEBUG_PARSE_LOG
+                    Console.WriteLine($"[GROWTH-LOOP] BitwiseAnd terminating: _raw={(_raw == null ? "null" : "non-null")}, _position={_position}, _resmark={_resmark}");
+                    #endif
+                    break;
+                }
+
+                _resmark = _position;
+                _res = _raw;
+            }
+
+            _position = _resmark;
+            return _res;
         }
 
-        private GeneratedExpr? _BitwiseAnd()
+        private GeneratedExpr? BitwiseAnd_raw()
         {
             // CPython 3.12 PEG: bitwise_and
             int _mark = _position;
@@ -18356,11 +18132,58 @@ namespace SharpPy.Generated
         // Rule: shift_expr from python.gram
         public GeneratedExpr? ShiftExpr()
         {
-            // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return (GeneratedExpr?)TryLeftRecursive("ShiftExpr", _ShiftExpr);
+            // CPython 3.12: Left-recursive leader - growth loop pattern
+            GeneratedExpr? _res = null;
+            if (TryGetMemoized("ShiftExpr", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
+
+            int _mark = _position;
+            int _resmark = _position;
+            int _iteration = 0;
+
+            while (true)
+            {
+                _iteration++;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] ShiftExpr iteration {_iteration}: _mark={_mark}, _resmark={_resmark}, _res={(_res == null ? "null" : "non-null")}");
+                #endif
+
+                // Update memo with current result
+                UpdateMemoized("ShiftExpr", _mark, _res, _resmark);
+
+                _position = _mark;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] ShiftExpr calling ShiftExpr_raw() at pos={_position}");
+                #endif
+                var _raw = ShiftExpr_raw();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] ShiftExpr_raw() returned: {(_raw == null ? "null" : "non-null")}, _position={_position}");
+                #endif
+
+                if (_pendingSyntaxError != null)
+                {
+                    return null;
+                }
+
+                if (_raw == null || _position <= _resmark)
+                {
+                    #if DEBUG_PARSE_LOG
+                    Console.WriteLine($"[GROWTH-LOOP] ShiftExpr terminating: _raw={(_raw == null ? "null" : "non-null")}, _position={_position}, _resmark={_resmark}");
+                    #endif
+                    break;
+                }
+
+                _resmark = _position;
+                _res = _raw;
+            }
+
+            _position = _resmark;
+            return _res;
         }
 
-        private GeneratedExpr? _ShiftExpr()
+        private GeneratedExpr? ShiftExpr_raw()
         {
             // CPython 3.12 PEG: shift_expr
             int _mark = _position;
@@ -18504,11 +18327,58 @@ namespace SharpPy.Generated
         // Rule: sum from python.gram
         public GeneratedExpr? Sum()
         {
-            // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return (GeneratedExpr?)TryLeftRecursive("Sum", _Sum);
+            // CPython 3.12: Left-recursive leader - growth loop pattern
+            GeneratedExpr? _res = null;
+            if (TryGetMemoized("Sum", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
+
+            int _mark = _position;
+            int _resmark = _position;
+            int _iteration = 0;
+
+            while (true)
+            {
+                _iteration++;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] Sum iteration {_iteration}: _mark={_mark}, _resmark={_resmark}, _res={(_res == null ? "null" : "non-null")}");
+                #endif
+
+                // Update memo with current result
+                UpdateMemoized("Sum", _mark, _res, _resmark);
+
+                _position = _mark;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] Sum calling Sum_raw() at pos={_position}");
+                #endif
+                var _raw = Sum_raw();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] Sum_raw() returned: {(_raw == null ? "null" : "non-null")}, _position={_position}");
+                #endif
+
+                if (_pendingSyntaxError != null)
+                {
+                    return null;
+                }
+
+                if (_raw == null || _position <= _resmark)
+                {
+                    #if DEBUG_PARSE_LOG
+                    Console.WriteLine($"[GROWTH-LOOP] Sum terminating: _raw={(_raw == null ? "null" : "non-null")}, _position={_position}, _resmark={_resmark}");
+                    #endif
+                    break;
+                }
+
+                _resmark = _position;
+                _res = _raw;
+            }
+
+            _position = _resmark;
+            return _res;
         }
 
-        private GeneratedExpr? _Sum()
+        private GeneratedExpr? Sum_raw()
         {
             // CPython 3.12 PEG: sum
             int _mark = _position;
@@ -18652,11 +18522,58 @@ namespace SharpPy.Generated
         // Rule: term from python.gram
         public GeneratedExpr? Term()
         {
-            // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return (GeneratedExpr?)TryLeftRecursive("Term", _Term);
+            // CPython 3.12: Left-recursive leader - growth loop pattern
+            GeneratedExpr? _res = null;
+            if (TryGetMemoized("Term", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
+
+            int _mark = _position;
+            int _resmark = _position;
+            int _iteration = 0;
+
+            while (true)
+            {
+                _iteration++;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] Term iteration {_iteration}: _mark={_mark}, _resmark={_resmark}, _res={(_res == null ? "null" : "non-null")}");
+                #endif
+
+                // Update memo with current result
+                UpdateMemoized("Term", _mark, _res, _resmark);
+
+                _position = _mark;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] Term calling Term_raw() at pos={_position}");
+                #endif
+                var _raw = Term_raw();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] Term_raw() returned: {(_raw == null ? "null" : "non-null")}, _position={_position}");
+                #endif
+
+                if (_pendingSyntaxError != null)
+                {
+                    return null;
+                }
+
+                if (_raw == null || _position <= _resmark)
+                {
+                    #if DEBUG_PARSE_LOG
+                    Console.WriteLine($"[GROWTH-LOOP] Term terminating: _raw={(_raw == null ? "null" : "non-null")}, _position={_position}, _resmark={_resmark}");
+                    #endif
+                    break;
+                }
+
+                _resmark = _position;
+                _res = _raw;
+            }
+
+            _position = _resmark;
+            return _res;
         }
 
-        private GeneratedExpr? _Term()
+        private GeneratedExpr? Term_raw()
         {
             // CPython 3.12 PEG: term
             int _mark = _position;
@@ -18935,15 +18852,15 @@ namespace SharpPy.Generated
         // Rule: factor from python.gram
         public GeneratedExpr? Factor()
         {
-            // CPython 3.12: Memoized (non-left-recursive) - simple memoization
-            // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return (GeneratedExpr?)TryMemoized("Factor", _Factor);
-        }
+            // CPython 3.12: Memoized (non-left-recursive)
+            if (TryGetMemoized("Factor", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
 
-        private GeneratedExpr? _Factor()
-        {
-            // CPython 3.12 PEG: factor
             int _mark = _position;
+
+            // CPython 3.12 PEG: factor
             GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
@@ -19096,6 +19013,8 @@ namespace SharpPy.Generated
             var _end_token = CurrentToken ?? _start_token;
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
+            // CPython: _PyPegen_insert_memo(p, _mark, Factor_type, _res)
+            UpdateMemoized("Factor", _mark, _res, _position);
             return _res;
         }
 
@@ -19199,15 +19118,15 @@ namespace SharpPy.Generated
         // Rule: await_primary from python.gram
         public GeneratedExpr? AwaitPrimary()
         {
-            // CPython 3.12: Memoized (non-left-recursive) - simple memoization
-            // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return (GeneratedExpr?)TryMemoized("AwaitPrimary", _AwaitPrimary);
-        }
+            // CPython 3.12: Memoized (non-left-recursive)
+            if (TryGetMemoized("AwaitPrimary", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
 
-        private GeneratedExpr? _AwaitPrimary()
-        {
-            // CPython 3.12 PEG: await_primary
             int _mark = _position;
+
+            // CPython 3.12 PEG: await_primary
             GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
@@ -19290,17 +19209,66 @@ namespace SharpPy.Generated
             var _end_token = CurrentToken ?? _start_token;
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
+            // CPython: _PyPegen_insert_memo(p, _mark, AwaitPrimary_type, _res)
+            UpdateMemoized("AwaitPrimary", _mark, _res, _position);
             return _res;
         }
 
         // Rule: primary from python.gram
         public GeneratedExpr? Primary()
         {
-            // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return (GeneratedExpr?)TryLeftRecursive("Primary", _Primary);
+            // CPython 3.12: Left-recursive leader - growth loop pattern
+            GeneratedExpr? _res = null;
+            if (TryGetMemoized("Primary", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
+
+            int _mark = _position;
+            int _resmark = _position;
+            int _iteration = 0;
+
+            while (true)
+            {
+                _iteration++;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] Primary iteration {_iteration}: _mark={_mark}, _resmark={_resmark}, _res={(_res == null ? "null" : "non-null")}");
+                #endif
+
+                // Update memo with current result
+                UpdateMemoized("Primary", _mark, _res, _resmark);
+
+                _position = _mark;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] Primary calling Primary_raw() at pos={_position}");
+                #endif
+                var _raw = Primary_raw();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] Primary_raw() returned: {(_raw == null ? "null" : "non-null")}, _position={_position}");
+                #endif
+
+                if (_pendingSyntaxError != null)
+                {
+                    return null;
+                }
+
+                if (_raw == null || _position <= _resmark)
+                {
+                    #if DEBUG_PARSE_LOG
+                    Console.WriteLine($"[GROWTH-LOOP] Primary terminating: _raw={(_raw == null ? "null" : "non-null")}, _position={_position}, _resmark={_resmark}");
+                    #endif
+                    break;
+                }
+
+                _resmark = _position;
+                _res = _raw;
+            }
+
+            _position = _resmark;
+            return _res;
         }
 
-        private GeneratedExpr? _Primary()
+        private GeneratedExpr? Primary_raw()
         {
             // CPython 3.12 PEG: primary
             int _mark = _position;
@@ -19317,6 +19285,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PRIMARY-ALT1] START at pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -19358,6 +19329,9 @@ namespace SharpPy.Generated
                 // Action: _PyAST_Attribute(a, b.Id, Load, EXTRA)
                 _res = _PyAST_Attribute(a, b.Id, GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PRIMARY-ALT1] SUCCESS at pos={_position}");
+                #endif
                 if (_res != null) goto done;
             } while (false);
 
@@ -19365,6 +19339,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PRIMARY-ALT2] START at pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -19394,6 +19371,9 @@ namespace SharpPy.Generated
                 // Action: _PyAST_Call(a, CHECK<asdl_expr_seq>(_PyPegen_singleton_seq(b)), null, EXTRA)
                 _res = _PyAST_Call(a, CHECK<asdl_expr_seq>(_PyPegen_singleton_seq(b)), null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PRIMARY-ALT2] SUCCESS at pos={_position}");
+                #endif
                 if (_res != null) goto done;
             } while (false);
 
@@ -19401,6 +19381,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PRIMARY-ALT3] START at pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -19477,6 +19460,9 @@ namespace SharpPy.Generated
                 //   EXTRA)
                 _res = _PyAST_Call(a, b != null ? ((GeneratedCall)b).Args : null!, b != null ? ((GeneratedCall)b).Keywords : null!, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PRIMARY-ALT3] SUCCESS at pos={_position}");
+                #endif
                 if (_res != null) goto done;
             } while (false);
 
@@ -19484,6 +19470,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PRIMARY-ALT4] START at pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -19531,6 +19520,9 @@ namespace SharpPy.Generated
                 // Action: _PyAST_Subscript(a, b, Load, EXTRA)
                 _res = _PyAST_Subscript(a, b, GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PRIMARY-ALT4] SUCCESS at pos={_position}");
+                #endif
                 if (_res != null) goto done;
             } while (false);
 
@@ -19538,6 +19530,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PRIMARY-ALT5] START at pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -19557,6 +19552,9 @@ namespace SharpPy.Generated
                 }
                 // No action specified - using default result
                 _res = (GeneratedExpr?)_tmp0;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PRIMARY-ALT5] SUCCESS at pos={_position}");
+                #endif
                 if (_res != null) goto done;
             } while (false);
 
@@ -19612,7 +19610,7 @@ namespace SharpPy.Generated
                 if (CurrentToken?.Value == ",") { _lookahead_test_42 = CurrentToken; }
                 if (_lookahead_test_42 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -19637,118 +19635,13 @@ namespace SharpPy.Generated
 
                 // Gather: ','.(slice | starred_expression)+
                 // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
-                var a = new GeneratedExprSeq();
-                // Parse first item (no separator)
-                // Group: (slice | starred_expression)
-                GeneratedExpr? _first_a = null;
-                int _group_mark__first_a = _position;
-                // Try group alternative 1: slice
-                {
-                    _position = _group_mark__first_a;
-                    GeneratedExpr? _group_alt0__first_a_item0 = Slice();
-                    if (_group_alt0__first_a_item0 != null)
-                    {
-                        _first_a = _group_alt0__first_a_item0;
-                    }
-                    else
-                    {
-                        // CPython 3.12: Group alternative failed, restore position
-                        _position = _group_mark__first_a;
-                    }
-                }
-                // Try group alternative 2: starred_expression
-                if (_first_a == null)
-                {
-                    _position = _group_mark__first_a;
-                    GeneratedExpr? _group_alt1__first_a_item0 = StarredExpression();
-                    if (_group_alt1__first_a_item0 != null)
-                    {
-                        _first_a = _group_alt1__first_a_item0;
-                    }
-                    else
-                    {
-                        // CPython 3.12: Group alternative failed, restore position
-                        _position = _group_mark__first_a;
-                    }
-                }
-                if (_first_a == null)
+                var a = _Gather_46();
+                if (a == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                if (_first_a == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
-                a.Add(_first_a);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_a = Expect(",");
-                    if (_sep_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_a == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Group: (slice | starred_expression)
-                    GeneratedExpr? _loop_elem_a = null;
-                    int _group_mark__loop_elem_a = _position;
-                    // Try group alternative 1: slice
-                    {
-                        _position = _group_mark__loop_elem_a;
-                        GeneratedExpr? _group_alt0__loop_elem_a_item0 = Slice();
-                        if (_group_alt0__loop_elem_a_item0 != null)
-                        {
-                            _loop_elem_a = _group_alt0__loop_elem_a_item0;
-                        }
-                        else
-                        {
-                            // CPython 3.12: Group alternative failed, restore position
-                            _position = _group_mark__loop_elem_a;
-                        }
-                    }
-                    // Try group alternative 2: starred_expression
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _group_mark__loop_elem_a;
-                        GeneratedExpr? _group_alt1__loop_elem_a_item0 = StarredExpression();
-                        if (_group_alt1__loop_elem_a_item0 != null)
-                        {
-                            _loop_elem_a = _group_alt1__loop_elem_a_item0;
-                        }
-                        else
-                        {
-                            // CPython 3.12: Group alternative failed, restore position
-                            _position = _group_mark__loop_elem_a;
-                        }
-                    }
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    a.Add(_loop_elem_a);
                 }
                 // Optional: [(',')]
                 int _opt_mark__tmp0 = _position;
@@ -20907,9 +20800,9 @@ namespace SharpPy.Generated
                 }
                 // Zero or more: lambda_param_no_default* (CPython: _Loop0_N rule)
                 // Using type annotation: asdl_arg_seq* → GeneratedArgSeq
-                GeneratedArgSeq b = (GeneratedArgSeq)_Loop0_20();
+                GeneratedArgSeq b = (GeneratedArgSeq)_Loop0_46();
                 // Zero or more: lambda_param_with_default* (CPython: _Loop0_N rule)
-                var c = _Loop0_21();
+                var c = _Loop0_47();
                 // Optional: [(lambda_star_etc)]
                 int _opt_mark_d = _position;
                 // Group: (lambda_star_etc)
@@ -20972,7 +20865,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_with_default* (CPython: _Loop0_N rule)
-                var b = _Loop0_21();
+                var b = _Loop0_47();
                 // Optional: [(lambda_star_etc)]
                 int _opt_mark_c = _position;
                 // Group: (lambda_star_etc)
@@ -21027,7 +20920,7 @@ namespace SharpPy.Generated
 
                 // One or more: lambda_param_no_default+ (CPython: _Loop1_N rule)
                 // Using type annotation: asdl_arg_seq* → GeneratedArgSeq
-                GeneratedArgSeq a = (GeneratedArgSeq)_Loop1_22();
+                GeneratedArgSeq a = (GeneratedArgSeq)_Loop1_48();
                 if (a == null)
                 {
                     _position = _mark;
@@ -21036,7 +20929,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_with_default* (CPython: _Loop0_N rule)
-                var b = _Loop0_21();
+                var b = _Loop0_47();
                 // Optional: [(lambda_star_etc)]
                 int _opt_mark_c = _position;
                 // Group: (lambda_star_etc)
@@ -21090,7 +20983,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: lambda_param_with_default+ (CPython: _Loop1_N rule)
-                var a = _Loop1_23();
+                var a = _Loop1_49();
                 if (a == null)
                 {
                     _position = _mark;
@@ -21205,7 +21098,7 @@ namespace SharpPy.Generated
 
                 // One or more: lambda_param_no_default+ (CPython: _Loop1_N rule)
                 // Using type annotation: asdl_arg_seq* → GeneratedArgSeq
-                GeneratedArgSeq a = (GeneratedArgSeq)_Loop1_22();
+                GeneratedArgSeq a = (GeneratedArgSeq)_Loop1_48();
                 if (a == null)
                 {
                     _position = _mark;
@@ -21250,7 +21143,7 @@ namespace SharpPy.Generated
 
                 // One or more: lambda_param_no_default+ (CPython: _Loop1_N rule)
                 // Using type annotation: asdl_arg_seq* → GeneratedArgSeq
-                GeneratedArgSeq a = (GeneratedArgSeq)_Loop1_22();
+                GeneratedArgSeq a = (GeneratedArgSeq)_Loop1_48();
                 if (a == null)
                 {
                     _position = _mark;
@@ -21325,9 +21218,9 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: lambda_param_no_default* (CPython: _Loop0_N rule)
-                var a = _Loop0_20();
+                var a = _Loop0_46();
                 // One or more: lambda_param_with_default+ (CPython: _Loop1_N rule)
-                var b = _Loop1_23();
+                var b = _Loop1_49();
                 if (b == null)
                 {
                     _position = _mark;
@@ -21372,9 +21265,9 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: lambda_param_no_default* (CPython: _Loop0_N rule)
-                var a = _Loop0_20();
+                var a = _Loop0_46();
                 // One or more: lambda_param_with_default+ (CPython: _Loop1_N rule)
-                var b = _Loop1_23();
+                var b = _Loop1_49();
                 if (b == null)
                 {
                     _position = _mark;
@@ -21519,7 +21412,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_maybe_default* (CPython: _Loop0_N rule)
-                var b = _Loop0_24();
+                var b = _Loop0_50();
                 // Optional: [(lambda_kwds)]
                 int _opt_mark_c = _position;
                 // Group: (lambda_kwds)
@@ -21591,7 +21484,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: lambda_param_maybe_default+ (CPython: _Loop1_N rule)
-                var b = _Loop1_25();
+                var b = _Loop1_51();
                 if (b == null)
                 {
                     _position = _mark;
@@ -22651,7 +22544,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: fstring_format_spec* (CPython: _Loop0_N rule)
-                var spec = _Loop0_26();
+                var spec = _Loop0_52();
                 // Action: _PyPegen_setup_full_format_spec(colon, (asdl_expr_seq *) spec, EXTRA)
                 // Unknown AST function: _PyPegen_setup_full_format_spec
                 _res = default(GeneratedResultTokenWithMetadata?);
@@ -22789,7 +22682,7 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_START): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Zero or more: fstring_middle* (CPython: _Loop0_N rule)
-                var b = _Loop0_27();
+                var b = _Loop0_53();
                 // Expect token: FSTRING_END
                 Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_END): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 var c = ExpectToken(GeneratedTokenType.FSTRING_END);
@@ -22821,12 +22714,6 @@ namespace SharpPy.Generated
 
         // Rule: string from python.gram
         public GeneratedExpr? String()
-        {
-            // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return (GeneratedExpr?)TryLeftRecursive("String", _String);
-        }
-
-        private GeneratedExpr? _String()
         {
             // CPython 3.12 PEG: string
             int _mark = _position;
@@ -22883,15 +22770,15 @@ namespace SharpPy.Generated
         // Rule: strings from python.gram
         public GeneratedExpr? Strings()
         {
-            // CPython 3.12: Memoized (non-left-recursive) - simple memoization
-            // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return (GeneratedExpr?)TryMemoized("Strings", _Strings);
-        }
+            // CPython 3.12: Memoized (non-left-recursive)
+            if (TryGetMemoized("Strings", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
 
-        private GeneratedExpr? _Strings()
-        {
-            // CPython 3.12 PEG: strings
             int _mark = _position;
+
+            // CPython 3.12 PEG: strings
             GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
@@ -22915,7 +22802,7 @@ namespace SharpPy.Generated
 
                 // One or more: (fstring | string)+ (CPython: _Loop1_N rule)
                 // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
-                GeneratedExprSeq a = (GeneratedExprSeq)_Loop1_28();
+                GeneratedExprSeq a = (GeneratedExprSeq)_Loop1_54();
                 if (a == null)
                 {
                     _position = _mark;
@@ -22937,6 +22824,8 @@ namespace SharpPy.Generated
             var _end_token = CurrentToken ?? _start_token;
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
+            // CPython: _PyPegen_insert_memo(p, _mark, Strings_type, _res)
+            UpdateMemoized("Strings", _mark, _res, _position);
             return _res;
         }
 
@@ -23440,44 +23329,13 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.double_starred_kvpair+
-                var a = new GeneratedSeq();
-                // Parse first item (no separator)
-                // Call rule: double_starred_kvpair
-                var _first_a = DoubleStarredKvpair();
-                if (_first_a == null)
+                var a = _Gather_57();
+                if (a == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                a.Add(_first_a);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_a = Expect(",");
-                    if (_sep_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_a == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: double_starred_kvpair
-                    var _loop_elem_a = DoubleStarredKvpair();
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    a.Add(_loop_elem_a);
                 }
                 // Optional: [(',')]
                 int _opt_mark__tmp0 = _position;
@@ -23717,7 +23575,7 @@ namespace SharpPy.Generated
 
                 // One or more: for_if_clause+ (CPython: _Loop1_N rule)
                 // Using type annotation: asdl_comprehension_seq* → GeneratedComprehensionSeq
-                GeneratedComprehensionSeq a = (GeneratedComprehensionSeq)_Loop1_29();
+                GeneratedComprehensionSeq a = (GeneratedComprehensionSeq)_Loop1_57();
                 if (a == null)
                 {
                     _position = _mark;
@@ -23819,7 +23677,7 @@ namespace SharpPy.Generated
                 }
                 // Zero or more: ('if' z=disjunction { z })* (CPython: _Loop0_N rule)
                 // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
-                GeneratedExprSeq c = (GeneratedExprSeq)_Loop0_30();
+                GeneratedExprSeq c = (GeneratedExprSeq)_Loop0_58();
                 // Action: CHECK_VERSION(comprehension_ty, 6, "Async comprehensions are", _PyAST_comprehension(a, b, c, 1))
                 // No _PyAST_ or _PyPegen_ function in action: 1)
                 _res = default(GeneratedComprehension?);
@@ -23878,7 +23736,7 @@ namespace SharpPy.Generated
                 }
                 // Zero or more: ('if' z=disjunction { z })* (CPython: _Loop0_N rule)
                 // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
-                GeneratedExprSeq c = (GeneratedExprSeq)_Loop0_31();
+                GeneratedExprSeq c = (GeneratedExprSeq)_Loop0_59();
                 // Action: _PyAST_comprehension(a, b, c, 0)
                 // Unknown AST function: _PyAST_comprehension
                 _res = default(GeneratedComprehension?);
@@ -24266,31 +24124,18 @@ namespace SharpPy.Generated
                 if (a == null)
                 {
                     _position = _group_mark_a;
-                    GeneratedExpr? _group_alt1_a_item0 = Expression();
-                    if (_group_alt1_a_item0 != null)
+                    GeneratedExpr? _group_alt1_a_item0;
+                    if (
+                        (_group_alt1_a_item0 = Expression()) != null &&
+    CurrentToken?.Value != ":="
+                    )
                     {
-                        // WARNING: Lookahead in value position - this is unusual
-                        // Negative lookahead: !(':=')
-                        GeneratedTokenInfo? _lookahead_test_52 = null;
-                        if (CurrentToken?.Value == ":=") { _lookahead_test_52 = CurrentToken; }
-                        if (_lookahead_test_52 != null)
-                        {
-                            // Negative lookahead matched - fail this alternative
-                            _position = _mark;
-                            _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                            _res = null;
-                            break;  // Exit this alternative
-                        }
-                        bool _group_alt1_a_item1 = true; // Lookahead succeeded
-                        if (_group_alt1_a_item0 != null)
-                        {
-                            a = _group_alt1_a_item0;
-                        }
-                        else
-                        {
-                            // CPython 3.12: Group alternative failed, restore position
-                            _position = _group_mark_a;
-                        }
+                        a = _group_alt1_a_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_a;
                     }
                 }
                 if (a == null)
@@ -24521,15 +24366,15 @@ namespace SharpPy.Generated
         // Rule: arguments from python.gram
         public GeneratedExpr? Arguments()
         {
-            // CPython 3.12: Memoized (non-left-recursive) - simple memoization
-            // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return (GeneratedExpr?)TryMemoized("Arguments", _Arguments);
-        }
+            // CPython 3.12: Memoized (non-left-recursive)
+            if (TryGetMemoized("Arguments", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
 
-        private GeneratedExpr? _Arguments()
-        {
-            // CPython 3.12 PEG: arguments
             int _mark = _position;
+
+            // CPython 3.12 PEG: arguments
             GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
@@ -24543,6 +24388,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ARGUMENTS-ALT1] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -24595,13 +24443,13 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                 }
                 // Positive lookahead: &(')')
-                int _lookahead_mark_53 = _position;
-                bool _lookahead_test_53 = false;
+                int _lookahead_mark_52 = _position;
+                bool _lookahead_test_52 = false;
                 {
-                    if (CurrentToken?.Value == ")") { _lookahead_test_53 = true; }
+                    if (CurrentToken?.Value == ")") { _lookahead_test_52 = true; }
                 }
-                _position = _lookahead_mark_53; // Restore position after lookahead
-                if (!_lookahead_test_53)
+                _position = _lookahead_mark_52; // Restore position after lookahead
+                if (!_lookahead_test_52)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -24610,6 +24458,9 @@ namespace SharpPy.Generated
                 }
                 // Action: a
                 _res = (GeneratedExpr?)((GeneratedPtr?)a);
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ARGUMENTS-ALT1] SUCCESS at pos={_position}");
+                #endif
                 if (_res != null) goto done;
             } while (false);
 
@@ -24617,6 +24468,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ARGUMENTS-ALT2] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -24661,6 +24515,9 @@ namespace SharpPy.Generated
                 }
                 // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ARGUMENTS-ALT2] SUCCESS at pos={_position}");
+                #endif
                 if (_res != null) goto done;
             } while (false);
 
@@ -24673,6 +24530,8 @@ namespace SharpPy.Generated
             var _end_token = CurrentToken ?? _start_token;
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
+            // CPython: _PyPegen_insert_memo(p, _mark, Arguments_type, _res)
+            UpdateMemoized("Arguments", _mark, _res, _position);
             return _res;
         }
 
@@ -24704,258 +24563,13 @@ namespace SharpPy.Generated
 
                 // Gather: ','.(starred_expression | (assignment_expression | expression !':=') !'=')+
                 // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
-                var a = new GeneratedExprSeq();
-                // Parse first item (no separator)
-                // Group: (starred_expression | (assignment_expression | expression !':=') !'=')
-                GeneratedExpr? _first_a = null;
-                int _group_mark__first_a = _position;
-                // Try group alternative 1: starred_expression
-                {
-                    _position = _group_mark__first_a;
-                    GeneratedExpr? _group_alt0__first_a_item0 = StarredExpression();
-                    if (_group_alt0__first_a_item0 != null)
-                    {
-                        _first_a = _group_alt0__first_a_item0;
-                    }
-                    else
-                    {
-                        // CPython 3.12: Group alternative failed, restore position
-                        _position = _group_mark__first_a;
-                    }
-                }
-                // Try group alternative 2: (assignment_expression | expression !':=') !'='
-                if (_first_a == null)
-                {
-                    _position = _group_mark__first_a;
-                    // Group: (assignment_expression | expression !':=')
-                    GeneratedExpr? _group_alt1__first_a_item0 = null;
-                    int _group_mark__group_alt1__first_a_item0 = _position;
-                    // Try group alternative 1: assignment_expression
-                    {
-                        _position = _group_mark__group_alt1__first_a_item0;
-                        GeneratedExpr? _group_alt0__group_alt1__first_a_item0_item0 = AssignmentExpression();
-                        if (_group_alt0__group_alt1__first_a_item0_item0 != null)
-                        {
-                            _group_alt1__first_a_item0 = _group_alt0__group_alt1__first_a_item0_item0;
-                        }
-                        else
-                        {
-                            // CPython 3.12: Group alternative failed, restore position
-                            _position = _group_mark__group_alt1__first_a_item0;
-                        }
-                    }
-                    // Try group alternative 2: expression !':='
-                    if (_group_alt1__first_a_item0 == null)
-                    {
-                        _position = _group_mark__group_alt1__first_a_item0;
-                        GeneratedExpr? _group_alt1__group_alt1__first_a_item0_item0 = Expression();
-                        if (_group_alt1__group_alt1__first_a_item0_item0 != null)
-                        {
-                            // WARNING: Lookahead in value position - this is unusual
-                            // Negative lookahead: !(':=')
-                            GeneratedTokenInfo? _lookahead_test_54 = null;
-                            if (CurrentToken?.Value == ":=") { _lookahead_test_54 = CurrentToken; }
-                            if (_lookahead_test_54 != null)
-                            {
-                                // Negative lookahead matched - fail this alternative
-                                _position = _mark;
-                                _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                                _res = null;
-                                break;  // Exit this alternative
-                            }
-                            bool _group_alt1__group_alt1__first_a_item0_item1 = true; // Lookahead succeeded
-                            if (_group_alt1__group_alt1__first_a_item0_item0 != null)
-                            {
-                                _group_alt1__first_a_item0 = _group_alt1__group_alt1__first_a_item0_item0;
-                            }
-                            else
-                            {
-                                // CPython 3.12: Group alternative failed, restore position
-                                _position = _group_mark__group_alt1__first_a_item0;
-                            }
-                        }
-                    }
-                    if (_group_alt1__first_a_item0 == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_group_alt1__first_a_item0 != null)
-                    {
-                        // WARNING: Lookahead in value position - this is unusual
-                        // Negative lookahead: !('=')
-                        GeneratedTokenInfo? _lookahead_test_55 = null;
-                        if (CurrentToken?.Value == "=") { _lookahead_test_55 = CurrentToken; }
-                        if (_lookahead_test_55 != null)
-                        {
-                            // Negative lookahead matched - fail this alternative
-                            _position = _mark;
-                            _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                            _res = null;
-                            break;  // Exit this alternative
-                        }
-                        bool _group_alt1__first_a_item1 = true; // Lookahead succeeded
-                        if (_group_alt1__first_a_item0 != null)
-                        {
-                            _first_a = _group_alt1__first_a_item0;
-                        }
-                        else
-                        {
-                            // CPython 3.12: Group alternative failed, restore position
-                            _position = _group_mark__first_a;
-                        }
-                    }
-                }
-                if (_first_a == null)
+                var a = _Gather_62();
+                if (a == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                if (_first_a == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
-                a.Add(_first_a);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_a = Expect(",");
-                    if (_sep_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_a == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Group: (starred_expression | (assignment_expression | expression !':=') !'=')
-                    GeneratedExpr? _loop_elem_a = null;
-                    int _group_mark__loop_elem_a = _position;
-                    // Try group alternative 1: starred_expression
-                    {
-                        _position = _group_mark__loop_elem_a;
-                        GeneratedExpr? _group_alt0__loop_elem_a_item0 = StarredExpression();
-                        if (_group_alt0__loop_elem_a_item0 != null)
-                        {
-                            _loop_elem_a = _group_alt0__loop_elem_a_item0;
-                        }
-                        else
-                        {
-                            // CPython 3.12: Group alternative failed, restore position
-                            _position = _group_mark__loop_elem_a;
-                        }
-                    }
-                    // Try group alternative 2: (assignment_expression | expression !':=') !'='
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _group_mark__loop_elem_a;
-                        // Group: (assignment_expression | expression !':=')
-                        GeneratedExpr? _group_alt1__loop_elem_a_item0 = null;
-                        int _group_mark__group_alt1__loop_elem_a_item0 = _position;
-                        // Try group alternative 1: assignment_expression
-                        {
-                            _position = _group_mark__group_alt1__loop_elem_a_item0;
-                            GeneratedExpr? _group_alt0__group_alt1__loop_elem_a_item0_item0 = AssignmentExpression();
-                            if (_group_alt0__group_alt1__loop_elem_a_item0_item0 != null)
-                            {
-                                _group_alt1__loop_elem_a_item0 = _group_alt0__group_alt1__loop_elem_a_item0_item0;
-                            }
-                            else
-                            {
-                                // CPython 3.12: Group alternative failed, restore position
-                                _position = _group_mark__group_alt1__loop_elem_a_item0;
-                            }
-                        }
-                        // Try group alternative 2: expression !':='
-                        if (_group_alt1__loop_elem_a_item0 == null)
-                        {
-                            _position = _group_mark__group_alt1__loop_elem_a_item0;
-                            GeneratedExpr? _group_alt1__group_alt1__loop_elem_a_item0_item0 = Expression();
-                            if (_group_alt1__group_alt1__loop_elem_a_item0_item0 != null)
-                            {
-                                // WARNING: Lookahead in value position - this is unusual
-                                // Negative lookahead: !(':=')
-                                GeneratedTokenInfo? _lookahead_test_56 = null;
-                                if (CurrentToken?.Value == ":=") { _lookahead_test_56 = CurrentToken; }
-                                if (_lookahead_test_56 != null)
-                                {
-                                    // Negative lookahead matched - fail this alternative
-                                    _position = _mark;
-                                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                                    _res = null;
-                                    break;  // Exit this alternative
-                                }
-                                bool _group_alt1__group_alt1__loop_elem_a_item0_item1 = true; // Lookahead succeeded
-                                if (_group_alt1__group_alt1__loop_elem_a_item0_item0 != null)
-                                {
-                                    _group_alt1__loop_elem_a_item0 = _group_alt1__group_alt1__loop_elem_a_item0_item0;
-                                }
-                                else
-                                {
-                                    // CPython 3.12: Group alternative failed, restore position
-                                    _position = _group_mark__group_alt1__loop_elem_a_item0;
-                                }
-                            }
-                        }
-                        if (_group_alt1__loop_elem_a_item0 == null)
-                        {
-                            _position = _mark;
-                            _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                            _res = null;
-                            break;  // Exit this alternative
-                        }
-                        if (_group_alt1__loop_elem_a_item0 != null)
-                        {
-                            // WARNING: Lookahead in value position - this is unusual
-                            // Negative lookahead: !('=')
-                            GeneratedTokenInfo? _lookahead_test_57 = null;
-                            if (CurrentToken?.Value == "=") { _lookahead_test_57 = CurrentToken; }
-                            if (_lookahead_test_57 != null)
-                            {
-                                // Negative lookahead matched - fail this alternative
-                                _position = _mark;
-                                _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                                _res = null;
-                                break;  // Exit this alternative
-                            }
-                            bool _group_alt1__loop_elem_a_item1 = true; // Lookahead succeeded
-                            if (_group_alt1__loop_elem_a_item0 != null)
-                            {
-                                _loop_elem_a = _group_alt1__loop_elem_a_item0;
-                            }
-                            else
-                            {
-                                // CPython 3.12: Group alternative failed, restore position
-                                _position = _group_mark__loop_elem_a;
-                            }
-                        }
-                    }
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    a.Add(_loop_elem_a);
                 }
                 // Optional: [(',' k=kwargs { k })]
                 int _opt_mark_b = _position;
@@ -24996,8 +24610,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_b; // Reset position
                 }
                 // Action: _PyPegen_collect_call_seqs(a, b, EXTRA)
-                // Unknown AST function: _PyPegen_collect_call_seqs
-                _res = default(GeneratedExpr?);
+                _res = _PyPegen_collect_call_seqs(a, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -25071,44 +24684,13 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.kwarg_or_starred+
-                var a = new GeneratedKeywordOrStarredSeq();
-                // Parse first item (no separator)
-                // Call rule: kwarg_or_starred
-                var _first_a = KwargOrStarred();
-                if (_first_a == null)
+                var a = _Gather_64();
+                if (a == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                a.Add(_first_a);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_a = Expect(",");
-                    if (_sep_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_a == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: kwarg_or_starred
-                    var _loop_elem_a = KwargOrStarred();
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    a.Add(_loop_elem_a);
                 }
                 // Expect ','
                 var _tmp0 = Expect(",");
@@ -25120,44 +24702,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Gather: ','.kwarg_or_double_starred+
-                var b = new GeneratedKeywordOrStarredSeq();
-                // Parse first item (no separator)
-                // Call rule: kwarg_or_double_starred
-                var _first_b = KwargOrDoubleStarred();
-                if (_first_b == null)
+                var b = _Gather_66();
+                if (b == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                b.Add(_first_b);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_b = Expect(",");
-                    if (_sep_b == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_b == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: kwarg_or_double_starred
-                    var _loop_elem_b = KwargOrDoubleStarred();
-                    if (_loop_elem_b == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    b.Add(_loop_elem_b);
                 }
                 // Action: _PyPegen_join_sequences(a, b)
                 // Unknown AST function: _PyPegen_join_sequences
@@ -25178,44 +24729,13 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.kwarg_or_starred+
-                var _tmp0 = new GeneratedKeywordOrStarredSeq();
-                // Parse first item (no separator)
-                // Call rule: kwarg_or_starred
-                var _first__tmp0 = KwargOrStarred();
-                if (_first__tmp0 == null)
+                var _tmp0 = _Gather_64();
+                if (_tmp0 == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                _tmp0.Add(_first__tmp0);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep__tmp0 = Expect(",");
-                    if (_sep__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep__tmp0 == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: kwarg_or_starred
-                    var _loop_elem__tmp0 = KwargOrStarred();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
                 }
                 // No action specified - using default result
                 _res = (GeneratedSeq?)_tmp0;
@@ -25235,44 +24755,13 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.kwarg_or_double_starred+
-                var _tmp0 = new GeneratedKeywordOrStarredSeq();
-                // Parse first item (no separator)
-                // Call rule: kwarg_or_double_starred
-                var _first__tmp0 = KwargOrDoubleStarred();
-                if (_first__tmp0 == null)
+                var _tmp0 = _Gather_66();
+                if (_tmp0 == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                _tmp0.Add(_first__tmp0);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep__tmp0 = Expect(",");
-                    if (_sep__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep__tmp0 == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: kwarg_or_double_starred
-                    var _loop_elem__tmp0 = KwargOrDoubleStarred();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
                 }
                 // No action specified - using default result
                 _res = (GeneratedSeq?)_tmp0;
@@ -25568,8 +25057,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_keyword_or_starred(a, 0)
-                // Unknown AST function: _PyPegen_keyword_or_starred
-                _res = default(GeneratedKeywordOrStarred?);
+                _res = _PyPegen_keyword_or_starred(a, 0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -25782,11 +25270,11 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(',')
-                GeneratedTokenInfo? _lookahead_test_58 = null;
-                if (CurrentToken?.Value == ",") { _lookahead_test_58 = CurrentToken; }
-                if (_lookahead_test_58 != null)
+                GeneratedTokenInfo? _lookahead_test_53 = null;
+                if (CurrentToken?.Value == ",") { _lookahead_test_53 = CurrentToken; }
+                if (_lookahead_test_53 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -25819,7 +25307,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: (',' c=star_target { c })* (CPython: _Loop0_N rule)
-                var b = _Loop0_32();
+                var b = _Loop0_66();
                 // Optional: [(',')]
                 int _opt_mark__tmp0 = _position;
                 // Group: (',')
@@ -25900,44 +25388,13 @@ namespace SharpPy.Generated
 
                 // Gather: ','.star_target+
                 // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
-                var a = new GeneratedExprSeq();
-                // Parse first item (no separator)
-                // Call rule: star_target
-                var _first_a = StarTarget();
-                if (_first_a == null)
+                var a = _Gather_69();
+                if (a == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                a.Add(_first_a);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_a = Expect(",");
-                    if (_sep_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_a == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: star_target
-                    var _loop_elem_a = StarTarget();
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    a.Add(_loop_elem_a);
                 }
                 // Optional: [(',')]
                 int _opt_mark__tmp0 = _position;
@@ -26026,7 +25483,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: (',' c=star_target { c })+ (CPython: _Loop1_N rule)
-                var b = _Loop1_33();
+                var b = _Loop1_69();
                 if (b == null)
                 {
                     _position = _mark;
@@ -26069,7 +25526,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                 }
                 // Action: _PyPegen_seq_insert_in_front(a, b)
-                _res = _PyPegen_seq_insert_in_front(a, b);
+                _res = _PyPegen_seq_insert_in_front(a, b).Cast<GeneratedExprSeq>();
                 if (_res != null) goto done;
             } while (false);
 
@@ -26123,15 +25580,15 @@ namespace SharpPy.Generated
         // Rule: star_target from python.gram
         public GeneratedExpr? StarTarget()
         {
-            // CPython 3.12: Memoized (non-left-recursive) - simple memoization
-            // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return (GeneratedExpr?)TryMemoized("StarTarget", _StarTarget);
-        }
+            // CPython 3.12: Memoized (non-left-recursive)
+            if (TryGetMemoized("StarTarget", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
 
-        private GeneratedExpr? _StarTarget()
-        {
-            // CPython 3.12 PEG: star_target
             int _mark = _position;
+
+            // CPython 3.12 PEG: star_target
             GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
@@ -26168,31 +25625,18 @@ namespace SharpPy.Generated
                 // Try group alternative 1: !'*' star_target
                 {
                     _position = _group_mark_a;
-                    // WARNING: Lookahead in value position - this is unusual
-                    // Negative lookahead: !('*')
-                    GeneratedTokenInfo? _lookahead_test_59 = null;
-                    if (CurrentToken?.Value == "*") { _lookahead_test_59 = CurrentToken; }
-                    if (_lookahead_test_59 != null)
+                    GeneratedExpr? _group_alt0_a_item1;
+                    if (
+                        CurrentToken?.Value != "*" &&
+    (_group_alt0_a_item1 = StarTarget()) != null
+                    )
                     {
-                        // Negative lookahead matched - fail this alternative
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
+                        a = _group_alt0_a_item1;
                     }
-                    bool _group_alt0_a_item0 = true; // Lookahead succeeded
-                    if (_group_alt0_a_item0 != null)
+                    else
                     {
-                        GeneratedExpr? _group_alt0_a_item1 = StarTarget();
-                        if (_group_alt0_a_item1 != null)
-                        {
-                            a = _group_alt0_a_item1;
-                        }
-                        else
-                        {
-                            // CPython 3.12: Group alternative failed, restore position
-                            _position = _group_mark_a;
-                        }
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_a;
                     }
                 }
                 if (a == null)
@@ -26243,21 +25687,23 @@ namespace SharpPy.Generated
             var _end_token = CurrentToken ?? _start_token;
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
+            // CPython: _PyPegen_insert_memo(p, _mark, StarTarget_type, _res)
+            UpdateMemoized("StarTarget", _mark, _res, _position);
             return _res;
         }
 
         // Rule: target_with_star_atom from python.gram
         public GeneratedExpr? TargetWithStarAtom()
         {
-            // CPython 3.12: Memoized (non-left-recursive) - simple memoization
-            // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return (GeneratedExpr?)TryMemoized("TargetWithStarAtom", _TargetWithStarAtom);
-        }
+            // CPython 3.12: Memoized (non-left-recursive)
+            if (TryGetMemoized("TargetWithStarAtom", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
 
-        private GeneratedExpr? _TargetWithStarAtom()
-        {
-            // CPython 3.12 PEG: target_with_star_atom
             int _mark = _position;
+
+            // CPython 3.12 PEG: target_with_star_atom
             GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
@@ -26310,11 +25756,11 @@ namespace SharpPy.Generated
                 var b = NameToken(_token_b);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(t_lookahead)
-                GeneratedTokenInfo? _lookahead_test_60 = null;
+                GeneratedTokenInfo? _lookahead_test_54 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_60 != null)
+                if (_lookahead_test_54 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -26375,11 +25821,11 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(t_lookahead)
-                GeneratedTokenInfo? _lookahead_test_61 = null;
+                GeneratedTokenInfo? _lookahead_test_55 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_61 != null)
+                if (_lookahead_test_55 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -26426,6 +25872,8 @@ namespace SharpPy.Generated
             var _end_token = CurrentToken ?? _start_token;
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
+            // CPython: _PyPegen_insert_memo(p, _mark, TargetWithStarAtom_type, _res)
+            UpdateMemoized("TargetWithStarAtom", _mark, _res, _position);
             return _res;
         }
 
@@ -26850,11 +26298,11 @@ namespace SharpPy.Generated
                 var b = NameToken(_token_b);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(t_lookahead)
-                GeneratedTokenInfo? _lookahead_test_62 = null;
+                GeneratedTokenInfo? _lookahead_test_56 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_62 != null)
+                if (_lookahead_test_56 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -26915,11 +26363,11 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(t_lookahead)
-                GeneratedTokenInfo? _lookahead_test_63 = null;
+                GeneratedTokenInfo? _lookahead_test_57 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_63 != null)
+                if (_lookahead_test_57 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -26946,11 +26394,58 @@ namespace SharpPy.Generated
         // Rule: t_primary from python.gram
         public GeneratedExpr? TPrimary()
         {
-            // CPython 3.12: Left recursion - use Warth et al. algorithm
-            return (GeneratedExpr?)TryLeftRecursive("TPrimary", _TPrimary);
+            // CPython 3.12: Left-recursive leader - growth loop pattern
+            GeneratedExpr? _res = null;
+            if (TryGetMemoized("TPrimary", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
+
+            int _mark = _position;
+            int _resmark = _position;
+            int _iteration = 0;
+
+            while (true)
+            {
+                _iteration++;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] TPrimary iteration {_iteration}: _mark={_mark}, _resmark={_resmark}, _res={(_res == null ? "null" : "non-null")}");
+                #endif
+
+                // Update memo with current result
+                UpdateMemoized("TPrimary", _mark, _res, _resmark);
+
+                _position = _mark;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] TPrimary calling TPrimary_raw() at pos={_position}");
+                #endif
+                var _raw = TPrimary_raw();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROWTH-LOOP] TPrimary_raw() returned: {(_raw == null ? "null" : "non-null")}, _position={_position}");
+                #endif
+
+                if (_pendingSyntaxError != null)
+                {
+                    return null;
+                }
+
+                if (_raw == null || _position <= _resmark)
+                {
+                    #if DEBUG_PARSE_LOG
+                    Console.WriteLine($"[GROWTH-LOOP] TPrimary terminating: _raw={(_raw == null ? "null" : "non-null")}, _position={_position}, _resmark={_resmark}");
+                    #endif
+                    break;
+                }
+
+                _resmark = _position;
+                _res = _raw;
+            }
+
+            _position = _resmark;
+            return _res;
         }
 
-        private GeneratedExpr? _TPrimary()
+        private GeneratedExpr? TPrimary_raw()
         {
             // CPython 3.12 PEG: t_primary
             int _mark = _position;
@@ -27006,13 +26501,13 @@ namespace SharpPy.Generated
                 var b = NameToken(_token_b);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Positive lookahead: &(t_lookahead)
-                int _lookahead_mark_64 = _position;
-                bool _lookahead_test_64 = false;
+                int _lookahead_mark_58 = _position;
+                bool _lookahead_test_58 = false;
                 {
-                    if (TLookahead() != null) { _lookahead_test_64 = true; }
+                    if (TLookahead() != null) { _lookahead_test_58 = true; }
                 }
-                _position = _lookahead_mark_64; // Restore position after lookahead
-                if (!_lookahead_test_64)
+                _position = _lookahead_mark_58; // Restore position after lookahead
+                if (!_lookahead_test_58)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -27074,13 +26569,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &(t_lookahead)
-                int _lookahead_mark_65 = _position;
-                bool _lookahead_test_65 = false;
+                int _lookahead_mark_59 = _position;
+                bool _lookahead_test_59 = false;
                 {
-                    if (TLookahead() != null) { _lookahead_test_65 = true; }
+                    if (TLookahead() != null) { _lookahead_test_59 = true; }
                 }
-                _position = _lookahead_mark_65; // Restore position after lookahead
-                if (!_lookahead_test_65)
+                _position = _lookahead_mark_59; // Restore position after lookahead
+                if (!_lookahead_test_59)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -27124,13 +26619,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &(t_lookahead)
-                int _lookahead_mark_66 = _position;
-                bool _lookahead_test_66 = false;
+                int _lookahead_mark_60 = _position;
+                bool _lookahead_test_60 = false;
                 {
-                    if (TLookahead() != null) { _lookahead_test_66 = true; }
+                    if (TLookahead() != null) { _lookahead_test_60 = true; }
                 }
-                _position = _lookahead_mark_66; // Restore position after lookahead
-                if (!_lookahead_test_66)
+                _position = _lookahead_mark_60; // Restore position after lookahead
+                if (!_lookahead_test_60)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -27217,13 +26712,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &(t_lookahead)
-                int _lookahead_mark_67 = _position;
-                bool _lookahead_test_67 = false;
+                int _lookahead_mark_61 = _position;
+                bool _lookahead_test_61 = false;
                 {
-                    if (TLookahead() != null) { _lookahead_test_67 = true; }
+                    if (TLookahead() != null) { _lookahead_test_61 = true; }
                 }
-                _position = _lookahead_mark_67; // Restore position after lookahead
-                if (!_lookahead_test_67)
+                _position = _lookahead_mark_61; // Restore position after lookahead
+                if (!_lookahead_test_61)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -27262,13 +26757,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &(t_lookahead)
-                int _lookahead_mark_68 = _position;
-                bool _lookahead_test_68 = false;
+                int _lookahead_mark_62 = _position;
+                bool _lookahead_test_62 = false;
                 {
-                    if (TLookahead() != null) { _lookahead_test_68 = true; }
+                    if (TLookahead() != null) { _lookahead_test_62 = true; }
                 }
-                _position = _lookahead_mark_68; // Restore position after lookahead
-                if (!_lookahead_test_68)
+                _position = _lookahead_mark_62; // Restore position after lookahead
+                if (!_lookahead_test_62)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -27424,44 +26919,13 @@ namespace SharpPy.Generated
 
                 // Gather: ','.del_target+
                 // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
-                var a = new GeneratedExprSeq();
-                // Parse first item (no separator)
-                // Call rule: del_target
-                var _first_a = DelTarget();
-                if (_first_a == null)
+                var a = _Gather_72();
+                if (a == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                a.Add(_first_a);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_a = Expect(",");
-                    if (_sep_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_a == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: del_target
-                    var _loop_elem_a = DelTarget();
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    a.Add(_loop_elem_a);
                 }
                 // Optional: [(',')]
                 int _opt_mark__tmp0 = _position;
@@ -27517,15 +26981,15 @@ namespace SharpPy.Generated
         // Rule: del_target from python.gram
         public GeneratedExpr? DelTarget()
         {
-            // CPython 3.12: Memoized (non-left-recursive) - simple memoization
-            // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return (GeneratedExpr?)TryMemoized("DelTarget", _DelTarget);
-        }
+            // CPython 3.12: Memoized (non-left-recursive)
+            if (TryGetMemoized("DelTarget", out var _memoized))
+            {
+                return (GeneratedExpr?)_memoized;
+            }
 
-        private GeneratedExpr? _DelTarget()
-        {
-            // CPython 3.12 PEG: del_target
             int _mark = _position;
+
+            // CPython 3.12 PEG: del_target
             GeneratedExpr? _res = null;
 
             // Position tracking for EXTRA parameters
@@ -27578,11 +27042,11 @@ namespace SharpPy.Generated
                 var b = NameToken(_token_b);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(t_lookahead)
-                GeneratedTokenInfo? _lookahead_test_69 = null;
+                GeneratedTokenInfo? _lookahead_test_63 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_69 != null)
+                if (_lookahead_test_63 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -27643,11 +27107,11 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(t_lookahead)
-                GeneratedTokenInfo? _lookahead_test_70 = null;
+                GeneratedTokenInfo? _lookahead_test_64 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_70 != null)
+                if (_lookahead_test_64 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -27694,6 +27158,8 @@ namespace SharpPy.Generated
             var _end_token = CurrentToken ?? _start_token;
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
+            // CPython: _PyPegen_insert_memo(p, _mark, DelTarget_type, _res)
+            UpdateMemoized("DelTarget", _mark, _res, _position);
             return _res;
         }
 
@@ -27963,44 +27429,13 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.expression+
-                var a = new GeneratedExprSeq();
-                // Parse first item (no separator)
-                // Call rule: expression
-                var _first_a = Expression();
-                if (_first_a == null)
+                var a = _Gather_74();
+                if (a == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                a.Add(_first_a);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_a = Expect(",");
-                    if (_sep_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_a == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: expression
-                    var _loop_elem_a = Expression();
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    a.Add(_loop_elem_a);
                 }
                 // Expect ','
                 var _tmp0 = Expect(",");
@@ -28077,44 +27512,13 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.expression+
-                var a = new GeneratedExprSeq();
-                // Parse first item (no separator)
-                // Call rule: expression
-                var _first_a = Expression();
-                if (_first_a == null)
+                var a = _Gather_74();
+                if (a == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                a.Add(_first_a);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_a = Expect(",");
-                    if (_sep_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_a == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: expression
-                    var _loop_elem_a = Expression();
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    a.Add(_loop_elem_a);
                 }
                 // Expect ','
                 var _tmp0 = Expect(",");
@@ -28161,44 +27565,13 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.expression+
-                var a = new GeneratedExprSeq();
-                // Parse first item (no separator)
-                // Call rule: expression
-                var _first_a = Expression();
-                if (_first_a == null)
+                var a = _Gather_74();
+                if (a == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                a.Add(_first_a);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_a = Expect(",");
-                    if (_sep_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_a == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: expression
-                    var _loop_elem_a = Expression();
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    a.Add(_loop_elem_a);
                 }
                 // Expect ','
                 var _tmp0 = Expect(",");
@@ -28381,44 +27754,13 @@ namespace SharpPy.Generated
 
                 // Gather: ','.expression+
                 // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
-                var a = new GeneratedExprSeq();
-                // Parse first item (no separator)
-                // Call rule: expression
-                var _first_a = Expression();
-                if (_first_a == null)
+                var a = _Gather_74();
+                if (a == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                a.Add(_first_a);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep_a = Expect(",");
-                    if (_sep_a == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep_a == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: expression
-                    var _loop_elem_a = Expression();
-                    if (_loop_elem_a == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    a.Add(_loop_elem_a);
                 }
                 // Action: a
                 _res = (GeneratedExprSeq?)((GeneratedPtr?)a);
@@ -28486,14 +27828,14 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(t != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Positive lookahead: &((NEWLINE INDENT))
-                int _lookahead_mark_71 = _position;
-                bool _lookahead_test_71 = false;
+                int _lookahead_mark_65 = _position;
+                bool _lookahead_test_65 = false;
                 {
                     // Test if current token matches any alternative
                     // TODO: Complex group alternative in lookahead
                 }
-                _position = _lookahead_mark_71; // Restore position after lookahead
-                if (!_lookahead_test_71)
+                _position = _lookahead_mark_65; // Restore position after lookahead
+                if (!_lookahead_test_65)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -28635,258 +27977,13 @@ namespace SharpPy.Generated
                     {
                         _position = _group_mark__group_alt0__tmp0_item0;
                         // Gather: ','.(starred_expression | (assignment_expression | expression !':=') !'=')+
-                        var _group_alt0__group_alt0__tmp0_item0_item0 = new GeneratedExprSeq();
-                        // Parse first item (no separator)
-                        // Group: (starred_expression | (assignment_expression | expression !':=') !'=')
-                        GeneratedExpr? _first__group_alt0__group_alt0__tmp0_item0_item0 = null;
-                        int _group_mark__first__group_alt0__group_alt0__tmp0_item0_item0 = _position;
-                        // Try group alternative 1: starred_expression
+                        var _group_alt0__group_alt0__tmp0_item0_item0 = _Gather_62();
+                        if (_group_alt0__group_alt0__tmp0_item0_item0 == null)
                         {
-                            _position = _group_mark__first__group_alt0__group_alt0__tmp0_item0_item0;
-                            GeneratedExpr? _group_alt0__first__group_alt0__group_alt0__tmp0_item0_item0_item0 = StarredExpression();
-                            if (_group_alt0__first__group_alt0__group_alt0__tmp0_item0_item0_item0 != null)
-                            {
-                                _first__group_alt0__group_alt0__tmp0_item0_item0 = _group_alt0__first__group_alt0__group_alt0__tmp0_item0_item0_item0;
-                            }
-                            else
-                            {
-                                // CPython 3.12: Group alternative failed, restore position
-                                _position = _group_mark__first__group_alt0__group_alt0__tmp0_item0_item0;
-                            }
-                        }
-                        // Try group alternative 2: (assignment_expression | expression !':=') !'='
-                        if (_first__group_alt0__group_alt0__tmp0_item0_item0 == null)
-                        {
-                            _position = _group_mark__first__group_alt0__group_alt0__tmp0_item0_item0;
-                            // Group: (assignment_expression | expression !':=')
-                            GeneratedExpr? _group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0 = null;
-                            int _group_mark__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0 = _position;
-                            // Try group alternative 1: assignment_expression
-                            {
-                                _position = _group_mark__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0;
-                                GeneratedExpr? _group_alt0__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 = AssignmentExpression();
-                                if (_group_alt0__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 != null)
-                                {
-                                    _group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0 = _group_alt0__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0;
-                                }
-                                else
-                                {
-                                    // CPython 3.12: Group alternative failed, restore position
-                                    _position = _group_mark__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0;
-                                }
-                            }
-                            // Try group alternative 2: expression !':='
-                            if (_group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0 == null)
-                            {
-                                _position = _group_mark__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0;
-                                GeneratedExpr? _group_alt1__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 = Expression();
-                                if (_group_alt1__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 != null)
-                                {
-                                    // WARNING: Lookahead in value position - this is unusual
-                                    // Negative lookahead: !(':=')
-                                    GeneratedTokenInfo? _lookahead_test_72 = null;
-                                    if (CurrentToken?.Value == ":=") { _lookahead_test_72 = CurrentToken; }
-                                    if (_lookahead_test_72 != null)
-                                    {
-                                        // Negative lookahead matched - fail this alternative
-                                        _position = _mark;
-                                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                                        _res = null;
-                                        break;  // Exit this alternative
-                                    }
-                                    bool _group_alt1__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item1 = true; // Lookahead succeeded
-                                    if (_group_alt1__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 != null)
-                                    {
-                                        _group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0 = _group_alt1__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0_item0;
-                                    }
-                                    else
-                                    {
-                                        // CPython 3.12: Group alternative failed, restore position
-                                        _position = _group_mark__group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0;
-                                    }
-                                }
-                            }
-                            if (_group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0 == null)
-                            {
-                                _position = _mark;
-                                _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                                _res = null;
-                                break;  // Exit this alternative
-                            }
-                            if (_group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0 != null)
-                            {
-                                // WARNING: Lookahead in value position - this is unusual
-                                // Negative lookahead: !('=')
-                                GeneratedTokenInfo? _lookahead_test_73 = null;
-                                if (CurrentToken?.Value == "=") { _lookahead_test_73 = CurrentToken; }
-                                if (_lookahead_test_73 != null)
-                                {
-                                    // Negative lookahead matched - fail this alternative
-                                    _position = _mark;
-                                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                                    _res = null;
-                                    break;  // Exit this alternative
-                                }
-                                bool _group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item1 = true; // Lookahead succeeded
-                                if (_group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0 != null)
-                                {
-                                    _first__group_alt0__group_alt0__tmp0_item0_item0 = _group_alt1__first__group_alt0__group_alt0__tmp0_item0_item0_item0;
-                                }
-                                else
-                                {
-                                    // CPython 3.12: Group alternative failed, restore position
-                                    _position = _group_mark__first__group_alt0__group_alt0__tmp0_item0_item0;
-                                }
-                            }
-                        }
-                        if (_first__group_alt0__group_alt0__tmp0_item0_item0 == null)
-                        {
-                            _position = _mark;
+                            _position = _group_mark__group_alt0__tmp0_item0;
                             _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                             _res = null;
                             break;  // Exit this alternative
-                        }
-                        if (_first__group_alt0__group_alt0__tmp0_item0_item0 == null)
-                        {
-                            _position = _mark;
-                            _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                            _res = null;
-                            break;  // Exit this alternative
-                        }
-                        _group_alt0__group_alt0__tmp0_item0_item0.Add(_first__group_alt0__group_alt0__tmp0_item0_item0);
-                        // Parse remaining items (separator + item)
-                        while (true)
-                        {
-                            int _loop_mark = _position;
-                            // Expect ','
-                            var _sep__group_alt0__group_alt0__tmp0_item0_item0 = Expect(",");
-                            if (_sep__group_alt0__group_alt0__tmp0_item0_item0 == null)
-                            {
-                                _position = _mark;
-                                _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                                _res = null;
-                                break;  // Exit this alternative
-                            }
-                            if (_sep__group_alt0__group_alt0__tmp0_item0_item0 == null)
-                            {
-                                _position = _loop_mark;
-                                break; // No more separators
-                            }
-                            // Group: (starred_expression | (assignment_expression | expression !':=') !'=')
-                            GeneratedExpr? _loop_elem__group_alt0__group_alt0__tmp0_item0_item0 = null;
-                            int _group_mark__loop_elem__group_alt0__group_alt0__tmp0_item0_item0 = _position;
-                            // Try group alternative 1: starred_expression
-                            {
-                                _position = _group_mark__loop_elem__group_alt0__group_alt0__tmp0_item0_item0;
-                                GeneratedExpr? _group_alt0__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 = StarredExpression();
-                                if (_group_alt0__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 != null)
-                                {
-                                    _loop_elem__group_alt0__group_alt0__tmp0_item0_item0 = _group_alt0__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0;
-                                }
-                                else
-                                {
-                                    // CPython 3.12: Group alternative failed, restore position
-                                    _position = _group_mark__loop_elem__group_alt0__group_alt0__tmp0_item0_item0;
-                                }
-                            }
-                            // Try group alternative 2: (assignment_expression | expression !':=') !'='
-                            if (_loop_elem__group_alt0__group_alt0__tmp0_item0_item0 == null)
-                            {
-                                _position = _group_mark__loop_elem__group_alt0__group_alt0__tmp0_item0_item0;
-                                // Group: (assignment_expression | expression !':=')
-                                GeneratedExpr? _group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 = null;
-                                int _group_mark__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 = _position;
-                                // Try group alternative 1: assignment_expression
-                                {
-                                    _position = _group_mark__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0;
-                                    GeneratedExpr? _group_alt0__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 = AssignmentExpression();
-                                    if (_group_alt0__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 != null)
-                                    {
-                                        _group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 = _group_alt0__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0;
-                                    }
-                                    else
-                                    {
-                                        // CPython 3.12: Group alternative failed, restore position
-                                        _position = _group_mark__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0;
-                                    }
-                                }
-                                // Try group alternative 2: expression !':='
-                                if (_group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 == null)
-                                {
-                                    _position = _group_mark__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0;
-                                    GeneratedExpr? _group_alt1__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 = Expression();
-                                    if (_group_alt1__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 != null)
-                                    {
-                                        // WARNING: Lookahead in value position - this is unusual
-                                        // Negative lookahead: !(':=')
-                                        GeneratedTokenInfo? _lookahead_test_74 = null;
-                                        if (CurrentToken?.Value == ":=") { _lookahead_test_74 = CurrentToken; }
-                                        if (_lookahead_test_74 != null)
-                                        {
-                                            // Negative lookahead matched - fail this alternative
-                                            _position = _mark;
-                                            _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                                            _res = null;
-                                            break;  // Exit this alternative
-                                        }
-                                        bool _group_alt1__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item1 = true; // Lookahead succeeded
-                                        if (_group_alt1__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0 != null)
-                                        {
-                                            _group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 = _group_alt1__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0_item0;
-                                        }
-                                        else
-                                        {
-                                            // CPython 3.12: Group alternative failed, restore position
-                                            _position = _group_mark__group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0;
-                                        }
-                                    }
-                                }
-                                if (_group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 == null)
-                                {
-                                    _position = _mark;
-                                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                                    _res = null;
-                                    break;  // Exit this alternative
-                                }
-                                if (_group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 != null)
-                                {
-                                    // WARNING: Lookahead in value position - this is unusual
-                                    // Negative lookahead: !('=')
-                                    GeneratedTokenInfo? _lookahead_test_75 = null;
-                                    if (CurrentToken?.Value == "=") { _lookahead_test_75 = CurrentToken; }
-                                    if (_lookahead_test_75 != null)
-                                    {
-                                        // Negative lookahead matched - fail this alternative
-                                        _position = _mark;
-                                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                                        _res = null;
-                                        break;  // Exit this alternative
-                                    }
-                                    bool _group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item1 = true; // Lookahead succeeded
-                                    if (_group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0 != null)
-                                    {
-                                        _loop_elem__group_alt0__group_alt0__tmp0_item0_item0 = _group_alt1__loop_elem__group_alt0__group_alt0__tmp0_item0_item0_item0;
-                                    }
-                                    else
-                                    {
-                                        // CPython 3.12: Group alternative failed, restore position
-                                        _position = _group_mark__loop_elem__group_alt0__group_alt0__tmp0_item0_item0;
-                                    }
-                                }
-                            }
-                            if (_loop_elem__group_alt0__group_alt0__tmp0_item0_item0 == null)
-                            {
-                                _position = _mark;
-                                _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                                _res = null;
-                                break;  // Exit this alternative
-                            }
-                            if (_loop_elem__group_alt0__group_alt0__tmp0_item0_item0 == null)
-                            {
-                                _position = _loop_mark; // Reset to before separator
-                                break; // No item after separator
-                            }
-                            _group_alt0__group_alt0__tmp0_item0_item0.Add(_loop_elem__group_alt0__group_alt0__tmp0_item0_item0);
                         }
                         if (_group_alt0__group_alt0__tmp0_item0_item0 != null)
                         {
@@ -28905,13 +28002,6 @@ namespace SharpPy.Generated
                                 }
                             }
                         }
-                    }
-                    if (_group_alt0__tmp0_item0 == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
                     }
                     if (_group_alt0__tmp0_item0 != null)
                     {
@@ -28955,120 +28045,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Gather: ','.(starred_expression !'=')+
-                var _tmp1 = new GeneratedExprSeq();
-                // Parse first item (no separator)
-                // Group: (starred_expression !'=')
-                GeneratedExpr? _first__tmp1 = null;
-                int _group_mark__first__tmp1 = _position;
-                // Try group alternative 1: starred_expression !'='
-                {
-                    _position = _group_mark__first__tmp1;
-                    GeneratedExpr? _group_alt0__first__tmp1_item0 = StarredExpression();
-                    if (_group_alt0__first__tmp1_item0 != null)
-                    {
-                        // WARNING: Lookahead in value position - this is unusual
-                        // Negative lookahead: !('=')
-                        GeneratedTokenInfo? _lookahead_test_76 = null;
-                        if (CurrentToken?.Value == "=") { _lookahead_test_76 = CurrentToken; }
-                        if (_lookahead_test_76 != null)
-                        {
-                            // Negative lookahead matched - fail this alternative
-                            _position = _mark;
-                            _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                            _res = null;
-                            break;  // Exit this alternative
-                        }
-                        bool _group_alt0__first__tmp1_item1 = true; // Lookahead succeeded
-                        if (_group_alt0__first__tmp1_item0 != null)
-                        {
-                            _first__tmp1 = _group_alt0__first__tmp1_item0;
-                        }
-                        else
-                        {
-                            // CPython 3.12: Group alternative failed, restore position
-                            _position = _group_mark__first__tmp1;
-                        }
-                    }
-                }
-                if (_first__tmp1 == null)
+                var _tmp1 = _Gather_76();
+                if (_tmp1 == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                if (_first__tmp1 == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
-                _tmp1.Add(_first__tmp1);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep__tmp1 = Expect(",");
-                    if (_sep__tmp1 == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep__tmp1 == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Group: (starred_expression !'=')
-                    GeneratedExpr? _loop_elem__tmp1 = null;
-                    int _group_mark__loop_elem__tmp1 = _position;
-                    // Try group alternative 1: starred_expression !'='
-                    {
-                        _position = _group_mark__loop_elem__tmp1;
-                        GeneratedExpr? _group_alt0__loop_elem__tmp1_item0 = StarredExpression();
-                        if (_group_alt0__loop_elem__tmp1_item0 != null)
-                        {
-                            // WARNING: Lookahead in value position - this is unusual
-                            // Negative lookahead: !('=')
-                            GeneratedTokenInfo? _lookahead_test_77 = null;
-                            if (CurrentToken?.Value == "=") { _lookahead_test_77 = CurrentToken; }
-                            if (_lookahead_test_77 != null)
-                            {
-                                // Negative lookahead matched - fail this alternative
-                                _position = _mark;
-                                _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                                _res = null;
-                                break;  // Exit this alternative
-                            }
-                            bool _group_alt0__loop_elem__tmp1_item1 = true; // Lookahead succeeded
-                            if (_group_alt0__loop_elem__tmp1_item0 != null)
-                            {
-                                _loop_elem__tmp1 = _group_alt0__loop_elem__tmp1_item0;
-                            }
-                            else
-                            {
-                                // CPython 3.12: Group alternative failed, restore position
-                                _position = _group_mark__loop_elem__tmp1;
-                            }
-                        }
-                    }
-                    if (_loop_elem__tmp1 == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp1 == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    _tmp1.Add(_loop_elem__tmp1);
                 }
                 // Action: RAISE_SYNTAX_ERROR_STARTING_FROM(a, "iterable argument unpacking follows keyword argument unpacking")
                 // CPython 3.12: Invalid syntax detected - set error and return immediately
@@ -29288,15 +28271,15 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &((',' | ')'))
-                int _lookahead_mark_78 = _position;
-                bool _lookahead_test_78 = false;
+                int _lookahead_mark_66 = _position;
+                bool _lookahead_test_66 = false;
                 {
                     // Test if current token matches any alternative
-                    if (CurrentToken?.Value == ",") { _lookahead_test_78 = true; }
-                    if (CurrentToken?.Value == ")") { _lookahead_test_78 = true; }
+                    if (CurrentToken?.Value == ",") { _lookahead_test_66 = true; }
+                    if (CurrentToken?.Value == ")") { _lookahead_test_66 = true; }
                 }
-                _position = _lookahead_mark_78; // Restore position after lookahead
-                if (!_lookahead_test_78)
+                _position = _lookahead_mark_66; // Restore position after lookahead
+                if (!_lookahead_test_66)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -29623,11 +28606,11 @@ namespace SharpPy.Generated
                 }
 
                 // Negative lookahead: !((NAME '='))
-                GeneratedTokenInfo? _lookahead_test_79 = null;
+                GeneratedTokenInfo? _lookahead_test_67 = null;
                 // Test if current token matches: (NAME '=')
-                if (_lookahead_test_79 != null)
+                if (_lookahead_test_67 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -29912,11 +28895,11 @@ namespace SharpPy.Generated
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !('(')
-                GeneratedTokenInfo? _lookahead_test_80 = null;
-                if (CurrentToken?.Value == "(") { _lookahead_test_80 = CurrentToken; }
-                if (_lookahead_test_80 != null)
+                GeneratedTokenInfo? _lookahead_test_68 = null;
+                if (CurrentToken?.Value == "(") { _lookahead_test_68 = CurrentToken; }
+                if (_lookahead_test_68 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -29976,11 +28959,11 @@ namespace SharpPy.Generated
                 }
 
                 // Negative lookahead: !((NAME STRING | SOFT_KEYWORD))
-                GeneratedTokenInfo? _lookahead_test_81 = null;
+                GeneratedTokenInfo? _lookahead_test_69 = null;
                 // Test if current token matches: (NAME STRING | SOFT_KEYWORD)
-                if (_lookahead_test_81 != null)
+                if (_lookahead_test_69 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -30054,13 +29037,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('else' | ':'))
-                GeneratedTokenInfo? _lookahead_test_82 = null;
+                GeneratedTokenInfo? _lookahead_test_70 = null;
                 // Test if current token matches: ('else' | ':')
-                if (CurrentToken?.Value == "else") { _lookahead_test_82 = CurrentToken; }
-                if (CurrentToken?.Value == ":") { _lookahead_test_82 = CurrentToken; }
-                if (_lookahead_test_82 != null)
+                if (CurrentToken?.Value == "else") { _lookahead_test_70 = CurrentToken; }
+                if (CurrentToken?.Value == ":") { _lookahead_test_70 = CurrentToken; }
+                if (_lookahead_test_70 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -30137,13 +29120,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &(FSTRING_MIDDLE)
-                int _lookahead_mark_83 = _position;
-                bool _lookahead_test_83 = false;
+                int _lookahead_mark_71 = _position;
+                bool _lookahead_test_71 = false;
                 {
-                    if (ExpectToken(GeneratedTokenType.FSTRING_MIDDLE) != null) { _lookahead_test_83 = true; }
+                    if (ExpectToken(GeneratedTokenType.FSTRING_MIDDLE) != null) { _lookahead_test_71 = true; }
                 }
-                _position = _lookahead_mark_83; // Restore position after lookahead
-                if (!_lookahead_test_83)
+                _position = _lookahead_mark_71; // Restore position after lookahead
+                if (!_lookahead_test_71)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -30171,15 +29154,15 @@ namespace SharpPy.Generated
         // Rule: invalid_named_expression from python.gram
         public GeneratedPtr? InvalidNamedExpression()
         {
-            // CPython 3.12: Memoized (non-left-recursive) - simple memoization
-            // Pattern: CHECK CACHE → PARSE → UPDATE CACHE
-            return (GeneratedPtr?)TryMemoized("InvalidNamedExpression", _InvalidNamedExpression);
-        }
+            // CPython 3.12: Memoized (non-left-recursive)
+            if (TryGetMemoized("InvalidNamedExpression", out var _memoized))
+            {
+                return (GeneratedPtr?)_memoized;
+            }
 
-        private GeneratedPtr? _InvalidNamedExpression()
-        {
-            // CPython 3.12 PEG: invalid_named_expression
             int _mark = _position;
+
+            // CPython 3.12 PEG: invalid_named_expression
             GeneratedPtr? _res = null;
 
             // Position tracking for EXTRA parameters
@@ -30281,13 +29264,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('=' | ':='))
-                GeneratedTokenInfo? _lookahead_test_84 = null;
+                GeneratedTokenInfo? _lookahead_test_72 = null;
                 // Test if current token matches: ('=' | ':=')
-                if (CurrentToken?.Value == "=") { _lookahead_test_84 = CurrentToken; }
-                if (CurrentToken?.Value == ":=") { _lookahead_test_84 = CurrentToken; }
-                if (_lookahead_test_84 != null)
+                if (CurrentToken?.Value == "=") { _lookahead_test_72 = CurrentToken; }
+                if (CurrentToken?.Value == ":=") { _lookahead_test_72 = CurrentToken; }
+                if (_lookahead_test_72 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -30312,14 +29295,14 @@ namespace SharpPy.Generated
                 }
 
                 // Negative lookahead: !((list | tuple | genexp | 'True' | 'None' | 'False'))
-                GeneratedTokenInfo? _lookahead_test_85 = null;
+                GeneratedTokenInfo? _lookahead_test_73 = null;
                 // Test if current token matches: (list | tuple | genexp | 'True' | 'None' | 'False')
-                if (CurrentToken?.Value == "True") { _lookahead_test_85 = CurrentToken; }
-                if (CurrentToken?.Value == "None") { _lookahead_test_85 = CurrentToken; }
-                if (CurrentToken?.Value == "False") { _lookahead_test_85 = CurrentToken; }
-                if (_lookahead_test_85 != null)
+                if (CurrentToken?.Value == "True") { _lookahead_test_73 = CurrentToken; }
+                if (CurrentToken?.Value == "None") { _lookahead_test_73 = CurrentToken; }
+                if (CurrentToken?.Value == "False") { _lookahead_test_73 = CurrentToken; }
+                if (_lookahead_test_73 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -30353,13 +29336,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('=' | ':='))
-                GeneratedTokenInfo? _lookahead_test_86 = null;
+                GeneratedTokenInfo? _lookahead_test_74 = null;
                 // Test if current token matches: ('=' | ':=')
-                if (CurrentToken?.Value == "=") { _lookahead_test_86 = CurrentToken; }
-                if (CurrentToken?.Value == ":=") { _lookahead_test_86 = CurrentToken; }
-                if (_lookahead_test_86 != null)
+                if (CurrentToken?.Value == "=") { _lookahead_test_74 = CurrentToken; }
+                if (CurrentToken?.Value == ":=") { _lookahead_test_74 = CurrentToken; }
+                if (_lookahead_test_74 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -30384,6 +29367,8 @@ namespace SharpPy.Generated
             var _end_token = CurrentToken ?? _start_token;
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
+            // CPython: _PyPegen_insert_memo(p, _mark, InvalidNamedExpression_type, _res)
+            UpdateMemoized("InvalidNamedExpression", _mark, _res, _position);
             return _res;
         }
 
@@ -30501,7 +29486,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: star_named_expressions* (CPython: _Loop0_N rule)
-                var _tmp1 = _Loop0_34();
+                var _tmp1 = _Loop0_76();
                 // Expect ':'
                 var _tmp2 = Expect(":");
                 if (_tmp2 == null)
@@ -30588,7 +29573,7 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: (star_targets '=')* (CPython: _Loop0_N rule)
-                var _tmp0 = _Loop0_35();
+                var _tmp0 = _Loop0_77();
                 // Call rule: star_expressions
                 var a = StarExpressions();
                 if (a == null)
@@ -30628,7 +29613,7 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: (star_targets '=')* (CPython: _Loop0_N rule)
-                var _tmp0 = _Loop0_36();
+                var _tmp0 = _Loop0_78();
                 // Call rule: yield_expr
                 var a = YieldExpr();
                 if (a == null)
@@ -30990,11 +29975,11 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_87 = null;
+                GeneratedTokenInfo? _lookahead_test_75 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_87 != null)
+                if (_lookahead_test_75 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -31516,7 +30501,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_maybe_default* (CPython: _Loop0_N rule)
-                var _tmp1 = _Loop0_10();
+                var _tmp1 = _Loop0_18();
                 // Expect '/'
                 var a = Expect("/");
                 if (a == null)
@@ -31573,7 +30558,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                 }
                 // Zero or more: param_no_default* (CPython: _Loop0_N rule)
-                var _tmp1 = _Loop0_6();
+                var _tmp1 = _Loop0_14();
                 // Call rule: invalid_parameters_helper
                 GeneratedPtr? _tmp2 = null;
                 Console.WriteLine($"[INVALID_PARAMETERS_HELPER] _callInvalidRules={_callInvalidRules}");
@@ -31630,7 +30615,7 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: param_no_default* (CPython: _Loop0_N rule)
-                var _tmp0 = _Loop0_6();
+                var _tmp0 = _Loop0_14();
                 // Expect '('
                 var a = Expect("(");
                 if (a == null)
@@ -31641,7 +30626,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // One or more: param_no_default+ (CPython: _Loop1_N rule)
-                var _tmp1 = _Loop1_8();
+                var _tmp1 = _Loop1_16();
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -31754,7 +30739,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                 }
                 // Zero or more: param_maybe_default* (CPython: _Loop0_N rule)
-                var _tmp1 = _Loop0_10();
+                var _tmp1 = _Loop0_18();
                 // Expect '*'
                 var _tmp2 = Expect("*");
                 if (_tmp2 == null)
@@ -31806,7 +30791,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_maybe_default* (CPython: _Loop0_N rule)
-                var _tmp4 = _Loop0_10();
+                var _tmp4 = _Loop0_18();
                 // Expect '/'
                 var a = Expect("/");
                 if (a == null)
@@ -31837,7 +30822,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: param_maybe_default+ (CPython: _Loop1_N rule)
-                var _tmp0 = _Loop1_11();
+                var _tmp0 = _Loop1_19();
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -31919,15 +30904,15 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &((')' | ','))
-                int _lookahead_mark_88 = _position;
-                bool _lookahead_test_88 = false;
+                int _lookahead_mark_76 = _position;
+                bool _lookahead_test_76 = false;
                 {
                     // Test if current token matches any alternative
-                    if (CurrentToken?.Value == ")") { _lookahead_test_88 = true; }
-                    if (CurrentToken?.Value == ",") { _lookahead_test_88 = true; }
+                    if (CurrentToken?.Value == ")") { _lookahead_test_76 = true; }
+                    if (CurrentToken?.Value == ",") { _lookahead_test_76 = true; }
                 }
-                _position = _lookahead_mark_88; // Restore position after lookahead
-                if (!_lookahead_test_88)
+                _position = _lookahead_mark_76; // Restore position after lookahead
+                if (!_lookahead_test_76)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -32044,13 +31029,6 @@ namespace SharpPy.Generated
                                 // CPython 3.12: Group alternative failed, restore position
                                 _position = _group_mark__group_alt1__tmp0_item1;
                             }
-                        }
-                        if (_group_alt1__tmp0_item1 == null)
-                        {
-                            _position = _mark;
-                            _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                            _res = null;
-                            break;  // Exit this alternative
                         }
                         if (_group_alt1__tmp0_item1 != null)
                         {
@@ -32237,7 +31215,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: param_maybe_default* (CPython: _Loop0_N rule)
-                var _tmp2 = _Loop0_10();
+                var _tmp2 = _Loop0_18();
                 // Expect '*'
                 var a = Expect("*");
                 if (a == null)
@@ -32591,7 +31569,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: param_with_default+ (CPython: _Loop1_N rule)
-                var _tmp0 = _Loop1_9();
+                var _tmp0 = _Loop1_17();
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -32722,7 +31700,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_maybe_default* (CPython: _Loop0_N rule)
-                var _tmp1 = _Loop0_24();
+                var _tmp1 = _Loop0_50();
                 // Expect '/'
                 var a = Expect("/");
                 if (a == null)
@@ -32779,7 +31757,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                 }
                 // Zero or more: lambda_param_no_default* (CPython: _Loop0_N rule)
-                var _tmp1 = _Loop0_20();
+                var _tmp1 = _Loop0_46();
                 // Call rule: invalid_lambda_parameters_helper
                 GeneratedPtr? _tmp2 = null;
                 Console.WriteLine($"[INVALID_LAMBDA_PARAMETERS_HELPER] _callInvalidRules={_callInvalidRules}");
@@ -32836,7 +31814,7 @@ namespace SharpPy.Generated
                 }
 
                 // Zero or more: lambda_param_no_default* (CPython: _Loop0_N rule)
-                var _tmp0 = _Loop0_20();
+                var _tmp0 = _Loop0_46();
                 // Expect '('
                 var a = Expect("(");
                 if (a == null)
@@ -32847,44 +31825,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Gather: ','.lambda_param+
-                var _tmp1 = new GeneratedArgSeq();
-                // Parse first item (no separator)
-                // Call rule: lambda_param
-                var _first__tmp1 = LambdaParam();
-                if (_first__tmp1 == null)
+                var _tmp1 = _Gather_81();
+                if (_tmp1 == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                _tmp1.Add(_first__tmp1);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep__tmp1 = Expect(",");
-                    if (_sep__tmp1 == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep__tmp1 == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: lambda_param
-                    var _loop_elem__tmp1 = LambdaParam();
-                    if (_loop_elem__tmp1 == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    _tmp1.Add(_loop_elem__tmp1);
                 }
                 // Optional: [',']
                 int _opt_mark__tmp2 = _position;
@@ -32991,7 +31938,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                 }
                 // Zero or more: lambda_param_maybe_default* (CPython: _Loop0_N rule)
-                var _tmp1 = _Loop0_24();
+                var _tmp1 = _Loop0_50();
                 // Expect '*'
                 var _tmp2 = Expect("*");
                 if (_tmp2 == null)
@@ -33043,7 +31990,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_maybe_default* (CPython: _Loop0_N rule)
-                var _tmp4 = _Loop0_24();
+                var _tmp4 = _Loop0_50();
                 // Expect '/'
                 var a = Expect("/");
                 if (a == null)
@@ -33074,7 +32021,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: lambda_param_maybe_default+ (CPython: _Loop1_N rule)
-                var _tmp0 = _Loop1_25();
+                var _tmp0 = _Loop1_51();
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -33173,7 +32120,7 @@ namespace SharpPy.Generated
                 }
 
                 // One or more: lambda_param_with_default+ (CPython: _Loop1_N rule)
-                var _tmp0 = _Loop1_23();
+                var _tmp0 = _Loop1_49();
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -33288,13 +32235,6 @@ namespace SharpPy.Generated
                                 // CPython 3.12: Group alternative failed, restore position
                                 _position = _group_mark__group_alt1__tmp1_item1;
                             }
-                        }
-                        if (_group_alt1__tmp1_item1 == null)
-                        {
-                            _position = _mark;
-                            _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                            _res = null;
-                            break;  // Exit this alternative
                         }
                         if (_group_alt1__tmp1_item1 != null)
                         {
@@ -33432,7 +32372,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: lambda_param_maybe_default* (CPython: _Loop0_N rule)
-                var _tmp2 = _Loop0_24();
+                var _tmp2 = _Loop0_50();
                 // Expect '*'
                 var a = Expect("*");
                 if (a == null)
@@ -33888,16 +32828,16 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &((',' | ')' | ':'))
-                int _lookahead_mark_89 = _position;
-                bool _lookahead_test_89 = false;
+                int _lookahead_mark_77 = _position;
+                bool _lookahead_test_77 = false;
                 {
                     // Test if current token matches any alternative
-                    if (CurrentToken?.Value == ",") { _lookahead_test_89 = true; }
-                    if (CurrentToken?.Value == ")") { _lookahead_test_89 = true; }
-                    if (CurrentToken?.Value == ":") { _lookahead_test_89 = true; }
+                    if (CurrentToken?.Value == ",") { _lookahead_test_77 = true; }
+                    if (CurrentToken?.Value == ")") { _lookahead_test_77 = true; }
+                    if (CurrentToken?.Value == ":") { _lookahead_test_77 = true; }
                 }
-                _position = _lookahead_mark_89; // Restore position after lookahead
-                if (!_lookahead_test_89)
+                _position = _lookahead_mark_77; // Restore position after lookahead
+                if (!_lookahead_test_77)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -34181,44 +33121,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Gather: ','.dotted_name+
-                var _tmp0 = new GeneratedExprSeq();
-                // Parse first item (no separator)
-                // Call rule: dotted_name
-                var _first__tmp0 = DottedName();
-                if (_first__tmp0 == null)
+                var _tmp0 = _Gather_83();
+                if (_tmp0 == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                _tmp0.Add(_first__tmp0);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep__tmp0 = Expect(",");
-                    if (_sep__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep__tmp0 == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: dotted_name
-                    var _loop_elem__tmp0 = DottedName();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
                 }
                 // Expect 'from'
                 var _tmp1 = Expect("from");
@@ -34403,60 +33312,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Gather: ','.()+
-                var _tmp2 = new GeneratedExprSeq();
-                // Parse first item (no separator)
-                // Group: ()
-                GeneratedAstNode? _first__tmp2 = null;
-                int _group_mark__first__tmp2 = _position;
-                if (_first__tmp2 == null)
+                var _tmp2 = _Gather_85();
+                if (_tmp2 == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                if (_first__tmp2 == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
-                _tmp2.Add(_first__tmp2);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep__tmp2 = Expect(",");
-                    if (_sep__tmp2 == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep__tmp2 == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Group: ()
-                    GeneratedAstNode? _loop_elem__tmp2 = null;
-                    int _group_mark__loop_elem__tmp2 = _position;
-                    if (_loop_elem__tmp2 == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp2 == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    _tmp2.Add(_loop_elem__tmp2);
                 }
                 // Expect token: NEWLINE
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
@@ -34542,60 +33404,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Gather: ','.()+
-                var _tmp3 = new GeneratedExprSeq();
-                // Parse first item (no separator)
-                // Group: ()
-                GeneratedAstNode? _first__tmp3 = null;
-                int _group_mark__first__tmp3 = _position;
-                if (_first__tmp3 == null)
+                var _tmp3 = _Gather_85();
+                if (_tmp3 == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                if (_first__tmp3 == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
-                _tmp3.Add(_first__tmp3);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep__tmp3 = Expect(",");
-                    if (_sep__tmp3 == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep__tmp3 == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Group: ()
-                    GeneratedAstNode? _loop_elem__tmp3 = null;
-                    int _group_mark__loop_elem__tmp3 = _position;
-                    if (_loop_elem__tmp3 == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp3 == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    _tmp3.Add(_loop_elem__tmp3);
                 }
                 // Optional: [',']
                 int _opt_mark__tmp4 = _position;
@@ -34733,60 +33548,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Gather: ','.()+
-                var _tmp1 = new GeneratedExprSeq();
-                // Parse first item (no separator)
-                // Group: ()
-                GeneratedAstNode? _first__tmp1 = null;
-                int _group_mark__first__tmp1 = _position;
-                if (_first__tmp1 == null)
+                var _tmp1 = _Gather_85();
+                if (_tmp1 == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                if (_first__tmp1 == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
-                _tmp1.Add(_first__tmp1);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep__tmp1 = Expect(",");
-                    if (_sep__tmp1 == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep__tmp1 == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Group: ()
-                    GeneratedAstNode? _loop_elem__tmp1 = null;
-                    int _group_mark__loop_elem__tmp1 = _position;
-                    if (_loop_elem__tmp1 == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp1 == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    _tmp1.Add(_loop_elem__tmp1);
                 }
                 // Expect ':'
                 var _tmp2 = Expect(":");
@@ -34809,11 +33577,11 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_90 = null;
+                GeneratedTokenInfo? _lookahead_test_78 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_90 != null)
+                if (_lookahead_test_78 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -34892,60 +33660,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Gather: ','.()+
-                var _tmp2 = new GeneratedExprSeq();
-                // Parse first item (no separator)
-                // Group: ()
-                GeneratedAstNode? _first__tmp2 = null;
-                int _group_mark__first__tmp2 = _position;
-                if (_first__tmp2 == null)
+                var _tmp2 = _Gather_85();
+                if (_tmp2 == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                if (_first__tmp2 == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
-                _tmp2.Add(_first__tmp2);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep__tmp2 = Expect(",");
-                    if (_sep__tmp2 == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep__tmp2 == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Group: ()
-                    GeneratedAstNode? _loop_elem__tmp2 = null;
-                    int _group_mark__loop_elem__tmp2 = _position;
-                    if (_loop_elem__tmp2 == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_loop_elem__tmp2 == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    _tmp2.Add(_loop_elem__tmp2);
                 }
                 // Optional: [',']
                 int _opt_mark__tmp3 = _position;
@@ -35003,11 +33724,11 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp6 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_91 = null;
+                GeneratedTokenInfo? _lookahead_test_79 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_91 != null)
+                if (_lookahead_test_79 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -35089,11 +33810,11 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_92 = null;
+                GeneratedTokenInfo? _lookahead_test_80 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_92 != null)
+                if (_lookahead_test_80 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -35147,13 +33868,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('except' | 'finally'))
-                GeneratedTokenInfo? _lookahead_test_93 = null;
+                GeneratedTokenInfo? _lookahead_test_81 = null;
                 // Test if current token matches: ('except' | 'finally')
-                if (CurrentToken?.Value == "except") { _lookahead_test_93 = CurrentToken; }
-                if (CurrentToken?.Value == "finally") { _lookahead_test_93 = CurrentToken; }
-                if (_lookahead_test_93 != null)
+                if (CurrentToken?.Value == "except") { _lookahead_test_81 = CurrentToken; }
+                if (CurrentToken?.Value == "finally") { _lookahead_test_81 = CurrentToken; }
+                if (_lookahead_test_81 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -35198,9 +33919,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: block* (CPython: _Loop0_N rule)
-                var _tmp2 = _Loop0_37();
+                var _tmp2 = _Loop0_85();
                 // One or more: except_block+ (CPython: _Loop1_N rule)
-                var _tmp3 = _Loop1_12();
+                var _tmp3 = _Loop1_22();
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -35272,9 +33993,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: block* (CPython: _Loop0_N rule)
-                var _tmp2 = _Loop0_37();
+                var _tmp2 = _Loop0_85();
                 // One or more: except_star_block+ (CPython: _Loop1_N rule)
-                var _tmp3 = _Loop1_13();
+                var _tmp3 = _Loop1_23();
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -35691,11 +34412,11 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_94 = null;
+                GeneratedTokenInfo? _lookahead_test_82 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_94 != null)
+                if (_lookahead_test_82 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -35777,11 +34498,11 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_95 = null;
+                GeneratedTokenInfo? _lookahead_test_83 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_95 != null)
+                if (_lookahead_test_83 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -35837,11 +34558,11 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_96 = null;
+                GeneratedTokenInfo? _lookahead_test_84 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_96 != null)
+                if (_lookahead_test_84 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -35932,11 +34653,11 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_97 = null;
+                GeneratedTokenInfo? _lookahead_test_85 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_97 != null)
+                if (_lookahead_test_85 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -36076,11 +34797,11 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_98 = null;
+                GeneratedTokenInfo? _lookahead_test_86 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_98 != null)
+                if (_lookahead_test_86 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -36272,11 +34993,11 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_99 = null;
+                GeneratedTokenInfo? _lookahead_test_87 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_99 != null)
+                if (_lookahead_test_87 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -36394,11 +35115,11 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(NAME)
-                GeneratedTokenInfo? _lookahead_test_100 = null;
+                GeneratedTokenInfo? _lookahead_test_88 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_100 != null)
+                if (_lookahead_test_88 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -36749,11 +35470,11 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_101 = null;
+                GeneratedTokenInfo? _lookahead_test_89 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_101 != null)
+                if (_lookahead_test_89 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -36893,11 +35614,11 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_102 = null;
+                GeneratedTokenInfo? _lookahead_test_90 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_102 != null)
+                if (_lookahead_test_90 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -36979,11 +35700,11 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_103 = null;
+                GeneratedTokenInfo? _lookahead_test_91 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_103 != null)
+                if (_lookahead_test_91 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -37123,11 +35844,11 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_104 = null;
+                GeneratedTokenInfo? _lookahead_test_92 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_104 != null)
+                if (_lookahead_test_92 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -37371,11 +36092,11 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp5 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_105 = null;
+                GeneratedTokenInfo? _lookahead_test_93 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_105 != null)
+                if (_lookahead_test_93 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -37581,11 +36302,11 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp5 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_106 = null;
+                GeneratedTokenInfo? _lookahead_test_94 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_106 != null)
+                if (_lookahead_test_94 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -37857,11 +36578,11 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_107 = null;
+                GeneratedTokenInfo? _lookahead_test_95 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_107 != null)
+                if (_lookahead_test_95 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -37914,44 +36635,13 @@ namespace SharpPy.Generated
                 }
 
                 // Gather: ','.double_starred_kvpair+
-                var _tmp0 = new GeneratedSeq();
-                // Parse first item (no separator)
-                // Call rule: double_starred_kvpair
-                var _first__tmp0 = DoubleStarredKvpair();
-                if (_first__tmp0 == null)
+                var _tmp0 = _Gather_57();
+                if (_tmp0 == null)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
-                }
-                _tmp0.Add(_first__tmp0);
-                // Parse remaining items (separator + item)
-                while (true)
-                {
-                    int _loop_mark = _position;
-                    // Expect ','
-                    var _sep__tmp0 = Expect(",");
-                    if (_sep__tmp0 == null)
-                    {
-                        _position = _mark;
-                        _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                        _res = null;
-                        break;  // Exit this alternative
-                    }
-                    if (_sep__tmp0 == null)
-                    {
-                        _position = _loop_mark;
-                        break; // No more separators
-                    }
-                    // Call rule: double_starred_kvpair
-                    var _loop_elem__tmp0 = DoubleStarredKvpair();
-                    if (_loop_elem__tmp0 == null)
-                    {
-                        _position = _loop_mark; // Reset to before separator
-                        break; // No item after separator
-                    }
-                    _tmp0.Add(_loop_elem__tmp0);
                 }
                 // Expect ','
                 var _tmp1 = Expect(",");
@@ -38088,15 +36778,15 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &(('}' | ','))
-                int _lookahead_mark_108 = _position;
-                bool _lookahead_test_108 = false;
+                int _lookahead_mark_96 = _position;
+                bool _lookahead_test_96 = false;
                 {
                     // Test if current token matches any alternative
-                    if (CurrentToken?.Value == "}") { _lookahead_test_108 = true; }
-                    if (CurrentToken?.Value == ",") { _lookahead_test_108 = true; }
+                    if (CurrentToken?.Value == "}") { _lookahead_test_96 = true; }
+                    if (CurrentToken?.Value == ",") { _lookahead_test_96 = true; }
                 }
-                _position = _lookahead_mark_108; // Restore position after lookahead
-                if (!_lookahead_test_108)
+                _position = _lookahead_mark_96; // Restore position after lookahead
+                if (!_lookahead_test_96)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -38159,12 +36849,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !((':'))
-                GeneratedTokenInfo? _lookahead_test_109 = null;
+                GeneratedTokenInfo? _lookahead_test_97 = null;
                 // Test if current token matches: (':')
-                if (CurrentToken?.Value == ":") { _lookahead_test_109 = CurrentToken; }
-                if (_lookahead_test_109 != null)
+                if (CurrentToken?.Value == ":") { _lookahead_test_97 = CurrentToken; }
+                if (_lookahead_test_97 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -38265,15 +36955,15 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &(('}' | ','))
-                int _lookahead_mark_110 = _position;
-                bool _lookahead_test_110 = false;
+                int _lookahead_mark_98 = _position;
+                bool _lookahead_test_98 = false;
                 {
                     // Test if current token matches any alternative
-                    if (CurrentToken?.Value == "}") { _lookahead_test_110 = true; }
-                    if (CurrentToken?.Value == ",") { _lookahead_test_110 = true; }
+                    if (CurrentToken?.Value == "}") { _lookahead_test_98 = true; }
+                    if (CurrentToken?.Value == ",") { _lookahead_test_98 = true; }
                 }
-                _position = _lookahead_mark_110; // Restore position after lookahead
-                if (!_lookahead_test_110)
+                _position = _lookahead_mark_98; // Restore position after lookahead
+                if (!_lookahead_test_98)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -38568,11 +37258,11 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !((yield_expr | star_expressions))
-                GeneratedTokenInfo? _lookahead_test_111 = null;
+                GeneratedTokenInfo? _lookahead_test_99 = null;
                 // Test if current token matches: (yield_expr | star_expressions)
-                if (_lookahead_test_111 != null)
+                if (_lookahead_test_99 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -38647,15 +37337,15 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('=' | '!' | ':' | '}'))
-                GeneratedTokenInfo? _lookahead_test_112 = null;
+                GeneratedTokenInfo? _lookahead_test_100 = null;
                 // Test if current token matches: ('=' | '!' | ':' | '}')
-                if (CurrentToken?.Value == "=") { _lookahead_test_112 = CurrentToken; }
-                if (CurrentToken?.Value == "!") { _lookahead_test_112 = CurrentToken; }
-                if (CurrentToken?.Value == ":") { _lookahead_test_112 = CurrentToken; }
-                if (CurrentToken?.Value == "}") { _lookahead_test_112 = CurrentToken; }
-                if (_lookahead_test_112 != null)
+                if (CurrentToken?.Value == "=") { _lookahead_test_100 = CurrentToken; }
+                if (CurrentToken?.Value == "!") { _lookahead_test_100 = CurrentToken; }
+                if (CurrentToken?.Value == ":") { _lookahead_test_100 = CurrentToken; }
+                if (CurrentToken?.Value == "}") { _lookahead_test_100 = CurrentToken; }
+                if (_lookahead_test_100 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -38739,14 +37429,14 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('!' | ':' | '}'))
-                GeneratedTokenInfo? _lookahead_test_113 = null;
+                GeneratedTokenInfo? _lookahead_test_101 = null;
                 // Test if current token matches: ('!' | ':' | '}')
-                if (CurrentToken?.Value == "!") { _lookahead_test_113 = CurrentToken; }
-                if (CurrentToken?.Value == ":") { _lookahead_test_113 = CurrentToken; }
-                if (CurrentToken?.Value == "}") { _lookahead_test_113 = CurrentToken; }
-                if (_lookahead_test_113 != null)
+                if (CurrentToken?.Value == "!") { _lookahead_test_101 = CurrentToken; }
+                if (CurrentToken?.Value == ":") { _lookahead_test_101 = CurrentToken; }
+                if (CurrentToken?.Value == "}") { _lookahead_test_101 = CurrentToken; }
+                if (_lookahead_test_101 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -39010,13 +37700,13 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp3; // Reset position
                 }
                 // Negative lookahead: !((':' | '}'))
-                GeneratedTokenInfo? _lookahead_test_114 = null;
+                GeneratedTokenInfo? _lookahead_test_102 = null;
                 // Test if current token matches: (':' | '}')
-                if (CurrentToken?.Value == ":") { _lookahead_test_114 = CurrentToken; }
-                if (CurrentToken?.Value == "}") { _lookahead_test_114 = CurrentToken; }
-                if (_lookahead_test_114 != null)
+                if (CurrentToken?.Value == ":") { _lookahead_test_102 = CurrentToken; }
+                if (CurrentToken?.Value == "}") { _lookahead_test_102 = CurrentToken; }
+                if (_lookahead_test_102 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -39164,13 +37854,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Zero or more: fstring_format_spec* (CPython: _Loop0_N rule)
-                var _tmp5 = _Loop0_26();
+                var _tmp5 = _Loop0_52();
                 // Negative lookahead: !('}')
-                GeneratedTokenInfo? _lookahead_test_115 = null;
-                if (CurrentToken?.Value == "}") { _lookahead_test_115 = CurrentToken; }
-                if (_lookahead_test_115 != null)
+                GeneratedTokenInfo? _lookahead_test_103 = null;
+                if (CurrentToken?.Value == "}") { _lookahead_test_103 = CurrentToken; }
+                if (_lookahead_test_103 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -39309,11 +37999,11 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp3; // Reset position
                 }
                 // Negative lookahead: !('}')
-                GeneratedTokenInfo? _lookahead_test_116 = null;
-                if (CurrentToken?.Value == "}") { _lookahead_test_116 = CurrentToken; }
-                if (_lookahead_test_116 != null)
+                GeneratedTokenInfo? _lookahead_test_104 = null;
+                if (CurrentToken?.Value == "}") { _lookahead_test_104 = CurrentToken; }
+                if (_lookahead_test_104 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -39375,15 +38065,15 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &((':' | '}'))
-                int _lookahead_mark_117 = _position;
-                bool _lookahead_test_117 = false;
+                int _lookahead_mark_105 = _position;
+                bool _lookahead_test_105 = false;
                 {
                     // Test if current token matches any alternative
-                    if (CurrentToken?.Value == ":") { _lookahead_test_117 = true; }
-                    if (CurrentToken?.Value == "}") { _lookahead_test_117 = true; }
+                    if (CurrentToken?.Value == ":") { _lookahead_test_105 = true; }
+                    if (CurrentToken?.Value == "}") { _lookahead_test_105 = true; }
                 }
-                _position = _lookahead_mark_117; // Restore position after lookahead
-                if (!_lookahead_test_117)
+                _position = _lookahead_mark_105; // Restore position after lookahead
+                if (!_lookahead_test_105)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -39420,11 +38110,11 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(NAME)
-                GeneratedTokenInfo? _lookahead_test_118 = null;
+                GeneratedTokenInfo? _lookahead_test_106 = null;
                 // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_118 != null)
+                if (_lookahead_test_106 != null)
                 {
-                    // Negative lookahead matched - fail this alternative
+                    // Negative lookahead matched - fail
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
@@ -39508,7 +38198,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop1_2()
+        private GeneratedExprSeq? _Loop1_4()
         {
             var _items = new GeneratedExprSeq();
             // CPython: First element required
@@ -39573,7 +38263,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private List<GeneratedTokenInfo>? _Loop0_3()
+        private List<GeneratedTokenInfo>? _Loop0_7()
         {
             var _items = new List<GeneratedTokenInfo>();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
@@ -39626,7 +38316,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private List<GeneratedTokenInfo>? _Loop1_4()
+        private List<GeneratedTokenInfo>? _Loop1_8()
         {
             var _items = new List<GeneratedTokenInfo>();
             // CPython: First element required
@@ -39713,7 +38403,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop1_5()
+        private GeneratedExprSeq? _Loop1_13()
         {
             var _items = new GeneratedExprSeq();
             // CPython: First element required
@@ -39786,7 +38476,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedArgSeq? _Loop0_6()
+        private GeneratedArgSeq? _Loop0_14()
         {
             var _items = new GeneratedArgSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
@@ -39809,7 +38499,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop0_7()
+        private GeneratedExprSeq? _Loop0_15()
         {
             var _items = new GeneratedExprSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
@@ -39832,7 +38522,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedArgSeq? _Loop1_8()
+        private GeneratedArgSeq? _Loop1_16()
         {
             var _items = new GeneratedArgSeq();
             // CPython: First element required
@@ -39859,7 +38549,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop1_9()
+        private GeneratedExprSeq? _Loop1_17()
         {
             var _items = new GeneratedExprSeq();
             // CPython: First element required
@@ -39886,7 +38576,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop0_10()
+        private GeneratedExprSeq? _Loop0_18()
         {
             var _items = new GeneratedExprSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
@@ -39909,7 +38599,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop1_11()
+        private GeneratedExprSeq? _Loop1_19()
         {
             var _items = new GeneratedExprSeq();
             // CPython: First element required
@@ -39936,7 +38626,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExcepthandlerSeq? _Loop1_12()
+        private GeneratedExcepthandlerSeq? _Loop1_22()
         {
             var _items = new GeneratedExcepthandlerSeq();
             // CPython: First element required
@@ -39963,7 +38653,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExcepthandlerSeq? _Loop1_13()
+        private GeneratedExcepthandlerSeq? _Loop1_23()
         {
             var _items = new GeneratedExcepthandlerSeq();
             // CPython: First element required
@@ -39990,7 +38680,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedMatchCaseSeq? _Loop1_14()
+        private GeneratedMatchCaseSeq? _Loop1_24()
         {
             var _items = new GeneratedMatchCaseSeq();
             // CPython: First element required
@@ -40017,7 +38707,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop1_15()
+        private GeneratedExprSeq? _Loop1_37()
         {
             var _items = new GeneratedExprSeq();
             // CPython: First element required
@@ -40082,7 +38772,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop1_16()
+        private GeneratedExprSeq? _Loop1_38()
         {
             var _items = new GeneratedExprSeq();
             // CPython: First element required
@@ -40147,7 +38837,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop1_17()
+        private GeneratedExprSeq? _Loop1_41()
         {
             var _items = new GeneratedExprSeq();
             // CPython: First element required
@@ -40212,7 +38902,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop1_18()
+        private GeneratedExprSeq? _Loop1_42()
         {
             var _items = new GeneratedExprSeq();
             // CPython: First element required
@@ -40277,7 +38967,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop1_19()
+        private GeneratedExprSeq? _Loop1_43()
         {
             var _items = new GeneratedExprSeq();
             // CPython: First element required
@@ -40304,7 +38994,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedArgSeq? _Loop0_20()
+        private GeneratedArgSeq? _Loop0_46()
         {
             var _items = new GeneratedArgSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
@@ -40327,7 +39017,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop0_21()
+        private GeneratedExprSeq? _Loop0_47()
         {
             var _items = new GeneratedExprSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
@@ -40350,7 +39040,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedArgSeq? _Loop1_22()
+        private GeneratedArgSeq? _Loop1_48()
         {
             var _items = new GeneratedArgSeq();
             // CPython: First element required
@@ -40377,7 +39067,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop1_23()
+        private GeneratedExprSeq? _Loop1_49()
         {
             var _items = new GeneratedExprSeq();
             // CPython: First element required
@@ -40404,7 +39094,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop0_24()
+        private GeneratedExprSeq? _Loop0_50()
         {
             var _items = new GeneratedExprSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
@@ -40427,7 +39117,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop1_25()
+        private GeneratedExprSeq? _Loop1_51()
         {
             var _items = new GeneratedExprSeq();
             // CPython: First element required
@@ -40454,7 +39144,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop0_26()
+        private GeneratedExprSeq? _Loop0_52()
         {
             var _items = new GeneratedExprSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
@@ -40477,7 +39167,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop0_27()
+        private GeneratedExprSeq? _Loop0_53()
         {
             var _items = new GeneratedExprSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
@@ -40500,7 +39190,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop1_28()
+        private GeneratedExprSeq? _Loop1_54()
         {
             var _items = new GeneratedExprSeq();
             // CPython: First element required
@@ -40587,7 +39277,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedComprehensionSeq? _Loop1_29()
+        private GeneratedComprehensionSeq? _Loop1_57()
         {
             var _items = new GeneratedComprehensionSeq();
             // CPython: First element required
@@ -40614,7 +39304,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop0_30()
+        private GeneratedExprSeq? _Loop0_58()
         {
             var _items = new GeneratedExprSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
@@ -40656,7 +39346,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop0_31()
+        private GeneratedExprSeq? _Loop0_59()
         {
             var _items = new GeneratedExprSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
@@ -40698,7 +39388,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop0_32()
+        private GeneratedExprSeq? _Loop0_66()
         {
             var _items = new GeneratedExprSeq();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
@@ -40740,7 +39430,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private GeneratedExprSeq? _Loop1_33()
+        private GeneratedExprSeq? _Loop1_69()
         {
             var _items = new GeneratedExprSeq();
             // CPython: First element required
@@ -40805,7 +39495,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private List<GeneratedExprSeq>? _Loop0_34()
+        private List<GeneratedExprSeq>? _Loop0_76()
         {
             var _items = new List<GeneratedExprSeq>();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
@@ -40828,7 +39518,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private List<GeneratedTokenInfo>? _Loop0_35()
+        private List<GeneratedTokenInfo>? _Loop0_77()
         {
             var _items = new List<GeneratedTokenInfo>();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
@@ -40870,7 +39560,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private List<GeneratedTokenInfo>? _Loop0_36()
+        private List<GeneratedTokenInfo>? _Loop0_78()
         {
             var _items = new List<GeneratedTokenInfo>();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
@@ -40912,7 +39602,7 @@ namespace SharpPy.Generated
             return _items;
         }
 
-        private List<GeneratedStmtSeq>? _Loop0_37()
+        private List<GeneratedStmtSeq>? _Loop0_85()
         {
             var _items = new List<GeneratedStmtSeq>();
             int _loop_mark = _position;  // CPython: int _mark = p->mark
@@ -40933,6 +39623,2013 @@ namespace SharpPy.Generated
             // CPython: Returns NULL if totalSize == 0
             if (_items.Count == 0) return null;
             return _items;
+        }
+
+
+        // ========================================
+        // CPython 3.12: Artificial Rules (gather helpers)
+        // Generated from gather patterns: sep.item+ or sep.item*
+        // ========================================
+
+        // CPython 3.12: Artificial rule _Loop0_3
+        private GeneratedStmtSeq? _Loop0_3()
+        {
+            var _items = new GeneratedStmtSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ';'
+                var _item = Expect(";");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Call rule: simple_stmt
+                var elem = SimpleStmt();
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_4
+        private GeneratedStmtSeq? _Gather_4()
+        {
+            int _mark = _position;
+            GeneratedStmtSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Call rule: simple_stmt
+                var elem = SimpleStmt();
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_3
+                var seq = _Loop0_3();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedStmtSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_6
+        private GeneratedExprSeq? _Loop0_6()
+        {
+            var _items = new GeneratedExprSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Expect token: NAME
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+                var elem = ExpectToken(GeneratedTokenType.NAME);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(elem != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_7
+        private GeneratedExprSeq? _Gather_7()
+        {
+            int _mark = _position;
+            GeneratedExprSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Expect token: NAME
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+                var _token_elem = ExpectToken(GeneratedTokenType.NAME);
+                if (_token_elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                var elem = NameToken(_token_elem);
+                Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(elem != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                // Call rule: _Loop0_6
+                var seq = _Loop0_6();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedExprSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_10
+        private GeneratedAliasSeq? _Loop0_10()
+        {
+            var _items = new GeneratedAliasSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Call rule: import_from_as_name
+                var elem = ImportFromAsName();
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_11
+        private GeneratedAliasSeq? _Gather_11()
+        {
+            int _mark = _position;
+            GeneratedAliasSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Call rule: import_from_as_name
+                var elem = ImportFromAsName();
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_10
+                var seq = _Loop0_10();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedAliasSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_12
+        private GeneratedAliasSeq? _Loop0_12()
+        {
+            var _items = new GeneratedAliasSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Call rule: dotted_as_name
+                var elem = DottedAsName();
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_13
+        private GeneratedAliasSeq? _Gather_13()
+        {
+            int _mark = _position;
+            GeneratedAliasSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Call rule: dotted_as_name
+                var elem = DottedAsName();
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_12
+                var seq = _Loop0_12();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedAliasSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_21
+        private GeneratedWithitemSeq? _Loop0_21()
+        {
+            var _items = new GeneratedWithitemSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Call rule: with_item
+                var elem = WithItem();
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_22
+        private GeneratedWithitemSeq? _Gather_22()
+        {
+            int _mark = _position;
+            GeneratedWithitemSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Call rule: with_item
+                var elem = WithItem();
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_21
+                var seq = _Loop0_21();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedWithitemSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_26
+        private GeneratedPatternSeq? _Loop0_26()
+        {
+            var _items = new GeneratedPatternSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect '|'
+                var _item = Expect("|");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Call rule: closed_pattern
+                var elem = ClosedPattern();
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_27
+        private GeneratedPatternSeq? _Gather_27()
+        {
+            int _mark = _position;
+            GeneratedPatternSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Call rule: closed_pattern
+                var elem = ClosedPattern();
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_26
+                var seq = _Loop0_26();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedPatternSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_28
+        private GeneratedPatternSeq? _Loop0_28()
+        {
+            var _items = new GeneratedPatternSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Call rule: maybe_star_pattern
+                var elem = MaybeStarPattern();
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_29
+        private GeneratedPatternSeq? _Gather_29()
+        {
+            int _mark = _position;
+            GeneratedPatternSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Call rule: maybe_star_pattern
+                var elem = MaybeStarPattern();
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_28
+                var seq = _Loop0_28();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedPatternSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_30
+        private GeneratedExprSeq? _Loop0_30()
+        {
+            var _items = new GeneratedExprSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Call rule: key_value_pattern
+                var elem = KeyValuePattern();
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_31
+        private GeneratedExprSeq? _Gather_31()
+        {
+            int _mark = _position;
+            GeneratedExprSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Call rule: key_value_pattern
+                var elem = KeyValuePattern();
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_30
+                var seq = _Loop0_30();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedExprSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_32
+        private GeneratedPatternSeq? _Loop0_32()
+        {
+            var _items = new GeneratedPatternSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Call rule: pattern
+                var elem = Pattern();
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_33
+        private GeneratedPatternSeq? _Gather_33()
+        {
+            int _mark = _position;
+            GeneratedPatternSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Call rule: pattern
+                var elem = Pattern();
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_32
+                var seq = _Loop0_32();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedPatternSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_34
+        private GeneratedExprSeq? _Loop0_34()
+        {
+            var _items = new GeneratedExprSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Call rule: keyword_pattern
+                var elem = KeywordPattern();
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_35
+        private GeneratedExprSeq? _Gather_35()
+        {
+            int _mark = _position;
+            GeneratedExprSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Call rule: keyword_pattern
+                var elem = KeywordPattern();
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_34
+                var seq = _Loop0_34();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedExprSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_36
+        private GeneratedTypeParamSeq? _Loop0_36()
+        {
+            var _items = new GeneratedTypeParamSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Call rule: type_param
+                var elem = TypeParam();
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_37
+        private GeneratedTypeParamSeq? _Gather_37()
+        {
+            int _mark = _position;
+            GeneratedTypeParamSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Call rule: type_param
+                var elem = TypeParam();
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_36
+                var seq = _Loop0_36();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedTypeParamSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_40
+        private GeneratedExprSeq? _Loop0_40()
+        {
+            var _items = new GeneratedExprSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Call rule: star_named_expression
+                var elem = StarNamedExpression();
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_41
+        private GeneratedExprSeq? _Gather_41()
+        {
+            int _mark = _position;
+            GeneratedExprSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Call rule: star_named_expression
+                var elem = StarNamedExpression();
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_40
+                var seq = _Loop0_40();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedExprSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_45
+        private GeneratedExprSeq? _Loop0_45()
+        {
+            var _items = new GeneratedExprSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Group: (slice | starred_expression)
+                GeneratedExpr? elem = null;
+                int _group_mark_elem = _position;
+                // Try group alternative 1: slice
+                {
+                    _position = _group_mark_elem;
+                    GeneratedExpr? _group_alt0_elem_item0 = Slice();
+                    if (_group_alt0_elem_item0 != null)
+                    {
+                        elem = _group_alt0_elem_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_elem;
+                    }
+                }
+                // Try group alternative 2: starred_expression
+                if (elem == null)
+                {
+                    _position = _group_mark_elem;
+                    GeneratedExpr? _group_alt1_elem_item0 = StarredExpression();
+                    if (_group_alt1_elem_item0 != null)
+                    {
+                        elem = _group_alt1_elem_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_elem;
+                    }
+                }
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_46
+        private GeneratedExprSeq? _Gather_46()
+        {
+            int _mark = _position;
+            GeneratedExprSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Group: (slice | starred_expression)
+                GeneratedExpr? elem = null;
+                int _group_mark_elem = _position;
+                // Try group alternative 1: slice
+                {
+                    _position = _group_mark_elem;
+                    GeneratedExpr? _group_alt0_elem_item0 = Slice();
+                    if (_group_alt0_elem_item0 != null)
+                    {
+                        elem = _group_alt0_elem_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_elem;
+                    }
+                }
+                // Try group alternative 2: starred_expression
+                if (elem == null)
+                {
+                    _position = _group_mark_elem;
+                    GeneratedExpr? _group_alt1_elem_item0 = StarredExpression();
+                    if (_group_alt1_elem_item0 != null)
+                    {
+                        elem = _group_alt1_elem_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_elem;
+                    }
+                }
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_45
+                var seq = _Loop0_45();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedExprSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_56
+        private GeneratedSeq? _Loop0_56()
+        {
+            var _items = new GeneratedSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Call rule: double_starred_kvpair
+                var elem = DoubleStarredKvpair();
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_57
+        private GeneratedSeq? _Gather_57()
+        {
+            int _mark = _position;
+            GeneratedSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Call rule: double_starred_kvpair
+                var elem = DoubleStarredKvpair();
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_56
+                var seq = _Loop0_56();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_61
+        private GeneratedExprSeq? _Loop0_61()
+        {
+            var _items = new GeneratedExprSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Group: (starred_expression | (assignment_expression | expression !':=') !'=')
+                GeneratedExpr? elem = null;
+                int _group_mark_elem = _position;
+                // Try group alternative 1: starred_expression
+                {
+                    _position = _group_mark_elem;
+                    GeneratedExpr? _group_alt0_elem_item0 = StarredExpression();
+                    if (_group_alt0_elem_item0 != null)
+                    {
+                        elem = _group_alt0_elem_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_elem;
+                    }
+                }
+                // Try group alternative 2: (assignment_expression | expression !':=') !'='
+                if (elem == null)
+                {
+                    _position = _group_mark_elem;
+                    // Group: (assignment_expression | expression !':=')
+                    GeneratedExpr? _group_alt1_elem_item0 = null;
+                    int _group_mark__group_alt1_elem_item0 = _position;
+                    // Try group alternative 1: assignment_expression
+                    {
+                        _position = _group_mark__group_alt1_elem_item0;
+                        GeneratedExpr? _group_alt0__group_alt1_elem_item0_item0 = AssignmentExpression();
+                        if (_group_alt0__group_alt1_elem_item0_item0 != null)
+                        {
+                            _group_alt1_elem_item0 = _group_alt0__group_alt1_elem_item0_item0;
+                        }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__group_alt1_elem_item0;
+                        }
+                    }
+                    // Try group alternative 2: expression !':='
+                    if (_group_alt1_elem_item0 == null)
+                    {
+                        _position = _group_mark__group_alt1_elem_item0;
+                        GeneratedExpr? _group_alt1__group_alt1_elem_item0_item0;
+                        if (
+                            (_group_alt1__group_alt1_elem_item0_item0 = Expression()) != null &&
+    CurrentToken?.Value != ":="
+                        )
+                        {
+                            _group_alt1_elem_item0 = _group_alt1__group_alt1_elem_item0_item0;
+                        }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__group_alt1_elem_item0;
+                        }
+                    }
+                    if (_group_alt1_elem_item0 != null)
+                    {
+                        // Negative lookahead: !'='
+                        if (CurrentToken?.Value == "=")
+                        {
+                            _position = _group_mark_elem;
+                            _group_alt1_elem_item0 = null;  // Lookahead failed
+                        }
+                    }
+                    if (_group_alt1_elem_item0 != null)
+                    {
+                        elem = _group_alt1_elem_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_elem;
+                    }
+                }
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_62
+        private GeneratedExprSeq? _Gather_62()
+        {
+            int _mark = _position;
+            GeneratedExprSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Group: (starred_expression | (assignment_expression | expression !':=') !'=')
+                GeneratedExpr? elem = null;
+                int _group_mark_elem = _position;
+                // Try group alternative 1: starred_expression
+                {
+                    _position = _group_mark_elem;
+                    GeneratedExpr? _group_alt0_elem_item0 = StarredExpression();
+                    if (_group_alt0_elem_item0 != null)
+                    {
+                        elem = _group_alt0_elem_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_elem;
+                    }
+                }
+                // Try group alternative 2: (assignment_expression | expression !':=') !'='
+                if (elem == null)
+                {
+                    _position = _group_mark_elem;
+                    // Group: (assignment_expression | expression !':=')
+                    GeneratedExpr? _group_alt1_elem_item0 = null;
+                    int _group_mark__group_alt1_elem_item0 = _position;
+                    // Try group alternative 1: assignment_expression
+                    {
+                        _position = _group_mark__group_alt1_elem_item0;
+                        GeneratedExpr? _group_alt0__group_alt1_elem_item0_item0 = AssignmentExpression();
+                        if (_group_alt0__group_alt1_elem_item0_item0 != null)
+                        {
+                            _group_alt1_elem_item0 = _group_alt0__group_alt1_elem_item0_item0;
+                        }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__group_alt1_elem_item0;
+                        }
+                    }
+                    // Try group alternative 2: expression !':='
+                    if (_group_alt1_elem_item0 == null)
+                    {
+                        _position = _group_mark__group_alt1_elem_item0;
+                        GeneratedExpr? _group_alt1__group_alt1_elem_item0_item0;
+                        if (
+                            (_group_alt1__group_alt1_elem_item0_item0 = Expression()) != null &&
+    CurrentToken?.Value != ":="
+                        )
+                        {
+                            _group_alt1_elem_item0 = _group_alt1__group_alt1_elem_item0_item0;
+                        }
+                        else
+                        {
+                            // CPython 3.12: Group alternative failed, restore position
+                            _position = _group_mark__group_alt1_elem_item0;
+                        }
+                    }
+                    if (_group_alt1_elem_item0 != null)
+                    {
+                        // Negative lookahead: !'='
+                        if (CurrentToken?.Value == "=")
+                        {
+                            _position = _group_mark_elem;
+                            _group_alt1_elem_item0 = null;  // Lookahead failed
+                        }
+                    }
+                    if (_group_alt1_elem_item0 != null)
+                    {
+                        elem = _group_alt1_elem_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_elem;
+                    }
+                }
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_61
+                var seq = _Loop0_61();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedExprSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_63
+        private GeneratedKeywordOrStarredSeq? _Loop0_63()
+        {
+            var _items = new GeneratedKeywordOrStarredSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Call rule: kwarg_or_starred
+                var elem = KwargOrStarred();
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_64
+        private GeneratedKeywordOrStarredSeq? _Gather_64()
+        {
+            int _mark = _position;
+            GeneratedKeywordOrStarredSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Call rule: kwarg_or_starred
+                var elem = KwargOrStarred();
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_63
+                var seq = _Loop0_63();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedKeywordOrStarredSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_65
+        private GeneratedKeywordOrStarredSeq? _Loop0_65()
+        {
+            var _items = new GeneratedKeywordOrStarredSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Call rule: kwarg_or_double_starred
+                var elem = KwargOrDoubleStarred();
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_66
+        private GeneratedKeywordOrStarredSeq? _Gather_66()
+        {
+            int _mark = _position;
+            GeneratedKeywordOrStarredSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Call rule: kwarg_or_double_starred
+                var elem = KwargOrDoubleStarred();
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_65
+                var seq = _Loop0_65();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedKeywordOrStarredSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_68
+        private GeneratedExprSeq? _Loop0_68()
+        {
+            var _items = new GeneratedExprSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Call rule: star_target
+                var elem = StarTarget();
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_69
+        private GeneratedExprSeq? _Gather_69()
+        {
+            int _mark = _position;
+            GeneratedExprSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Call rule: star_target
+                var elem = StarTarget();
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_68
+                var seq = _Loop0_68();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedExprSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_71
+        private GeneratedExprSeq? _Loop0_71()
+        {
+            var _items = new GeneratedExprSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Call rule: del_target
+                var elem = DelTarget();
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_72
+        private GeneratedExprSeq? _Gather_72()
+        {
+            int _mark = _position;
+            GeneratedExprSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Call rule: del_target
+                var elem = DelTarget();
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_71
+                var seq = _Loop0_71();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedExprSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_73
+        private GeneratedExprSeq? _Loop0_73()
+        {
+            var _items = new GeneratedExprSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Call rule: expression
+                var elem = Expression();
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_74
+        private GeneratedExprSeq? _Gather_74()
+        {
+            int _mark = _position;
+            GeneratedExprSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Call rule: expression
+                var elem = Expression();
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_73
+                var seq = _Loop0_73();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedExprSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_75
+        private GeneratedExprSeq? _Loop0_75()
+        {
+            var _items = new GeneratedExprSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Group: (starred_expression !'=')
+                GeneratedExpr? elem = null;
+                int _group_mark_elem = _position;
+                // Try group alternative 1: starred_expression !'='
+                {
+                    _position = _group_mark_elem;
+                    GeneratedExpr? _group_alt0_elem_item0;
+                    if (
+                        (_group_alt0_elem_item0 = StarredExpression()) != null &&
+    CurrentToken?.Value != "="
+                    )
+                    {
+                        elem = _group_alt0_elem_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_elem;
+                    }
+                }
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_76
+        private GeneratedExprSeq? _Gather_76()
+        {
+            int _mark = _position;
+            GeneratedExprSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Group: (starred_expression !'=')
+                GeneratedExpr? elem = null;
+                int _group_mark_elem = _position;
+                // Try group alternative 1: starred_expression !'='
+                {
+                    _position = _group_mark_elem;
+                    GeneratedExpr? _group_alt0_elem_item0;
+                    if (
+                        (_group_alt0_elem_item0 = StarredExpression()) != null &&
+    CurrentToken?.Value != "="
+                    )
+                    {
+                        elem = _group_alt0_elem_item0;
+                    }
+                    else
+                    {
+                        // CPython 3.12: Group alternative failed, restore position
+                        _position = _group_mark_elem;
+                    }
+                }
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_75
+                var seq = _Loop0_75();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedExprSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_80
+        private GeneratedArgSeq? _Loop0_80()
+        {
+            var _items = new GeneratedArgSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Call rule: lambda_param
+                var elem = LambdaParam();
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_81
+        private GeneratedArgSeq? _Gather_81()
+        {
+            int _mark = _position;
+            GeneratedArgSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Call rule: lambda_param
+                var elem = LambdaParam();
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_80
+                var seq = _Loop0_80();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedArgSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_82
+        private GeneratedExprSeq? _Loop0_82()
+        {
+            var _items = new GeneratedExprSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Call rule: dotted_name
+                var elem = DottedName();
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_83
+        private GeneratedExprSeq? _Gather_83()
+        {
+            int _mark = _position;
+            GeneratedExprSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Call rule: dotted_name
+                var elem = DottedName();
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_82
+                var seq = _Loop0_82();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedExprSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
+        }
+
+        // CPython 3.12: Artificial rule _Loop0_84
+        private GeneratedExprSeq? _Loop0_84()
+        {
+            var _items = new GeneratedExprSeq();
+            int _loop_mark = _position;
+            while (true)
+            {
+                // Expect ','
+                var _item = Expect(",");
+                if (_item == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                // Group: ()
+                GeneratedAstNode? elem = null;
+                int _group_mark_elem = _position;
+                if (elem == null)
+                {
+                    _position = _loop_mark;
+                    break;
+                }
+                _items.Add(elem);
+                _loop_mark = _position;
+            }
+            return _items;
+        }
+
+        // CPython 3.12: Artificial rule _Gather_85
+        private GeneratedExprSeq? _Gather_85()
+        {
+            int _mark = _position;
+            GeneratedExprSeq? _res = null;
+
+            // Alternative 1
+            do
+            {
+                _position = _mark;
+
+                // CPython 3.12: Check error indicator before trying alternative
+                if (_pendingSyntaxError != null)
+                {
+                    _res = null;
+                    break;
+                }
+
+                // Group: ()
+                GeneratedAstNode? elem = null;
+                int _group_mark_elem = _position;
+                if (elem == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Call rule: _Loop0_84
+                var seq = _Loop0_84();
+                if (seq == null)
+                {
+                    _position = _mark;
+                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
+                    _res = null;
+                    break;  // Exit this alternative
+                }
+                // Action: _PyPegen_seq_insert_in_front(p, elem, seq)
+                _res = _PyPegen_seq_insert_in_front(elem, seq).Cast<GeneratedExprSeq>();
+                if (_res != null) goto done;
+            } while (false);
+
+            _res = null;
+            done:
+            return _res;
         }
 
 

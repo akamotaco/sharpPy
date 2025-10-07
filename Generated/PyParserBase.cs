@@ -130,73 +130,62 @@ namespace SharpPy.Generated
                 throw new StackOverflowException($"Maximum recursion depth exceeded in rule {ruleName}");
             }
 
+            // CPython 3.12: Check memoization first (like _PyPegen_is_memoized)
             var key = (_position, ruleName);
-
-            // Recursive call - return current seed
-            if (_lrCache.TryGetValue(key, out var lrEntry) && lrEntry.IsGrowing)
+            if (_lrCache.TryGetValue(key, out var lrEntry))
             {
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LR] {ruleName}: Memo HIT at pos={_position}, returning cached result, newPos={lrEntry.EndPos}");
+                #endif
                 _position = lrEntry.EndPos;
                 return lrEntry.Result;
             }
 
             _level++;
+            int _mark = _position;
+            int _resmark = _position;
+            GeneratedPtr _res = null;
+
             try
             {
-                #if DEBUG_PARSE_LOG
-                Console.WriteLine($"[LR] {ruleName}: Starting at pos={_position}, seeding with FAIL");
-                #endif
-                // SEED PHASE: Start with FAIL seed
-                _lrCache[key] = new LREntry { Result = null, EndPos = _position, IsGrowing = true };
-
-                // First attempt - base case should execute
-                var result = ruleFunc();
-                #if DEBUG_PARSE_LOG
-                Console.WriteLine($"[LR] {ruleName}: First attempt result={(result == null ? "null" : "not-null")}, pos={_position}");
-                #endif
-
-                if (result == null)
-                {
-                    // Real failure - base case also failed
-                    _lrCache.Remove(key);
-                    return null;
-                }
-
-                // GROWTH PHASE: Seed succeeded, now grow
-                GeneratedPtr lastResult = result;
-                int lastEndPos = _position;
-                _lrCache[key] = new LREntry { Result = result, EndPos = _position, IsGrowing = true };
-
+                // CPython 3.12: Growth loop
                 while (true)
                 {
+                    // Update memo with current result (like _PyPegen_update_memo)
+                    // Use _resmark (previous iteration's end position), not _position
+                    _lrCache[key] = new LREntry { Result = _res, EndPos = _resmark, IsGrowing = false };
+
                     #if DEBUG_PARSE_LOG
-                    Console.WriteLine($"[LR] {ruleName}: Growth attempt, resetting to pos={key.Item1}");
-                    #endif
-                    // Reset to start position for next growth attempt
-                    _position = key.Item1;
-                    var newResult = ruleFunc();
-                    #if DEBUG_PARSE_LOG
-                    Console.WriteLine($"[LR] {ruleName}: Growth result={(newResult == null ? "null" : "not-null")}, pos={_position}, lastEndPos={lastEndPos}");
+                    Console.WriteLine($"[LR] {ruleName}: Loop iteration, _mark={_mark}, _resmark={_resmark}");
                     #endif
 
-                    // Termination: no progress made
-                    if (newResult == null || _position <= lastEndPos)
+                    // Reset position and try to parse (like primary_raw)
+                    _position = _mark;
+                    var _raw = ruleFunc();
+
+                    // Check for progress
+                    if (_raw == null || _position <= _resmark)
                     {
                         #if DEBUG_PARSE_LOG
-                        Console.WriteLine($"[LR] {ruleName}: Terminating, returning lastResult at pos={lastEndPos}");
+                        Console.WriteLine($"[LR] {ruleName}: No progress, terminating. _raw={((_raw == null) ? "null" : "non-null")}, pos={_position}, _resmark={_resmark}");
                         #endif
-                        _position = lastEndPos;
-                        _lrCache.Remove(key);
-                        return lastResult;
+                        break;
                     }
 
+                    // Made progress - update and continue
                     #if DEBUG_PARSE_LOG
-                    Console.WriteLine($"[LR] {ruleName}: Growth succeeded, updating seed");
+                    Console.WriteLine($"[LR] {ruleName}: Progress made, _resmark {_resmark} -> {_position}");
                     #endif
-                    // Grow: update seed with new result
-                    lastResult = newResult;
-                    lastEndPos = _position;
-                    _lrCache[key] = new LREntry { Result = newResult, EndPos = _position, IsGrowing = true };
+                    _resmark = _position;
+                    _res = _raw;
                 }
+
+                // Restore final position
+                _position = _resmark;
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LR] {ruleName}: Returning _res at pos={_position}");
+                #endif
+                return _res;
             }
             finally
             {
@@ -295,6 +284,44 @@ namespace SharpPy.Generated
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// CPython 3.12: _PyPegen_is_memoized - Check if rule result is memoized
+        /// Used by left-recursive wrapper for growth loop
+        /// </summary>
+        protected bool TryGetMemoized(string ruleName, out GeneratedPtr result)
+        {
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[MEMO-GET] {ruleName} at pos={_position}");
+            #endif
+            var key = (_position, ruleName);
+            if (_lrCache.TryGetValue(key, out var entry))
+            {
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[MEMO-GET] {ruleName} HIT: result={(entry.Result != null ? "non-null" : "null")}, endPos={entry.EndPos}");
+                #endif
+                _position = entry.EndPos;
+                result = entry.Result;
+                return true;
+            }
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[MEMO-GET] {ruleName} MISS");
+            #endif
+            result = null;
+            return false;
+        }
+
+        /// <summary>
+        /// CPython 3.12: _PyPegen_update_memo - Update memoization for left-recursive growth
+        /// </summary>
+        protected void UpdateMemoized(string ruleName, int mark, GeneratedPtr result, int endPos)
+        {
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[MEMO-UPDATE] {ruleName} at mark={mark}: result={(result != null ? "non-null" : "null")}, endPos={endPos}");
+            #endif
+            var key = (mark, ruleName);
+            _lrCache[key] = new LREntry { Result = result, EndPos = endPos, IsGrowing = false };
         }
 
         /// <summary>
@@ -2055,6 +2082,78 @@ namespace SharpPy.Generated
             return new GeneratedName { Id = "_", Ctx = GeneratedStore.Instance };
         }
 
+        // CPython: _PyPegen_keyword_or_starred
+        // Construct a KeywordOrStarred
+        public static GeneratedKeywordOrStarred _PyPegen_keyword_or_starred(object element, int is_keyword)
+        {
+            return new GeneratedKeywordOrStarred
+            {
+                Keyword = is_keyword != 0 ? element as GeneratedKeyword : null,
+                Starred = is_keyword == 0 ? element as GeneratedExpr : null
+            };
+        }
+
+        // CPython: _PyPegen_collect_call_seqs
+        // Collect arguments and keywords from call sequences
+        public static GeneratedExpr _PyPegen_collect_call_seqs(
+            GeneratedExprSeq a,
+            GeneratedSeq? b,
+            int lineno, int col_offset, int end_lineno, int end_col_offset)
+        {
+            int args_len = a.Count;
+            int total_len = args_len;
+
+            if (b == null)
+            {
+                return new GeneratedCall
+                {
+                    Func = _PyPegen_dummy_name(),
+                    Args = a,
+                    Keywords = null,
+                    LineNo = lineno,
+                    ColOffset = col_offset,
+                    EndLineNo = end_lineno,
+                    EndColOffset = end_col_offset
+                };
+            }
+
+            var starreds = _PyPegen_seq_extract_starred_exprs(b);
+            var keywords = _PyPegen_seq_delete_starred_exprs(b);
+
+            if (starreds != null)
+            {
+                total_len += starreds.Count;
+            }
+
+            var args = new GeneratedExprSeq();
+
+            // Copy args from 'a'
+            for (int i = 0; i < args_len; i++)
+            {
+                args.Add(a[i]);
+            }
+
+            // Append starred expressions
+            if (starreds != null)
+            {
+                for (int i = 0; i < starreds.Count; i++)
+                {
+                    args.Add(starreds[i]);
+                }
+            }
+
+            return new GeneratedCall
+            {
+                Func = _PyPegen_dummy_name(),
+                Args = args,
+                Keywords = keywords,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno,
+                EndColOffset = end_col_offset
+            };
+        }
+
         // CPython: _PyPegen_get_cmpops
         // Extract comparison operators from (cmpop, expr) pairs
         public static GeneratedCmpopSeq _PyPegen_get_cmpops(GeneratedSeq pairs)
@@ -2065,11 +2164,11 @@ namespace SharpPy.Generated
         }
 
         // Overload for AstNodeSeq
+        // CPython 3.12: Type cast with shared reference (no copy)
         public static GeneratedCmpopSeq _PyPegen_get_cmpops(GeneratedAstNodeSeq pairs)
         {
-            var seq = new GeneratedSeq();
-            seq.AddRange(pairs);
-            return _PyPegen_get_cmpops(seq);
+            // CPython: implicit cast shares same PyObject** array
+            return _PyPegen_get_cmpops(pairs.Cast<GeneratedSeq>());
         }
 
         // CPython: _PyPegen_get_exprs
@@ -2082,11 +2181,11 @@ namespace SharpPy.Generated
         }
 
         // Overload for AstNodeSeq
+        // CPython 3.12: Type cast with shared reference (no copy)
         public static GeneratedExprSeq _PyPegen_get_exprs(GeneratedAstNodeSeq pairs)
         {
-            var seq = new GeneratedSeq();
-            seq.AddRange(pairs);
-            return _PyPegen_get_exprs(seq);
+            // CPython: implicit cast shares same PyObject** array
+            return _PyPegen_get_exprs(pairs.Cast<GeneratedSeq>());
         }
 
         // CPython: _PyPegen_key_value_pair
@@ -2157,34 +2256,38 @@ namespace SharpPy.Generated
         }
 
         // Overload for MixedSeq
+        // CPython 3.12: Type cast shares same underlying array (no copy)
         public static GeneratedExprSeq _PyPegen_seq_extract_starred_exprs(GeneratedSeq seq)
         {
-            var kwSeq = new GeneratedKeywordOrStarredSeq();
-            kwSeq.AddRange(seq.Cast<GeneratedKeywordOrStarred>());
-            return _PyPegen_seq_extract_starred_exprs(kwSeq);
+            // CPython: implicit cast shares same PyObject** array
+            // C#: Cast<T>() shares same List<GeneratedPtr> via _initialize
+            return _PyPegen_seq_extract_starred_exprs(seq.Cast<GeneratedKeywordOrStarredSeq>());
         }
 
+        // CPython 3.12: Type cast with shared reference (no copy)
         public static GeneratedKeywordSeq _PyPegen_seq_delete_starred_exprs(GeneratedSeq seq)
         {
-            var kwSeq = new GeneratedKeywordOrStarredSeq();
-            kwSeq.AddRange(seq.Cast<GeneratedKeywordOrStarred>());
-            return _PyPegen_seq_delete_starred_exprs(kwSeq);
+            // CPython: implicit cast shares same PyObject** array
+            // C#: Cast<T>() shares same List<GeneratedPtr> via _initialize
+            return _PyPegen_seq_delete_starred_exprs(seq.Cast<GeneratedKeywordOrStarredSeq>());
         }
 
         // Conversion: GeneratedAstNodeSeq to GeneratedSeq
+        // CPython 3.12: Type cast with shared reference (no copy)
         public static GeneratedSeq ToMixedSeq(GeneratedAstNodeSeq inputSeq)
         {
-            var seq = new GeneratedSeq();
-            seq.AddRange(inputSeq.ToRawList());
-            return seq;
+            // CPython: implicit cast shares same PyObject** array
+            // C#: Cast<T>() shares same List<GeneratedPtr> via _initialize
+            return inputSeq.Cast<GeneratedSeq>();
         }
 
         // Conversion: GeneratedKeywordOrStarredSeq to GeneratedSeq
+        // CPython 3.12: Type cast with shared reference (no copy)
         public static GeneratedSeq ToMixedSeq(GeneratedKeywordOrStarredSeq inputSeq)
         {
-            var seq = new GeneratedSeq();
-            seq.AddRange(inputSeq.ToRawList());
-            return seq;
+            // CPython: implicit cast shares same PyObject** array
+            // C#: Cast<T>() shares same List<GeneratedPtr> via _initialize
+            return inputSeq.Cast<GeneratedSeq>();
         }
 
         // CPython: _PyPegen_check_legacy_stmt

@@ -17,6 +17,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private readonly bool _insideRepeater;
         private readonly bool _insideOptional;
         private readonly bool _insideLoopRule;  // CPython 3.12: inside loop rule function
+        private readonly bool _insideGroup;  // CPython 3.12: inside group alternative (no break statements)
+        private readonly string _contextMark;  // CPython 3.12: Context-specific mark variable for failures
         private static int _lookaheadCounter = 0;
 
         public ItemCodeGenerator(
@@ -26,7 +28,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             string labelPrefix,
             bool insideRepeater = false,
             bool insideOptional = false,
-            bool insideLoopRule = false)
+            bool insideLoopRule = false,
+            bool insideGroup = false,
+            string contextMark = null)
         {
             _parent = parent ?? throw new ArgumentNullException(nameof(parent));
             _item = item ?? throw new ArgumentNullException(nameof(item));
@@ -35,6 +39,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             _insideRepeater = insideRepeater;
             _insideOptional = insideOptional;
             _insideLoopRule = insideLoopRule;
+            _insideGroup = insideGroup;
+            _contextMark = contextMark ?? "_mark";  // Default to _mark if not specified
         }
 
         /// <summary>
@@ -179,7 +185,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             else
             {
                 // Rule reference - call method
-                var methodName = _parent.ToCSharpMethodName(ruleRef.Name);
+                // CPython 3.12: Artificial rules (_Loop0_, _Gather_, _Loop1_, _Tmp_) keep their names
+                bool isArtificialRule = ruleRef.Name.StartsWith("_Loop0_") ||
+                                        ruleRef.Name.StartsWith("_Loop1_") ||
+                                        ruleRef.Name.StartsWith("_Gather_") ||
+                                        ruleRef.Name.StartsWith("_Tmp_");
+                var methodName = isArtificialRule ? ruleRef.Name : _parent.ToCSharpMethodName(ruleRef.Name);
                 bool isInvalidRule = ruleRef.Name.StartsWith("invalid_", StringComparison.OrdinalIgnoreCase);
 
                 _parent.WriteLine($"// Call rule: {ruleRef.Name}");
@@ -266,7 +277,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // Generate code for the inner expression - it will declare its own variable
             var innerVarName = $"_opt_{_varName}";
             var innerItem = new Item { Atom = opt.Expression, Name = null };
-            var innerGen = new ItemCodeGenerator(_parent, innerItem, innerVarName, _labelPrefix, insideRepeater: false, insideOptional: true);
+            // CPython 3.12: Pass context mark and insideGroup to nested constructs
+            var innerGen = new ItemCodeGenerator(_parent, innerItem, innerVarName, _labelPrefix,
+                insideRepeater: false, insideOptional: true, insideLoopRule: _insideLoopRule, insideGroup: _insideGroup, contextMark: _contextMark);
             innerGen.Generate();
 
             // Determine type of optional result based on inner expression
@@ -388,8 +401,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
         /// </summary>
         private void GenerateGather(Gather gather)
         {
-            // CPython 3.12: Gather collects items separated by a separator
-            // Example: ','.expression+ means one or more expressions separated by ','
+            // CPython 3.12: Gather patterns generate artificial helper rules
+            // Example: ','.expression+ generates _gather_N and _loop0_N helper rules
+            // This matches CPython's artifical_rule_from_gather mechanism
             _parent.WriteLine($"// Gather: {gather.Separator}.{gather.Item}{(gather.IsOneOrMore ? "+" : "*")}");
 
             // Use type annotation if available, otherwise infer
@@ -403,108 +417,28 @@ namespace SharpPy.PegGenerator.CodeGenerator
             {
                 seqType = DetermineSequenceType(gather.Item);
             }
-            _parent.WriteLine($"var {_varName} = new {seqType}();");
 
-            // CPython 3.12: Infer item type from sequence type
-            // Example: GeneratedExprSeq → GeneratedExpr
-            string expectedItemType = InferItemTypeFromSeqType(seqType);
+            // CPython 3.12: Call artificial_rule_from_gather to get/create helper rule
+            string gatherRuleName = _parent.ArtificialRuleFromGather(gather, seqType);
 
-            // Check if item is a token that needs conversion (NAME → expr_ty)
-            bool isTokenToExpr = gather.Item is StringLiteral tokenLiteral &&
-                                 tokenLiteral.Value.ToUpper() == "NAME" &&
-                                 (expectedItemType == "GeneratedExpr" || expectedItemType == "GeneratedExpr?");
+            // CPython 3.12: Simply call the generated gather rule
+            _parent.WriteLine($"var {_varName} = {gatherRuleName}();");
 
-            // First item (no separator before it)
-            _parent.WriteLine($"// Parse first item (no separator)");
-            var firstItemVarName = $"_first_{_varName}";
-            var firstItemGen = new ItemCodeGenerator(_parent, new Item { Atom = gather.Item, Name = null }, firstItemVarName, _labelPrefix, insideRepeater: true);
-            firstItemGen.Generate();
-
-            // CPython 3.12: Convert token to AST node if necessary (like _PyPegen_name_token)
-            string convertedVarName = firstItemVarName;
-            if (isTokenToExpr)
-            {
-                convertedVarName = $"_converted_{firstItemVarName}";
-                _parent.WriteLine($"var {convertedVarName} = NameToken({firstItemVarName});  // CPython: _PyPegen_name_token");
-            }
-
+            // CPython 3.12: gather+ requires at least one element, gather* allows empty
             if (gather.IsOneOrMore)
             {
-                // For +: First item is required
-                _parent.WriteLine($"if ({firstItemVarName} == null)");
+                // For +: Result is required (gather rule returns null if no first element)
+                _parent.WriteLine($"if ({_varName} == null)");
                 _parent.WriteLine("{");
                 _parent.Indent();
-                _parent.WriteLine($"_position = _mark;");
+                _parent.WriteLine($"_position = {_contextMark};");
                 _parent.WriteLine("_pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails");
                 _parent.WriteLine($"_res = null;");
                 _parent.WriteLine("break;  // Exit this alternative");
                 _parent.Dedent();
                 _parent.WriteLine("}");
-                _parent.WriteLine($"{_varName}.Add({convertedVarName});");
             }
-            else
-            {
-                // For *: First item is optional
-                _parent.WriteLine($"if ({firstItemVarName} != null)");
-                _parent.WriteLine("{");
-                _parent.Indent();
-                _parent.WriteLine($"{_varName}.Add({convertedVarName});");
-                _parent.Dedent();
-                _parent.WriteLine("}");
-            }
-
-            // Loop for remaining items (separator + item)
-            _parent.WriteLine($"// Parse remaining items (separator + item)");
-            _parent.WriteLine($"while (true)");
-            _parent.WriteLine("{");
-            _parent.Indent();
-            _parent.WriteLine($"int _loop_mark = _position;");
-
-            // Parse separator
-            var sepVarName = $"_sep_{_varName}";
-            var sepItemGen = new ItemCodeGenerator(_parent, new Item { Atom = gather.Separator, Name = null }, sepVarName, _labelPrefix);
-            sepItemGen.Generate();
-
-            _parent.WriteLine($"if ({sepVarName} == null)");
-            _parent.WriteLine("{");
-            _parent.Indent();
-            _parent.WriteLine($"_position = _loop_mark;");
-            _parent.WriteLine("break; // No more separators");
-            _parent.Dedent();
-            _parent.WriteLine("}");
-
-            // Parse item
-            var itemVarName = $"_loop_elem_{_varName}";
-            var itemGen = new ItemCodeGenerator(_parent, new Item { Atom = gather.Item, Name = null }, itemVarName, _labelPrefix, insideRepeater: true);
-            itemGen.Generate();
-
-            _parent.WriteLine($"if ({itemVarName} == null)");
-            _parent.WriteLine("{");
-            _parent.Indent();
-            _parent.WriteLine($"_position = _loop_mark; // Reset to before separator");
-            _parent.WriteLine("break; // No item after separator");
-            _parent.Dedent();
-            _parent.WriteLine("}");
-
-            // CPython 3.12: Convert token to AST node if necessary (loop items)
-            string convertedItemVarName = itemVarName;
-            if (isTokenToExpr)
-            {
-                convertedItemVarName = $"_converted_{itemVarName}";
-                _parent.WriteLine($"var {convertedItemVarName} = NameToken({itemVarName});  // CPython: _PyPegen_name_token");
-            }
-
-            // Add to list
-            _parent.WriteLine($"{_varName}.Add({convertedItemVarName});");
-
-            _parent.Dedent();
-            _parent.WriteLine("}");
-
-            if (!gather.IsOneOrMore)
-            {
-                // For *, the list can be empty, which is already handled
-                _parent.WriteLine($"// Collected {_varName}.Count items (may be 0)");
-            }
+            // For *, gather rule handles empty sequence correctly
         }
 
         private void GenerateGroup(Group grp)
@@ -619,12 +553,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // If all alternatives failed, this group fails
             // UNLESS we're inside an Optional - it will handle the null
             // OR inside a loop rule - the loop will handle the null check
-            if (!_insideOptional && !_insideLoopRule)
+            // OR inside a repeater (gather/loop) - the repeater will handle it
+            // OR inside a group - the parent group will handle it
+            if (!_insideOptional && !_insideLoopRule && !_insideRepeater && !_insideGroup)
             {
                 _parent.WriteLine($"if ({_varName} == null)");
                 _parent.WriteLine("{");
                 _parent.Indent();
-                _parent.WriteLine($"_position = _mark;");
+                _parent.WriteLine($"_position = {_contextMark};");  // Use context mark
                 _parent.WriteLine("_pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails");
                 _parent.WriteLine($"_res = null;");
                 _parent.WriteLine("break;  // Exit this alternative");
@@ -635,31 +571,326 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
         private void GenerateGroupAlternativeItems(Alternative alt, string altVarName, int altIndex)
         {
-            // CPython 3.12: Generate items in nested if structure
-            // Each item check is wrapped in "if (prev != null)"
+            // CPython 3.12: Generate items in nested if structure OR && conditions
+            // If items include lookaheads, use && pattern like CPython
             var items = alt.Items.ToList();
             if (items.Count == 0)
             {
                 return;
             }
 
+            // Check if we can use CPython && pattern:
+            // - Must have lookahead
+            // - Value-producing items must be simple (RuleRef or StringLiteral, not nested Groups)
+            bool hasLookahead = items.Any(item => item.Atom is PositiveLookahead || item.Atom is NegativeLookahead);
+            bool hasComplexItem = items.Any(item =>
+                !(item.Atom is PositiveLookahead) &&
+                !(item.Atom is NegativeLookahead) &&
+                !(item.Atom is RuleRef) &&
+                !(item.Atom is StringLiteral));
+
+            if (hasLookahead && !hasComplexItem)
+            {
+                // CPython pattern: use && conditions for simple items with lookaheads
+                GenerateGroupAlternativeWithLookaheads(alt, altVarName, altIndex, items);
+            }
+            else
+            {
+                // Original pattern: nested if blocks (handles all cases including nested groups)
+                GenerateGroupAlternativeWithoutLookaheads(alt, altVarName, altIndex, items);
+            }
+        }
+
+        private void GenerateGroupAlternativeWithoutLookaheads(Alternative alt, string altVarName, int altIndex, List<Item> items)
+        {
+            // CPython 3.12: Generate items in nested if structure
+            // For lookaheads, we need special handling to ensure they can fail the alternative
+
+            string groupMark = $"_group_mark_{_varName}";
+
             // Generate first item
             var firstItemVar = $"{altVarName}_item0";
-            GenerateGroupItem(items[0], firstItemVar, 0, alt.Items.Count);
+            var firstAtom = items[0].Atom;
 
-            // Generate remaining items in nested if blocks
-            for (int i = 1; i < items.Count; i++)
+            if (firstAtom is PositiveLookahead || firstAtom is NegativeLookahead)
             {
-                var prevItemVar = $"{altVarName}_item{i - 1}";
-                var currItemVar = $"{altVarName}_item{i}";
-
-                _parent.WriteLine($"if ({prevItemVar} != null)");
-                _parent.WriteLine("{");
-                _parent.Indent();
-
-                GenerateGroupItem(items[i], currItemVar, i, items.Count);
+                // First item is lookahead - generate it inline
+                GenerateInlineLookahead(items[0], groupMark);
+            }
+            else
+            {
+                GenerateGroupItem(items[0], firstItemVar, 0, alt.Items.Count);
             }
 
+            // Generate remaining items in nested if blocks
+            int openBraceCount = 0;
+            for (int i = 1; i < items.Count; i++)
+            {
+                var atom = items[i].Atom;
+
+                if (atom is PositiveLookahead || atom is NegativeLookahead)
+                {
+                    // Lookahead item - check previous item first, then lookahead
+                    var prevItemVar = $"{altVarName}_item{i - 1}";
+                    _parent.WriteLine($"if ({prevItemVar} != null)");
+                    _parent.WriteLine("{");
+                    _parent.Indent();
+
+                    // Generate lookahead inline - if it fails, nullify previous item
+                    GenerateInlineLookaheadWithNullify(items[i], groupMark, prevItemVar);
+
+                    _parent.Dedent();
+                    _parent.WriteLine("}");
+                    // Lookahead closes its own block, doesn't contribute to open brace count
+                }
+                else
+                {
+                    // Regular item - opens a brace that will be closed by completion logic
+                    var prevItemVar = $"{altVarName}_item{i - 1}";
+                    var currItemVar = $"{altVarName}_item{i}";
+
+                    _parent.WriteLine($"if ({prevItemVar} != null)");
+                    _parent.WriteLine("{");
+                    _parent.Indent();
+
+                    GenerateGroupItem(items[i], currItemVar, i, alt.Items.Count);
+                    openBraceCount++;
+                }
+            }
+
+            // Store the number of braces to close
+            GenerateGroupAlternativeItemsCompletion(alt, altVarName, items, openBraceCount);
+        }
+
+        private void GenerateInlineLookahead(Item lookaheadItem, string groupMark)
+        {
+            // Generate lookahead test that can fail the group alternative
+            var atom = lookaheadItem.Atom;
+
+            if (atom is NegativeLookahead nla)
+            {
+                if (nla.Expression is StringLiteral strLit)
+                {
+                    var escaped = _parent.EscapeString(strLit.Value);
+                    _parent.WriteLine($"// Negative lookahead: !'{escaped}'");
+                    _parent.WriteLine($"if (CurrentToken?.Value == \"{escaped}\")");
+                    _parent.WriteLine("{");
+                    _parent.Indent();
+                    _parent.WriteLine($"_position = {groupMark};");
+                    _parent.WriteLine($"// Lookahead failed - alternative fails");
+                    _parent.Dedent();
+                    _parent.WriteLine("}");
+                }
+            }
+            else if (atom is PositiveLookahead pla)
+            {
+                if (pla.Expression is StringLiteral strLit)
+                {
+                    var escaped = _parent.EscapeString(strLit.Value);
+                    _parent.WriteLine($"// Positive lookahead: &'{escaped}'");
+                    _parent.WriteLine($"if (CurrentToken?.Value != \"{escaped}\")");
+                    _parent.WriteLine("{");
+                    _parent.Indent();
+                    _parent.WriteLine($"_position = {groupMark};");
+                    _parent.WriteLine($"// Lookahead failed - alternative fails");
+                    _parent.Dedent();
+                    _parent.WriteLine("}");
+                }
+            }
+        }
+
+        private void GenerateInlineLookaheadWithNullify(Item lookaheadItem, string groupMark, string prevItemVar)
+        {
+            // Generate lookahead test that nullifies previous item if it fails
+            var atom = lookaheadItem.Atom;
+
+            if (atom is NegativeLookahead nla)
+            {
+                if (nla.Expression is StringLiteral strLit)
+                {
+                    var escaped = _parent.EscapeString(strLit.Value);
+                    _parent.WriteLine($"// Negative lookahead: !'{escaped}'");
+                    _parent.WriteLine($"if (CurrentToken?.Value == \"{escaped}\")");
+                    _parent.WriteLine("{");
+                    _parent.Indent();
+                    _parent.WriteLine($"_position = {groupMark};");
+                    _parent.WriteLine($"{prevItemVar} = null;  // Lookahead failed");
+                    _parent.Dedent();
+                    _parent.WriteLine("}");
+                }
+            }
+            else if (atom is PositiveLookahead pla)
+            {
+                if (pla.Expression is StringLiteral strLit)
+                {
+                    var escaped = _parent.EscapeString(strLit.Value);
+                    _parent.WriteLine($"// Positive lookahead: &'{escaped}'");
+                    _parent.WriteLine($"if (CurrentToken?.Value != \"{escaped}\")");
+                    _parent.WriteLine("{");
+                    _parent.Indent();
+                    _parent.WriteLine($"_position = {groupMark};");
+                    _parent.WriteLine($"{prevItemVar} = null;  // Lookahead failed");
+                    _parent.Dedent();
+                    _parent.WriteLine("}");
+                }
+            }
+        }
+
+        private void GenerateGroupAlternativeWithLookaheads(Alternative alt, string altVarName, int altIndex, List<Item> items)
+        {
+            // CPython 3.12 pattern: if ((item1 = Expr()) != null && lookahead && ...)
+            // Generate all items in a single if condition with && operators
+
+            string groupVarName = altVarName;
+            var match = System.Text.RegularExpressions.Regex.Match(groupVarName, "^_group_alt\\d+_");
+            if (match.Success)
+            {
+                groupVarName = groupVarName.Substring(match.Length);
+            }
+            string groupMark = $"_group_mark_{_varName}";
+
+            // Build the compound condition
+            List<string> conditions = new List<string>();
+            List<string> itemVars = new List<string>();
+            int lastValueItemIndex = -1;
+
+            for (int i = 0; i < items.Count; i++)
+            {
+                var item = items[i];
+                var atom = item.Atom;
+
+                if (atom is PositiveLookahead pla)
+                {
+                    // Positive lookahead: check that pattern matches
+                    if (pla.Expression is StringLiteral strLit)
+                    {
+                        var escaped = _parent.EscapeString(strLit.Value);
+                        conditions.Add($"CurrentToken?.Value == \"{escaped}\"");
+                    }
+                    else if (pla.Expression is Group grp)
+                    {
+                        // Lookahead for multiple options: (a | b | c)
+                        var subConditions = new List<string>();
+                        foreach (var subAlt in grp.Alternatives)
+                        {
+                            if (subAlt.Items.Count == 1 && subAlt.Items[0].Atom is StringLiteral subLit)
+                            {
+                                var subEscaped = _parent.EscapeString(subLit.Value);
+                                subConditions.Add($"CurrentToken?.Value == \"{subEscaped}\"");
+                            }
+                        }
+                        if (subConditions.Any())
+                        {
+                            conditions.Add($"({string.Join(" || ", subConditions)})");
+                        }
+                    }
+                }
+                else if (atom is NegativeLookahead nla)
+                {
+                    // Negative lookahead: check that pattern does NOT match
+                    if (nla.Expression is StringLiteral strLit)
+                    {
+                        var escaped = _parent.EscapeString(strLit.Value);
+                        conditions.Add($"CurrentToken?.Value != \"{escaped}\"");
+                    }
+                    else if (nla.Expression is Group grp)
+                    {
+                        // Negative lookahead for multiple options: !(a | b | c) => NOT (a OR b OR c)
+                        var subConditions = new List<string>();
+                        foreach (var subAlt in grp.Alternatives)
+                        {
+                            if (subAlt.Items.Count == 1 && subAlt.Items[0].Atom is StringLiteral subLit)
+                            {
+                                var subEscaped = _parent.EscapeString(subLit.Value);
+                                subConditions.Add($"CurrentToken?.Value == \"{subEscaped}\"");
+                            }
+                        }
+                        if (subConditions.Any())
+                        {
+                            conditions.Add($"!({string.Join(" || ", subConditions)})");
+                        }
+                    }
+                }
+                else
+                {
+                    // Value-producing item
+                    lastValueItemIndex = i;
+                    var itemVar = $"{altVarName}_item{i}";
+                    itemVars.Add(itemVar);
+
+                    // Declare variable and add assignment condition
+                    string itemType = DetermineItemType(atom);
+                    _parent.WriteLine($"{itemType} {itemVar};");
+
+                    string assignmentCondition = GenerateItemAssignmentCondition(item, itemVar);
+                    conditions.Add(assignmentCondition);
+                }
+            }
+
+            // Generate the compound if statement
+            var combinedCondition = string.Join(" &&\n    ", conditions);
+            _parent.WriteLine($"if (");
+            _parent.Indent();
+            _parent.WriteLine(combinedCondition);
+            _parent.Dedent();
+            _parent.WriteLine($")");
+            _parent.WriteLine("{");
+            _parent.Indent();
+
+            // Assign the result (last value-producing item)
+            if (lastValueItemIndex >= 0)
+            {
+                var resultVar = $"{altVarName}_item{lastValueItemIndex}";
+                _parent.WriteLine($"{groupVarName} = {resultVar};");
+            }
+
+            _parent.Dedent();
+            _parent.WriteLine("}");
+            _parent.WriteLine($"else");
+            _parent.WriteLine("{");
+            _parent.Indent();
+            _parent.WriteLine($"// CPython 3.12: Group alternative failed, restore position");
+            _parent.WriteLine($"_position = {groupMark};");
+            _parent.Dedent();
+            _parent.WriteLine("}");
+        }
+
+        private string GenerateItemAssignmentCondition(Item item, string varName)
+        {
+            // Generate inline assignment that can be used in if condition
+            // Returns: "(varName = Expression()) != null"
+            var atom = item.Atom;
+
+            switch (atom)
+            {
+                case RuleRef ruleRef:
+                    var isToken = char.IsUpper(ruleRef.Name[0]);
+                    if (isToken)
+                    {
+                        return $"({varName} = ExpectToken(GeneratedTokenType.{ruleRef.Name.ToUpper()})) != null";
+                    }
+                    else
+                    {
+                        var methodName = _parent.ToCSharpMethodName(ruleRef.Name);
+                        return $"({varName} = {methodName}()) != null";
+                    }
+
+                case StringLiteral lit:
+                    var escaped = _parent.EscapeString(lit.Value);
+                    return $"({varName} = Expect(\"{escaped}\")) != null";
+
+                case Group grp:
+                    // For nested groups, we need to call the parsing code
+                    // This is complex - for now, fall back to separate variable
+                    return $"({varName} = /* TODO: nested group */) != null";
+
+                default:
+                    return $"({varName} = /* TODO: {atom.GetType().Name} */) != null";
+            }
+        }
+
+        private void GenerateGroupAlternativeItemsCompletion(Alternative alt, string altVarName, List<Item> items, int openBraceCount)
+        {
             // After last item, assign result and close all if blocks
             // CPython 3.12: Find the last item that produces a value (not a lookahead)
             int lastValueItemIndex = items.Count - 1;
@@ -740,8 +971,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             _parent.Dedent();
             _parent.WriteLine("}");
 
-            // Close nested if blocks (one for each item after first)
-            for (int i = 1; i < items.Count; i++)
+            // Close nested if blocks - use the count passed from caller
+            // This accounts for lookaheads which close their own blocks
+            for (int i = 0; i < openBraceCount; i++)
             {
                 _parent.Dedent();
                 _parent.WriteLine("}");
@@ -751,6 +983,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GenerateGroupItem(Item item, string varName, int itemIndex, int totalItems)
         {
             // Generate item parsing code without goto (CPython pattern for groups)
+            // CPython 3.12: Pass group mark as context mark for nested lookaheads
+            string groupMark = $"_group_mark_{_varName}";
+
             switch (item.Atom)
             {
                 case RuleRef ruleRef:
@@ -774,22 +1009,18 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
                 case PositiveLookahead pla:
                 case NegativeLookahead nla:
-                    // Lookahead should not appear as group item that produces a value
-                    // But if it does, generate the lookahead test and set result to true/false
-                    _parent.WriteLine($"// WARNING: Lookahead in value position - this is unusual");
-                    // CPython 3.12: Pass along _insideLoopRule flag
-                    var lookaheadGen = new ItemCodeGenerator(_parent, item, $"_lookahead_{varName}", "group_dummy",
-                        insideRepeater: false, insideOptional: false, insideLoopRule: _insideLoopRule);
-                    lookaheadGen.Generate();
-                    _parent.WriteLine($"bool {varName} = true; // Lookahead succeeded");
+                    // CPython 3.12: Lookahead as group item (e.g., "expression !':='")
+                    // Lookaheads don't produce values, so we generate them inline without variable
+                    // They should be checked as part of the previous item's condition
+                    // This is handled in GenerateGroupAlternativeItems
                     break;
 
                 default:
                     // For complex atoms (Optional, ZeroOrMore, OneOrMore, Group, etc.)
                     // These generate their own variable declarations
-                    // CPython 3.12: Pass along _insideLoopRule flag
+                    // CPython 3.12: Pass insideGroup=true so nested lookaheads don't use break
                     var itemGen = new ItemCodeGenerator(_parent, item, varName, "group_dummy",
-                        insideRepeater: false, insideOptional: false, insideLoopRule: _insideLoopRule);
+                        insideRepeater: false, insideOptional: false, insideLoopRule: _insideLoopRule, insideGroup: true, contextMark: groupMark);
                     itemGen.Generate();
                     // Note: ItemCodeGenerator.Generate() will declare the variable with appropriate type
                     break;
@@ -821,14 +1052,18 @@ namespace SharpPy.PegGenerator.CodeGenerator
             _parent.WriteLine($"}}");
             _parent.WriteLine($"_position = {markVar}; // Restore position after lookahead");
 
-            // If lookahead failed, fail this alternative
+            // CPython 3.12: If lookahead failed, fail using context-appropriate mark
+            // Inside group: don't use break, just set position and let group's if-else handle it
             _parent.WriteLine($"if (!{testVar})");
             _parent.WriteLine($"{{");
             _parent.Indent();
-            _parent.WriteLine($"_position = _mark;");
+            _parent.WriteLine($"_position = {_contextMark};");
                 _parent.WriteLine("_pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails");
-            _parent.WriteLine($"_res = null;");
-            _parent.WriteLine($"break;  // Exit this alternative");
+            if (!_insideGroup)
+            {
+                _parent.WriteLine($"_res = null;");
+                _parent.WriteLine($"break;  // Exit this alternative");
+            }
             _parent.Dedent();
             _parent.WriteLine($"}}");
         }
@@ -870,15 +1105,20 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     break;
             }
 
-            // If the expression matched, this alternative must fail
+            // CPython 3.12: If the expression matched, fail using context-appropriate mark
+            // Inside group: don't use break, just set position and let group's if-else handle it
+            // Inside gather loop/top-level: use break to exit alternative
             _parent.WriteLine($"if ({testVar} != null)");
             _parent.WriteLine("{");
             _parent.Indent();
-            _parent.WriteLine($"// Negative lookahead matched - fail this alternative");
-            _parent.WriteLine($"_position = _mark;");
+            _parent.WriteLine($"// Negative lookahead matched - fail");
+            _parent.WriteLine($"_position = {_contextMark};");
                 _parent.WriteLine("_pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails");
-            _parent.WriteLine($"_res = null;");
-            _parent.WriteLine($"break;  // Exit this alternative");
+            if (!_insideGroup)
+            {
+                _parent.WriteLine($"_res = null;");
+                _parent.WriteLine($"break;  // Exit this alternative");
+            }
             _parent.Dedent();
             _parent.WriteLine("}");
         }
@@ -985,7 +1225,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             if (cut.Expression != null)
             {
                 var innerItem = new Item { Atom = cut.Expression, Name = null };
-                var innerGen = new ItemCodeGenerator(_parent, innerItem, _varName, _labelPrefix);
+                // CPython 3.12: Pass all context flags to nested constructs
+                var innerGen = new ItemCodeGenerator(_parent, innerItem, _varName, _labelPrefix,
+                    insideRepeater: _insideRepeater, insideOptional: _insideOptional, insideLoopRule: _insideLoopRule, insideGroup: _insideGroup, contextMark: _contextMark);
                 innerGen.Generate();
             }
         }

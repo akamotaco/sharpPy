@@ -37,6 +37,10 @@ namespace SharpPy.PegGenerator.Grammar
         public List<Alternative> Alternatives { get; set; } = new();
         public bool IsMemoized { get; set; } = false; // Default to NOT memoized (CPython 3.12 behavior)
 
+        // CPython 3.12: Left-recursion detection (compute_left_recursives in parser_generator.py)
+        public bool IsLeftRecursive { get; set; } = false;
+        public bool IsLeader { get; set; } = false; // Leader of a left-recursive SCC (Strongly Connected Component)
+
         public override string ToString()
         {
             var type = ReturnType != null ? $"[{ReturnType}]" : "";

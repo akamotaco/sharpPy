@@ -46,10 +46,30 @@ namespace SharpPy.PegGenerator.CodeGenerator
             _parent.Indent();
             _parent.WriteLine("_position = _mark;");
 
-            // Add debug logging for Expression alternatives
+            // Add debug logging for Expression, Primary, Arguments, SimpleStmt and Assignment alternatives
             if (_rule.Name.Equals("expression", StringComparison.OrdinalIgnoreCase))
             {
                 _parent.WriteLine($"Console.WriteLine($\"[EXPRESSION-ALT{_alternativeIndex + 1}] START at pos={{_position}}\");");
+            }
+            if (_rule.Name.Equals("simple_stmt", StringComparison.OrdinalIgnoreCase))
+            {
+                _parent.WriteLine($"Console.WriteLine($\"[SIMPLE_STMT-ALT{_alternativeIndex + 1}] START at pos={{_position}}\");");
+            }
+            if (_rule.Name.Equals("assignment", StringComparison.OrdinalIgnoreCase))
+            {
+                _parent.WriteLine($"Console.WriteLine($\"[ASSIGNMENT-ALT{_alternativeIndex + 1}] START at pos={{_position}}\");");
+            }
+            if (_rule.Name.Equals("primary", StringComparison.OrdinalIgnoreCase))
+            {
+                _parent.WriteLine($"#if DEBUG_PARSE_LOG");
+                _parent.WriteLine($"Console.WriteLine($\"[PRIMARY-ALT{_alternativeIndex + 1}] START at pos={{_position}}, token={{CurrentToken?.Type}}:'{{CurrentToken?.Value}}'\");");
+                _parent.WriteLine($"#endif");
+            }
+            if (_rule.Name.Equals("arguments", StringComparison.OrdinalIgnoreCase))
+            {
+                _parent.WriteLine($"#if DEBUG_PARSE_LOG");
+                _parent.WriteLine($"Console.WriteLine($\"[ARGUMENTS-ALT{_alternativeIndex + 1}] START at pos={{_position}}\");");
+                _parent.WriteLine($"#endif");
             }
 
             _parent.WriteLine();
@@ -95,6 +115,19 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
                 if (!isRaiseAction)
                 {
+                    // Add debug logging for Primary and Arguments alternatives success
+                    if (_rule.Name.Equals("primary", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _parent.WriteLine($"#if DEBUG_PARSE_LOG");
+                        _parent.WriteLine($"Console.WriteLine($\"[PRIMARY-ALT{_alternativeIndex + 1}] SUCCESS at pos={{_position}}\");");
+                        _parent.WriteLine($"#endif");
+                    }
+                    if (_rule.Name.Equals("arguments", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _parent.WriteLine($"#if DEBUG_PARSE_LOG");
+                        _parent.WriteLine($"Console.WriteLine($\"[ARGUMENTS-ALT{_alternativeIndex + 1}] SUCCESS at pos={{_position}}\");");
+                        _parent.WriteLine($"#endif");
+                    }
                     _parent.WriteLine("if (_res != null) goto done;");
                 }
             }
@@ -468,6 +501,19 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             // Use ActionMapper to convert to C# AST construction
             var mapper = new ActionMapper();
+            // CPython 3.12: If no explicit cast, use rule's return type
+            if (string.IsNullOrEmpty(typeCast) && !string.IsNullOrEmpty(_rule.ReturnType))
+            {
+                // Check if already C# type (artificial rules use __CSHARP__: prefix)
+                if (_rule.ReturnType.StartsWith("__CSHARP__:"))
+                {
+                    typeCast = _rule.ReturnType.Substring("__CSHARP__:".Length);
+                }
+                else
+                {
+                    typeCast = _parent.TranslatePegTypeToCS(_rule.ReturnType);
+                }
+            }
             var astCode = mapper.MapAction(funcName, args, _variables, _rule, typeCast);
 
             if (needsSequenceWrap && action.Contains("Pass"))
