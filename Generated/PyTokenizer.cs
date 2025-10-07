@@ -27,10 +27,11 @@ namespace SharpPy.Generated
     /// </summary>
     public class GeneratedSeq : GeneratedPtr, System.Collections.Generic.IList<GeneratedPtr>
     {
-        protected readonly List<GeneratedPtr> _items = new();
+        protected List<GeneratedPtr> _items = new();
 
         public GeneratedSeq() { }
         public GeneratedSeq(int capacity) { _items = new List<GeneratedPtr>(capacity); }
+        public GeneratedSeq(List<GeneratedPtr> weak_ref) { this._items = weak_ref; }
         public GeneratedSeq(IEnumerable<GeneratedPtr> collection) { _items = new List<GeneratedPtr>(collection); }
 
         // IList<GeneratedPtr> implementation
@@ -56,11 +57,16 @@ namespace SharpPy.Generated
         public List<GeneratedPtr> ToRawList() => _items;
 
         /// <summary>Converts GeneratedSeq to typed Seq subclass (e.g., GeneratedExprSeq)</summary>
-        public T ToSeq<T>() where T : GeneratedSeq, new()
+        public T Cast<T>() where T : GeneratedSeq, new()
         {
             var result = new T();
-            result.AddRange(this._items);
+            result._initialize(this._items);
             return result;
+        }
+
+        private void _initialize(List<GeneratedPtr> items)
+        {
+            this._items = items;
         }
 
         /// <summary>Converts to typed IEnumerable<T> with casting - LINQ replacement</summary>

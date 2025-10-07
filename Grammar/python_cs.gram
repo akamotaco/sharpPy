@@ -1130,13 +1130,13 @@ del_t_atom[expr_ty]:
 type_expressions[asdl_expr_seq*]:
     | a=','.expression+ ',' '*' b=expression ',' '**' c=expression {
         _PyPegen_seq_append_to_end(
-            (CHECK<asdl_seq>(_PyPegen_seq_append_to_end(a, b)).ToSeq<GeneratedExprSeq>()),
+            (CHECK<asdl_seq>(_PyPegen_seq_append_to_end(a, b)).Cast<asdl_expr_seq>()),
             c) }
     | a=','.expression+ ',' '*' b=expression { _PyPegen_seq_append_to_end(a, b) }
     | a=','.expression+ ',' '**' b=expression { _PyPegen_seq_append_to_end(a, b) }
     | '*' a=expression ',' '**' b=expression {
         _PyPegen_seq_append_to_end(
-            (CHECK<asdl_seq>(_PyPegen_singleton_seq(a)).ToSeq<GeneratedExprSeq>()),
+            (CHECK<asdl_seq>(_PyPegen_singleton_seq(a)).Cast<asdl_expr_seq>()),
             b) }
     | '*' a=expression { _PyPegen_singleton_seq(a) }
     | '**' a=expression { _PyPegen_singleton_seq(a) }

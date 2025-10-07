@@ -28058,9 +28058,9 @@ namespace SharpPy.Generated
                 }
                 // Action (multiline):
                 //   _PyPegen_seq_append_to_end(
-                //   (CHECK<asdl_seq>(_PyPegen_seq_append_to_end(a, b)).ToSeq<GeneratedExprSeq>()),
+                //   (CHECK<asdl_seq>(_PyPegen_seq_append_to_end(a, b)).Cast<asdl_expr_seq>()),
                 //   c)
-                _res = _PyPegen_seq_append_to_end((CHECK<asdl_seq>(_PyPegen_seq_append_to_end(a, b)).ToSeq<GeneratedExprSeq>()), c);
+                _res = _PyPegen_seq_append_to_end((CHECK<asdl_seq>(_PyPegen_seq_append_to_end(a, b)).Cast<asdl_expr_seq>()), c);
                 if (_res != null) goto done;
             } while (false);
 
@@ -28291,9 +28291,9 @@ namespace SharpPy.Generated
                 }
                 // Action (multiline):
                 //   _PyPegen_seq_append_to_end(
-                //   (CHECK<asdl_seq>(_PyPegen_singleton_seq(a)).ToSeq<GeneratedExprSeq>()),
+                //   (CHECK<asdl_seq>(_PyPegen_singleton_seq(a)).Cast<asdl_expr_seq>()),
                 //   b)
-                _res = _PyPegen_seq_append_to_end((CHECK<asdl_seq>(_PyPegen_singleton_seq(a)).ToSeq<GeneratedExprSeq>()), b);
+                _res = _PyPegen_seq_append_to_end((CHECK<asdl_seq>(_PyPegen_singleton_seq(a)).Cast<asdl_expr_seq>()), b);
                 if (_res != null) goto done;
             } while (false);
 
