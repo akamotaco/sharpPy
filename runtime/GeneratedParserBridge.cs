@@ -370,11 +370,14 @@ namespace SharpPy
 
                         // Convert else clause (orelse)
                         var elseStmts = new List<Statement>();
-                        foreach (var elseStmt in ifStmt.Orelse.AsEnumerable())
+                        if (ifStmt.Orelse != null)
                         {
-                            var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
-                            if (convertedStmt != null)
-                                elseStmts.Add(convertedStmt);
+                            foreach (var elseStmt in ifStmt.Orelse.AsEnumerable())
+                            {
+                                var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
+                                if (convertedStmt != null)
+                                    elseStmts.Add(convertedStmt);
+                            }
                         }
 
                         return new IfStatement(conditionExpr, bodyStmts, elseStmts);
@@ -1385,6 +1388,24 @@ namespace SharpPy
             };
         }
 
+        private static string ConvertCmpopToString(GeneratedCmpop op)
+        {
+            return op switch
+            {
+                GeneratedEq _ => "Eq",
+                GeneratedNotEq _ => "NotEq",
+                GeneratedLt _ => "Lt",
+                GeneratedLtE _ => "LtE",
+                GeneratedGt _ => "Gt",
+                GeneratedGtE _ => "GtE",
+                GeneratedIs _ => "Is",
+                GeneratedIsNot _ => "IsNot",
+                GeneratedIn _ => "In",
+                GeneratedNotIn _ => "NotIn",
+                _ => throw new NotImplementedException($"Unknown GeneratedCmpop: {op.GetType().Name}")
+            };
+        }
+
         /// <summary>
         /// Convert string operator to CPython 3.12 compatible BinaryOperator node
         /// </summary>
@@ -1647,7 +1668,7 @@ namespace SharpPy
 
                 GeneratedCompare compare => new CompareExpression(
                     ConvertAnyExpression(compare.Left),
-                    string.Join(" ", compare.Ops),
+                    ConvertCmpopToString((GeneratedCmpop)compare.Ops.First()),
                     ConvertAnyExpression(compare.Comparators.ToEnumerable<GeneratedExpr>().First())
                 ),
 

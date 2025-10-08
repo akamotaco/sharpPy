@@ -5314,17 +5314,11 @@ namespace SharpPy.Generated
                     // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_t; // Reset position
                 }
-                // Positive lookahead: &(&'(')
-                int _lookahead_mark_20 = _position;
-                bool _lookahead_test_20 = false;
-                {
-                    if (CurrentToken?.Value == "(") { _lookahead_test_20 = true; }
-                }
-                _position = _lookahead_mark_20; // Restore position after lookahead
-                if (!_lookahead_test_20)
+                // Forced token: &&'('
+                var _tmp1 = ExpectForcedToken(GeneratedTokenType.OP, "(");
+                if (_tmp1 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5409,17 +5403,11 @@ namespace SharpPy.Generated
                     // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_a; // Reset position
                 }
-                // Positive lookahead: &(&':')
-                int _lookahead_mark_21 = _position;
-                bool _lookahead_test_21 = false;
-                {
-                    if (CurrentToken?.Value == ":") { _lookahead_test_21 = true; }
-                }
-                _position = _lookahead_mark_21; // Restore position after lookahead
-                if (!_lookahead_test_21)
+                // Forced token: &&':'
+                var _tmp3 = ExpectForcedToken(GeneratedTokenType.OP, ":");
+                if (_tmp3 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5556,17 +5544,11 @@ namespace SharpPy.Generated
                     // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_t; // Reset position
                 }
-                // Positive lookahead: &(&'(')
-                int _lookahead_mark_22 = _position;
-                bool _lookahead_test_22 = false;
-                {
-                    if (CurrentToken?.Value == "(") { _lookahead_test_22 = true; }
-                }
-                _position = _lookahead_mark_22; // Restore position after lookahead
-                if (!_lookahead_test_22)
+                // Forced token: &&'('
+                var _tmp2 = ExpectForcedToken(GeneratedTokenType.OP, "(");
+                if (_tmp2 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -5651,17 +5633,11 @@ namespace SharpPy.Generated
                     // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark_a; // Reset position
                 }
-                // Positive lookahead: &(&':')
-                int _lookahead_mark_23 = _position;
-                bool _lookahead_test_23 = false;
-                {
-                    if (CurrentToken?.Value == ":") { _lookahead_test_23 = true; }
-                }
-                _position = _lookahead_mark_23; // Restore position after lookahead
-                if (!_lookahead_test_23)
+                // Forced token: &&':'
+                var _tmp4 = ExpectForcedToken(GeneratedTokenType.OP, ":");
+                if (_tmp4 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -6247,13 +6223,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &(')')
-                int _lookahead_mark_24 = _position;
-                bool _lookahead_test_24 = false;
+                int _lookahead_mark_20 = _position;
+                bool _lookahead_test_20 = false;
                 {
-                    if (CurrentToken?.Value == ")") { _lookahead_test_24 = true; }
+                    if (CurrentToken?.Value == ")") { _lookahead_test_20 = true; }
                 }
-                _position = _lookahead_mark_24; // Restore position after lookahead
-                if (!_lookahead_test_24)
+                _position = _lookahead_mark_20; // Restore position after lookahead
+                if (!_lookahead_test_20)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -6370,13 +6346,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &(')')
-                int _lookahead_mark_25 = _position;
-                bool _lookahead_test_25 = false;
+                int _lookahead_mark_21 = _position;
+                bool _lookahead_test_21 = false;
                 {
-                    if (CurrentToken?.Value == ")") { _lookahead_test_25 = true; }
+                    if (CurrentToken?.Value == ")") { _lookahead_test_21 = true; }
                 }
-                _position = _lookahead_mark_25; // Restore position after lookahead
-                if (!_lookahead_test_25)
+                _position = _lookahead_mark_21; // Restore position after lookahead
+                if (!_lookahead_test_21)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -6980,13 +6956,13 @@ namespace SharpPy.Generated
                     _position = _opt_mark_tc; // Reset position
                 }
                 // Positive lookahead: &(')')
-                int _lookahead_mark_26 = _position;
-                bool _lookahead_test_26 = false;
+                int _lookahead_mark_22 = _position;
+                bool _lookahead_test_22 = false;
                 {
-                    if (CurrentToken?.Value == ")") { _lookahead_test_26 = true; }
+                    if (CurrentToken?.Value == ")") { _lookahead_test_22 = true; }
                 }
-                _position = _lookahead_mark_26; // Restore position after lookahead
-                if (!_lookahead_test_26)
+                _position = _lookahead_mark_22; // Restore position after lookahead
+                if (!_lookahead_test_22)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -7143,13 +7119,13 @@ namespace SharpPy.Generated
                     _position = _opt_mark_tc; // Reset position
                 }
                 // Positive lookahead: &(')')
-                int _lookahead_mark_27 = _position;
-                bool _lookahead_test_27 = false;
+                int _lookahead_mark_23 = _position;
+                bool _lookahead_test_23 = false;
                 {
-                    if (CurrentToken?.Value == ")") { _lookahead_test_27 = true; }
+                    if (CurrentToken?.Value == ")") { _lookahead_test_23 = true; }
                 }
-                _position = _lookahead_mark_27; // Restore position after lookahead
-                if (!_lookahead_test_27)
+                _position = _lookahead_mark_23; // Restore position after lookahead
+                if (!_lookahead_test_23)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -7330,13 +7306,13 @@ namespace SharpPy.Generated
                     _position = _opt_mark_tc; // Reset position
                 }
                 // Positive lookahead: &(')')
-                int _lookahead_mark_28 = _position;
-                bool _lookahead_test_28 = false;
+                int _lookahead_mark_24 = _position;
+                bool _lookahead_test_24 = false;
                 {
-                    if (CurrentToken?.Value == ")") { _lookahead_test_28 = true; }
+                    if (CurrentToken?.Value == ")") { _lookahead_test_24 = true; }
                 }
-                _position = _lookahead_mark_28; // Restore position after lookahead
-                if (!_lookahead_test_28)
+                _position = _lookahead_mark_24; // Restore position after lookahead
+                if (!_lookahead_test_24)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -7551,13 +7527,13 @@ namespace SharpPy.Generated
                     _position = _opt_mark_tc; // Reset position
                 }
                 // Positive lookahead: &(')')
-                int _lookahead_mark_29 = _position;
-                bool _lookahead_test_29 = false;
+                int _lookahead_mark_25 = _position;
+                bool _lookahead_test_25 = false;
                 {
-                    if (CurrentToken?.Value == ")") { _lookahead_test_29 = true; }
+                    if (CurrentToken?.Value == ")") { _lookahead_test_25 = true; }
                 }
-                _position = _lookahead_mark_29; // Restore position after lookahead
-                if (!_lookahead_test_29)
+                _position = _lookahead_mark_25; // Restore position after lookahead
+                if (!_lookahead_test_25)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -8547,17 +8523,11 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead: &(&':')
-                int _lookahead_mark_30 = _position;
-                bool _lookahead_test_30 = false;
-                {
-                    if (CurrentToken?.Value == ":") { _lookahead_test_30 = true; }
-                }
-                _position = _lookahead_mark_30; // Restore position after lookahead
-                if (!_lookahead_test_30)
+                // Forced token: &&':'
+                var _tmp1 = ExpectForcedToken(GeneratedTokenType.OP, ":");
+                if (_tmp1 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -9800,16 +9770,16 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &((',' | ')' | ':'))
-                int _lookahead_mark_31 = _position;
-                bool _lookahead_test_31 = false;
+                int _lookahead_mark_26 = _position;
+                bool _lookahead_test_26 = false;
                 {
                     // Test if current token matches any alternative
-                    if (CurrentToken?.Value == ",") { _lookahead_test_31 = true; }
-                    if (CurrentToken?.Value == ")") { _lookahead_test_31 = true; }
-                    if (CurrentToken?.Value == ":") { _lookahead_test_31 = true; }
+                    if (CurrentToken?.Value == ",") { _lookahead_test_26 = true; }
+                    if (CurrentToken?.Value == ")") { _lookahead_test_26 = true; }
+                    if (CurrentToken?.Value == ":") { _lookahead_test_26 = true; }
                 }
-                _position = _lookahead_mark_31; // Restore position after lookahead
-                if (!_lookahead_test_31)
+                _position = _lookahead_mark_26; // Restore position after lookahead
+                if (!_lookahead_test_26)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -9999,17 +9969,11 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead: &(&':')
-                int _lookahead_mark_32 = _position;
-                bool _lookahead_test_32 = false;
-                {
-                    if (CurrentToken?.Value == ":") { _lookahead_test_32 = true; }
-                }
-                _position = _lookahead_mark_32; // Restore position after lookahead
-                if (!_lookahead_test_32)
+                // Forced token: &&':'
+                var _tmp1 = ExpectForcedToken(GeneratedTokenType.OP, ":");
+                if (_tmp1 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10064,17 +10028,11 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead: &(&':')
-                int _lookahead_mark_33 = _position;
-                bool _lookahead_test_33 = false;
-                {
-                    if (CurrentToken?.Value == ":") { _lookahead_test_33 = true; }
-                }
-                _position = _lookahead_mark_33; // Restore position after lookahead
-                if (!_lookahead_test_33)
+                // Forced token: &&':'
+                var _tmp1 = ExpectForcedToken(GeneratedTokenType.OP, ":");
+                if (_tmp1 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10195,17 +10153,11 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead: &(&':')
-                int _lookahead_mark_34 = _position;
-                bool _lookahead_test_34 = false;
-                {
-                    if (CurrentToken?.Value == ":") { _lookahead_test_34 = true; }
-                }
-                _position = _lookahead_mark_34; // Restore position after lookahead
-                if (!_lookahead_test_34)
+                // Forced token: &&':'
+                var _tmp1 = ExpectForcedToken(GeneratedTokenType.OP, ":");
+                if (_tmp1 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -10911,17 +10863,11 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Positive lookahead: &(&':')
-                int _lookahead_mark_35 = _position;
-                bool _lookahead_test_35 = false;
-                {
-                    if (CurrentToken?.Value == ":") { _lookahead_test_35 = true; }
-                }
-                _position = _lookahead_mark_35; // Restore position after lookahead
-                if (!_lookahead_test_35)
+                // Forced token: &&':'
+                var _tmp1 = ExpectForcedToken(GeneratedTokenType.OP, ":");
+                if (_tmp1 == null)
                 {
                     _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
                     _res = null;
                     break;  // Exit this alternative
                 }
@@ -12128,11 +12074,11 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('+' | '-'))
-                GeneratedTokenInfo? _lookahead_test_36 = null;
+                GeneratedTokenInfo? _lookahead_test_27 = null;
                 // Test if current token matches: ('+' | '-')
-                if (CurrentToken?.Value == "+") { _lookahead_test_36 = CurrentToken; }
-                if (CurrentToken?.Value == "-") { _lookahead_test_36 = CurrentToken; }
-                if (_lookahead_test_36 != null)
+                if (CurrentToken?.Value == "+") { _lookahead_test_27 = CurrentToken; }
+                if (CurrentToken?.Value == "-") { _lookahead_test_27 = CurrentToken; }
+                if (_lookahead_test_27 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -12332,11 +12278,11 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('+' | '-'))
-                GeneratedTokenInfo? _lookahead_test_37 = null;
+                GeneratedTokenInfo? _lookahead_test_28 = null;
                 // Test if current token matches: ('+' | '-')
-                if (CurrentToken?.Value == "+") { _lookahead_test_37 = CurrentToken; }
-                if (CurrentToken?.Value == "-") { _lookahead_test_37 = CurrentToken; }
-                if (_lookahead_test_37 != null)
+                if (CurrentToken?.Value == "+") { _lookahead_test_28 = CurrentToken; }
+                if (CurrentToken?.Value == "-") { _lookahead_test_28 = CurrentToken; }
+                if (_lookahead_test_28 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -13009,9 +12955,9 @@ namespace SharpPy.Generated
                 }
 
                 // Negative lookahead: !('"_"')
-                GeneratedTokenInfo? _lookahead_test_38 = null;
-                if (CurrentToken?.Value == "\"_\"") { _lookahead_test_38 = CurrentToken; }
-                if (_lookahead_test_38 != null)
+                GeneratedTokenInfo? _lookahead_test_29 = null;
+                if (CurrentToken?.Value == "\"_\"") { _lookahead_test_29 = CurrentToken; }
+                if (_lookahead_test_29 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -13032,12 +12978,12 @@ namespace SharpPy.Generated
                 var name = NameToken(_token_name);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(name != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(('.' | '(' | '='))
-                GeneratedTokenInfo? _lookahead_test_39 = null;
+                GeneratedTokenInfo? _lookahead_test_30 = null;
                 // Test if current token matches: ('.' | '(' | '=')
-                if (CurrentToken?.Value == ".") { _lookahead_test_39 = CurrentToken; }
-                if (CurrentToken?.Value == "(") { _lookahead_test_39 = CurrentToken; }
-                if (CurrentToken?.Value == "=") { _lookahead_test_39 = CurrentToken; }
-                if (_lookahead_test_39 != null)
+                if (CurrentToken?.Value == ".") { _lookahead_test_30 = CurrentToken; }
+                if (CurrentToken?.Value == "(") { _lookahead_test_30 = CurrentToken; }
+                if (CurrentToken?.Value == "=") { _lookahead_test_30 = CurrentToken; }
+                if (_lookahead_test_30 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -13153,12 +13099,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('.' | '(' | '='))
-                GeneratedTokenInfo? _lookahead_test_40 = null;
+                GeneratedTokenInfo? _lookahead_test_31 = null;
                 // Test if current token matches: ('.' | '(' | '=')
-                if (CurrentToken?.Value == ".") { _lookahead_test_40 = CurrentToken; }
-                if (CurrentToken?.Value == "(") { _lookahead_test_40 = CurrentToken; }
-                if (CurrentToken?.Value == "=") { _lookahead_test_40 = CurrentToken; }
-                if (_lookahead_test_40 != null)
+                if (CurrentToken?.Value == ".") { _lookahead_test_31 = CurrentToken; }
+                if (CurrentToken?.Value == "(") { _lookahead_test_31 = CurrentToken; }
+                if (CurrentToken?.Value == "=") { _lookahead_test_31 = CurrentToken; }
+                if (_lookahead_test_31 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -17006,9 +16952,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(':=')
-                GeneratedTokenInfo? _lookahead_test_41 = null;
-                if (CurrentToken?.Value == ":=") { _lookahead_test_41 = CurrentToken; }
-                if (_lookahead_test_41 != null)
+                GeneratedTokenInfo? _lookahead_test_32 = null;
+                if (CurrentToken?.Value == ":=") { _lookahead_test_32 = CurrentToken; }
+                if (_lookahead_test_32 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -20506,9 +20452,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(',')
-                GeneratedTokenInfo? _lookahead_test_42 = null;
-                if (CurrentToken?.Value == ",") { _lookahead_test_42 = CurrentToken; }
-                if (_lookahead_test_42 != null)
+                GeneratedTokenInfo? _lookahead_test_33 = null;
+                if (CurrentToken?.Value == ",") { _lookahead_test_33 = CurrentToken; }
+                if (_lookahead_test_33 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -20954,15 +20900,15 @@ namespace SharpPy.Generated
                 }
 
                 // Positive lookahead: &((STRING | FSTRING_START))
-                int _lookahead_mark_43 = _position;
-                bool _lookahead_test_43 = false;
+                int _lookahead_mark_34 = _position;
+                bool _lookahead_test_34 = false;
                 {
                     // Test if current token matches any alternative
-                    if (ExpectToken(GeneratedTokenType.STRING) != null) { _lookahead_test_43 = true; }
-                    if (ExpectToken(GeneratedTokenType.FSTRING_START) != null) { _lookahead_test_43 = true; }
+                    if (ExpectToken(GeneratedTokenType.STRING) != null) { _lookahead_test_34 = true; }
+                    if (ExpectToken(GeneratedTokenType.FSTRING_START) != null) { _lookahead_test_34 = true; }
                 }
-                _position = _lookahead_mark_43; // Restore position after lookahead
-                if (!_lookahead_test_43)
+                _position = _lookahead_mark_34; // Restore position after lookahead
+                if (!_lookahead_test_34)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -21029,13 +20975,13 @@ namespace SharpPy.Generated
                 }
 
                 // Positive lookahead: &('(')
-                int _lookahead_mark_44 = _position;
-                bool _lookahead_test_44 = false;
+                int _lookahead_mark_35 = _position;
+                bool _lookahead_test_35 = false;
                 {
-                    if (CurrentToken?.Value == "(") { _lookahead_test_44 = true; }
+                    if (CurrentToken?.Value == "(") { _lookahead_test_35 = true; }
                 }
-                _position = _lookahead_mark_44; // Restore position after lookahead
-                if (!_lookahead_test_44)
+                _position = _lookahead_mark_35; // Restore position after lookahead
+                if (!_lookahead_test_35)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -21114,13 +21060,13 @@ namespace SharpPy.Generated
                 }
 
                 // Positive lookahead: &('[')
-                int _lookahead_mark_45 = _position;
-                bool _lookahead_test_45 = false;
+                int _lookahead_mark_36 = _position;
+                bool _lookahead_test_36 = false;
                 {
-                    if (CurrentToken?.Value == "[") { _lookahead_test_45 = true; }
+                    if (CurrentToken?.Value == "[") { _lookahead_test_36 = true; }
                 }
-                _position = _lookahead_mark_45; // Restore position after lookahead
-                if (!_lookahead_test_45)
+                _position = _lookahead_mark_36; // Restore position after lookahead
+                if (!_lookahead_test_36)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -21184,13 +21130,13 @@ namespace SharpPy.Generated
                 }
 
                 // Positive lookahead: &('{')
-                int _lookahead_mark_46 = _position;
-                bool _lookahead_test_46 = false;
+                int _lookahead_mark_37 = _position;
+                bool _lookahead_test_37 = false;
                 {
-                    if (CurrentToken?.Value == "{") { _lookahead_test_46 = true; }
+                    if (CurrentToken?.Value == "{") { _lookahead_test_37 = true; }
                 }
-                _position = _lookahead_mark_46; // Restore position after lookahead
-                if (!_lookahead_test_46)
+                _position = _lookahead_mark_37; // Restore position after lookahead
+                if (!_lookahead_test_37)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -22079,13 +22025,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &(':')
-                int _lookahead_mark_47 = _position;
-                bool _lookahead_test_47 = false;
+                int _lookahead_mark_38 = _position;
+                bool _lookahead_test_38 = false;
                 {
-                    if (CurrentToken?.Value == ":") { _lookahead_test_47 = true; }
+                    if (CurrentToken?.Value == ":") { _lookahead_test_38 = true; }
                 }
-                _position = _lookahead_mark_47; // Restore position after lookahead
-                if (!_lookahead_test_47)
+                _position = _lookahead_mark_38; // Restore position after lookahead
+                if (!_lookahead_test_38)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -22202,13 +22148,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &(':')
-                int _lookahead_mark_48 = _position;
-                bool _lookahead_test_48 = false;
+                int _lookahead_mark_39 = _position;
+                bool _lookahead_test_39 = false;
                 {
-                    if (CurrentToken?.Value == ":") { _lookahead_test_48 = true; }
+                    if (CurrentToken?.Value == ":") { _lookahead_test_39 = true; }
                 }
-                _position = _lookahead_mark_48; // Restore position after lookahead
-                if (!_lookahead_test_48)
+                _position = _lookahead_mark_39; // Restore position after lookahead
+                if (!_lookahead_test_39)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -22682,13 +22628,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &(':')
-                int _lookahead_mark_49 = _position;
-                bool _lookahead_test_49 = false;
+                int _lookahead_mark_40 = _position;
+                bool _lookahead_test_40 = false;
                 {
-                    if (CurrentToken?.Value == ":") { _lookahead_test_49 = true; }
+                    if (CurrentToken?.Value == ":") { _lookahead_test_40 = true; }
                 }
-                _position = _lookahead_mark_49; // Restore position after lookahead
-                if (!_lookahead_test_49)
+                _position = _lookahead_mark_40; // Restore position after lookahead
+                if (!_lookahead_test_40)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -22813,13 +22759,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &(':')
-                int _lookahead_mark_50 = _position;
-                bool _lookahead_test_50 = false;
+                int _lookahead_mark_41 = _position;
+                bool _lookahead_test_41 = false;
                 {
-                    if (CurrentToken?.Value == ":") { _lookahead_test_50 = true; }
+                    if (CurrentToken?.Value == ":") { _lookahead_test_41 = true; }
                 }
-                _position = _lookahead_mark_50; // Restore position after lookahead
-                if (!_lookahead_test_50)
+                _position = _lookahead_mark_41; // Restore position after lookahead
+                if (!_lookahead_test_41)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -22978,13 +22924,13 @@ namespace SharpPy.Generated
                     _position = _opt_mark_c; // Reset position
                 }
                 // Positive lookahead: &(':')
-                int _lookahead_mark_51 = _position;
-                bool _lookahead_test_51 = false;
+                int _lookahead_mark_42 = _position;
+                bool _lookahead_test_42 = false;
                 {
-                    if (CurrentToken?.Value == ":") { _lookahead_test_51 = true; }
+                    if (CurrentToken?.Value == ":") { _lookahead_test_42 = true; }
                 }
-                _position = _lookahead_mark_51; // Restore position after lookahead
-                if (!_lookahead_test_51)
+                _position = _lookahead_mark_42; // Restore position after lookahead
+                if (!_lookahead_test_42)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -25438,13 +25384,13 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                 }
                 // Positive lookahead: &(')')
-                int _lookahead_mark_52 = _position;
-                bool _lookahead_test_52 = false;
+                int _lookahead_mark_43 = _position;
+                bool _lookahead_test_43 = false;
                 {
-                    if (CurrentToken?.Value == ")") { _lookahead_test_52 = true; }
+                    if (CurrentToken?.Value == ")") { _lookahead_test_43 = true; }
                 }
-                _position = _lookahead_mark_52; // Restore position after lookahead
-                if (!_lookahead_test_52)
+                _position = _lookahead_mark_43; // Restore position after lookahead
+                if (!_lookahead_test_43)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -26282,9 +26228,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(',')
-                GeneratedTokenInfo? _lookahead_test_53 = null;
-                if (CurrentToken?.Value == ",") { _lookahead_test_53 = CurrentToken; }
-                if (_lookahead_test_53 != null)
+                GeneratedTokenInfo? _lookahead_test_44 = null;
+                if (CurrentToken?.Value == ",") { _lookahead_test_44 = CurrentToken; }
+                if (_lookahead_test_44 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -26783,9 +26729,12 @@ namespace SharpPy.Generated
                 var b = NameToken(_token_b);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(t_lookahead)
-                GeneratedTokenInfo? _lookahead_test_54 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_54 != null)
+                GeneratedTokenInfo? _lookahead_test_45 = null;
+                // Negative lookahead: !t_lookahead
+                int _nla_mark = _position;
+                if (TLookahead() != null) { _lookahead_test_45 = CurrentToken; }
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_45 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -26854,9 +26803,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(t_lookahead)
-                GeneratedTokenInfo? _lookahead_test_55 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_55 != null)
+                GeneratedTokenInfo? _lookahead_test_46 = null;
+                // Negative lookahead: !t_lookahead
+                int _nla_mark = _position;
+                if (TLookahead() != null) { _lookahead_test_46 = CurrentToken; }
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_46 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -27346,9 +27298,12 @@ namespace SharpPy.Generated
                 var b = NameToken(_token_b);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(t_lookahead)
-                GeneratedTokenInfo? _lookahead_test_56 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_56 != null)
+                GeneratedTokenInfo? _lookahead_test_47 = null;
+                // Negative lookahead: !t_lookahead
+                int _nla_mark = _position;
+                if (TLookahead() != null) { _lookahead_test_47 = CurrentToken; }
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_47 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -27417,9 +27372,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(t_lookahead)
-                GeneratedTokenInfo? _lookahead_test_57 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_57 != null)
+                GeneratedTokenInfo? _lookahead_test_48 = null;
+                // Negative lookahead: !t_lookahead
+                int _nla_mark = _position;
+                if (TLookahead() != null) { _lookahead_test_48 = CurrentToken; }
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_48 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -27558,13 +27516,13 @@ namespace SharpPy.Generated
                 var b = NameToken(_token_b);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Positive lookahead: &(t_lookahead)
-                int _lookahead_mark_58 = _position;
-                bool _lookahead_test_58 = false;
+                int _lookahead_mark_49 = _position;
+                bool _lookahead_test_49 = false;
                 {
-                    if (TLookahead() != null) { _lookahead_test_58 = true; }
+                    if (TLookahead() != null) { _lookahead_test_49 = true; }
                 }
-                _position = _lookahead_mark_58; // Restore position after lookahead
-                if (!_lookahead_test_58)
+                _position = _lookahead_mark_49; // Restore position after lookahead
+                if (!_lookahead_test_49)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -27632,13 +27590,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &(t_lookahead)
-                int _lookahead_mark_59 = _position;
-                bool _lookahead_test_59 = false;
+                int _lookahead_mark_50 = _position;
+                bool _lookahead_test_50 = false;
                 {
-                    if (TLookahead() != null) { _lookahead_test_59 = true; }
+                    if (TLookahead() != null) { _lookahead_test_50 = true; }
                 }
-                _position = _lookahead_mark_59; // Restore position after lookahead
-                if (!_lookahead_test_59)
+                _position = _lookahead_mark_50; // Restore position after lookahead
+                if (!_lookahead_test_50)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -27688,13 +27646,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &(t_lookahead)
-                int _lookahead_mark_60 = _position;
-                bool _lookahead_test_60 = false;
+                int _lookahead_mark_51 = _position;
+                bool _lookahead_test_51 = false;
                 {
-                    if (TLookahead() != null) { _lookahead_test_60 = true; }
+                    if (TLookahead() != null) { _lookahead_test_51 = true; }
                 }
-                _position = _lookahead_mark_60; // Restore position after lookahead
-                if (!_lookahead_test_60)
+                _position = _lookahead_mark_51; // Restore position after lookahead
+                if (!_lookahead_test_51)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -27784,13 +27742,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &(t_lookahead)
-                int _lookahead_mark_61 = _position;
-                bool _lookahead_test_61 = false;
+                int _lookahead_mark_52 = _position;
+                bool _lookahead_test_52 = false;
                 {
-                    if (TLookahead() != null) { _lookahead_test_61 = true; }
+                    if (TLookahead() != null) { _lookahead_test_52 = true; }
                 }
-                _position = _lookahead_mark_61; // Restore position after lookahead
-                if (!_lookahead_test_61)
+                _position = _lookahead_mark_52; // Restore position after lookahead
+                if (!_lookahead_test_52)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -27832,13 +27790,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &(t_lookahead)
-                int _lookahead_mark_62 = _position;
-                bool _lookahead_test_62 = false;
+                int _lookahead_mark_53 = _position;
+                bool _lookahead_test_53 = false;
                 {
-                    if (TLookahead() != null) { _lookahead_test_62 = true; }
+                    if (TLookahead() != null) { _lookahead_test_53 = true; }
                 }
-                _position = _lookahead_mark_62; // Restore position after lookahead
-                if (!_lookahead_test_62)
+                _position = _lookahead_mark_53; // Restore position after lookahead
+                if (!_lookahead_test_53)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -28120,9 +28078,12 @@ namespace SharpPy.Generated
                 var b = NameToken(_token_b);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(t_lookahead)
-                GeneratedTokenInfo? _lookahead_test_63 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_63 != null)
+                GeneratedTokenInfo? _lookahead_test_54 = null;
+                // Negative lookahead: !t_lookahead
+                int _nla_mark = _position;
+                if (TLookahead() != null) { _lookahead_test_54 = CurrentToken; }
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_54 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -28191,9 +28152,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(t_lookahead)
-                GeneratedTokenInfo? _lookahead_test_64 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_64 != null)
+                GeneratedTokenInfo? _lookahead_test_55 = null;
+                // Negative lookahead: !t_lookahead
+                int _nla_mark = _position;
+                if (TLookahead() != null) { _lookahead_test_55 = CurrentToken; }
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_55 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -28942,14 +28906,14 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(t != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Positive lookahead: &((NEWLINE INDENT))
-                int _lookahead_mark_65 = _position;
-                bool _lookahead_test_65 = false;
+                int _lookahead_mark_56 = _position;
+                bool _lookahead_test_56 = false;
                 {
                     // Test if current token matches any alternative
                     // TODO: Complex group alternative in lookahead
                 }
-                _position = _lookahead_mark_65; // Restore position after lookahead
-                if (!_lookahead_test_65)
+                _position = _lookahead_mark_56; // Restore position after lookahead
+                if (!_lookahead_test_56)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -29397,15 +29361,15 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &((',' | ')'))
-                int _lookahead_mark_66 = _position;
-                bool _lookahead_test_66 = false;
+                int _lookahead_mark_57 = _position;
+                bool _lookahead_test_57 = false;
                 {
                     // Test if current token matches any alternative
-                    if (CurrentToken?.Value == ",") { _lookahead_test_66 = true; }
-                    if (CurrentToken?.Value == ")") { _lookahead_test_66 = true; }
+                    if (CurrentToken?.Value == ",") { _lookahead_test_57 = true; }
+                    if (CurrentToken?.Value == ")") { _lookahead_test_57 = true; }
                 }
-                _position = _lookahead_mark_66; // Restore position after lookahead
-                if (!_lookahead_test_66)
+                _position = _lookahead_mark_57; // Restore position after lookahead
+                if (!_lookahead_test_57)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -29757,9 +29721,9 @@ namespace SharpPy.Generated
                 }
 
                 // Negative lookahead: !((NAME '='))
-                GeneratedTokenInfo? _lookahead_test_67 = null;
+                GeneratedTokenInfo? _lookahead_test_58 = null;
                 // Test if current token matches: (NAME '=')
-                if (_lookahead_test_67 != null)
+                if (_lookahead_test_58 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -30070,9 +30034,9 @@ namespace SharpPy.Generated
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !('(')
-                GeneratedTokenInfo? _lookahead_test_68 = null;
-                if (CurrentToken?.Value == "(") { _lookahead_test_68 = CurrentToken; }
-                if (_lookahead_test_68 != null)
+                GeneratedTokenInfo? _lookahead_test_59 = null;
+                if (CurrentToken?.Value == "(") { _lookahead_test_59 = CurrentToken; }
+                if (_lookahead_test_59 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -30137,9 +30101,9 @@ namespace SharpPy.Generated
                 }
 
                 // Negative lookahead: !((NAME STRING | SOFT_KEYWORD))
-                GeneratedTokenInfo? _lookahead_test_69 = null;
+                GeneratedTokenInfo? _lookahead_test_60 = null;
                 // Test if current token matches: (NAME STRING | SOFT_KEYWORD)
-                if (_lookahead_test_69 != null)
+                if (_lookahead_test_60 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -30227,11 +30191,11 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('else' | ':'))
-                GeneratedTokenInfo? _lookahead_test_70 = null;
+                GeneratedTokenInfo? _lookahead_test_61 = null;
                 // Test if current token matches: ('else' | ':')
-                if (CurrentToken?.Value == "else") { _lookahead_test_70 = CurrentToken; }
-                if (CurrentToken?.Value == ":") { _lookahead_test_70 = CurrentToken; }
-                if (_lookahead_test_70 != null)
+                if (CurrentToken?.Value == "else") { _lookahead_test_61 = CurrentToken; }
+                if (CurrentToken?.Value == ":") { _lookahead_test_61 = CurrentToken; }
+                if (_lookahead_test_61 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -30310,13 +30274,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &(FSTRING_MIDDLE)
-                int _lookahead_mark_71 = _position;
-                bool _lookahead_test_71 = false;
+                int _lookahead_mark_62 = _position;
+                bool _lookahead_test_62 = false;
                 {
-                    if (ExpectToken(GeneratedTokenType.FSTRING_MIDDLE) != null) { _lookahead_test_71 = true; }
+                    if (ExpectToken(GeneratedTokenType.FSTRING_MIDDLE) != null) { _lookahead_test_62 = true; }
                 }
-                _position = _lookahead_mark_71; // Restore position after lookahead
-                if (!_lookahead_test_71)
+                _position = _lookahead_mark_62; // Restore position after lookahead
+                if (!_lookahead_test_62)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -30463,11 +30427,11 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('=' | ':='))
-                GeneratedTokenInfo? _lookahead_test_72 = null;
+                GeneratedTokenInfo? _lookahead_test_63 = null;
                 // Test if current token matches: ('=' | ':=')
-                if (CurrentToken?.Value == "=") { _lookahead_test_72 = CurrentToken; }
-                if (CurrentToken?.Value == ":=") { _lookahead_test_72 = CurrentToken; }
-                if (_lookahead_test_72 != null)
+                if (CurrentToken?.Value == "=") { _lookahead_test_63 = CurrentToken; }
+                if (CurrentToken?.Value == ":=") { _lookahead_test_63 = CurrentToken; }
+                if (_lookahead_test_63 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -30494,12 +30458,12 @@ namespace SharpPy.Generated
                 }
 
                 // Negative lookahead: !((list | tuple | genexp | 'True' | 'None' | 'False'))
-                GeneratedTokenInfo? _lookahead_test_73 = null;
+                GeneratedTokenInfo? _lookahead_test_64 = null;
                 // Test if current token matches: (list | tuple | genexp | 'True' | 'None' | 'False')
-                if (CurrentToken?.Value == "True") { _lookahead_test_73 = CurrentToken; }
-                if (CurrentToken?.Value == "None") { _lookahead_test_73 = CurrentToken; }
-                if (CurrentToken?.Value == "False") { _lookahead_test_73 = CurrentToken; }
-                if (_lookahead_test_73 != null)
+                if (CurrentToken?.Value == "True") { _lookahead_test_64 = CurrentToken; }
+                if (CurrentToken?.Value == "None") { _lookahead_test_64 = CurrentToken; }
+                if (CurrentToken?.Value == "False") { _lookahead_test_64 = CurrentToken; }
+                if (_lookahead_test_64 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -30541,11 +30505,11 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('=' | ':='))
-                GeneratedTokenInfo? _lookahead_test_74 = null;
+                GeneratedTokenInfo? _lookahead_test_65 = null;
                 // Test if current token matches: ('=' | ':=')
-                if (CurrentToken?.Value == "=") { _lookahead_test_74 = CurrentToken; }
-                if (CurrentToken?.Value == ":=") { _lookahead_test_74 = CurrentToken; }
-                if (_lookahead_test_74 != null)
+                if (CurrentToken?.Value == "=") { _lookahead_test_65 = CurrentToken; }
+                if (CurrentToken?.Value == ":=") { _lookahead_test_65 = CurrentToken; }
+                if (_lookahead_test_65 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -31216,9 +31180,12 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_75 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_75 != null)
+                GeneratedTokenInfo? _lookahead_test_66 = null;
+                // Negative lookahead: !INDENT
+                int _nla_mark = _position;
+                _lookahead_test_66 = ExpectToken(GeneratedTokenType.INDENT);
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_66 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -32178,15 +32145,15 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &((')' | ','))
-                int _lookahead_mark_76 = _position;
-                bool _lookahead_test_76 = false;
+                int _lookahead_mark_67 = _position;
+                bool _lookahead_test_67 = false;
                 {
                     // Test if current token matches any alternative
-                    if (CurrentToken?.Value == ")") { _lookahead_test_76 = true; }
-                    if (CurrentToken?.Value == ",") { _lookahead_test_76 = true; }
+                    if (CurrentToken?.Value == ")") { _lookahead_test_67 = true; }
+                    if (CurrentToken?.Value == ",") { _lookahead_test_67 = true; }
                 }
-                _position = _lookahead_mark_76; // Restore position after lookahead
-                if (!_lookahead_test_76)
+                _position = _lookahead_mark_67; // Restore position after lookahead
+                if (!_lookahead_test_67)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -34150,16 +34117,16 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &((',' | ')' | ':'))
-                int _lookahead_mark_77 = _position;
-                bool _lookahead_test_77 = false;
+                int _lookahead_mark_68 = _position;
+                bool _lookahead_test_68 = false;
                 {
                     // Test if current token matches any alternative
-                    if (CurrentToken?.Value == ",") { _lookahead_test_77 = true; }
-                    if (CurrentToken?.Value == ")") { _lookahead_test_77 = true; }
-                    if (CurrentToken?.Value == ":") { _lookahead_test_77 = true; }
+                    if (CurrentToken?.Value == ",") { _lookahead_test_68 = true; }
+                    if (CurrentToken?.Value == ")") { _lookahead_test_68 = true; }
+                    if (CurrentToken?.Value == ":") { _lookahead_test_68 = true; }
                 }
-                _position = _lookahead_mark_77; // Restore position after lookahead
-                if (!_lookahead_test_77)
+                _position = _lookahead_mark_68; // Restore position after lookahead
+                if (!_lookahead_test_68)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -34914,9 +34881,12 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_78 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_78 != null)
+                GeneratedTokenInfo? _lookahead_test_69 = null;
+                // Negative lookahead: !INDENT
+                int _nla_mark = _position;
+                _lookahead_test_69 = ExpectToken(GeneratedTokenType.INDENT);
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_69 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -35061,9 +35031,12 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp6 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_79 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_79 != null)
+                GeneratedTokenInfo? _lookahead_test_70 = null;
+                // Negative lookahead: !INDENT
+                int _nla_mark = _position;
+                _lookahead_test_70 = ExpectToken(GeneratedTokenType.INDENT);
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_70 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -35147,9 +35120,12 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_80 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_80 != null)
+                GeneratedTokenInfo? _lookahead_test_71 = null;
+                // Negative lookahead: !INDENT
+                int _nla_mark = _position;
+                _lookahead_test_71 = ExpectToken(GeneratedTokenType.INDENT);
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_71 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -35208,11 +35184,11 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('except' | 'finally'))
-                GeneratedTokenInfo? _lookahead_test_81 = null;
+                GeneratedTokenInfo? _lookahead_test_72 = null;
                 // Test if current token matches: ('except' | 'finally')
-                if (CurrentToken?.Value == "except") { _lookahead_test_81 = CurrentToken; }
-                if (CurrentToken?.Value == "finally") { _lookahead_test_81 = CurrentToken; }
-                if (_lookahead_test_81 != null)
+                if (CurrentToken?.Value == "except") { _lookahead_test_72 = CurrentToken; }
+                if (CurrentToken?.Value == "finally") { _lookahead_test_72 = CurrentToken; }
+                if (_lookahead_test_72 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -35755,9 +35731,12 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_82 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_82 != null)
+                GeneratedTokenInfo? _lookahead_test_73 = null;
+                // Negative lookahead: !INDENT
+                int _nla_mark = _position;
+                _lookahead_test_73 = ExpectToken(GeneratedTokenType.INDENT);
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_73 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -35841,9 +35820,12 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_83 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_83 != null)
+                GeneratedTokenInfo? _lookahead_test_74 = null;
+                // Negative lookahead: !INDENT
+                int _nla_mark = _position;
+                _lookahead_test_74 = ExpectToken(GeneratedTokenType.INDENT);
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_74 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -35901,9 +35883,12 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_84 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_84 != null)
+                GeneratedTokenInfo? _lookahead_test_75 = null;
+                // Negative lookahead: !INDENT
+                int _nla_mark = _position;
+                _lookahead_test_75 = ExpectToken(GeneratedTokenType.INDENT);
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_75 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -35996,9 +35981,12 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_85 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_85 != null)
+                GeneratedTokenInfo? _lookahead_test_76 = null;
+                // Negative lookahead: !INDENT
+                int _nla_mark = _position;
+                _lookahead_test_76 = ExpectToken(GeneratedTokenType.INDENT);
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_76 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -36146,9 +36134,12 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_86 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_86 != null)
+                GeneratedTokenInfo? _lookahead_test_77 = null;
+                // Negative lookahead: !INDENT
+                int _nla_mark = _position;
+                _lookahead_test_77 = ExpectToken(GeneratedTokenType.INDENT);
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_77 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -36354,9 +36345,12 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp3 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_87 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_87 != null)
+                GeneratedTokenInfo? _lookahead_test_78 = null;
+                // Negative lookahead: !INDENT
+                int _nla_mark = _position;
+                _lookahead_test_78 = ExpectToken(GeneratedTokenType.INDENT);
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_78 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -36482,9 +36476,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(NAME)
-                GeneratedTokenInfo? _lookahead_test_88 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_88 != null)
+                GeneratedTokenInfo? _lookahead_test_79 = null;
+                // Negative lookahead: !NAME
+                int _nla_mark = _position;
+                _lookahead_test_79 = ExpectToken(GeneratedTokenType.NAME);
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_79 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -36855,9 +36852,12 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_89 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_89 != null)
+                GeneratedTokenInfo? _lookahead_test_80 = null;
+                // Negative lookahead: !INDENT
+                int _nla_mark = _position;
+                _lookahead_test_80 = ExpectToken(GeneratedTokenType.INDENT);
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_80 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -37005,9 +37005,12 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_90 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_90 != null)
+                GeneratedTokenInfo? _lookahead_test_81 = null;
+                // Negative lookahead: !INDENT
+                int _nla_mark = _position;
+                _lookahead_test_81 = ExpectToken(GeneratedTokenType.INDENT);
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_81 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -37091,9 +37094,12 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_91 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_91 != null)
+                GeneratedTokenInfo? _lookahead_test_82 = null;
+                // Negative lookahead: !INDENT
+                int _nla_mark = _position;
+                _lookahead_test_82 = ExpectToken(GeneratedTokenType.INDENT);
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_82 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -37241,9 +37247,12 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp2 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_92 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_92 != null)
+                GeneratedTokenInfo? _lookahead_test_83 = null;
+                // Negative lookahead: !INDENT
+                int _nla_mark = _position;
+                _lookahead_test_83 = ExpectToken(GeneratedTokenType.INDENT);
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_83 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -37501,9 +37510,12 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp5 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_93 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_93 != null)
+                GeneratedTokenInfo? _lookahead_test_84 = null;
+                // Negative lookahead: !INDENT
+                int _nla_mark = _position;
+                _lookahead_test_84 = ExpectToken(GeneratedTokenType.INDENT);
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_84 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -37711,9 +37723,12 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp5 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_94 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_94 != null)
+                GeneratedTokenInfo? _lookahead_test_85 = null;
+                // Negative lookahead: !INDENT
+                int _nla_mark = _position;
+                _lookahead_test_85 = ExpectToken(GeneratedTokenType.INDENT);
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_85 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -37987,9 +38002,12 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Negative lookahead: !(INDENT)
-                GeneratedTokenInfo? _lookahead_test_95 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_95 != null)
+                GeneratedTokenInfo? _lookahead_test_86 = null;
+                // Negative lookahead: !INDENT
+                int _nla_mark = _position;
+                _lookahead_test_86 = ExpectToken(GeneratedTokenType.INDENT);
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_86 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -38196,15 +38214,15 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &(('}' | ','))
-                int _lookahead_mark_96 = _position;
-                bool _lookahead_test_96 = false;
+                int _lookahead_mark_87 = _position;
+                bool _lookahead_test_87 = false;
                 {
                     // Test if current token matches any alternative
-                    if (CurrentToken?.Value == "}") { _lookahead_test_96 = true; }
-                    if (CurrentToken?.Value == ",") { _lookahead_test_96 = true; }
+                    if (CurrentToken?.Value == "}") { _lookahead_test_87 = true; }
+                    if (CurrentToken?.Value == ",") { _lookahead_test_87 = true; }
                 }
-                _position = _lookahead_mark_96; // Restore position after lookahead
-                if (!_lookahead_test_96)
+                _position = _lookahead_mark_87; // Restore position after lookahead
+                if (!_lookahead_test_87)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -38270,10 +38288,10 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !((':'))
-                GeneratedTokenInfo? _lookahead_test_97 = null;
+                GeneratedTokenInfo? _lookahead_test_88 = null;
                 // Test if current token matches: (':')
-                if (CurrentToken?.Value == ":") { _lookahead_test_97 = CurrentToken; }
-                if (_lookahead_test_97 != null)
+                if (CurrentToken?.Value == ":") { _lookahead_test_88 = CurrentToken; }
+                if (_lookahead_test_88 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -38385,15 +38403,15 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &(('}' | ','))
-                int _lookahead_mark_98 = _position;
-                bool _lookahead_test_98 = false;
+                int _lookahead_mark_89 = _position;
+                bool _lookahead_test_89 = false;
                 {
                     // Test if current token matches any alternative
-                    if (CurrentToken?.Value == "}") { _lookahead_test_98 = true; }
-                    if (CurrentToken?.Value == ",") { _lookahead_test_98 = true; }
+                    if (CurrentToken?.Value == "}") { _lookahead_test_89 = true; }
+                    if (CurrentToken?.Value == ",") { _lookahead_test_89 = true; }
                 }
-                _position = _lookahead_mark_98; // Restore position after lookahead
-                if (!_lookahead_test_98)
+                _position = _lookahead_mark_89; // Restore position after lookahead
+                if (!_lookahead_test_89)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -38694,9 +38712,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !((yield_expr | star_expressions))
-                GeneratedTokenInfo? _lookahead_test_99 = null;
+                GeneratedTokenInfo? _lookahead_test_90 = null;
                 // Test if current token matches: (yield_expr | star_expressions)
-                if (_lookahead_test_99 != null)
+                if (_lookahead_test_90 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -38773,13 +38791,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('=' | '!' | ':' | '}'))
-                GeneratedTokenInfo? _lookahead_test_100 = null;
+                GeneratedTokenInfo? _lookahead_test_91 = null;
                 // Test if current token matches: ('=' | '!' | ':' | '}')
-                if (CurrentToken?.Value == "=") { _lookahead_test_100 = CurrentToken; }
-                if (CurrentToken?.Value == "!") { _lookahead_test_100 = CurrentToken; }
-                if (CurrentToken?.Value == ":") { _lookahead_test_100 = CurrentToken; }
-                if (CurrentToken?.Value == "}") { _lookahead_test_100 = CurrentToken; }
-                if (_lookahead_test_100 != null)
+                if (CurrentToken?.Value == "=") { _lookahead_test_91 = CurrentToken; }
+                if (CurrentToken?.Value == "!") { _lookahead_test_91 = CurrentToken; }
+                if (CurrentToken?.Value == ":") { _lookahead_test_91 = CurrentToken; }
+                if (CurrentToken?.Value == "}") { _lookahead_test_91 = CurrentToken; }
+                if (_lookahead_test_91 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -38865,12 +38883,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(('!' | ':' | '}'))
-                GeneratedTokenInfo? _lookahead_test_101 = null;
+                GeneratedTokenInfo? _lookahead_test_92 = null;
                 // Test if current token matches: ('!' | ':' | '}')
-                if (CurrentToken?.Value == "!") { _lookahead_test_101 = CurrentToken; }
-                if (CurrentToken?.Value == ":") { _lookahead_test_101 = CurrentToken; }
-                if (CurrentToken?.Value == "}") { _lookahead_test_101 = CurrentToken; }
-                if (_lookahead_test_101 != null)
+                if (CurrentToken?.Value == "!") { _lookahead_test_92 = CurrentToken; }
+                if (CurrentToken?.Value == ":") { _lookahead_test_92 = CurrentToken; }
+                if (CurrentToken?.Value == "}") { _lookahead_test_92 = CurrentToken; }
+                if (_lookahead_test_92 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -39136,11 +39154,11 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp3; // Reset position
                 }
                 // Negative lookahead: !((':' | '}'))
-                GeneratedTokenInfo? _lookahead_test_102 = null;
+                GeneratedTokenInfo? _lookahead_test_93 = null;
                 // Test if current token matches: (':' | '}')
-                if (CurrentToken?.Value == ":") { _lookahead_test_102 = CurrentToken; }
-                if (CurrentToken?.Value == "}") { _lookahead_test_102 = CurrentToken; }
-                if (_lookahead_test_102 != null)
+                if (CurrentToken?.Value == ":") { _lookahead_test_93 = CurrentToken; }
+                if (CurrentToken?.Value == "}") { _lookahead_test_93 = CurrentToken; }
+                if (_lookahead_test_93 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -39292,9 +39310,9 @@ namespace SharpPy.Generated
                 // Zero or more: fstring_format_spec* (CPython: _Loop0_N rule)
                 var _tmp5 = _Loop0_52();
                 // Negative lookahead: !('}')
-                GeneratedTokenInfo? _lookahead_test_103 = null;
-                if (CurrentToken?.Value == "}") { _lookahead_test_103 = CurrentToken; }
-                if (_lookahead_test_103 != null)
+                GeneratedTokenInfo? _lookahead_test_94 = null;
+                if (CurrentToken?.Value == "}") { _lookahead_test_94 = CurrentToken; }
+                if (_lookahead_test_94 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -39435,9 +39453,9 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp3; // Reset position
                 }
                 // Negative lookahead: !('}')
-                GeneratedTokenInfo? _lookahead_test_104 = null;
-                if (CurrentToken?.Value == "}") { _lookahead_test_104 = CurrentToken; }
-                if (_lookahead_test_104 != null)
+                GeneratedTokenInfo? _lookahead_test_95 = null;
+                if (CurrentToken?.Value == "}") { _lookahead_test_95 = CurrentToken; }
+                if (_lookahead_test_95 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;
@@ -39501,15 +39519,15 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Positive lookahead: &((':' | '}'))
-                int _lookahead_mark_105 = _position;
-                bool _lookahead_test_105 = false;
+                int _lookahead_mark_96 = _position;
+                bool _lookahead_test_96 = false;
                 {
                     // Test if current token matches any alternative
-                    if (CurrentToken?.Value == ":") { _lookahead_test_105 = true; }
-                    if (CurrentToken?.Value == "}") { _lookahead_test_105 = true; }
+                    if (CurrentToken?.Value == ":") { _lookahead_test_96 = true; }
+                    if (CurrentToken?.Value == "}") { _lookahead_test_96 = true; }
                 }
-                _position = _lookahead_mark_105; // Restore position after lookahead
-                if (!_lookahead_test_105)
+                _position = _lookahead_mark_96; // Restore position after lookahead
+                if (!_lookahead_test_96)
                 {
                     _position = _mark;
                     _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
@@ -39546,9 +39564,12 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Negative lookahead: !(NAME)
-                GeneratedTokenInfo? _lookahead_test_106 = null;
-                // TODO: Complex negative lookahead for RuleRef
-                if (_lookahead_test_106 != null)
+                GeneratedTokenInfo? _lookahead_test_97 = null;
+                // Negative lookahead: !NAME
+                int _nla_mark = _position;
+                _lookahead_test_97 = ExpectToken(GeneratedTokenType.NAME);
+                _position = _nla_mark;  // Restore position after lookahead
+                if (_lookahead_test_97 != null)
                 {
                     // Negative lookahead matched - fail
                     _position = _mark;

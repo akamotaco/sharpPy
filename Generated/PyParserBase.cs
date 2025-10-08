@@ -140,6 +140,52 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
+        /// CPython 3.12: _PyPegen_expect_forced_token
+        /// Token *_PyPegen_expect_forced_token(Parser *p, int type, const char* expected)
+        /// Forced token must match or raise syntax error immediately
+        /// </summary>
+        protected GeneratedTokenInfo ExpectForcedToken(GeneratedTokenType type, string expected)
+        {
+            if (_pendingSyntaxError != null)
+            {
+                return null;
+            }
+
+            var token = CurrentToken;
+            if (token == null || token.Type != type || token.Value != expected)
+            {
+                // CPython: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(t, "expected '%s'", expected)
+                _pendingSyntaxError = $"expected '{expected}'";
+                _pendingErrorPosition = _position;
+                return null;
+            }
+            _position++;
+            return token;
+        }
+
+        /// <summary>
+        /// CPython 3.12: _PyPegen_expect_forced_result
+        /// void*_PyPegen_expect_forced_result(Parser *p, void* result, const char* expected)
+        /// Forced result must be non-null or raise syntax error immediately
+        /// </summary>
+        protected T ExpectForcedResult<T>(T result, string expected) where T : class
+        {
+            if (_pendingSyntaxError != null)
+            {
+                return null;
+            }
+
+            if (result == null)
+            {
+                // CPython: RAISE_SYNTAX_ERROR("expected (%s)", expected)
+                _pendingSyntaxError = $"expected ({expected})";
+                _pendingErrorPosition = _position;
+                return null;
+            }
+            return result;
+        }
+
+        /// <summary>
         /// Handle left-recursive rules using memoization
         /// CPython 3.12: Implements Warth et al. 'Packrat Parsers Can Support Left Recursion'
         /// Algorithm: SEED (FAIL) → BASE CASE → GROW → TERMINATE
@@ -2177,11 +2223,21 @@ namespace SharpPy.Generated
         }
 
         // CPython: _PyPegen_get_cmpops
+        // asdl_int_seq *_PyPegen_get_cmpops(Parser *p, asdl_seq *seq)
         // Extract comparison operators from (cmpop, expr) pairs
         public static GeneratedCmpopSeq _PyPegen_get_cmpops(GeneratedSeq pairs)
         {
+            if (pairs == null || pairs.Count == 0)
+            {
+                return new GeneratedCmpopSeq();
+            }
+
             var ops = new GeneratedCmpopSeq();
-            // TODO: Extract cmpops from pairs - needs pair structure definition
+            foreach (var item in pairs)
+            {
+                var pair = (GeneratedCmpopExprPair)item;
+                ops.Add(pair.Cmpop);
+            }
             return ops;
         }
 
@@ -2194,11 +2250,21 @@ namespace SharpPy.Generated
         }
 
         // CPython: _PyPegen_get_exprs
+        // asdl_expr_seq *_PyPegen_get_exprs(Parser *p, asdl_seq *seq)
         // Extract expressions from (cmpop, expr) pairs
         public static GeneratedExprSeq _PyPegen_get_exprs(GeneratedSeq pairs)
         {
+            if (pairs == null || pairs.Count == 0)
+            {
+                return new GeneratedExprSeq();
+            }
+
             var exprs = new GeneratedExprSeq();
-            // TODO: Extract exprs from pairs - needs pair structure definition
+            foreach (var item in pairs)
+            {
+                var pair = (GeneratedCmpopExprPair)item;
+                exprs.Add(pair.Expr);
+            }
             return exprs;
         }
 

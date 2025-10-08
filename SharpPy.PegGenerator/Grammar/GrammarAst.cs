@@ -184,6 +184,17 @@ namespace SharpPy.PegGenerator.Grammar
     }
 
     /// <summary>
+    /// Represents forced token/result &&expr
+    /// CPython 3.12: Forced tokens must match or raise syntax error immediately
+    /// </summary>
+    public class Forced : Atom
+    {
+        public Atom Node { get; set; } = null!;
+
+        public override string ToString() => $"&&{Node}";
+    }
+
+    /// <summary>
     /// Gather pattern: separator.item+ or separator.item*
     /// CPython 3.12: Used for separated lists like ','.expression+
     /// </summary>

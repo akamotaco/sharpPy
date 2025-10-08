@@ -413,8 +413,20 @@ namespace SharpPy.PegGenerator.Grammar
 
                 case GrammarTokenType.AMPERSAND:
                     Advance();
-                    var posAtom = ParseAtom();
-                    atom = posAtom != null ? new PositiveLookahead { Expression = posAtom } : null;
+                    // CPython 3.12: Check for && (forced token) vs & (positive lookahead)
+                    if (CurrentToken?.Type == GrammarTokenType.AMPERSAND)
+                    {
+                        // && = Forced token
+                        Advance();
+                        var forcedAtom = ParseAtom();
+                        atom = forcedAtom != null ? new Forced { Node = forcedAtom } : null;
+                    }
+                    else
+                    {
+                        // & = Positive lookahead
+                        var posAtom = ParseAtom();
+                        atom = posAtom != null ? new PositiveLookahead { Expression = posAtom } : null;
+                    }
                     break;
 
                 case GrammarTokenType.EXCLAMATION:

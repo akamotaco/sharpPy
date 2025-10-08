@@ -90,6 +90,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     GenerateCut(cut);
                     break;
 
+                case Forced forced:
+                    GenerateForced(forced);
+                    break;
+
                 default:
                     _parent.WriteLine($"// TODO: Unsupported atom type: {_item.Atom?.GetType().Name}");
                     break;
@@ -1124,6 +1128,29 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     _parent.WriteLine($"if (CurrentToken?.Value == \"{escapedS}\") {{ {testVar} = CurrentToken; }}");
                     break;
 
+                case RuleRef rref:
+                    // CPython 3.12: RuleRef in negative lookahead - check if token/rule matches
+                    // Check if it's a TOKEN (uppercase) or a rule (lowercase/mixed)
+                    bool isToken = char.IsUpper(rref.Name[0]);
+                    if (isToken)
+                    {
+                        // Token - use ExpectToken without consuming (save/restore position)
+                        _parent.WriteLine($"// Negative lookahead: !{rref.Name}");
+                        _parent.WriteLine($"int _nla_mark = _position;");
+                        _parent.WriteLine($"{testVar} = ExpectToken(GeneratedTokenType.{rref.Name});");
+                        _parent.WriteLine($"_position = _nla_mark;  // Restore position after lookahead");
+                    }
+                    else
+                    {
+                        // Rule - call the method and restore position
+                        var methodName = ToPascalCase(rref.Name);
+                        _parent.WriteLine($"// Negative lookahead: !{rref.Name}");
+                        _parent.WriteLine($"int _nla_mark = _position;");
+                        _parent.WriteLine($"if ({methodName}() != null) {{ {testVar} = CurrentToken; }}");
+                        _parent.WriteLine($"_position = _nla_mark;  // Restore position after lookahead");
+                    }
+                    break;
+
                 default:
                     // For complex cases, skip for now
                     _parent.WriteLine($"// TODO: Complex negative lookahead for {nla.Expression.GetType().Name}");
@@ -1254,6 +1281,61 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 var innerGen = new ItemCodeGenerator(_parent, innerItem, _varName, _labelPrefix,
                     insideRepeater: _insideRepeater, insideOptional: _insideOptional, insideLoopRule: _insideLoopRule, insideGroup: _insideGroup, contextMark: _contextMark);
                 innerGen.Generate();
+            }
+        }
+
+        private void GenerateForced(Forced forced)
+        {
+            // CPython 3.12: Forced token/result - must match or raise syntax error
+            // _PyPegen_expect_forced_token(p, type, expected) for StringLiteral
+            // _PyPegen_expect_forced_result(p, result, expected) for Group/RuleRef
+
+            if (forced.Node is StringLiteral slit)
+            {
+                // CPython: _PyPegen_expect_forced_token(p, type, "expected")
+                var escaped = _parent.EscapeString(slit.Value);
+                _parent.WriteLine($"// Forced token: &&'{escaped}'");
+                _parent.WriteLine($"var {_varName} = ExpectForcedToken(GeneratedTokenType.OP, \"{escaped}\");");
+                _parent.WriteLine($"if ({_varName} == null)");
+                _parent.WriteLine("{");
+                _parent.Indent();
+                _parent.WriteLine($"_position = {_contextMark};");
+                _parent.WriteLine($"_res = null;");
+                if (!_insideGroup)
+                {
+                    _parent.WriteLine($"break;  // Exit this alternative");
+                }
+                _parent.Dedent();
+                _parent.WriteLine("}");
+            }
+            else if (forced.Node is Group || forced.Node is RuleRef)
+            {
+                // CPython: _PyPegen_expect_forced_result(p, result, "expected")
+                // First generate code to parse the node
+                var innerItem = new Item { Atom = forced.Node, Name = null };
+                var innerVarName = $"_forced_{_varName}";
+                var innerGen = new ItemCodeGenerator(_parent, innerItem, innerVarName, _labelPrefix,
+                    insideRepeater: _insideRepeater, insideOptional: _insideOptional, insideLoopRule: _insideLoopRule, insideGroup: _insideGroup, contextMark: _contextMark);
+                innerGen.Generate();
+
+                // Then check result and raise syntax error if null
+                _parent.WriteLine($"// Forced result: &&({forced.Node})");
+                _parent.WriteLine($"var {_varName} = ExpectForcedResult({innerVarName}, \"{forced.Node}\");");
+                _parent.WriteLine($"if ({_varName} == null)");
+                _parent.WriteLine("{");
+                _parent.Indent();
+                _parent.WriteLine($"_position = {_contextMark};");
+                _parent.WriteLine($"_res = null;");
+                if (!_insideGroup)
+                {
+                    _parent.WriteLine($"break;  // Exit this alternative");
+                }
+                _parent.Dedent();
+                _parent.WriteLine("}");
+            }
+            else
+            {
+                _parent.WriteLine($"// TODO: Forced tokens don't work with {forced.Node.GetType().Name} nodes");
             }
         }
 

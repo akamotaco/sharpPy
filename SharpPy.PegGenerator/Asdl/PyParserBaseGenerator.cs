@@ -229,6 +229,68 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("}");
             WriteLine();
 
+            // ExpectForcedToken method - CPython 3.12: _PyPegen_expect_forced_token
+            WriteLine("/// <summary>");
+            WriteLine("/// CPython 3.12: _PyPegen_expect_forced_token");
+            WriteLine("/// Token *_PyPegen_expect_forced_token(Parser *p, int type, const char* expected)");
+            WriteLine("/// Forced token must match or raise syntax error immediately");
+            WriteLine("/// </summary>");
+            WriteLine("protected GeneratedTokenInfo ExpectForcedToken(GeneratedTokenType type, string expected)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("if (_pendingSyntaxError != null)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("return null;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+            WriteLine("var token = CurrentToken;");
+            WriteLine("if (token == null || token.Type != type || token.Value != expected)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("// CPython: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(t, \"expected '%s'\", expected)");
+            WriteLine("_pendingSyntaxError = $\"expected '{expected}'\";");
+            WriteLine("_pendingErrorPosition = _position;");
+            WriteLine("return null;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine("_position++;");
+            WriteLine("return token;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // ExpectForcedResult method - CPython 3.12: _PyPegen_expect_forced_result
+            WriteLine("/// <summary>");
+            WriteLine("/// CPython 3.12: _PyPegen_expect_forced_result");
+            WriteLine("/// void*_PyPegen_expect_forced_result(Parser *p, void* result, const char* expected)");
+            WriteLine("/// Forced result must be non-null or raise syntax error immediately");
+            WriteLine("/// </summary>");
+            WriteLine("protected T ExpectForcedResult<T>(T result, string expected) where T : class");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("if (_pendingSyntaxError != null)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("return null;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+            WriteLine("if (result == null)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("// CPython: RAISE_SYNTAX_ERROR(\"expected (%s)\", expected)");
+            WriteLine("_pendingSyntaxError = $\"expected ({expected})\";");
+            WriteLine("_pendingErrorPosition = _position;");
+            WriteLine("return null;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine("return result;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
             // TryLeftRecursive - Warth et al. algorithm for left recursion
             WriteLine("/// <summary>");
             WriteLine("/// Handle left-recursive rules using memoization");
@@ -1244,14 +1306,28 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("}");
             WriteLine();
 
-            // get_cmpops - extract comparison operators from KeywordOrStarred pairs
+            // get_cmpops - extract comparison operators from CmpopExprPair
             WriteLine("// CPython: _PyPegen_get_cmpops");
+            WriteLine("// asdl_int_seq *_PyPegen_get_cmpops(Parser *p, asdl_seq *seq)");
             WriteLine("// Extract comparison operators from (cmpop, expr) pairs");
             WriteLine("public static GeneratedCmpopSeq _PyPegen_get_cmpops(GeneratedSeq pairs)");
             WriteLine("{");
             _indentLevel++;
+            WriteLine("if (pairs == null || pairs.Count == 0)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("return new GeneratedCmpopSeq();");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
             WriteLine("var ops = new GeneratedCmpopSeq();");
-            WriteLine("// TODO: Extract cmpops from pairs - needs pair structure definition");
+            WriteLine("foreach (var item in pairs)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("var pair = (GeneratedCmpopExprPair)item;");
+            WriteLine("ops.Add(pair.Cmpop);");
+            _indentLevel--;
+            WriteLine("}");
             WriteLine("return ops;");
             _indentLevel--;
             WriteLine("}");
@@ -1268,14 +1344,28 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("}");
             WriteLine();
 
-            // get_exprs - extract expressions from KeywordOrStarred pairs
+            // get_exprs - extract expressions from CmpopExprPair
             WriteLine("// CPython: _PyPegen_get_exprs");
+            WriteLine("// asdl_expr_seq *_PyPegen_get_exprs(Parser *p, asdl_seq *seq)");
             WriteLine("// Extract expressions from (cmpop, expr) pairs");
             WriteLine("public static GeneratedExprSeq _PyPegen_get_exprs(GeneratedSeq pairs)");
             WriteLine("{");
             _indentLevel++;
+            WriteLine("if (pairs == null || pairs.Count == 0)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("return new GeneratedExprSeq();");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
             WriteLine("var exprs = new GeneratedExprSeq();");
-            WriteLine("// TODO: Extract exprs from pairs - needs pair structure definition");
+            WriteLine("foreach (var item in pairs)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("var pair = (GeneratedCmpopExprPair)item;");
+            WriteLine("exprs.Add(pair.Expr);");
+            _indentLevel--;
+            WriteLine("}");
             WriteLine("return exprs;");
             _indentLevel--;
             WriteLine("}");
