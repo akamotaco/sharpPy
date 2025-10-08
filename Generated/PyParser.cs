@@ -8,6 +8,7 @@ using System.Linq;
 
 using static SharpPy.Generated.PegenHelpers;
 using static SharpPy.Generated.AstFactory;
+using static SharpPy.GeneratedParserBridge;
 
 using SharpPy.Tokenizer;
 
@@ -18,6 +19,7 @@ using alias_ty = SharpPy.Generated.GeneratedAlias;
 using arguments_ty = SharpPy.Generated.GeneratedArguments;
 using asdl_stmt_seq = SharpPy.Generated.GeneratedStmtSeq;
 using asdl_expr_seq = SharpPy.Generated.GeneratedExprSeq;
+using asdl_arg_seq = SharpPy.Generated.GeneratedArgSeq;
 using asdl_identifier_seq = SharpPy.Generated.GeneratedIdentifierSeq;
 using asdl_pattern_seq = SharpPy.Generated.GeneratedPatternSeq;
 using asdl_int_seq = SharpPy.Generated.GeneratedCmpopSeq;
@@ -33,8 +35,144 @@ namespace SharpPy.Generated
     /// Generated PEG parser for Python 3.12 grammar
     /// Inherits from PyParserBase for common parsing logic
     /// </summary>
-    public partial class GeneratedPyParser : PyParserBase<GeneratedModule>
+    public partial class GeneratedPyParser : PyParserBase<GeneratedMod>
     {
+        // CPython 3.12: Keyword token types as enum
+        // C# improvement: Type-safe keyword types
+        private enum KeywordType
+        {
+            AND = 529,
+            AS = 519,
+            ASSERT = 507,
+            BREAK = 508,
+            CLASS = 514,
+            CONTINUE = 509,
+            DEF = 512,
+            DEL = 505,
+            ELIF = 520,
+            ELSE = 521,
+            EXCEPT = 523,
+            KW_FALSE = 527,
+            FINALLY = 524,
+            FOR = 516,
+            FROM = 502,
+            GLOBAL = 510,
+            IF = 513,
+            IMPORT = 501,
+            IN = 522,
+            IS = 531,
+            LAMBDA = 532,
+            KW_NONE = 525,
+            NONLOCAL = 511,
+            NOT = 530,
+            OR = 528,
+            PASS = 504,
+            RAISE = 503,
+            RETURN = 500,
+            KW_TRUE = 526,
+            TRY = 517,
+            WHILE = 518,
+            WITH = 515,
+            YIELD = 506
+        }
+
+        // CPython 3.12: Keyword table (like reserved_keywords in parser.c)
+        // Length-indexed array for O(1) lookup by keyword length
+
+        private static readonly int NKeywordLists = 9;
+        private static readonly Dictionary<string, int>[] ReservedKeywords = new Dictionary<string, int>[]
+        {
+            null,
+            null,
+            new Dictionary<string, int> {
+                { "if", 513 },
+                { "as", 519 },
+                { "in", 522 },
+                { "or", 528 },
+                { "is", 531 }
+            },
+            new Dictionary<string, int> {
+                { "del", 505 },
+                { "def", 512 },
+                { "for", 516 },
+                { "try", 517 },
+                { "and", 529 },
+                { "not", 530 }
+            },
+            new Dictionary<string, int> {
+                { "from", 502 },
+                { "pass", 504 },
+                { "with", 515 },
+                { "elif", 520 },
+                { "else", 521 },
+                { "None", 525 },
+                { "True", 526 }
+            },
+            new Dictionary<string, int> {
+                { "raise", 503 },
+                { "yield", 506 },
+                { "break", 508 },
+                { "class", 514 },
+                { "while", 518 },
+                { "False", 527 }
+            },
+            new Dictionary<string, int> {
+                { "return", 500 },
+                { "import", 501 },
+                { "assert", 507 },
+                { "global", 510 },
+                { "except", 523 },
+                { "lambda", 532 }
+            },
+            new Dictionary<string, int> {
+                { "finally", 524 }
+            },
+            new Dictionary<string, int> {
+                { "continue", 509 },
+                { "nonlocal", 511 }
+            }
+        };
+
+        // CPython 3.12: _get_keyword_or_name_type() - Check if NAME token is a keyword
+        // Implements abstract method from PyParserBase
+        protected override int GetKeywordOrNameType(string name, int nameLen)
+        {
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[GetKeywordOrNameType] name='{name}', nameLen={nameLen}, NKeywordLists={NKeywordLists}");
+            #endif
+            if (nameLen >= NKeywordLists || ReservedKeywords[nameLen] == null)
+            {
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GetKeywordOrNameType] OUT OF BOUNDS or NULL, returning NAME");
+                #endif
+                return (int)GeneratedTokenType.NAME;
+            }
+
+            if (ReservedKeywords[nameLen].TryGetValue(name, out int keywordType))
+            {
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GetKeywordOrNameType] FOUND keyword '{name}' = {keywordType}");
+                #endif
+                return keywordType;
+            }
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[GetKeywordOrNameType] NOT FOUND '{name}', returning NAME");
+            #endif
+            return (int)GeneratedTokenType.NAME;
+        }
+
+        // Helper for compile.cs to check if a string is a keyword
+        public static bool IsKeyword(string name)
+        {
+            int nameLen = name.Length;
+            if (nameLen >= NKeywordLists || ReservedKeywords[nameLen] == null)
+            {
+                return false;
+            }
+            return ReservedKeywords[nameLen].ContainsKey(name);
+        }
+
         public GeneratedPyParser(List<GeneratedTokenInfo> tokens, string filename = "<string>")
             : base(tokens, filename)
         {
@@ -42,17 +180,17 @@ namespace SharpPy.Generated
         }
 
         // Override abstract Parse method
-        public override GeneratedModule Parse()
+        public override GeneratedMod Parse()
         {
             return ParseFile();
         }
 
         // Rule: file from python.gram
-        public GeneratedModule? File()
+        public GeneratedMod? File()
         {
             // CPython 3.12 PEG: file
             int _mark = _position;
-            GeneratedModule? _res = null;
+            GeneratedMod? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -136,11 +274,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: interactive from python.gram
-        public GeneratedModule? Interactive()
+        public GeneratedMod? Interactive()
         {
             // CPython 3.12 PEG: interactive
             int _mark = _position;
-            GeneratedModule? _res = null;
+            GeneratedMod? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -162,6 +300,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: statement_newline
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: statement_newline()");
+                #endif
                 var a = StatementNewline();
                 if (a == null)
                 {
@@ -171,8 +312,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Interactive(a)
-                // Unknown AST function: _PyAST_Interactive
-                _res = default(GeneratedModule?);
+                _res = _PyAST_Interactive(a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -189,11 +329,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: eval from python.gram
-        public GeneratedModule? Eval()
+        public GeneratedMod? Eval()
         {
             // CPython 3.12 PEG: eval
             int _mark = _position;
-            GeneratedModule? _res = null;
+            GeneratedMod? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -215,6 +355,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: expressions
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expressions()");
+                #endif
                 var a = Expressions();
                 if (a == null)
                 {
@@ -237,8 +380,7 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyAST_Expression(a)
-                // Unknown AST function: _PyAST_Expression
-                _res = default(GeneratedModule?);
+                _res = _PyAST_Expression(a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -255,11 +397,11 @@ namespace SharpPy.Generated
         }
 
         // Rule: func_type from python.gram
-        public GeneratedModule? FuncType()
+        public GeneratedMod? FuncType()
         {
             // CPython 3.12 PEG: func_type
             int _mark = _position;
-            GeneratedModule? _res = null;
+            GeneratedMod? _res = null;
 
             // Position tracking for EXTRA parameters
             var _start_token = CurrentToken;
@@ -281,7 +423,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -324,7 +466,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Expect ')'
-                var _tmp1 = Expect(")");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -333,7 +475,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '->'
-                var _tmp2 = Expect("->");
+                var _tmp2 = Expect(GeneratedTokenType.OP, "->");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -342,6 +484,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var b = Expression();
                 if (b == null)
                 {
@@ -364,8 +509,7 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): result={(_tmp4 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyAST_FunctionType(a, b)
-                // Unknown AST function: _PyAST_FunctionType
-                _res = default(GeneratedModule?);
+                _res = _PyAST_FunctionType(a, b);
                 if (_res != null) goto done;
             } while (false);
 
@@ -460,6 +604,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: compound_stmt
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: compound_stmt()");
+                #endif
                 var a = CompoundStmt();
                 if (a == null)
                 {
@@ -486,6 +633,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: simple_stmts
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: simple_stmts()");
+                #endif
                 GeneratedStmtSeq a = (GeneratedStmtSeq)SimpleStmts();
                 if (a == null)
                 {
@@ -538,6 +688,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: compound_stmt
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: compound_stmt()");
+                #endif
                 var a = CompoundStmt();
                 if (a == null)
                 {
@@ -575,6 +728,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: simple_stmts
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: simple_stmts()");
+                #endif
                 var _tmp0 = SimpleStmts();
                 if (_tmp0 == null)
                 {
@@ -612,9 +768,7 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_singleton_seq(CHECK<stmt_ty>(_PyAST_Pass(EXTRA)))
-                var _stmt_tmp = _PyAST_Pass(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
-
-                _res = (_stmt_tmp != null) ? new GeneratedStmtSeq { _stmt_tmp } : null;
+                _res = _PyPegen_singleton_seq(_PyAST_Pass(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset));
                 if (_res != null) goto done;
             } while (false);
 
@@ -642,8 +796,7 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_interactive_exit()
-                // Unknown AST function: _PyPegen_interactive_exit
-                _res = default(GeneratedStmtSeq?);
+                _res = _PyPegen_interactive_exit();
                 if (_res != null) goto done;
             } while (false);
 
@@ -686,6 +839,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: simple_stmt
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: simple_stmt()");
+                #endif
                 var a = SimpleStmt();
                 if (a == null)
                 {
@@ -842,6 +998,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: assignment
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: assignment()");
+                #endif
                 var _tmp0 = Assignment();
                 if (_tmp0 == null)
                 {
@@ -883,6 +1042,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: type_alias
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: type_alias()");
+                #endif
                 var _tmp1 = TypeAlias();
                 if (_tmp1 == null)
                 {
@@ -910,6 +1072,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: star_expressions
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_expressions()");
+                #endif
                 var e = StarExpressions();
                 if (e == null)
                 {
@@ -952,6 +1117,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: return_stmt
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: return_stmt()");
+                #endif
                 var _tmp1 = ReturnStmt();
                 if (_tmp1 == null)
                 {
@@ -995,6 +1163,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: import_stmt
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: import_stmt()");
+                #endif
                 var _tmp1 = ImportStmt();
                 if (_tmp1 == null)
                 {
@@ -1036,6 +1207,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: raise_stmt
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: raise_stmt()");
+                #endif
                 var _tmp1 = RaiseStmt();
                 if (_tmp1 == null)
                 {
@@ -1062,8 +1236,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'pass'
-                var _tmp0 = Expect("pass");
+                // Expect keyword: 'pass' (token type 504)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.PASS);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -1105,6 +1279,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: del_stmt
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: del_stmt()");
+                #endif
                 var _tmp1 = DelStmt();
                 if (_tmp1 == null)
                 {
@@ -1146,6 +1323,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: yield_stmt
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: yield_stmt()");
+                #endif
                 var _tmp1 = YieldStmt();
                 if (_tmp1 == null)
                 {
@@ -1187,6 +1367,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: assert_stmt
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: assert_stmt()");
+                #endif
                 var _tmp1 = AssertStmt();
                 if (_tmp1 == null)
                 {
@@ -1213,8 +1396,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'break'
-                var _tmp0 = Expect("break");
+                // Expect keyword: 'break' (token type 508)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.BREAK);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -1241,8 +1424,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'continue'
-                var _tmp0 = Expect("continue");
+                // Expect keyword: 'continue' (token type 509)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.CONTINUE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -1284,6 +1467,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: global_stmt
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: global_stmt()");
+                #endif
                 var _tmp1 = GlobalStmt();
                 if (_tmp1 == null)
                 {
@@ -1325,6 +1511,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: nonlocal_stmt
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: nonlocal_stmt()");
+                #endif
                 var _tmp1 = NonlocalStmt();
                 if (_tmp1 == null)
                 {
@@ -1397,6 +1586,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: function_def
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: function_def()");
+                #endif
                 var _tmp1 = FunctionDef();
                 if (_tmp1 == null)
                 {
@@ -1437,6 +1629,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: if_stmt
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: if_stmt()");
+                #endif
                 var _tmp1 = IfStmt();
                 if (_tmp1 == null)
                 {
@@ -1479,6 +1674,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: class_def
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: class_def()");
+                #endif
                 var _tmp1 = ClassDef();
                 if (_tmp1 == null)
                 {
@@ -1521,6 +1719,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: with_stmt
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: with_stmt()");
+                #endif
                 var _tmp1 = WithStmt();
                 if (_tmp1 == null)
                 {
@@ -1563,6 +1764,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: for_stmt
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: for_stmt()");
+                #endif
                 var _tmp1 = ForStmt();
                 if (_tmp1 == null)
                 {
@@ -1603,6 +1807,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: try_stmt
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: try_stmt()");
+                #endif
                 var _tmp1 = TryStmt();
                 if (_tmp1 == null)
                 {
@@ -1643,6 +1850,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: while_stmt
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: while_stmt()");
+                #endif
                 var _tmp1 = WhileStmt();
                 if (_tmp1 == null)
                 {
@@ -1669,6 +1879,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: match_stmt
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: match_stmt()");
+                #endif
                 var _tmp0 = MatchStmt();
                 if (_tmp0 == null)
                 {
@@ -1734,7 +1947,7 @@ namespace SharpPy.Generated
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect ':'
-                var _tmp0 = Expect(":");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -1743,6 +1956,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var b = Expression();
                 if (b == null)
                 {
@@ -1862,7 +2078,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(":");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -1871,6 +2087,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var b = Expression();
                 if (b == null)
                 {
@@ -2050,6 +2269,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: single_target
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: single_target()");
+                #endif
                 var a = SingleTarget();
                 if (a == null)
                 {
@@ -2059,6 +2281,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: augassign
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: augassign()");
+                #endif
                 var b = Augassign();
                 if (b == null)
                 {
@@ -2205,6 +2430,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: yield_expr
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: yield_expr()");
+                #endif
                 var _tmp0 = YieldExpr();
                 if (_tmp0 == null)
                 {
@@ -2231,6 +2459,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: star_expressions
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_expressions()");
+                #endif
                 var _tmp0 = StarExpressions();
                 if (_tmp0 == null)
                 {
@@ -2283,7 +2514,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '+='
-                var _tmp0 = Expect("+=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "+=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2309,7 +2540,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '-='
-                var _tmp0 = Expect("-=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "-=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2335,7 +2566,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*='
-                var _tmp0 = Expect("*=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2361,7 +2592,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '@='
-                var _tmp0 = Expect("@=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "@=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2387,7 +2618,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '/='
-                var _tmp0 = Expect("/=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "/=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2413,7 +2644,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '%='
-                var _tmp0 = Expect("%=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "%=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2439,7 +2670,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '&='
-                var _tmp0 = Expect("&=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "&=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2465,7 +2696,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '|='
-                var _tmp0 = Expect("|=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "|=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2491,7 +2722,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '^='
-                var _tmp0 = Expect("^=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "^=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2517,7 +2748,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '<<='
-                var _tmp0 = Expect("<<=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "<<=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2543,7 +2774,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '>>='
-                var _tmp0 = Expect(">>=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ">>=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2569,7 +2800,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**='
-                var _tmp0 = Expect("**=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "**=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2595,7 +2826,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '//='
-                var _tmp0 = Expect("//=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "//=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2646,8 +2877,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'return'
-                var _tmp0 = Expect("return");
+                // Expect keyword: 'return' (token type 500)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.RETURN);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2733,8 +2964,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'raise'
-                var _tmp0 = Expect("raise");
+                // Expect keyword: 'raise' (token type 503)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.RAISE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2743,6 +2974,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -2807,8 +3041,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'raise'
-                var _tmp0 = Expect("raise");
+                // Expect keyword: 'raise' (token type 503)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.RAISE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2860,8 +3094,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'global'
-                var _tmp0 = Expect("global");
+                // Expect keyword: 'global' (token type 510)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.GLOBAL);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2880,7 +3114,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Global(CHECK<asdl_identifier_seq>(_PyPegen_map_names_to_ids(a)), EXTRA)
-                _res = _PyAST_Global(CHECK<asdl_identifier_seq>(_PyPegen_map_names_to_ids(a)), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Global(_PyPegen_map_names_to_ids(a), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -2923,8 +3157,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'nonlocal'
-                var _tmp0 = Expect("nonlocal");
+                // Expect keyword: 'nonlocal' (token type 511)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.NONLOCAL);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2943,7 +3177,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Nonlocal(CHECK<asdl_identifier_seq>(_PyPegen_map_names_to_ids(a)), EXTRA)
-                _res = _PyAST_Nonlocal(CHECK<asdl_identifier_seq>(_PyPegen_map_names_to_ids(a)), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Nonlocal(_PyPegen_map_names_to_ids(a), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -2986,8 +3220,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'del'
-                var _tmp0 = Expect("del");
+                // Expect keyword: 'del' (token type 505)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.DEL);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2996,6 +3230,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: del_targets
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: del_targets()");
+                #endif
                 var a = DelTargets();
                 if (a == null)
                 {
@@ -3116,6 +3353,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: yield_expr
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: yield_expr()");
+                #endif
                 var y = YieldExpr();
                 if (y == null)
                 {
@@ -3168,8 +3408,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'assert'
-                var _tmp0 = Expect("assert");
+                // Expect keyword: 'assert' (token type 507)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.ASSERT);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -3178,6 +3418,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -3320,6 +3563,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: import_name
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: import_name()");
+                #endif
                 var _tmp0 = ImportName();
                 if (_tmp0 == null)
                 {
@@ -3346,6 +3592,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: import_from
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: import_from()");
+                #endif
                 var _tmp0 = ImportFrom();
                 if (_tmp0 == null)
                 {
@@ -3397,8 +3646,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'import'
-                var _tmp0 = Expect("import");
+                // Expect keyword: 'import' (token type 501)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IMPORT);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -3407,6 +3656,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: dotted_as_names
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: dotted_as_names()");
+                #endif
                 var a = DottedAsNames();
                 if (a == null)
                 {
@@ -3459,8 +3711,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'from'
-                var _tmp0 = Expect("from");
+                // Expect keyword: 'from' (token type 502)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.FROM);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -3471,6 +3723,9 @@ namespace SharpPy.Generated
                 // Zero or more: ('.' | '...')* (CPython: _Loop0_N rule)
                 var a = _Loop0_7();
                 // Call rule: dotted_name
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: dotted_name()");
+                #endif
                 var b = DottedName();
                 if (b == null)
                 {
@@ -3479,8 +3734,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'import'
-                var _tmp1 = Expect("import");
+                // Expect keyword: 'import' (token type 501)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.IMPORT);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -3489,6 +3744,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: import_from_targets
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: import_from_targets()");
+                #endif
                 var c = ImportFromTargets();
                 if (c == null)
                 {
@@ -3497,9 +3755,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_checked_future_import(b.Id, c, _PyPegen_seq_count_dots(a), EXTRA)
-                // Unknown AST function: _PyPegen_checked_future_import
-                _res = default(GeneratedStmt?);
+                // Action: _PyPegen_checked_future_import(((GeneratedName)b).Id, c, _PyPegen_seq_count_dots(a), EXTRA)
+                _res = _PyPegen_checked_future_import(((GeneratedName)b).Id, c, _PyPegen_seq_count_dots(a), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -3515,8 +3772,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'from'
-                var _tmp0 = Expect("from");
+                // Expect keyword: 'from' (token type 502)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.FROM);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -3533,8 +3790,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'import'
-                var _tmp1 = Expect("import");
+                // Expect keyword: 'import' (token type 501)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.IMPORT);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -3543,6 +3800,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: import_from_targets
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: import_from_targets()");
+                #endif
                 var b = ImportFromTargets();
                 if (b == null)
                 {
@@ -3596,7 +3856,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -3605,6 +3865,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: import_from_as_names
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: import_from_as_names()");
+                #endif
                 var a = ImportFromAsNames();
                 if (a == null)
                 {
@@ -3648,7 +3911,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp1; // Reset position
                 }
                 // Expect ')'
-                var _tmp2 = Expect(")");
+                var _tmp2 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -3674,6 +3937,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: import_from_as_names
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: import_from_as_names()");
+                #endif
                 var _tmp0 = ImportFromAsNames();
                 if (_tmp0 == null)
                 {
@@ -3711,7 +3977,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -3720,7 +3986,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_singleton_seq(CHECK<alias_ty>(_PyPegen_alias_for_star(EXTRA)))
-                _res = _PyPegen_singleton_seq(CHECK<alias_ty>(_PyPegen_alias_for_star(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset)));
+                _res = _PyPegen_singleton_seq(_PyPegen_alias_for_star(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset));
                 if (_res != null) goto done;
             } while (false);
 
@@ -3918,10 +4184,9 @@ namespace SharpPy.Generated
                 }
                 // Action (multiline):
                 //   _PyAST_alias(a.Id,
-                //   (b) ? (b).Id : null,
+                //   (b) ? NameToken(b).Id : null,
                 //   EXTRA)
-                // Unknown AST function: _PyAST_alias
-                _res = default(GeneratedAlias?);
+                _res = _PyAST_alias(a.Id, b != null ? NameToken(b).Id : null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -4017,6 +4282,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: dotted_name
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: dotted_name()");
+                #endif
                 var a = DottedName();
                 if (a == null)
                 {
@@ -4064,11 +4332,10 @@ namespace SharpPy.Generated
                     _position = _opt_mark_b; // Reset position
                 }
                 // Action (multiline):
-                //   _PyAST_alias(a.Id,
-                //   (b) ? (b).Id : null,
+                //   _PyAST_alias(((GeneratedName)a).Id,
+                //   (b) ? NameToken(b).Id : null,
                 //   EXTRA)
-                // Unknown AST function: _PyAST_alias
-                _res = default(GeneratedAlias?);
+                _res = _PyAST_alias(((GeneratedName)a).Id, b != null ? NameToken(b).Id : null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -4164,6 +4431,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: dotted_name
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: dotted_name()");
+                #endif
                 var a = DottedName();
                 if (a == null)
                 {
@@ -4173,7 +4443,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '.'
-                var _tmp0 = Expect(".");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ".");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -4194,8 +4464,7 @@ namespace SharpPy.Generated
                 var b = NameToken(_token_b);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(b != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_join_names_with_dot(a, b)
-                // Unknown AST function: _PyPegen_join_names_with_dot
-                _res = default(GeneratedExpr?);
+                _res = _PyPegen_join_names_with_dot(a, b);
                 if (_res != null) goto done;
             } while (false);
 
@@ -4297,6 +4566,9 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(INDENT): result={(_tmp1 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Call rule: statements
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: statements()");
+                #endif
                 var a = Statements();
                 if (a == null)
                 {
@@ -4334,6 +4606,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: simple_stmts
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: simple_stmts()");
+                #endif
                 var _tmp0 = SimpleStmts();
                 if (_tmp0 == null)
                 {
@@ -4492,6 +4767,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: decorators
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: decorators()");
+                #endif
                 var a = Decorators();
                 if (a == null)
                 {
@@ -4501,6 +4779,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: class_def_raw
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: class_def_raw()");
+                #endif
                 var b = ClassDefRaw();
                 if (b == null)
                 {
@@ -4510,8 +4791,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_class_def_decorators(a, b)
-                // Unknown AST function: _PyPegen_class_def_decorators
-                _res = default(GeneratedStmt?);
+                _res = _PyPegen_class_def_decorators(a, b);
                 if (_res != null) goto done;
             } while (false);
 
@@ -4528,6 +4808,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: class_def_raw
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: class_def_raw()");
+                #endif
                 var _tmp0 = ClassDefRaw();
                 if (_tmp0 == null)
                 {
@@ -4630,8 +4913,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'class'
-                var _tmp0 = Expect("class");
+                // Expect keyword: 'class' (token type 514)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.CLASS);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -4761,7 +5044,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_b; // Reset position
                 }
                 // Expect ':'
-                var _tmp1 = Expect(":");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -4770,6 +5053,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var c = Block();
                 if (c == null)
                 {
@@ -4827,6 +5113,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: decorators
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: decorators()");
+                #endif
                 var d = Decorators();
                 if (d == null)
                 {
@@ -4836,6 +5125,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: function_def_raw
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: function_def_raw()");
+                #endif
                 var f = FunctionDefRaw();
                 if (f == null)
                 {
@@ -4845,8 +5137,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_function_def_decorators(d, f)
-                // Unknown AST function: _PyPegen_function_def_decorators
-                _res = default(GeneratedStmt?);
+                _res = _PyPegen_function_def_decorators(d, f);
                 if (_res != null) goto done;
             } while (false);
 
@@ -4863,6 +5154,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: function_def_raw
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: function_def_raw()");
+                #endif
                 var _tmp0 = FunctionDefRaw();
                 if (_tmp0 == null)
                 {
@@ -4965,8 +5259,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'def'
-                var _tmp0 = Expect("def");
+                // Expect keyword: 'def' (token type 512)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.DEF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -5069,7 +5363,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_params_; // Reset position
                 }
                 // Expect ')'
-                var _tmp2 = Expect(")");
+                var _tmp2 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -5164,6 +5458,9 @@ namespace SharpPy.Generated
                     _position = _opt_mark_tc; // Reset position
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var b = Block();
                 if (b == null)
                 {
@@ -5176,7 +5473,7 @@ namespace SharpPy.Generated
                 //   _PyAST_FunctionDef(n.Id,
                 //   (params) ? params : CHECK<arguments_ty>(_PyPegen_empty_arguments()),
                 //   b, null, a, tc?.Value, t, EXTRA)
-                _res = _PyAST_FunctionDef(n.Id, params_ ?? CHECK<arguments_ty>(_PyPegen_empty_arguments()), b, null, a, tc?.Value, t, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_FunctionDef(n.Id, params_ ?? _PyPegen_empty_arguments(), b, null, a, tc?.Value, t, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -5204,8 +5501,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Expect 'def'
-                var _tmp1 = Expect("def");
+                // Expect keyword: 'def' (token type 512)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.DEF);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -5308,7 +5605,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_params_; // Reset position
                 }
                 // Expect ')'
-                var _tmp3 = Expect(")");
+                var _tmp3 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -5403,6 +5700,9 @@ namespace SharpPy.Generated
                     _position = _opt_mark_tc; // Reset position
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var b = Block();
                 if (b == null)
                 {
@@ -5515,6 +5815,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: parameters
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: parameters()");
+                #endif
                 var _tmp0 = Parameters();
                 if (_tmp0 == null)
                 {
@@ -5567,6 +5870,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: slash_no_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: slash_no_default()");
+                #endif
                 var a = SlashNoDefault();
                 if (a == null)
                 {
@@ -5633,6 +5939,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: slash_with_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: slash_with_default()");
+                #endif
                 var a = SlashWithDefault();
                 if (a == null)
                 {
@@ -5742,8 +6051,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_c; // Reset position
                 }
                 // Action: _PyPegen_make_arguments(null, null, a, b, c)
-                // Unknown AST function: _PyPegen_make_arguments
-                _res = default(GeneratedArguments?);
+                _res = _PyPegen_make_arguments(null, null, a, b, c);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5803,8 +6111,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_b; // Reset position
                 }
                 // Action: _PyPegen_make_arguments(null, null, null, a, b)
-                // Unknown AST function: _PyPegen_make_arguments
-                _res = default(GeneratedArguments?);
+                _res = _PyPegen_make_arguments(null, null, null, a, b);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5821,6 +6128,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: star_etc
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_etc()");
+                #endif
                 var a = StarEtc();
                 if (a == null)
                 {
@@ -5830,8 +6140,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_make_arguments(null, null, null, null, a)
-                // Unknown AST function: _PyPegen_make_arguments
-                _res = default(GeneratedArguments?);
+                _res = _PyPegen_make_arguments(null, null, null, null, a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -5884,7 +6193,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp0 = Expect("/");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "/");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -5893,7 +6202,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(",");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -5929,7 +6238,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp0 = Expect("/");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "/");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -6006,7 +6315,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp0 = Expect("/");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "/");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -6015,7 +6324,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(",");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -6023,9 +6332,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_slash_with_default((asdl_arg_seq *)a, b)
-                // Unknown AST function: _PyPegen_slash_with_default
-                _res = default(GeneratedSlashWithDefault?);
+                // Action: _PyPegen_slash_with_default(a.Cast<asdl_arg_seq>(), b)
+                _res = _PyPegen_slash_with_default(a.Cast<asdl_arg_seq>(), b);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6053,7 +6361,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp0 = Expect("/");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "/");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -6075,9 +6383,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_slash_with_default((asdl_arg_seq *)a, b)
-                // Unknown AST function: _PyPegen_slash_with_default
-                _res = default(GeneratedSlashWithDefault?);
+                // Action: _PyPegen_slash_with_default(a.Cast<asdl_arg_seq>(), b)
+                _res = _PyPegen_slash_with_default(a.Cast<asdl_arg_seq>(), b);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6171,7 +6478,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -6180,6 +6487,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: param_no_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param_no_default()");
+                #endif
                 var a = ParamNoDefault();
                 if (a == null)
                 {
@@ -6225,8 +6535,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_c; // Reset position
                 }
                 // Action: _PyPegen_star_etc(a, b, c)
-                // Unknown AST function: _PyPegen_star_etc
-                _res = default(GeneratedStarEtc?);
+                _res = _PyPegen_star_etc(a, b, c);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6243,7 +6552,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -6252,6 +6561,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: param_no_default_star_annotation
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param_no_default_star_annotation()");
+                #endif
                 var a = ParamNoDefaultStarAnnotation();
                 if (a == null)
                 {
@@ -6297,8 +6609,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_c; // Reset position
                 }
                 // Action: _PyPegen_star_etc(a, b, c)
-                // Unknown AST function: _PyPegen_star_etc
-                _res = default(GeneratedStarEtc?);
+                _res = _PyPegen_star_etc(a, b, c);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6315,7 +6626,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -6324,7 +6635,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(",");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -6376,8 +6687,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_c; // Reset position
                 }
                 // Action: _PyPegen_star_etc(null, b, c)
-                // Unknown AST function: _PyPegen_star_etc
-                _res = default(GeneratedStarEtc?);
+                _res = _PyPegen_star_etc(null, b, c);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6394,6 +6704,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: kwds
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: kwds()");
+                #endif
                 var a = Kwds();
                 if (a == null)
                 {
@@ -6403,8 +6716,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_star_etc(null, null, a)
-                // Unknown AST function: _PyPegen_star_etc
-                _res = default(GeneratedStarEtc?);
+                _res = _PyPegen_star_etc(null, null, a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6498,7 +6810,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect("**");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -6507,6 +6819,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: param_no_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param_no_default()");
+                #endif
                 var a = ParamNoDefault();
                 if (a == null)
                 {
@@ -6559,6 +6874,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param()");
+                #endif
                 var a = Param();
                 if (a == null)
                 {
@@ -6568,7 +6886,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(",");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -6605,8 +6923,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_tc; // Reset position
                 }
                 // Action: _PyPegen_add_type_comment_to_arg(a, tc)
-                // Unknown AST function: _PyPegen_add_type_comment_to_arg
-                _res = default(GeneratedArg?);
+                _res = _PyPegen_add_type_comment_to_arg(a, tc);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6623,6 +6940,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param()");
+                #endif
                 var a = Param();
                 if (a == null)
                 {
@@ -6674,8 +6994,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_add_type_comment_to_arg(a, tc)
-                // Unknown AST function: _PyPegen_add_type_comment_to_arg
-                _res = default(GeneratedArg?);
+                _res = _PyPegen_add_type_comment_to_arg(a, tc);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6718,6 +7037,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: param_star_annotation
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param_star_annotation()");
+                #endif
                 var a = ParamStarAnnotation();
                 if (a == null)
                 {
@@ -6727,7 +7049,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(",");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -6764,8 +7086,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_tc; // Reset position
                 }
                 // Action: _PyPegen_add_type_comment_to_arg(a, tc)
-                // Unknown AST function: _PyPegen_add_type_comment_to_arg
-                _res = default(GeneratedArg?);
+                _res = _PyPegen_add_type_comment_to_arg(a, tc);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6782,6 +7103,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: param_star_annotation
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param_star_annotation()");
+                #endif
                 var a = ParamStarAnnotation();
                 if (a == null)
                 {
@@ -6833,8 +7157,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_add_type_comment_to_arg(a, tc)
-                // Unknown AST function: _PyPegen_add_type_comment_to_arg
-                _res = default(GeneratedArg?);
+                _res = _PyPegen_add_type_comment_to_arg(a, tc);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6877,6 +7200,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param()");
+                #endif
                 var a = Param();
                 if (a == null)
                 {
@@ -6886,6 +7212,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: default()");
+                #endif
                 var c = Default();
                 if (c == null)
                 {
@@ -6895,7 +7224,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(",");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -6932,8 +7261,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_tc; // Reset position
                 }
                 // Action: _PyPegen_name_default_pair(a, c, tc)
-                // Unknown AST function: _PyPegen_name_default_pair
-                _res = default(GeneratedNameDefaultPair?);
+                _res = _PyPegen_name_default_pair(a, c, tc);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6950,6 +7278,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param()");
+                #endif
                 var a = Param();
                 if (a == null)
                 {
@@ -6959,6 +7290,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: default()");
+                #endif
                 var c = Default();
                 if (c == null)
                 {
@@ -7010,8 +7344,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_name_default_pair(a, c, tc)
-                // Unknown AST function: _PyPegen_name_default_pair
-                _res = default(GeneratedNameDefaultPair?);
+                _res = _PyPegen_name_default_pair(a, c, tc);
                 if (_res != null) goto done;
             } while (false);
 
@@ -7054,6 +7387,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param()");
+                #endif
                 var a = Param();
                 if (a == null)
                 {
@@ -7065,6 +7401,9 @@ namespace SharpPy.Generated
                 // Optional: [default]
                 int _opt_mark_c = _position;
                 // Call rule: default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: default()");
+                #endif
                 var _opt_c = Default();
                 if (_opt_c == null)
                 {
@@ -7089,7 +7428,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_c; // Reset position
                 }
                 // Expect ','
-                var _tmp0 = Expect(",");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -7126,8 +7465,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_tc; // Reset position
                 }
                 // Action: _PyPegen_name_default_pair(a, c, tc)
-                // Unknown AST function: _PyPegen_name_default_pair
-                _res = default(GeneratedNameDefaultPair?);
+                _res = _PyPegen_name_default_pair(a, c, tc);
                 if (_res != null) goto done;
             } while (false);
 
@@ -7144,6 +7482,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param()");
+                #endif
                 var a = Param();
                 if (a == null)
                 {
@@ -7155,6 +7496,9 @@ namespace SharpPy.Generated
                 // Optional: [default]
                 int _opt_mark_c = _position;
                 // Call rule: default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: default()");
+                #endif
                 var _opt_c = Default();
                 if (_opt_c == null)
                 {
@@ -7221,8 +7565,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_name_default_pair(a, c, tc)
-                // Unknown AST function: _PyPegen_name_default_pair
-                _res = default(GeneratedNameDefaultPair?);
+                _res = _PyPegen_name_default_pair(a, c, tc);
                 if (_res != null) goto done;
             } while (false);
 
@@ -7279,6 +7622,9 @@ namespace SharpPy.Generated
                 // Optional: [annotation]
                 int _opt_mark_b = _position;
                 // Call rule: annotation
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: annotation()");
+                #endif
                 var _opt_b = Annotation();
                 if (_opt_b == null)
                 {
@@ -7303,8 +7649,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_b; // Reset position
                 }
                 // Action: _PyAST_arg(a.Id, b, null, EXTRA)
-                // Unknown AST function: _PyAST_arg
-                _res = default(GeneratedArg?);
+                _res = _PyAST_arg(a.Id, b, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -7359,6 +7704,9 @@ namespace SharpPy.Generated
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Call rule: star_annotation
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_annotation()");
+                #endif
                 var b = StarAnnotation();
                 if (b == null)
                 {
@@ -7368,8 +7716,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_arg(a.Id, b, null, EXTRA)
-                // Unknown AST function: _PyAST_arg
-                _res = default(GeneratedArg?);
+                _res = _PyAST_arg(a.Id, b, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -7412,7 +7759,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect ':'
-                var _tmp0 = Expect(":");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -7421,6 +7768,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -7473,7 +7823,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect ':'
-                var _tmp0 = Expect(":");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -7482,6 +7832,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: star_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_expression()");
+                #endif
                 var a = StarExpression();
                 if (a == null)
                 {
@@ -7534,7 +7887,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '='
-                var _tmp0 = Expect("=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -7543,6 +7896,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -7696,8 +8052,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'if'
-                var _tmp0 = Expect("if");
+                // Expect keyword: 'if' (token type 513)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -7706,6 +8062,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: named_expression()");
+                #endif
                 var a = NamedExpression();
                 if (a == null)
                 {
@@ -7715,7 +8074,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(":");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -7724,6 +8083,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var b = Block();
                 if (b == null)
                 {
@@ -7733,6 +8095,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: elif_stmt
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: elif_stmt()");
+                #endif
                 var c = ElifStmt();
                 if (c == null)
                 {
@@ -7742,7 +8107,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_If(a, b, CHECK<asdl_stmt_seq>(_PyPegen_singleton_seq(c)), EXTRA)
-                _res = _PyAST_If(a, b, CHECK<asdl_stmt_seq>(_PyPegen_singleton_seq(c)), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_If(a, b, _PyPegen_singleton_seq(c), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -7759,8 +8124,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'if'
-                var _tmp0 = Expect("if");
+                // Expect keyword: 'if' (token type 513)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -7769,6 +8134,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: named_expression()");
+                #endif
                 var a = NamedExpression();
                 if (a == null)
                 {
@@ -7778,7 +8146,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(":");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -7787,6 +8155,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var b = Block();
                 if (b == null)
                 {
@@ -7924,8 +8295,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'elif'
-                var _tmp0 = Expect("elif");
+                // Expect keyword: 'elif' (token type 520)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.ELIF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -7934,6 +8305,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: named_expression()");
+                #endif
                 var a = NamedExpression();
                 if (a == null)
                 {
@@ -7943,7 +8317,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(":");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -7952,6 +8326,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var b = Block();
                 if (b == null)
                 {
@@ -7961,6 +8338,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: elif_stmt
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: elif_stmt()");
+                #endif
                 var c = ElifStmt();
                 if (c == null)
                 {
@@ -7970,7 +8350,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_If(a, b, CHECK<asdl_stmt_seq>(_PyPegen_singleton_seq(c)), EXTRA)
-                _res = _PyAST_If(a, b, CHECK<asdl_stmt_seq>(_PyPegen_singleton_seq(c)), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_If(a, b, _PyPegen_singleton_seq(c), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -7987,8 +8367,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'elif'
-                var _tmp0 = Expect("elif");
+                // Expect keyword: 'elif' (token type 520)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.ELIF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -7997,6 +8377,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: named_expression()");
+                #endif
                 var a = NamedExpression();
                 if (a == null)
                 {
@@ -8006,7 +8389,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(":");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -8015,6 +8398,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var b = Block();
                 if (b == null)
                 {
@@ -8152,8 +8538,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'else'
-                var _tmp0 = Expect("else");
+                // Expect keyword: 'else' (token type 521)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.ELSE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -8176,6 +8562,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var b = Block();
                 if (b == null)
                 {
@@ -8278,8 +8667,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'while'
-                var _tmp0 = Expect("while");
+                // Expect keyword: 'while' (token type 518)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.WHILE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -8288,6 +8677,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: named_expression()");
+                #endif
                 var a = NamedExpression();
                 if (a == null)
                 {
@@ -8297,7 +8689,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(":");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -8306,6 +8698,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var b = Block();
                 if (b == null)
                 {
@@ -8443,8 +8838,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'for'
-                var _tmp0 = Expect("for");
+                // Expect keyword: 'for' (token type 516)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.FOR);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -8453,6 +8848,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: star_targets
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_targets()");
+                #endif
                 var t = StarTargets();
                 if (t == null)
                 {
@@ -8461,8 +8859,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'in'
-                var _tmp1 = Expect("in");
+                // Expect keyword: 'in' (token type 522)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.IN);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -8473,6 +8871,9 @@ namespace SharpPy.Generated
                 // Cut operator - commit to this alternative
                 // TODO: Implement cut semantics (prevent backtracking)
                 // Call rule: star_expressions
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_expressions()");
+                #endif
                 var ex = StarExpressions();
                 if (ex == null)
                 {
@@ -8482,7 +8883,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp2 = Expect(":");
+                var _tmp2 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -8525,6 +8926,9 @@ namespace SharpPy.Generated
                     _position = _opt_mark_tc; // Reset position
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var b = Block();
                 if (b == null)
                 {
@@ -8596,8 +9000,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Expect 'for'
-                var _tmp1 = Expect("for");
+                // Expect keyword: 'for' (token type 516)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.FOR);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -8606,6 +9010,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: star_targets
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_targets()");
+                #endif
                 var t = StarTargets();
                 if (t == null)
                 {
@@ -8614,8 +9021,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'in'
-                var _tmp2 = Expect("in");
+                // Expect keyword: 'in' (token type 522)
+                var _tmp2 = ExpectToken((GeneratedTokenType)KeywordType.IN);
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -8626,6 +9033,9 @@ namespace SharpPy.Generated
                 // Cut operator - commit to this alternative
                 // TODO: Implement cut semantics (prevent backtracking)
                 // Call rule: star_expressions
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_expressions()");
+                #endif
                 var ex = StarExpressions();
                 if (ex == null)
                 {
@@ -8635,7 +9045,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp3 = Expect(":");
+                var _tmp3 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -8678,6 +9088,9 @@ namespace SharpPy.Generated
                     _position = _opt_mark_tc; // Reset position
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var b = Block();
                 if (b == null)
                 {
@@ -8866,8 +9279,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'with'
-                var _tmp0 = Expect("with");
+                // Expect keyword: 'with' (token type 515)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.WITH);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -8876,7 +9289,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp1 = Expect("(");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -8897,7 +9310,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp2 = _position;
                 // Expect ','
-                var _opt__tmp2 = Expect(",");
+                var _opt__tmp2 = Expect(GeneratedTokenType.OP, ",");
                 if (_opt__tmp2 == null)
                 {
                     _position = _mark;
@@ -8921,7 +9334,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp2; // Reset position
                 }
                 // Expect ')'
-                var _tmp3 = Expect(")");
+                var _tmp3 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -8930,7 +9343,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp4 = Expect(":");
+                var _tmp4 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp4 == null)
                 {
                     _position = _mark;
@@ -8939,6 +9352,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var b = Block();
                 if (b == null)
                 {
@@ -8965,8 +9381,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'with'
-                var _tmp0 = Expect("with");
+                // Expect keyword: 'with' (token type 515)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.WITH);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -8985,7 +9401,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(":");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -9028,6 +9444,9 @@ namespace SharpPy.Generated
                     _position = _opt_mark_tc; // Reset position
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var b = Block();
                 if (b == null)
                 {
@@ -9065,8 +9484,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Expect 'with'
-                var _tmp1 = Expect("with");
+                // Expect keyword: 'with' (token type 515)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.WITH);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -9075,7 +9494,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp2 = Expect("(");
+                var _tmp2 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -9096,7 +9515,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp3 = _position;
                 // Expect ','
-                var _opt__tmp3 = Expect(",");
+                var _opt__tmp3 = Expect(GeneratedTokenType.OP, ",");
                 if (_opt__tmp3 == null)
                 {
                     _position = _mark;
@@ -9120,7 +9539,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp3; // Reset position
                 }
                 // Expect ')'
-                var _tmp4 = Expect(")");
+                var _tmp4 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp4 == null)
                 {
                     _position = _mark;
@@ -9129,7 +9548,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp5 = Expect(":");
+                var _tmp5 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp5 == null)
                 {
                     _position = _mark;
@@ -9138,6 +9557,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var b = Block();
                 if (b == null)
                 {
@@ -9175,8 +9597,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Expect 'with'
-                var _tmp1 = Expect("with");
+                // Expect keyword: 'with' (token type 515)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.WITH);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -9195,7 +9617,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp2 = Expect(":");
+                var _tmp2 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -9238,6 +9660,9 @@ namespace SharpPy.Generated
                     _position = _opt_mark_tc; // Reset position
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var b = Block();
                 if (b == null)
                 {
@@ -9342,6 +9767,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var e = Expression();
                 if (e == null)
                 {
@@ -9350,8 +9778,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'as'
-                var _tmp0 = Expect("as");
+                // Expect keyword: 'as' (token type 519)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.AS);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -9360,6 +9788,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: star_target
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_target()");
+                #endif
                 var t = StarTarget();
                 if (t == null)
                 {
@@ -9386,8 +9817,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_withitem(e, t)
-                // Unknown AST function: _PyAST_withitem
-                _res = default(GeneratedWithitem?);
+                _res = _PyAST_withitem(e, t);
                 if (_res != null) goto done;
             } while (false);
 
@@ -9455,6 +9885,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var e = Expression();
                 if (e == null)
                 {
@@ -9464,8 +9897,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_withitem(e, null)
-                // Unknown AST function: _PyAST_withitem
-                _res = default(GeneratedWithitem?);
+                _res = _PyAST_withitem(e, null);
                 if (_res != null) goto done;
             } while (false);
 
@@ -9558,8 +9990,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'try'
-                var _tmp0 = Expect("try");
+                // Expect keyword: 'try' (token type 517)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.TRY);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -9582,6 +10014,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var b = Block();
                 if (b == null)
                 {
@@ -9591,6 +10026,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: finally_block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: finally_block()");
+                #endif
                 var f = FinallyBlock();
                 if (f == null)
                 {
@@ -9617,8 +10055,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'try'
-                var _tmp0 = Expect("try");
+                // Expect keyword: 'try' (token type 517)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.TRY);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -9641,6 +10079,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var b = Block();
                 if (b == null)
                 {
@@ -9745,8 +10186,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'try'
-                var _tmp0 = Expect("try");
+                // Expect keyword: 'try' (token type 517)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.TRY);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -9769,6 +10210,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var b = Block();
                 if (b == null)
                 {
@@ -9952,8 +10396,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'except'
-                var _tmp0 = Expect("except");
+                // Expect keyword: 'except' (token type 523)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -9962,6 +10406,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var e = Expression();
                 if (e == null)
                 {
@@ -10009,7 +10456,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_t; // Reset position
                 }
                 // Expect ':'
-                var _tmp1 = Expect(":");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -10018,6 +10465,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var b = Block();
                 if (b == null)
                 {
@@ -10026,9 +10476,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_ExceptHandler(e, (t) ? (t).Id : null, b, EXTRA)
-                // Unknown AST function: _PyAST_ExceptHandler
-                _res = default(GeneratedExcepthandler?);
+                // Action: _PyAST_ExceptHandler(e, (t) ? NameToken(t).Id : null, b, EXTRA)
+                _res = _PyAST_ExceptHandler(e, t != null ? NameToken(t).Id : null, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10044,8 +10493,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'except'
-                var _tmp0 = Expect("except");
+                // Expect keyword: 'except' (token type 523)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -10054,7 +10503,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(":");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -10063,6 +10512,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var b = Block();
                 if (b == null)
                 {
@@ -10072,8 +10524,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_ExceptHandler(null, null, b, EXTRA)
-                // Unknown AST function: _PyAST_ExceptHandler
-                _res = default(GeneratedExcepthandler?);
+                _res = _PyAST_ExceptHandler(null, null, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10217,8 +10668,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'except'
-                var _tmp0 = Expect("except");
+                // Expect keyword: 'except' (token type 523)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -10227,7 +10678,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '*'
-                var _tmp1 = Expect("*");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -10236,6 +10687,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var e = Expression();
                 if (e == null)
                 {
@@ -10283,7 +10737,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_t; // Reset position
                 }
                 // Expect ':'
-                var _tmp2 = Expect(":");
+                var _tmp2 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -10292,6 +10746,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var b = Block();
                 if (b == null)
                 {
@@ -10300,9 +10757,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_ExceptHandler(e, (t) ? (t).Id : null, b, EXTRA)
-                // Unknown AST function: _PyAST_ExceptHandler
-                _res = default(GeneratedExcepthandler?);
+                // Action: _PyAST_ExceptHandler(e, (t) ? NameToken(t).Id : null, b, EXTRA)
+                _res = _PyAST_ExceptHandler(e, t != null ? NameToken(t).Id : null, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10446,8 +10902,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'finally'
-                var _tmp0 = Expect("finally");
+                // Expect keyword: 'finally' (token type 524)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.FINALLY);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -10470,6 +10926,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var a = Block();
                 if (a == null)
                 {
@@ -10522,7 +10981,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '\"match\"'
-                var _tmp0 = Expect("\"match\"");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "\"match\"");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -10531,6 +10990,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: subject_expr
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: subject_expr()");
+                #endif
                 var subject = SubjectExpr();
                 if (subject == null)
                 {
@@ -10540,7 +11002,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(":");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -10687,6 +11149,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: star_named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_named_expression()");
+                #endif
                 var value = StarNamedExpression();
                 if (value == null)
                 {
@@ -10696,7 +11161,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(",");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -10707,6 +11172,9 @@ namespace SharpPy.Generated
                 // Optional: [star_named_expressions]
                 int _opt_mark_values = _position;
                 // Call rule: star_named_expressions
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_named_expressions()");
+                #endif
                 var _opt_values = StarNamedExpressions();
                 if (_opt_values == null)
                 {
@@ -10731,7 +11199,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_values; // Reset position
                 }
                 // Action: _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(value, values)), Load, EXTRA)
-                _res = _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(value, values)), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Tuple(_PyPegen_seq_insert_in_front(value, values), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -10749,6 +11217,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: named_expression()");
+                #endif
                 var _tmp0 = NamedExpression();
                 if (_tmp0 == null)
                 {
@@ -10852,7 +11323,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '\"case\"'
-                var _tmp0 = Expect("\"case\"");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "\"case\"");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -10861,6 +11332,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: patterns
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: patterns()");
+                #endif
                 var pattern = Patterns();
                 if (pattern == null)
                 {
@@ -10872,6 +11346,9 @@ namespace SharpPy.Generated
                 // Optional: [guard]
                 int _opt_mark_guard = _position;
                 // Call rule: guard
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: guard()");
+                #endif
                 var _opt_guard = Guard();
                 if (_opt_guard == null)
                 {
@@ -10896,7 +11373,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_guard; // Reset position
                 }
                 // Expect ':'
-                var _tmp1 = Expect(":");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -10905,6 +11382,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var body = Block();
                 if (body == null)
                 {
@@ -10914,8 +11394,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_match_case(pattern, guard, body)
-                // Unknown AST function: _PyAST_match_case
-                _res = default(GeneratedMatchCase?);
+                _res = _PyAST_match_case(pattern, guard, body);
                 if (_res != null) goto done;
             } while (false);
 
@@ -10957,8 +11436,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'if'
-                var _tmp0 = Expect("if");
+                // Expect keyword: 'if' (token type 513)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -10967,6 +11446,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: named_expression()");
+                #endif
                 var guard = NamedExpression();
                 if (guard == null)
                 {
@@ -11019,6 +11501,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: open_sequence_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: open_sequence_pattern()");
+                #endif
                 GeneratedPatternSeq patterns = (GeneratedPatternSeq)OpenSequencePattern();
                 if (patterns == null)
                 {
@@ -11028,8 +11513,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchSequence(patterns, EXTRA)
-                // Unknown AST function: _PyAST_MatchSequence
-                _res = default(GeneratedPattern?);
+                _res = _PyAST_MatchSequence(patterns, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11046,6 +11530,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: pattern()");
+                #endif
                 var _tmp0 = Pattern();
                 if (_tmp0 == null)
                 {
@@ -11098,6 +11585,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: as_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: as_pattern()");
+                #endif
                 var _tmp0 = AsPattern();
                 if (_tmp0 == null)
                 {
@@ -11124,6 +11614,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: or_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: or_pattern()");
+                #endif
                 var _tmp0 = OrPattern();
                 if (_tmp0 == null)
                 {
@@ -11176,6 +11669,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: or_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: or_pattern()");
+                #endif
                 var pattern = OrPattern();
                 if (pattern == null)
                 {
@@ -11184,8 +11680,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'as'
-                var _tmp0 = Expect("as");
+                // Expect keyword: 'as' (token type 519)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.AS);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -11194,6 +11690,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: pattern_capture_target
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: pattern_capture_target()");
+                #endif
                 var target = PatternCaptureTarget();
                 if (target == null)
                 {
@@ -11202,9 +11701,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_MatchAs(pattern, target.Id, EXTRA)
-                // Unknown AST function: _PyAST_MatchAs
-                _res = default(GeneratedPattern?);
+                // Action: _PyAST_MatchAs(pattern, ((GeneratedName)target).Id, EXTRA)
+                _res = _PyAST_MatchAs(pattern, ((GeneratedName)target).Id, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11308,8 +11806,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: asdl_seq_LEN(patterns) == 1 ? asdl_seq_GET(patterns, 0) : _PyAST_MatchOr(patterns, EXTRA)
-                // Unknown AST function: _PyAST_MatchOr
-                _res = default(GeneratedPattern?);
+                _res = _PyAST_MatchOr(patterns, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11359,6 +11856,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: literal_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: literal_pattern()");
+                #endif
                 var _tmp0 = LiteralPattern();
                 if (_tmp0 == null)
                 {
@@ -11385,6 +11885,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: capture_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: capture_pattern()");
+                #endif
                 var _tmp0 = CapturePattern();
                 if (_tmp0 == null)
                 {
@@ -11411,6 +11914,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: wildcard_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: wildcard_pattern()");
+                #endif
                 var _tmp0 = WildcardPattern();
                 if (_tmp0 == null)
                 {
@@ -11437,6 +11943,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: value_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: value_pattern()");
+                #endif
                 var _tmp0 = ValuePattern();
                 if (_tmp0 == null)
                 {
@@ -11463,6 +11972,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: group_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: group_pattern()");
+                #endif
                 var _tmp0 = GroupPattern();
                 if (_tmp0 == null)
                 {
@@ -11489,6 +12001,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: sequence_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: sequence_pattern()");
+                #endif
                 var _tmp0 = SequencePattern();
                 if (_tmp0 == null)
                 {
@@ -11515,6 +12030,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: mapping_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: mapping_pattern()");
+                #endif
                 var _tmp0 = MappingPattern();
                 if (_tmp0 == null)
                 {
@@ -11541,6 +12059,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: class_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: class_pattern()");
+                #endif
                 var _tmp0 = ClassPattern();
                 if (_tmp0 == null)
                 {
@@ -11595,6 +12116,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: signed_number
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: signed_number()");
+                #endif
                 var value = SignedNumber();
                 if (value == null)
                 {
@@ -11617,8 +12141,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchValue(value, EXTRA)
-                // Unknown AST function: _PyAST_MatchValue
-                _res = default(GeneratedPattern?);
+                _res = _PyAST_MatchValue(value, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11635,6 +12158,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: complex_number
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: complex_number()");
+                #endif
                 var value = ComplexNumber();
                 if (value == null)
                 {
@@ -11644,8 +12170,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchValue(value, EXTRA)
-                // Unknown AST function: _PyAST_MatchValue
-                _res = default(GeneratedPattern?);
+                _res = _PyAST_MatchValue(value, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11662,6 +12187,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: strings
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: strings()");
+                #endif
                 var value = Strings();
                 if (value == null)
                 {
@@ -11671,8 +12199,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchValue(value, EXTRA)
-                // Unknown AST function: _PyAST_MatchValue
-                _res = default(GeneratedPattern?);
+                _res = _PyAST_MatchValue(value, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11688,8 +12215,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'None'
-                var _tmp0 = Expect("None");
+                // Expect keyword: 'None' (token type 525)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.KW_NONE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -11698,8 +12225,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchSingleton(Py_None, EXTRA)
-                // Unknown AST function: _PyAST_MatchSingleton
-                _res = default(GeneratedPattern?);
+                _res = _PyAST_MatchSingleton(Py_None, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11715,8 +12241,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'True'
-                var _tmp0 = Expect("True");
+                // Expect keyword: 'True' (token type 526)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.KW_TRUE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -11725,8 +12251,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchSingleton(Py_True, EXTRA)
-                // Unknown AST function: _PyAST_MatchSingleton
-                _res = default(GeneratedPattern?);
+                _res = _PyAST_MatchSingleton(Py_True, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11742,8 +12267,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'False'
-                var _tmp0 = Expect("False");
+                // Expect keyword: 'False' (token type 527)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.KW_FALSE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -11752,8 +12277,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchSingleton(Py_False, EXTRA)
-                // Unknown AST function: _PyAST_MatchSingleton
-                _res = default(GeneratedPattern?);
+                _res = _PyAST_MatchSingleton(Py_False, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -11796,6 +12320,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: signed_number
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: signed_number()");
+                #endif
                 var _tmp0 = SignedNumber();
                 if (_tmp0 == null)
                 {
@@ -11835,6 +12362,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: complex_number
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: complex_number()");
+                #endif
                 var _tmp0 = ComplexNumber();
                 if (_tmp0 == null)
                 {
@@ -11861,6 +12391,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: strings
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: strings()");
+                #endif
                 var _tmp0 = Strings();
                 if (_tmp0 == null)
                 {
@@ -11886,8 +12419,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'None'
-                var _tmp0 = Expect("None");
+                // Expect keyword: 'None' (token type 525)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.KW_NONE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -11913,8 +12446,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'True'
-                var _tmp0 = Expect("True");
+                // Expect keyword: 'True' (token type 526)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.KW_TRUE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -11940,8 +12473,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'False'
-                var _tmp0 = Expect("False");
+                // Expect keyword: 'False' (token type 527)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.KW_FALSE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -11994,6 +12527,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: signed_real_number
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: signed_real_number()");
+                #endif
                 var real = SignedRealNumber();
                 if (real == null)
                 {
@@ -12003,7 +12539,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '+'
-                var _tmp0 = Expect("+");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "+");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -12012,6 +12548,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: imaginary_number
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: imaginary_number()");
+                #endif
                 var imag = ImaginaryNumber();
                 if (imag == null)
                 {
@@ -12039,6 +12578,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: signed_real_number
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: signed_real_number()");
+                #endif
                 var real = SignedRealNumber();
                 if (real == null)
                 {
@@ -12048,7 +12590,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '-'
-                var _tmp0 = Expect("-");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "-");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -12057,6 +12599,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: imaginary_number
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: imaginary_number()");
+                #endif
                 var imag = ImaginaryNumber();
                 if (imag == null)
                 {
@@ -12140,7 +12685,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '-'
-                var _tmp0 = Expect("-");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "-");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -12205,6 +12750,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: real_number
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: real_number()");
+                #endif
                 var _tmp0 = RealNumber();
                 if (_tmp0 == null)
                 {
@@ -12231,7 +12779,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '-'
-                var _tmp0 = Expect("-");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "-");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -12240,6 +12788,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: real_number
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: real_number()");
+                #endif
                 var real = RealNumber();
                 if (real == null)
                 {
@@ -12305,8 +12856,7 @@ namespace SharpPy.Generated
                 var real = NumberToken(_token_real);
                 Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): result={(real != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_ensure_real(real)
-                // Unknown AST function: _PyPegen_ensure_real
-                _res = default(GeneratedExpr?);
+                _res = _PyPegen_ensure_real(real);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12361,8 +12911,7 @@ namespace SharpPy.Generated
                 var imag = NumberToken(_token_imag);
                 Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): result={(imag != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_ensure_imaginary(imag)
-                // Unknown AST function: _PyPegen_ensure_imaginary
-                _res = default(GeneratedExpr?);
+                _res = _PyPegen_ensure_imaginary(imag);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12405,6 +12954,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: pattern_capture_target
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: pattern_capture_target()");
+                #endif
                 var target = PatternCaptureTarget();
                 if (target == null)
                 {
@@ -12413,9 +12965,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_MatchAs(null, target.Id, EXTRA)
-                // Unknown AST function: _PyAST_MatchAs
-                _res = default(GeneratedPattern?);
+                // Action: _PyAST_MatchAs(null, ((GeneratedName)target).Id, EXTRA)
+                _res = _PyAST_MatchAs(null, ((GeneratedName)target).Id, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12538,7 +13089,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '\"_\"'
-                var _tmp0 = Expect("\"_\"");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "\"_\"");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -12547,8 +13098,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchAs(null, null, EXTRA)
-                // Unknown AST function: _PyAST_MatchAs
-                _res = default(GeneratedPattern?);
+                _res = _PyAST_MatchAs(null, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12591,6 +13141,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: attr
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: attr()");
+                #endif
                 var attr = Attr();
                 if (attr == null)
                 {
@@ -12614,8 +13167,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchValue(attr, EXTRA)
-                // Unknown AST function: _PyAST_MatchValue
-                _res = default(GeneratedPattern?);
+                _res = _PyAST_MatchValue(attr, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12711,6 +13263,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: name_or_attr
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: name_or_attr()");
+                #endif
                 var value = NameOrAttr();
                 if (value == null)
                 {
@@ -12720,7 +13275,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '.'
-                var _tmp0 = Expect(".");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ".");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -12785,6 +13340,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: attr
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: attr()");
+                #endif
                 var _tmp0 = Attr();
                 if (_tmp0 == null)
                 {
@@ -12867,7 +13425,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -12876,6 +13434,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: pattern()");
+                #endif
                 var pattern = Pattern();
                 if (pattern == null)
                 {
@@ -12885,7 +13446,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ')'
-                var _tmp1 = Expect(")");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -12937,7 +13498,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '['
-                var _tmp0 = Expect("[");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -12948,6 +13509,9 @@ namespace SharpPy.Generated
                 // Optional: [maybe_sequence_pattern]
                 int _opt_mark_patterns = _position;
                 // Call rule: maybe_sequence_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: maybe_sequence_pattern()");
+                #endif
                 var _opt_patterns = MaybeSequencePattern();
                 if (_opt_patterns == null)
                 {
@@ -12972,7 +13536,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_patterns; // Reset position
                 }
                 // Expect ']'
-                var _tmp1 = Expect("]");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -12980,9 +13544,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_MatchSequence(patterns, EXTRA)
-                // Unknown AST function: _PyAST_MatchSequence
-                _res = default(GeneratedPattern?);
+                // Action: _PyAST_MatchSequence(patterns.Cast<asdl_pattern_seq>(), EXTRA)
+                _res = _PyAST_MatchSequence(patterns.Cast<asdl_pattern_seq>(), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -12999,7 +13562,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -13010,6 +13573,9 @@ namespace SharpPy.Generated
                 // Optional: [open_sequence_pattern]
                 int _opt_mark_patterns = _position;
                 // Call rule: open_sequence_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: open_sequence_pattern()");
+                #endif
                 var _opt_patterns = OpenSequencePattern();
                 if (_opt_patterns == null)
                 {
@@ -13034,7 +13600,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_patterns; // Reset position
                 }
                 // Expect ')'
-                var _tmp1 = Expect(")");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -13042,9 +13608,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_MatchSequence(patterns, EXTRA)
-                // Unknown AST function: _PyAST_MatchSequence
-                _res = default(GeneratedPattern?);
+                // Action: _PyAST_MatchSequence(patterns.Cast<asdl_pattern_seq>(), EXTRA)
+                _res = _PyAST_MatchSequence(patterns.Cast<asdl_pattern_seq>(), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13087,6 +13652,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: maybe_star_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: maybe_star_pattern()");
+                #endif
                 var pattern = MaybeStarPattern();
                 if (pattern == null)
                 {
@@ -13096,7 +13664,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(",");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -13107,6 +13675,9 @@ namespace SharpPy.Generated
                 // Optional: [maybe_sequence_pattern]
                 int _opt_mark_patterns = _position;
                 // Call rule: maybe_sequence_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: maybe_sequence_pattern()");
+                #endif
                 var _opt_patterns = MaybeSequencePattern();
                 if (_opt_patterns == null)
                 {
@@ -13185,7 +13756,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp0 = _position;
                 // Expect ','
-                var _opt__tmp0 = Expect(",");
+                var _opt__tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_opt__tmp0 == null)
                 {
                     _position = _mark;
@@ -13252,6 +13823,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: star_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_pattern()");
+                #endif
                 var _tmp0 = StarPattern();
                 if (_tmp0 == null)
                 {
@@ -13278,6 +13852,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: pattern()");
+                #endif
                 var _tmp0 = Pattern();
                 if (_tmp0 == null)
                 {
@@ -13337,7 +13914,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -13346,6 +13923,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: pattern_capture_target
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: pattern_capture_target()");
+                #endif
                 var target = PatternCaptureTarget();
                 if (target == null)
                 {
@@ -13354,9 +13934,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_MatchStar(target.Id, EXTRA)
-                // Unknown AST function: _PyAST_MatchStar
-                _res = default(GeneratedPattern?);
+                // Action: _PyAST_MatchStar(((GeneratedName)target).Id, EXTRA)
+                _res = _PyAST_MatchStar(((GeneratedName)target).Id, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13373,7 +13952,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -13382,6 +13961,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: wildcard_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: wildcard_pattern()");
+                #endif
                 var _tmp1 = WildcardPattern();
                 if (_tmp1 == null)
                 {
@@ -13391,8 +13973,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchStar(null, EXTRA)
-                // Unknown AST function: _PyAST_MatchStar
-                _res = default(GeneratedPattern?);
+                _res = _PyAST_MatchStar(null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13437,7 +14018,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -13446,7 +14027,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '}'
-                var _tmp1 = Expect("}");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -13455,8 +14036,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchMapping(null, null, null, EXTRA)
-                // Unknown AST function: _PyAST_MatchMapping
-                _res = default(GeneratedPattern?);
+                _res = _PyAST_MatchMapping(null, null, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13473,7 +14053,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -13482,6 +14062,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: double_star_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: double_star_pattern()");
+                #endif
                 var rest = DoubleStarPattern();
                 if (rest == null)
                 {
@@ -13493,7 +14076,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp1 = _position;
                 // Expect ','
-                var _opt__tmp1 = Expect(",");
+                var _opt__tmp1 = Expect(GeneratedTokenType.OP, ",");
                 if (_opt__tmp1 == null)
                 {
                     _position = _mark;
@@ -13517,7 +14100,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp1; // Reset position
                 }
                 // Expect '}'
-                var _tmp2 = Expect("}");
+                var _tmp2 = Expect(GeneratedTokenType.OP, "}");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -13525,9 +14108,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_MatchMapping(null, null, rest.Id, EXTRA)
-                // Unknown AST function: _PyAST_MatchMapping
-                _res = default(GeneratedPattern?);
+                // Action: _PyAST_MatchMapping(null, null, ((GeneratedName)rest).Id, EXTRA)
+                _res = _PyAST_MatchMapping(null, null, ((GeneratedName)rest).Id, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13544,7 +14126,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -13553,6 +14135,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: items_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: items_pattern()");
+                #endif
                 var items = ItemsPattern();
                 if (items == null)
                 {
@@ -13562,7 +14147,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(",");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -13571,6 +14156,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: double_star_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: double_star_pattern()");
+                #endif
                 var rest = DoubleStarPattern();
                 if (rest == null)
                 {
@@ -13582,7 +14170,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp2 = _position;
                 // Expect ','
-                var _opt__tmp2 = Expect(",");
+                var _opt__tmp2 = Expect(GeneratedTokenType.OP, ",");
                 if (_opt__tmp2 == null)
                 {
                     _position = _mark;
@@ -13606,7 +14194,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp2; // Reset position
                 }
                 // Expect '}'
-                var _tmp3 = Expect("}");
+                var _tmp3 = Expect(GeneratedTokenType.OP, "}");
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -13618,10 +14206,9 @@ namespace SharpPy.Generated
                 //   _PyAST_MatchMapping(
                 //   CHECK<asdl_expr_seq>(_PyPegen_get_pattern_keys(items)),
                 //   CHECK<asdl_pattern_seq>(_PyPegen_get_patterns(items)),
-                //   rest.Id,
+                //   ((GeneratedName)rest).Id,
                 //   EXTRA)
-                // Unknown AST function: _PyAST_MatchMapping
-                _res = default(GeneratedPattern?);
+                _res = _PyAST_MatchMapping(_PyPegen_get_pattern_keys(items), _PyPegen_get_patterns(items), ((GeneratedName)rest).Id, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13638,7 +14225,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -13647,6 +14234,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: items_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: items_pattern()");
+                #endif
                 var items = ItemsPattern();
                 if (items == null)
                 {
@@ -13658,7 +14248,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp1 = _position;
                 // Expect ','
-                var _opt__tmp1 = Expect(",");
+                var _opt__tmp1 = Expect(GeneratedTokenType.OP, ",");
                 if (_opt__tmp1 == null)
                 {
                     _position = _mark;
@@ -13682,7 +14272,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp1; // Reset position
                 }
                 // Expect '}'
-                var _tmp2 = Expect("}");
+                var _tmp2 = Expect(GeneratedTokenType.OP, "}");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -13696,8 +14286,7 @@ namespace SharpPy.Generated
                 //   CHECK<asdl_pattern_seq>(_PyPegen_get_patterns(items)),
                 //   null,
                 //   EXTRA)
-                // Unknown AST function: _PyAST_MatchMapping
-                _res = default(GeneratedPattern?);
+                _res = _PyAST_MatchMapping(_PyPegen_get_pattern_keys(items), _PyPegen_get_patterns(items), null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13831,7 +14420,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(":");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -13840,6 +14429,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: pattern()");
+                #endif
                 var pattern = Pattern();
                 if (pattern == null)
                 {
@@ -13849,8 +14441,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_key_pattern_pair(key, pattern)
-                // Unknown AST function: _PyPegen_key_pattern_pair
-                _res = default(GeneratedKeyPatternPair?);
+                _res = _PyPegen_key_pattern_pair(key, pattern);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13893,7 +14484,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect("**");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -13902,6 +14493,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: pattern_capture_target
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: pattern_capture_target()");
+                #endif
                 var target = PatternCaptureTarget();
                 if (target == null)
                 {
@@ -13954,6 +14548,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: name_or_attr
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: name_or_attr()");
+                #endif
                 var cls = NameOrAttr();
                 if (cls == null)
                 {
@@ -13963,7 +14560,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -13972,7 +14569,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ')'
-                var _tmp1 = Expect(")");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -13981,8 +14578,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchClass(cls, null, null, null, EXTRA)
-                // Unknown AST function: _PyAST_MatchClass
-                _res = default(GeneratedPattern?);
+                _res = _PyAST_MatchClass(cls, null, null, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -13999,6 +14595,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: name_or_attr
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: name_or_attr()");
+                #endif
                 var cls = NameOrAttr();
                 if (cls == null)
                 {
@@ -14008,7 +14607,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -14017,6 +14616,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: positional_patterns
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: positional_patterns()");
+                #endif
                 var patterns = PositionalPatterns();
                 if (patterns == null)
                 {
@@ -14028,7 +14630,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp1 = _position;
                 // Expect ','
-                var _opt__tmp1 = Expect(",");
+                var _opt__tmp1 = Expect(GeneratedTokenType.OP, ",");
                 if (_opt__tmp1 == null)
                 {
                     _position = _mark;
@@ -14052,7 +14654,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp1; // Reset position
                 }
                 // Expect ')'
-                var _tmp2 = Expect(")");
+                var _tmp2 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -14061,8 +14663,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_MatchClass(cls, patterns, null, null, EXTRA)
-                // Unknown AST function: _PyAST_MatchClass
-                _res = default(GeneratedPattern?);
+                _res = _PyAST_MatchClass(cls, patterns, null, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -14079,6 +14680,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: name_or_attr
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: name_or_attr()");
+                #endif
                 var cls = NameOrAttr();
                 if (cls == null)
                 {
@@ -14088,7 +14692,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -14097,6 +14701,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: keyword_patterns
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: keyword_patterns()");
+                #endif
                 var keywords = KeywordPatterns();
                 if (keywords == null)
                 {
@@ -14108,7 +14715,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp1 = _position;
                 // Expect ','
-                var _opt__tmp1 = Expect(",");
+                var _opt__tmp1 = Expect(GeneratedTokenType.OP, ",");
                 if (_opt__tmp1 == null)
                 {
                     _position = _mark;
@@ -14132,7 +14739,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp1; // Reset position
                 }
                 // Expect ')'
-                var _tmp2 = Expect(")");
+                var _tmp2 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -14147,8 +14754,7 @@ namespace SharpPy.Generated
                 //   CHECK<asdl_expr_seq>(_PyPegen_get_pattern_keys(keywords)))),
                 //   CHECK<asdl_pattern_seq>(_PyPegen_get_patterns(keywords)),
                 //   EXTRA)
-                // Unknown AST function: _PyAST_MatchClass
-                _res = default(GeneratedPattern?);
+                _res = _PyAST_MatchClass(cls, null, _PyPegen_map_names_to_ids(_PyPegen_get_pattern_keys(keywords)), _PyPegen_get_patterns(keywords), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -14165,6 +14771,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: name_or_attr
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: name_or_attr()");
+                #endif
                 var cls = NameOrAttr();
                 if (cls == null)
                 {
@@ -14174,7 +14783,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -14183,6 +14792,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: positional_patterns
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: positional_patterns()");
+                #endif
                 var patterns = PositionalPatterns();
                 if (patterns == null)
                 {
@@ -14192,7 +14804,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(",");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -14201,6 +14813,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: keyword_patterns
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: keyword_patterns()");
+                #endif
                 var keywords = KeywordPatterns();
                 if (keywords == null)
                 {
@@ -14212,7 +14827,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp2 = _position;
                 // Expect ','
-                var _opt__tmp2 = Expect(",");
+                var _opt__tmp2 = Expect(GeneratedTokenType.OP, ",");
                 if (_opt__tmp2 == null)
                 {
                     _position = _mark;
@@ -14236,7 +14851,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp2; // Reset position
                 }
                 // Expect ')'
-                var _tmp3 = Expect(")");
+                var _tmp3 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -14252,8 +14867,7 @@ namespace SharpPy.Generated
                 //   CHECK<asdl_expr_seq>(_PyPegen_get_pattern_keys(keywords)))),
                 //   CHECK<asdl_pattern_seq>(_PyPegen_get_patterns(keywords)),
                 //   EXTRA)
-                // Unknown AST function: _PyAST_MatchClass
-                _res = default(GeneratedPattern?);
+                _res = _PyAST_MatchClass(cls, patterns, _PyPegen_map_names_to_ids(_PyPegen_get_pattern_keys(keywords)), _PyPegen_get_patterns(keywords), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -14464,7 +15078,7 @@ namespace SharpPy.Generated
                 var arg = NameToken(_token_arg);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(arg != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect '='
-                var _tmp0 = Expect("=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -14473,6 +15087,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: pattern()");
+                #endif
                 var value = Pattern();
                 if (value == null)
                 {
@@ -14482,8 +15099,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_key_pattern_pair(arg, value)
-                // Unknown AST function: _PyPegen_key_pattern_pair
-                _res = default(GeneratedKeyPatternPair?);
+                _res = _PyPegen_key_pattern_pair(arg, value);
                 if (_res != null) goto done;
             } while (false);
 
@@ -14526,7 +15142,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '\"type\"'
-                var _tmp0 = Expect("\"type\"");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "\"type\"");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -14581,7 +15197,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_t; // Reset position
                 }
                 // Expect '='
-                var _tmp1 = Expect("=");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "=");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -14590,6 +15206,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var b = Expression();
                 if (b == null)
                 {
@@ -14645,7 +15264,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '['
-                var _tmp0 = Expect("[");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -14654,6 +15273,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: type_param_seq
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: type_param_seq()");
+                #endif
                 var t = TypeParamSeq();
                 if (t == null)
                 {
@@ -14663,7 +15285,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ']'
-                var _tmp1 = Expect("]");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -14856,8 +15478,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_b; // Reset position
                 }
                 // Action: _PyAST_TypeVar(a.Id, b, EXTRA)
-                // Unknown AST function: _PyAST_TypeVar
-                _res = default(GeneratedTypeParam?);
+                _res = _PyAST_TypeVar(a.Id, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -14874,7 +15495,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -14895,7 +15516,7 @@ namespace SharpPy.Generated
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect ':'
-                var colon = Expect(":");
+                var colon = Expect(GeneratedTokenType.OP, ":");
                 if (colon == null)
                 {
                     _position = _mark;
@@ -14904,6 +15525,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var e = Expression();
                 if (e == null)
                 {
@@ -14937,7 +15561,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -14958,8 +15582,7 @@ namespace SharpPy.Generated
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyAST_TypeVarTuple(a.Id, EXTRA)
-                // Unknown AST function: _PyAST_TypeVarTuple
-                _res = default(GeneratedTypeParam?);
+                _res = _PyAST_TypeVarTuple(a.Id, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -14976,7 +15599,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect("**");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -14997,7 +15620,7 @@ namespace SharpPy.Generated
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect ':'
-                var colon = Expect(":");
+                var colon = Expect(GeneratedTokenType.OP, ":");
                 if (colon == null)
                 {
                     _position = _mark;
@@ -15006,6 +15629,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var e = Expression();
                 if (e == null)
                 {
@@ -15039,7 +15665,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect("**");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -15060,8 +15686,7 @@ namespace SharpPy.Generated
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyAST_ParamSpec(a.Id, EXTRA)
-                // Unknown AST function: _PyAST_ParamSpec
-                _res = default(GeneratedTypeParam?);
+                _res = _PyAST_ParamSpec(a.Id, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -15106,7 +15731,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect ':'
-                var _tmp0 = Expect(":");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -15115,6 +15740,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var e = Expression();
                 if (e == null)
                 {
@@ -15167,6 +15795,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -15219,7 +15850,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                 }
                 // Action: _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(a, b)), Load, EXTRA)
-                _res = _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(a, b)), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Tuple(_PyPegen_seq_insert_in_front(a, b), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -15237,6 +15868,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -15246,7 +15880,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(",");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -15255,7 +15889,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_singleton_seq(a)), Load, EXTRA)
-                _res = _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_singleton_seq(a)), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Tuple(_PyPegen_singleton_seq(a), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -15273,6 +15907,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var _tmp0 = Expression();
                 if (_tmp0 == null)
                 {
@@ -15445,6 +16082,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: disjunction
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: disjunction()");
+                #endif
                 var a = Disjunction();
                 if (a == null)
                 {
@@ -15453,8 +16093,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'if'
-                var _tmp0 = Expect("if");
+                // Expect keyword: 'if' (token type 513)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -15463,6 +16103,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: disjunction
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: disjunction()");
+                #endif
                 var b = Disjunction();
                 if (b == null)
                 {
@@ -15471,8 +16114,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'else'
-                var _tmp1 = Expect("else");
+                // Expect keyword: 'else' (token type 521)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.ELSE);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -15481,6 +16124,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var c = Expression();
                 if (c == null)
                 {
@@ -15511,6 +16157,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: disjunction
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: disjunction()");
+                #endif
                 var _tmp0 = Disjunction();
                 if (_tmp0 == null)
                 {
@@ -15540,6 +16189,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: lambdef
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambdef()");
+                #endif
                 var _tmp0 = Lambdef();
                 if (_tmp0 == null)
                 {
@@ -15594,8 +16246,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'yield'
-                var _tmp0 = Expect("yield");
+                // Expect keyword: 'yield' (token type 506)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.YIELD);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -15603,8 +16255,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'from'
-                var _tmp1 = Expect("from");
+                // Expect keyword: 'from' (token type 502)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.FROM);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -15613,6 +16265,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -15639,8 +16294,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'yield'
-                var _tmp0 = Expect("yield");
+                // Expect keyword: 'yield' (token type 506)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.YIELD);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -15727,6 +16382,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: star_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_expression()");
+                #endif
                 var a = StarExpression();
                 if (a == null)
                 {
@@ -15779,7 +16437,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                 }
                 // Action: _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(a, b)), Load, EXTRA)
-                _res = _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(a, b)), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Tuple(_PyPegen_seq_insert_in_front(a, b), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -15797,6 +16455,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: star_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_expression()");
+                #endif
                 var a = StarExpression();
                 if (a == null)
                 {
@@ -15806,7 +16467,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(",");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -15815,7 +16476,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_singleton_seq(a)), Load, EXTRA)
-                _res = _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_singleton_seq(a)), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Tuple(_PyPegen_singleton_seq(a), GeneratedLoad.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -15833,6 +16494,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: star_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_expression()");
+                #endif
                 var _tmp0 = StarExpression();
                 if (_tmp0 == null)
                 {
@@ -15892,7 +16556,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -15901,6 +16565,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var a = BitwiseOr();
                 if (a == null)
                 {
@@ -15928,6 +16595,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var _tmp0 = Expression();
                 if (_tmp0 == null)
                 {
@@ -16069,7 +16739,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -16078,6 +16748,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var a = BitwiseOr();
                 if (a == null)
                 {
@@ -16105,6 +16778,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: named_expression()");
+                #endif
                 var _tmp0 = NamedExpression();
                 if (_tmp0 == null)
                 {
@@ -16169,7 +16845,7 @@ namespace SharpPy.Generated
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect ':='
-                var _tmp0 = Expect(":=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ":=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -16180,6 +16856,9 @@ namespace SharpPy.Generated
                 // Cut operator - commit to this alternative
                 // TODO: Implement cut semantics (prevent backtracking)
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var b = Expression();
                 if (b == null)
                 {
@@ -16235,6 +16914,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: assignment_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: assignment_expression()");
+                #endif
                 var _tmp0 = AssignmentExpression();
                 if (_tmp0 == null)
                 {
@@ -16312,6 +16994,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var _tmp0 = Expression();
                 if (_tmp0 == null)
                 {
@@ -16382,6 +17067,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: conjunction
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: conjunction()");
+                #endif
                 var a = Conjunction();
                 if (a == null)
                 {
@@ -16404,7 +17092,7 @@ namespace SharpPy.Generated
                 //   Or,
                 //   CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(a, b)),
                 //   EXTRA)
-                _res = _PyAST_BoolOp(GeneratedOr.Instance, CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(a, b)), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_BoolOp(GeneratedOr.Instance, _PyPegen_seq_insert_in_front(a, b), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -16422,6 +17110,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: conjunction
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: conjunction()");
+                #endif
                 var _tmp0 = Conjunction();
                 if (_tmp0 == null)
                 {
@@ -16483,6 +17174,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: inversion
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: inversion()");
+                #endif
                 var a = Inversion();
                 if (a == null)
                 {
@@ -16505,7 +17199,7 @@ namespace SharpPy.Generated
                 //   And,
                 //   CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(a, b)),
                 //   EXTRA)
-                _res = _PyAST_BoolOp(GeneratedAnd.Instance, CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(a, b)), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_BoolOp(GeneratedAnd.Instance, _PyPegen_seq_insert_in_front(a, b), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -16523,6 +17217,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: inversion
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: inversion()");
+                #endif
                 var _tmp0 = Inversion();
                 if (_tmp0 == null)
                 {
@@ -16583,8 +17280,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'not'
-                var _tmp0 = Expect("not");
+                // Expect keyword: 'not' (token type 530)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.NOT);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -16593,6 +17290,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: inversion
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: inversion()");
+                #endif
                 var a = Inversion();
                 if (a == null)
                 {
@@ -16620,6 +17320,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: comparison
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: comparison()");
+                #endif
                 var _tmp0 = Comparison();
                 if (_tmp0 == null)
                 {
@@ -16674,6 +17377,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var a = BitwiseOr();
                 if (a == null)
                 {
@@ -16697,7 +17403,7 @@ namespace SharpPy.Generated
                 //   CHECK<asdl_int_seq>(_PyPegen_get_cmpops(b)),
                 //   CHECK<asdl_expr_seq>(_PyPegen_get_exprs(b)),
                 //   EXTRA)
-                _res = _PyAST_Compare(a, CHECK<asdl_int_seq>(_PyPegen_get_cmpops(b)), CHECK<asdl_expr_seq>(_PyPegen_get_exprs(b)), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Compare(a, _PyPegen_get_cmpops(b), _PyPegen_get_exprs(b), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -16715,6 +17421,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var _tmp0 = BitwiseOr();
                 if (_tmp0 == null)
                 {
@@ -16767,6 +17476,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: eq_bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: eq_bitwise_or()");
+                #endif
                 var _tmp0 = EqBitwiseOr();
                 if (_tmp0 == null)
                 {
@@ -16793,6 +17505,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: noteq_bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: noteq_bitwise_or()");
+                #endif
                 var _tmp0 = NoteqBitwiseOr();
                 if (_tmp0 == null)
                 {
@@ -16819,6 +17534,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: lte_bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lte_bitwise_or()");
+                #endif
                 var _tmp0 = LteBitwiseOr();
                 if (_tmp0 == null)
                 {
@@ -16845,6 +17563,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: lt_bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lt_bitwise_or()");
+                #endif
                 var _tmp0 = LtBitwiseOr();
                 if (_tmp0 == null)
                 {
@@ -16871,6 +17592,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: gte_bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: gte_bitwise_or()");
+                #endif
                 var _tmp0 = GteBitwiseOr();
                 if (_tmp0 == null)
                 {
@@ -16897,6 +17621,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: gt_bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: gt_bitwise_or()");
+                #endif
                 var _tmp0 = GtBitwiseOr();
                 if (_tmp0 == null)
                 {
@@ -16923,6 +17650,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: notin_bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: notin_bitwise_or()");
+                #endif
                 var _tmp0 = NotinBitwiseOr();
                 if (_tmp0 == null)
                 {
@@ -16949,6 +17679,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: in_bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: in_bitwise_or()");
+                #endif
                 var _tmp0 = InBitwiseOr();
                 if (_tmp0 == null)
                 {
@@ -16975,6 +17708,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: isnot_bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: isnot_bitwise_or()");
+                #endif
                 var _tmp0 = IsnotBitwiseOr();
                 if (_tmp0 == null)
                 {
@@ -17001,6 +17737,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: is_bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: is_bitwise_or()");
+                #endif
                 var _tmp0 = IsBitwiseOr();
                 if (_tmp0 == null)
                 {
@@ -17053,7 +17792,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '=='
-                var _tmp0 = Expect("==");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "==");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -17062,6 +17801,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var a = BitwiseOr();
                 if (a == null)
                 {
@@ -17071,8 +17813,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(Eq, a)
-                // Unknown AST function: _PyPegen_cmpop_expr_pair
-                _res = default(GeneratedCmpopExprPair?);
+                _res = new GeneratedCmpopExprPair { Cmpop = GeneratedEq.Instance, Expr = a };
                 if (_res != null) goto done;
             } while (false);
 
@@ -17139,6 +17880,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var a = BitwiseOr();
                 if (a == null)
                 {
@@ -17148,8 +17892,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(NotEq, a)
-                // Unknown AST function: _PyPegen_cmpop_expr_pair
-                _res = default(GeneratedCmpopExprPair?);
+                _res = new GeneratedCmpopExprPair { Cmpop = GeneratedNotEq.Instance, Expr = a };
                 if (_res != null) goto done;
             } while (false);
 
@@ -17192,7 +17935,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '<='
-                var _tmp0 = Expect("<=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "<=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -17201,6 +17944,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var a = BitwiseOr();
                 if (a == null)
                 {
@@ -17210,8 +17956,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(LtE, a)
-                // Unknown AST function: _PyPegen_cmpop_expr_pair
-                _res = default(GeneratedCmpopExprPair?);
+                _res = new GeneratedCmpopExprPair { Cmpop = GeneratedLtE.Instance, Expr = a };
                 if (_res != null) goto done;
             } while (false);
 
@@ -17254,7 +17999,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '<'
-                var _tmp0 = Expect("<");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "<");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -17263,6 +18008,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var a = BitwiseOr();
                 if (a == null)
                 {
@@ -17272,8 +18020,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(Lt, a)
-                // Unknown AST function: _PyPegen_cmpop_expr_pair
-                _res = default(GeneratedCmpopExprPair?);
+                _res = new GeneratedCmpopExprPair { Cmpop = GeneratedLt.Instance, Expr = a };
                 if (_res != null) goto done;
             } while (false);
 
@@ -17316,7 +18063,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '>='
-                var _tmp0 = Expect(">=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ">=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -17325,6 +18072,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var a = BitwiseOr();
                 if (a == null)
                 {
@@ -17334,8 +18084,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(GtE, a)
-                // Unknown AST function: _PyPegen_cmpop_expr_pair
-                _res = default(GeneratedCmpopExprPair?);
+                _res = new GeneratedCmpopExprPair { Cmpop = GeneratedGtE.Instance, Expr = a };
                 if (_res != null) goto done;
             } while (false);
 
@@ -17378,7 +18127,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '>'
-                var _tmp0 = Expect(">");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ">");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -17387,6 +18136,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var a = BitwiseOr();
                 if (a == null)
                 {
@@ -17396,8 +18148,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(Gt, a)
-                // Unknown AST function: _PyPegen_cmpop_expr_pair
-                _res = default(GeneratedCmpopExprPair?);
+                _res = new GeneratedCmpopExprPair { Cmpop = GeneratedGt.Instance, Expr = a };
                 if (_res != null) goto done;
             } while (false);
 
@@ -17439,8 +18190,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'not'
-                var _tmp0 = Expect("not");
+                // Expect keyword: 'not' (token type 530)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.NOT);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -17448,8 +18199,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'in'
-                var _tmp1 = Expect("in");
+                // Expect keyword: 'in' (token type 522)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.IN);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -17458,6 +18209,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var a = BitwiseOr();
                 if (a == null)
                 {
@@ -17467,8 +18221,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(NotIn, a)
-                // Unknown AST function: _PyPegen_cmpop_expr_pair
-                _res = default(GeneratedCmpopExprPair?);
+                _res = new GeneratedCmpopExprPair { Cmpop = GeneratedNotIn.Instance, Expr = a };
                 if (_res != null) goto done;
             } while (false);
 
@@ -17510,8 +18263,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'in'
-                var _tmp0 = Expect("in");
+                // Expect keyword: 'in' (token type 522)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IN);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -17520,6 +18273,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var a = BitwiseOr();
                 if (a == null)
                 {
@@ -17529,8 +18285,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(In, a)
-                // Unknown AST function: _PyPegen_cmpop_expr_pair
-                _res = default(GeneratedCmpopExprPair?);
+                _res = new GeneratedCmpopExprPair { Cmpop = GeneratedIn.Instance, Expr = a };
                 if (_res != null) goto done;
             } while (false);
 
@@ -17572,8 +18327,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'is'
-                var _tmp0 = Expect("is");
+                // Expect keyword: 'is' (token type 531)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IS);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -17581,8 +18336,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'not'
-                var _tmp1 = Expect("not");
+                // Expect keyword: 'not' (token type 530)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.NOT);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -17591,6 +18346,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var a = BitwiseOr();
                 if (a == null)
                 {
@@ -17600,8 +18358,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(IsNot, a)
-                // Unknown AST function: _PyPegen_cmpop_expr_pair
-                _res = default(GeneratedCmpopExprPair?);
+                _res = new GeneratedCmpopExprPair { Cmpop = GeneratedIsNot.Instance, Expr = a };
                 if (_res != null) goto done;
             } while (false);
 
@@ -17643,8 +18400,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'is'
-                var _tmp0 = Expect("is");
+                // Expect keyword: 'is' (token type 531)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IS);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -17653,6 +18410,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var a = BitwiseOr();
                 if (a == null)
                 {
@@ -17662,8 +18422,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_cmpop_expr_pair(Is, a)
-                // Unknown AST function: _PyPegen_cmpop_expr_pair
-                _res = default(GeneratedCmpopExprPair?);
+                _res = new GeneratedCmpopExprPair { Cmpop = GeneratedIs.Instance, Expr = a };
                 if (_res != null) goto done;
             } while (false);
 
@@ -17759,6 +18518,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var a = BitwiseOr();
                 if (a == null)
                 {
@@ -17768,7 +18530,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '|'
-                var _tmp0 = Expect("|");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "|");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -17777,6 +18539,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: bitwise_xor
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_xor()");
+                #endif
                 var b = BitwiseXor();
                 if (b == null)
                 {
@@ -17804,6 +18569,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: bitwise_xor
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_xor()");
+                #endif
                 var _tmp0 = BitwiseXor();
                 if (_tmp0 == null)
                 {
@@ -17909,6 +18677,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: bitwise_xor
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_xor()");
+                #endif
                 var a = BitwiseXor();
                 if (a == null)
                 {
@@ -17918,7 +18689,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '^'
-                var _tmp0 = Expect("^");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "^");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -17927,6 +18698,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: bitwise_and
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_and()");
+                #endif
                 var b = BitwiseAnd();
                 if (b == null)
                 {
@@ -17954,6 +18728,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: bitwise_and
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_and()");
+                #endif
                 var _tmp0 = BitwiseAnd();
                 if (_tmp0 == null)
                 {
@@ -18059,6 +18836,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: bitwise_and
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_and()");
+                #endif
                 var a = BitwiseAnd();
                 if (a == null)
                 {
@@ -18068,7 +18848,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '&'
-                var _tmp0 = Expect("&");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "&");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18077,6 +18857,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: shift_expr
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: shift_expr()");
+                #endif
                 var b = ShiftExpr();
                 if (b == null)
                 {
@@ -18104,6 +18887,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: shift_expr
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: shift_expr()");
+                #endif
                 var _tmp0 = ShiftExpr();
                 if (_tmp0 == null)
                 {
@@ -18209,6 +18995,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: shift_expr
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: shift_expr()");
+                #endif
                 var a = ShiftExpr();
                 if (a == null)
                 {
@@ -18218,7 +19007,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '<<'
-                var _tmp0 = Expect("<<");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "<<");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18227,6 +19016,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: sum
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: sum()");
+                #endif
                 var b = Sum();
                 if (b == null)
                 {
@@ -18254,6 +19046,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: shift_expr
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: shift_expr()");
+                #endif
                 var a = ShiftExpr();
                 if (a == null)
                 {
@@ -18263,7 +19058,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '>>'
-                var _tmp0 = Expect(">>");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ">>");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18272,6 +19067,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: sum
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: sum()");
+                #endif
                 var b = Sum();
                 if (b == null)
                 {
@@ -18299,6 +19097,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: sum
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: sum()");
+                #endif
                 var _tmp0 = Sum();
                 if (_tmp0 == null)
                 {
@@ -18404,6 +19205,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: sum
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: sum()");
+                #endif
                 var a = Sum();
                 if (a == null)
                 {
@@ -18413,7 +19217,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '+'
-                var _tmp0 = Expect("+");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "+");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18422,6 +19226,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: term
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: term()");
+                #endif
                 var b = Term();
                 if (b == null)
                 {
@@ -18449,6 +19256,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: sum
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: sum()");
+                #endif
                 var a = Sum();
                 if (a == null)
                 {
@@ -18458,7 +19268,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '-'
-                var _tmp0 = Expect("-");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "-");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18467,6 +19277,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: term
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: term()");
+                #endif
                 var b = Term();
                 if (b == null)
                 {
@@ -18494,6 +19307,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: term
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: term()");
+                #endif
                 var _tmp0 = Term();
                 if (_tmp0 == null)
                 {
@@ -18599,6 +19415,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: term
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: term()");
+                #endif
                 var a = Term();
                 if (a == null)
                 {
@@ -18608,7 +19427,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18617,6 +19436,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: factor
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: factor()");
+                #endif
                 var b = Factor();
                 if (b == null)
                 {
@@ -18644,6 +19466,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: term
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: term()");
+                #endif
                 var a = Term();
                 if (a == null)
                 {
@@ -18653,7 +19478,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp0 = Expect("/");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "/");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18662,6 +19487,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: factor
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: factor()");
+                #endif
                 var b = Factor();
                 if (b == null)
                 {
@@ -18689,6 +19517,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: term
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: term()");
+                #endif
                 var a = Term();
                 if (a == null)
                 {
@@ -18698,7 +19529,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '//'
-                var _tmp0 = Expect("//");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "//");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18707,6 +19538,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: factor
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: factor()");
+                #endif
                 var b = Factor();
                 if (b == null)
                 {
@@ -18734,6 +19568,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: term
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: term()");
+                #endif
                 var a = Term();
                 if (a == null)
                 {
@@ -18743,7 +19580,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '%'
-                var _tmp0 = Expect("%");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "%");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18752,6 +19589,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: factor
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: factor()");
+                #endif
                 var b = Factor();
                 if (b == null)
                 {
@@ -18779,6 +19619,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: term
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: term()");
+                #endif
                 var a = Term();
                 if (a == null)
                 {
@@ -18788,7 +19631,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '@'
-                var _tmp0 = Expect("@");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "@");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18797,6 +19640,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: factor
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: factor()");
+                #endif
                 var b = Factor();
                 if (b == null)
                 {
@@ -18824,6 +19670,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: factor
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: factor()");
+                #endif
                 var _tmp0 = Factor();
                 if (_tmp0 == null)
                 {
@@ -18883,7 +19732,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '+'
-                var _tmp0 = Expect("+");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "+");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18892,6 +19741,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: factor
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: factor()");
+                #endif
                 var a = Factor();
                 if (a == null)
                 {
@@ -18919,7 +19771,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '-'
-                var _tmp0 = Expect("-");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "-");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18928,6 +19780,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: factor
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: factor()");
+                #endif
                 var a = Factor();
                 if (a == null)
                 {
@@ -18955,7 +19810,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '~'
-                var _tmp0 = Expect("~");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "~");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18964,6 +19819,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: factor
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: factor()");
+                #endif
                 var a = Factor();
                 if (a == null)
                 {
@@ -18991,6 +19849,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: power
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: power()");
+                #endif
                 var _tmp0 = Power();
                 if (_tmp0 == null)
                 {
@@ -19045,6 +19906,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: await_primary
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: await_primary()");
+                #endif
                 var a = AwaitPrimary();
                 if (a == null)
                 {
@@ -19054,7 +19918,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '**'
-                var _tmp0 = Expect("**");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -19063,6 +19927,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: factor
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: factor()");
+                #endif
                 var b = Factor();
                 if (b == null)
                 {
@@ -19090,6 +19957,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: await_primary
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: await_primary()");
+                #endif
                 var _tmp0 = AwaitPrimary();
                 if (_tmp0 == null)
                 {
@@ -19160,6 +20030,9 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(AWAIT): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Call rule: primary
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: primary()");
+                #endif
                 var a = Primary();
                 if (a == null)
                 {
@@ -19187,6 +20060,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: primary
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: primary()");
+                #endif
                 var _tmp0 = Primary();
                 if (_tmp0 == null)
                 {
@@ -19297,6 +20173,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: primary
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: primary()");
+                #endif
                 var a = Primary();
                 if (a == null)
                 {
@@ -19306,7 +20185,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '.'
-                var _tmp0 = Expect(".");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ".");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -19351,6 +20230,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: primary
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: primary()");
+                #endif
                 var a = Primary();
                 if (a == null)
                 {
@@ -19360,6 +20242,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: genexp
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: genexp()");
+                #endif
                 var b = Genexp();
                 if (b == null)
                 {
@@ -19369,7 +20254,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Call(a, CHECK<asdl_expr_seq>(_PyPegen_singleton_seq(b)), null, EXTRA)
-                _res = _PyAST_Call(a, CHECK<asdl_expr_seq>(_PyPegen_singleton_seq(b)), null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Call(a, _PyPegen_singleton_seq(b), null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[PRIMARY-ALT2] SUCCESS at pos={_position}");
@@ -19393,6 +20278,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: primary
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: primary()");
+                #endif
                 var a = Primary();
                 if (a == null)
                 {
@@ -19402,7 +20290,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -19445,7 +20333,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_b; // Reset position
                 }
                 // Expect ')'
-                var _tmp1 = Expect(")");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -19482,6 +20370,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: primary
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: primary()");
+                #endif
                 var a = Primary();
                 if (a == null)
                 {
@@ -19491,7 +20382,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '['
-                var _tmp0 = Expect("[");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -19500,6 +20391,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: slices
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: slices()");
+                #endif
                 var b = Slices();
                 if (b == null)
                 {
@@ -19509,7 +20403,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ']'
-                var _tmp1 = Expect("]");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -19542,6 +20436,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: atom
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: atom()");
+                #endif
                 var _tmp0 = Atom();
                 if (_tmp0 == null)
                 {
@@ -19597,6 +20494,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: slice
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: slice()");
+                #endif
                 var a = Slice();
                 if (a == null)
                 {
@@ -19756,7 +20656,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Expect ':'
-                var _tmp0 = Expect(":");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -19888,6 +20788,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: named_expression()");
+                #endif
                 var a = NamedExpression();
                 if (a == null)
                 {
@@ -19969,8 +20872,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'True'
-                var _tmp0 = Expect("True");
+                // Expect keyword: 'True' (token type 526)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.KW_TRUE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -19996,8 +20899,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'False'
-                var _tmp0 = Expect("False");
+                // Expect keyword: 'False' (token type 527)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.KW_FALSE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -20023,8 +20926,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'None'
-                var _tmp0 = Expect("None");
+                // Expect keyword: 'None' (token type 525)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.KW_NONE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -20067,6 +20970,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: strings
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: strings()");
+                #endif
                 var _tmp1 = Strings();
                 if (_tmp1 == null)
                 {
@@ -20378,7 +21284,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '...'
-                var _tmp0 = Expect("...");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "...");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -20431,7 +21337,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -20479,7 +21385,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ')'
-                var _tmp1 = Expect(")");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -20581,8 +21487,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'lambda'
-                var _tmp0 = Expect("lambda");
+                // Expect keyword: 'lambda' (token type 532)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.LAMBDA);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -20625,7 +21531,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Expect ':'
-                var _tmp1 = Expect(":");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -20634,6 +21540,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var b = Expression();
                 if (b == null)
                 {
@@ -20643,7 +21552,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Lambda((a) ? a : CHECK<arguments_ty>(_PyPegen_empty_arguments()), b, EXTRA)
-                _res = _PyAST_Lambda(a ?? CHECK<arguments_ty>(_PyPegen_empty_arguments()), b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Lambda(a ?? _PyPegen_empty_arguments(), b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -20738,6 +21647,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: lambda_parameters
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_parameters()");
+                #endif
                 var _tmp0 = LambdaParameters();
                 if (_tmp0 == null)
                 {
@@ -20790,6 +21702,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: lambda_slash_no_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_slash_no_default()");
+                #endif
                 var a = LambdaSlashNoDefault();
                 if (a == null)
                 {
@@ -20856,6 +21771,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: lambda_slash_with_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_slash_with_default()");
+                #endif
                 var a = LambdaSlashWithDefault();
                 if (a == null)
                 {
@@ -20965,8 +21883,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_c; // Reset position
                 }
                 // Action: _PyPegen_make_arguments(null, null, a, b, c)
-                // Unknown AST function: _PyPegen_make_arguments
-                _res = default(GeneratedArguments?);
+                _res = _PyPegen_make_arguments(null, null, a, b, c);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21026,8 +21943,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_b; // Reset position
                 }
                 // Action: _PyPegen_make_arguments(null, null, null, a, b)
-                // Unknown AST function: _PyPegen_make_arguments
-                _res = default(GeneratedArguments?);
+                _res = _PyPegen_make_arguments(null, null, null, a, b);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21044,6 +21960,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: lambda_star_etc
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_star_etc()");
+                #endif
                 var a = LambdaStarEtc();
                 if (a == null)
                 {
@@ -21053,8 +21972,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_make_arguments(null, null, null, null, a)
-                // Unknown AST function: _PyPegen_make_arguments
-                _res = default(GeneratedArguments?);
+                _res = _PyPegen_make_arguments(null, null, null, null, a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21107,7 +22025,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp0 = Expect("/");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "/");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -21116,7 +22034,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(",");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -21152,7 +22070,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp0 = Expect("/");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "/");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -21229,7 +22147,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp0 = Expect("/");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "/");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -21238,7 +22156,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(",");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -21246,9 +22164,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_slash_with_default((asdl_arg_seq *)a, b)
-                // Unknown AST function: _PyPegen_slash_with_default
-                _res = default(GeneratedSlashWithDefault?);
+                // Action: _PyPegen_slash_with_default(a.Cast<asdl_arg_seq>(), b)
+                _res = _PyPegen_slash_with_default(a.Cast<asdl_arg_seq>(), b);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21276,7 +22193,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp0 = Expect("/");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "/");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -21298,9 +22215,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyPegen_slash_with_default((asdl_arg_seq *)a, b)
-                // Unknown AST function: _PyPegen_slash_with_default
-                _res = default(GeneratedSlashWithDefault?);
+                // Action: _PyPegen_slash_with_default(a.Cast<asdl_arg_seq>(), b)
+                _res = _PyPegen_slash_with_default(a.Cast<asdl_arg_seq>(), b);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21394,7 +22310,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -21403,6 +22319,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: lambda_param_no_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param_no_default()");
+                #endif
                 var a = LambdaParamNoDefault();
                 if (a == null)
                 {
@@ -21448,8 +22367,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_c; // Reset position
                 }
                 // Action: _PyPegen_star_etc(a, b, c)
-                // Unknown AST function: _PyPegen_star_etc
-                _res = default(GeneratedStarEtc?);
+                _res = _PyPegen_star_etc(a, b, c);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21466,7 +22384,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -21475,7 +22393,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(",");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -21527,8 +22445,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_c; // Reset position
                 }
                 // Action: _PyPegen_star_etc(null, b, c)
-                // Unknown AST function: _PyPegen_star_etc
-                _res = default(GeneratedStarEtc?);
+                _res = _PyPegen_star_etc(null, b, c);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21545,6 +22462,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: lambda_kwds
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_kwds()");
+                #endif
                 var a = LambdaKwds();
                 if (a == null)
                 {
@@ -21554,8 +22474,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_star_etc(null, null, a)
-                // Unknown AST function: _PyPegen_star_etc
-                _res = default(GeneratedStarEtc?);
+                _res = _PyPegen_star_etc(null, null, a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21649,7 +22568,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect("**");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -21658,6 +22577,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: lambda_param_no_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param_no_default()");
+                #endif
                 var a = LambdaParamNoDefault();
                 if (a == null)
                 {
@@ -21710,6 +22632,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: lambda_param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param()");
+                #endif
                 var a = LambdaParam();
                 if (a == null)
                 {
@@ -21719,7 +22644,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(",");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -21745,6 +22670,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: lambda_param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param()");
+                #endif
                 var a = LambdaParam();
                 if (a == null)
                 {
@@ -21811,6 +22739,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: lambda_param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param()");
+                #endif
                 var a = LambdaParam();
                 if (a == null)
                 {
@@ -21820,6 +22751,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: default()");
+                #endif
                 var c = Default();
                 if (c == null)
                 {
@@ -21829,7 +22763,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(",");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -21838,8 +22772,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_name_default_pair(a, c, null)
-                // Unknown AST function: _PyPegen_name_default_pair
-                _res = default(GeneratedNameDefaultPair?);
+                _res = _PyPegen_name_default_pair(a, c, null);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21856,6 +22789,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: lambda_param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param()");
+                #endif
                 var a = LambdaParam();
                 if (a == null)
                 {
@@ -21865,6 +22801,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: default()");
+                #endif
                 var c = Default();
                 if (c == null)
                 {
@@ -21888,8 +22827,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_name_default_pair(a, c, null)
-                // Unknown AST function: _PyPegen_name_default_pair
-                _res = default(GeneratedNameDefaultPair?);
+                _res = _PyPegen_name_default_pair(a, c, null);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21932,6 +22870,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: lambda_param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param()");
+                #endif
                 var a = LambdaParam();
                 if (a == null)
                 {
@@ -21943,6 +22884,9 @@ namespace SharpPy.Generated
                 // Optional: [default]
                 int _opt_mark_c = _position;
                 // Call rule: default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: default()");
+                #endif
                 var _opt_c = Default();
                 if (_opt_c == null)
                 {
@@ -21967,7 +22911,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_c; // Reset position
                 }
                 // Expect ','
-                var _tmp0 = Expect(",");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -21976,8 +22920,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_name_default_pair(a, c, null)
-                // Unknown AST function: _PyPegen_name_default_pair
-                _res = default(GeneratedNameDefaultPair?);
+                _res = _PyPegen_name_default_pair(a, c, null);
                 if (_res != null) goto done;
             } while (false);
 
@@ -21994,6 +22937,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: lambda_param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param()");
+                #endif
                 var a = LambdaParam();
                 if (a == null)
                 {
@@ -22005,6 +22951,9 @@ namespace SharpPy.Generated
                 // Optional: [default]
                 int _opt_mark_c = _position;
                 // Call rule: default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: default()");
+                #endif
                 var _opt_c = Default();
                 if (_opt_c == null)
                 {
@@ -22043,8 +22992,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_name_default_pair(a, c, null)
-                // Unknown AST function: _PyPegen_name_default_pair
-                _res = default(GeneratedNameDefaultPair?);
+                _res = _PyPegen_name_default_pair(a, c, null);
                 if (_res != null) goto done;
             } while (false);
 
@@ -22099,8 +23047,7 @@ namespace SharpPy.Generated
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyAST_arg(a.Id, null, null, EXTRA)
-                // Unknown AST function: _PyAST_arg
-                _res = default(GeneratedArg?);
+                _res = _PyAST_arg(a.Id, null, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -22143,6 +23090,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: fstring_replacement_field
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: fstring_replacement_field()");
+                #endif
                 var _tmp0 = FstringReplacementField();
                 if (_tmp0 == null)
                 {
@@ -22180,8 +23130,7 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_MIDDLE): result={(t != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_constant_from_token(t)
-                // Unknown AST function: _PyPegen_constant_from_token
-                _res = default(GeneratedExpr?);
+                _res = _PyPegen_constant_from_token(t);
                 if (_res != null) goto done;
             } while (false);
 
@@ -22224,7 +23173,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -22274,7 +23223,7 @@ namespace SharpPy.Generated
                 // Optional: ['=']
                 int _opt_mark_debug_expr = _position;
                 // Expect '='
-                var _opt_debug_expr = Expect("=");
+                var _opt_debug_expr = Expect(GeneratedTokenType.OP, "=");
                 if (_opt_debug_expr == null)
                 {
                     _position = _mark;
@@ -22366,7 +23315,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_format; // Reset position
                 }
                 // Expect '}'
-                var rbrace = Expect("}");
+                var rbrace = Expect(GeneratedTokenType.OP, "}");
                 if (rbrace == null)
                 {
                     _position = _mark;
@@ -22375,8 +23324,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_formatted_value(a, debug_expr, conversion, format, rbrace, EXTRA)
-                // Unknown AST function: _PyPegen_formatted_value
-                _res = default(GeneratedExpr?);
+                _res = _PyPegen_formatted_value(a, debug_expr, conversion, format, rbrace, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -22470,7 +23418,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '\"!\"'
-                var conv_token = Expect("\"!\"");
+                var conv_token = Expect(GeneratedTokenType.OP, "\"!\"");
                 if (conv_token == null)
                 {
                     _position = _mark;
@@ -22491,8 +23439,7 @@ namespace SharpPy.Generated
                 var conv = NameToken(_token_conv);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(conv != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_check_fstring_conversion(conv_token, conv)
-                // Unknown AST function: _PyPegen_check_fstring_conversion
-                _res = default(GeneratedResultTokenWithMetadata?);
+                _res = _PyPegen_check_fstring_conversion(conv_token, conv);
                 if (_res != null) goto done;
             } while (false);
 
@@ -22535,7 +23482,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect ':'
-                var colon = Expect(":");
+                var colon = Expect(GeneratedTokenType.OP, ":");
                 if (colon == null)
                 {
                     _position = _mark;
@@ -22545,9 +23492,8 @@ namespace SharpPy.Generated
                 }
                 // Zero or more: fstring_format_spec* (CPython: _Loop0_N rule)
                 var spec = _Loop0_52();
-                // Action: _PyPegen_setup_full_format_spec(colon, (asdl_expr_seq *) spec, EXTRA)
-                // Unknown AST function: _PyPegen_setup_full_format_spec
-                _res = default(GeneratedResultTokenWithMetadata?);
+                // Action: _PyPegen_setup_full_format_spec(colon, spec.Cast<asdl_expr_seq>(), EXTRA)
+                _res = _PyPegen_setup_full_format_spec(colon, spec.Cast<asdl_expr_seq>(), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -22601,8 +23547,7 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_MIDDLE): result={(t != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_decoded_constant_from_token(t)
-                // Unknown AST function: _PyPegen_decoded_constant_from_token
-                _res = default(GeneratedExpr?);
+                _res = _PyPegen_decoded_constant_from_token(t);
                 if (_res != null) goto done;
             } while (false);
 
@@ -22619,6 +23564,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: fstring_replacement_field
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: fstring_replacement_field()");
+                #endif
                 var _tmp0 = FstringReplacementField();
                 if (_tmp0 == null)
                 {
@@ -22695,8 +23643,7 @@ namespace SharpPy.Generated
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_END): result={(c != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Action: _PyPegen_joined_str(a, b, c)
-                // Unknown AST function: _PyPegen_joined_str
-                _res = default(GeneratedExpr?);
+                _res = _PyPegen_joined_str(a, b, c);
                 if (_res != null) goto done;
             } while (false);
 
@@ -22856,7 +23803,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '['
-                var _tmp0 = Expect("[");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -22899,7 +23846,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Expect ']'
-                var _tmp1 = Expect("]");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -22952,7 +23899,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -23036,7 +23983,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Expect ')'
-                var _tmp1 = Expect(")");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -23089,7 +24036,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -23098,6 +24045,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: star_named_expressions
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_named_expressions()");
+                #endif
                 var a = StarNamedExpressions();
                 if (a == null)
                 {
@@ -23107,7 +24057,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '}'
-                var _tmp1 = Expect("}");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -23160,7 +24110,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -23203,7 +24153,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Expect '}'
-                var _tmp1 = Expect("}");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -23216,7 +24166,7 @@ namespace SharpPy.Generated
                 //   CHECK<asdl_expr_seq>(_PyPegen_get_keys(a)),
                 //   CHECK<asdl_expr_seq>(_PyPegen_get_values(a)),
                 //   EXTRA)
-                _res = _PyAST_Dict(CHECK<asdl_expr_seq>(_PyPegen_get_keys(a)), CHECK<asdl_expr_seq>(_PyPegen_get_values(a)), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Dict(_PyPegen_get_keys(a), _PyPegen_get_values(a), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -23234,7 +24184,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -23269,7 +24219,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '}'
-                var _tmp2 = Expect("}");
+                var _tmp2 = Expect(GeneratedTokenType.OP, "}");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -23415,7 +24365,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect("**");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -23424,6 +24374,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var a = BitwiseOr();
                 if (a == null)
                 {
@@ -23433,8 +24386,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_key_value_pair(null, a)
-                // Unknown AST function: _PyPegen_key_value_pair
-                _res = default(GeneratedKeyValuePair?);
+                _res = _PyPegen_key_value_pair(null, a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23451,6 +24403,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: kvpair
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: kvpair()");
+                #endif
                 var _tmp0 = Kvpair();
                 if (_tmp0 == null)
                 {
@@ -23503,6 +24458,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -23512,7 +24470,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(":");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -23521,6 +24479,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var b = Expression();
                 if (b == null)
                 {
@@ -23530,8 +24491,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_key_value_pair(a, b)
-                // Unknown AST function: _PyPegen_key_value_pair
-                _res = default(GeneratedKeyValuePair?);
+                _res = _PyPegen_key_value_pair(a, b);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23637,8 +24597,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
-                // Expect 'for'
-                var _tmp1 = Expect("for");
+                // Expect keyword: 'for' (token type 516)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.FOR);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -23647,6 +24607,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: star_targets
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_targets()");
+                #endif
                 var a = StarTargets();
                 if (a == null)
                 {
@@ -23655,8 +24618,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'in'
-                var _tmp2 = Expect("in");
+                // Expect keyword: 'in' (token type 522)
+                var _tmp2 = ExpectToken((GeneratedTokenType)KeywordType.IN);
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -23667,6 +24630,9 @@ namespace SharpPy.Generated
                 // Cut operator - commit to this alternative
                 // TODO: Implement cut semantics (prevent backtracking)
                 // Call rule: disjunction
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: disjunction()");
+                #endif
                 var b = Disjunction();
                 if (b == null)
                 {
@@ -23696,8 +24662,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'for'
-                var _tmp0 = Expect("for");
+                // Expect keyword: 'for' (token type 516)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.FOR);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -23706,6 +24672,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: star_targets
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_targets()");
+                #endif
                 var a = StarTargets();
                 if (a == null)
                 {
@@ -23714,8 +24683,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'in'
-                var _tmp1 = Expect("in");
+                // Expect keyword: 'in' (token type 522)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.IN);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -23726,6 +24695,9 @@ namespace SharpPy.Generated
                 // Cut operator - commit to this alternative
                 // TODO: Implement cut semantics (prevent backtracking)
                 // Call rule: disjunction
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: disjunction()");
+                #endif
                 var b = Disjunction();
                 if (b == null)
                 {
@@ -23738,8 +24710,7 @@ namespace SharpPy.Generated
                 // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
                 GeneratedExprSeq c = (GeneratedExprSeq)_Loop0_59();
                 // Action: _PyAST_comprehension(a, b, c, 0)
-                // Unknown AST function: _PyAST_comprehension
-                _res = default(GeneratedComprehension?);
+                _res = _PyAST_comprehension(a, b, c, 0);
                 if (_res != null) goto done;
             } while (false);
 
@@ -23833,7 +24804,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '['
-                var _tmp0 = Expect("[");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -23842,6 +24813,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: named_expression()");
+                #endif
                 var a = NamedExpression();
                 if (a == null)
                 {
@@ -23851,6 +24825,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: for_if_clauses()");
+                #endif
                 var b = ForIfClauses();
                 if (b == null)
                 {
@@ -23860,7 +24837,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ']'
-                var _tmp1 = Expect("]");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -23964,7 +24941,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -23973,6 +24950,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: named_expression()");
+                #endif
                 var a = NamedExpression();
                 if (a == null)
                 {
@@ -23982,6 +24962,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: for_if_clauses()");
+                #endif
                 var b = ForIfClauses();
                 if (b == null)
                 {
@@ -23991,7 +24974,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '}'
-                var _tmp1 = Expect("}");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -24095,7 +25078,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -24146,6 +25129,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: for_if_clauses()");
+                #endif
                 var b = ForIfClauses();
                 if (b == null)
                 {
@@ -24155,7 +25141,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ')'
-                var _tmp1 = Expect(")");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -24259,7 +25245,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -24268,6 +25254,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: kvpair
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: kvpair()");
+                #endif
                 var a = Kvpair();
                 if (a == null)
                 {
@@ -24277,6 +25266,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: for_if_clauses()");
+                #endif
                 var b = ForIfClauses();
                 if (b == null)
                 {
@@ -24286,7 +25278,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '}'
-                var _tmp1 = Expect("}");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -24400,6 +25392,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: args
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: args()");
+                #endif
                 var a = Args();
                 if (a == null)
                 {
@@ -24627,6 +25622,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: kwargs
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: kwargs()");
+                #endif
                 var a = Kwargs();
                 if (a == null)
                 {
@@ -24693,7 +25691,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(",");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -24711,8 +25709,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_join_sequences(a, b)
-                // Unknown AST function: _PyPegen_join_sequences
-                _res = default(GeneratedSeq?);
+                _res = _PyPegen_join_sequences(a, b);
                 if (_res != null) goto done;
             } while (false);
 
@@ -24858,7 +25855,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -24867,6 +25864,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -24894,7 +25894,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -25012,7 +26012,7 @@ namespace SharpPy.Generated
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect '='
-                var _tmp0 = Expect("=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -25021,6 +26021,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var b = Expression();
                 if (b == null)
                 {
@@ -25030,8 +26033,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_keyword_or_starred(CHECK<keyword_ty>(_PyAST_keyword(a.Id, b, EXTRA)), 1)
-                // Unknown AST function: _PyAST_keyword
-                _res = default(GeneratedKeywordOrStarred?);
+                _res = _PyPegen_keyword_or_starred(_PyAST_keyword(a.Id, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset), 1);
                 if (_res != null) goto done;
             } while (false);
 
@@ -25048,6 +26050,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: starred_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: starred_expression()");
+                #endif
                 var a = StarredExpression();
                 if (a == null)
                 {
@@ -25163,7 +26168,7 @@ namespace SharpPy.Generated
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect '='
-                var _tmp0 = Expect("=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -25172,6 +26177,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var b = Expression();
                 if (b == null)
                 {
@@ -25181,8 +26189,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_keyword_or_starred(CHECK<keyword_ty>(_PyAST_keyword(a.Id, b, EXTRA)), 1)
-                // Unknown AST function: _PyAST_keyword
-                _res = default(GeneratedKeywordOrStarred?);
+                _res = _PyPegen_keyword_or_starred(_PyAST_keyword(a.Id, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset), 1);
                 if (_res != null) goto done;
             } while (false);
 
@@ -25199,7 +26206,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect("**");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -25208,6 +26215,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -25217,8 +26227,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_keyword_or_starred(CHECK<keyword_ty>(_PyAST_keyword(null, a, EXTRA)), 1)
-                // Unknown AST function: _PyAST_keyword
-                _res = default(GeneratedKeywordOrStarred?);
+                _res = _PyPegen_keyword_or_starred(_PyAST_keyword(null, a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset), 1);
                 if (_res != null) goto done;
             } while (false);
 
@@ -25261,6 +26270,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: star_target
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_target()");
+                #endif
                 var a = StarTarget();
                 if (a == null)
                 {
@@ -25298,6 +26310,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: star_target
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_target()");
+                #endif
                 var a = StarTarget();
                 if (a == null)
                 {
@@ -25343,7 +26358,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                 }
                 // Action: _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(a, b)), Store, EXTRA)
-                _res = _PyAST_Tuple(CHECK<asdl_expr_seq>(_PyPegen_seq_insert_in_front(a, b)), GeneratedStore.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Tuple(_PyPegen_seq_insert_in_front(a, b), GeneratedStore.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -25474,6 +26489,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: star_target
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_target()");
+                #endif
                 var a = StarTarget();
                 if (a == null)
                 {
@@ -25543,6 +26561,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: star_target
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_target()");
+                #endif
                 var a = StarTarget();
                 if (a == null)
                 {
@@ -25552,7 +26573,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(",");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -25611,7 +26632,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -25647,7 +26668,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Starred(CHECK<expr_ty>(_PyPegen_set_expr_context(a, Store)), Store, EXTRA)
-                _res = _PyAST_Starred(CHECK<expr_ty>(_PyPegen_set_expr_context(a, GeneratedStore.Instance)), GeneratedStore.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Starred(_PyPegen_set_expr_context(a, GeneratedStore.Instance), GeneratedStore.Instance, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -25665,6 +26686,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: target_with_star_atom
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: target_with_star_atom()");
+                #endif
                 var _tmp0 = TargetWithStarAtom();
                 if (_tmp0 == null)
                 {
@@ -25726,6 +26750,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: t_primary
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: t_primary()");
+                #endif
                 var a = TPrimary();
                 if (a == null)
                 {
@@ -25735,7 +26762,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '.'
-                var _tmp0 = Expect(".");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ".");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -25785,6 +26812,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: t_primary
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: t_primary()");
+                #endif
                 var a = TPrimary();
                 if (a == null)
                 {
@@ -25794,7 +26824,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '['
-                var _tmp0 = Expect("[");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -25803,6 +26833,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: slices
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: slices()");
+                #endif
                 var b = Slices();
                 if (b == null)
                 {
@@ -25812,7 +26845,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ']'
-                var _tmp1 = Expect("]");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -25850,6 +26883,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: star_atom
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_atom()");
+                #endif
                 var _tmp0 = StarAtom();
                 if (_tmp0 == null)
                 {
@@ -25933,7 +26969,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -25942,6 +26978,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: target_with_star_atom
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: target_with_star_atom()");
+                #endif
                 var a = TargetWithStarAtom();
                 if (a == null)
                 {
@@ -25951,7 +26990,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ')'
-                var _tmp1 = Expect(")");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -25977,7 +27016,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -26020,7 +27059,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Expect ')'
-                var _tmp1 = Expect(")");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -26047,7 +27086,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '['
-                var _tmp0 = Expect("[");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -26090,7 +27129,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Expect ']'
-                var _tmp1 = Expect("]");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -26143,6 +27182,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: single_subscript_attribute_target
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: single_subscript_attribute_target()");
+                #endif
                 var _tmp0 = SingleSubscriptAttributeTarget();
                 if (_tmp0 == null)
                 {
@@ -26198,7 +27240,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -26207,6 +27249,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: single_target
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: single_target()");
+                #endif
                 var a = SingleTarget();
                 if (a == null)
                 {
@@ -26216,7 +27261,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ')'
-                var _tmp1 = Expect(")");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -26268,6 +27313,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: t_primary
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: t_primary()");
+                #endif
                 var a = TPrimary();
                 if (a == null)
                 {
@@ -26277,7 +27325,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '.'
-                var _tmp0 = Expect(".");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ".");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -26327,6 +27375,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: t_primary
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: t_primary()");
+                #endif
                 var a = TPrimary();
                 if (a == null)
                 {
@@ -26336,7 +27387,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '['
-                var _tmp0 = Expect("[");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -26345,6 +27396,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: slices
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: slices()");
+                #endif
                 var b = Slices();
                 if (b == null)
                 {
@@ -26354,7 +27408,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ']'
-                var _tmp1 = Expect("]");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -26471,6 +27525,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: t_primary
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: t_primary()");
+                #endif
                 var a = TPrimary();
                 if (a == null)
                 {
@@ -26480,7 +27537,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '.'
-                var _tmp0 = Expect(".");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ".");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -26533,6 +27590,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: t_primary
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: t_primary()");
+                #endif
                 var a = TPrimary();
                 if (a == null)
                 {
@@ -26542,7 +27602,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '['
-                var _tmp0 = Expect("[");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -26551,6 +27611,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: slices
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: slices()");
+                #endif
                 var b = Slices();
                 if (b == null)
                 {
@@ -26560,7 +27623,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ']'
-                var _tmp1 = Expect("]");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -26601,6 +27664,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: t_primary
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: t_primary()");
+                #endif
                 var a = TPrimary();
                 if (a == null)
                 {
@@ -26610,6 +27676,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: genexp
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: genexp()");
+                #endif
                 var b = Genexp();
                 if (b == null)
                 {
@@ -26633,7 +27702,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyAST_Call(a, CHECK<asdl_expr_seq>(_PyPegen_singleton_seq(b)), null, EXTRA)
-                _res = _PyAST_Call(a, CHECK<asdl_expr_seq>(_PyPegen_singleton_seq(b)), null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_Call(a, _PyPegen_singleton_seq(b), null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
 
                 if (_res != null) goto done;
             } while (false);
@@ -26651,6 +27720,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: t_primary
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: t_primary()");
+                #endif
                 var a = TPrimary();
                 if (a == null)
                 {
@@ -26660,7 +27732,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -26703,7 +27775,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_b; // Reset position
                 }
                 // Expect ')'
-                var _tmp1 = Expect(")");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -26748,6 +27820,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: atom
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: atom()");
+                #endif
                 var a = Atom();
                 if (a == null)
                 {
@@ -26814,7 +27889,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -26840,7 +27915,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '['
-                var _tmp0 = Expect("[");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -26866,7 +27941,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '.'
-                var _tmp0 = Expect(".");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ".");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -27012,6 +28087,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: t_primary
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: t_primary()");
+                #endif
                 var a = TPrimary();
                 if (a == null)
                 {
@@ -27021,7 +28099,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '.'
-                var _tmp0 = Expect(".");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ".");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -27071,6 +28149,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: t_primary
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: t_primary()");
+                #endif
                 var a = TPrimary();
                 if (a == null)
                 {
@@ -27080,7 +28161,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '['
-                var _tmp0 = Expect("[");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -27089,6 +28170,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: slices
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: slices()");
+                #endif
                 var b = Slices();
                 if (b == null)
                 {
@@ -27098,7 +28182,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ']'
-                var _tmp1 = Expect("]");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -27136,6 +28220,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: del_t_atom
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: del_t_atom()");
+                #endif
                 var _tmp0 = DelTAtom();
                 if (_tmp0 == null)
                 {
@@ -27219,7 +28306,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -27228,6 +28315,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: del_target
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: del_target()");
+                #endif
                 var a = DelTarget();
                 if (a == null)
                 {
@@ -27237,7 +28327,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ')'
-                var _tmp1 = Expect(")");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -27263,7 +28353,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -27306,7 +28396,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Expect ')'
-                var _tmp1 = Expect(")");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -27333,7 +28423,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '['
-                var _tmp0 = Expect("[");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -27376,7 +28466,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Expect ']'
-                var _tmp1 = Expect("]");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -27438,7 +28528,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(",");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -27447,7 +28537,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '*'
-                var _tmp1 = Expect("*");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -27456,6 +28546,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var b = Expression();
                 if (b == null)
                 {
@@ -27465,7 +28558,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp2 = Expect(",");
+                var _tmp2 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -27474,7 +28567,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '**'
-                var _tmp3 = Expect("**");
+                var _tmp3 = Expect(GeneratedTokenType.OP, "**");
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -27483,6 +28576,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var c = Expression();
                 if (c == null)
                 {
@@ -27495,7 +28591,7 @@ namespace SharpPy.Generated
                 //   _PyPegen_seq_append_to_end(
                 //   (CHECK<asdl_seq>(_PyPegen_seq_append_to_end(a, b)).Cast<asdl_expr_seq>()),
                 //   c)
-                _res = _PyPegen_seq_append_to_end((CHECK<asdl_seq>(_PyPegen_seq_append_to_end(a, b)).Cast<asdl_expr_seq>()), c);
+                _res = _PyPegen_seq_append_to_end((_PyPegen_seq_append_to_end(a, b).Cast<asdl_expr_seq>()), c);
                 if (_res != null) goto done;
             } while (false);
 
@@ -27521,7 +28617,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(",");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -27530,7 +28626,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '*'
-                var _tmp1 = Expect("*");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -27539,6 +28635,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var b = Expression();
                 if (b == null)
                 {
@@ -27574,7 +28673,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(",");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -27583,7 +28682,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '**'
-                var _tmp1 = Expect("**");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "**");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -27592,6 +28691,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var b = Expression();
                 if (b == null)
                 {
@@ -27618,7 +28720,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -27627,6 +28729,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -27636,7 +28741,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(",");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -27645,7 +28750,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '**'
-                var _tmp2 = Expect("**");
+                var _tmp2 = Expect(GeneratedTokenType.OP, "**");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -27654,6 +28759,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var b = Expression();
                 if (b == null)
                 {
@@ -27666,7 +28774,7 @@ namespace SharpPy.Generated
                 //   _PyPegen_seq_append_to_end(
                 //   (CHECK<asdl_seq>(_PyPegen_singleton_seq(a)).Cast<asdl_expr_seq>()),
                 //   b)
-                _res = _PyPegen_seq_append_to_end((CHECK<asdl_seq>(_PyPegen_singleton_seq(a)).Cast<asdl_expr_seq>()), b);
+                _res = _PyPegen_seq_append_to_end((_PyPegen_singleton_seq(a).Cast<asdl_expr_seq>()), b);
                 if (_res != null) goto done;
             } while (false);
 
@@ -27683,7 +28791,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -27692,6 +28800,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -27718,7 +28829,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect("**");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -27727,6 +28838,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -28036,7 +29150,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var a = Expect(",");
+                var a = Expect(GeneratedTokenType.OP, ",");
                 if (a == null)
                 {
                     _position = _mark;
@@ -28074,6 +29188,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -28083,6 +29200,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: for_if_clauses()");
+                #endif
                 var b = ForIfClauses();
                 if (b == null)
                 {
@@ -28092,7 +29212,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(",");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -28167,7 +29287,7 @@ namespace SharpPy.Generated
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect '='
-                var b = Expect("=");
+                var b = Expect(GeneratedTokenType.OP, "=");
                 if (b == null)
                 {
                     _position = _mark;
@@ -28176,6 +29296,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var _tmp0 = Expression();
                 if (_tmp0 == null)
                 {
@@ -28185,6 +29308,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: for_if_clauses()");
+                #endif
                 var _tmp1 = ForIfClauses();
                 if (_tmp1 == null)
                 {
@@ -28262,7 +29388,7 @@ namespace SharpPy.Generated
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect '='
-                var b = Expect("=");
+                var b = Expect(GeneratedTokenType.OP, "=");
                 if (b == null)
                 {
                     _position = _mark;
@@ -28305,6 +29431,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: args
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: args()");
+                #endif
                 var a = Args();
                 if (a == null)
                 {
@@ -28314,6 +29443,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: for_if_clauses()");
+                #endif
                 var b = ForIfClauses();
                 if (b == null)
                 {
@@ -28323,8 +29455,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_nonparen_genexp_in_call(a, b)
-                // Unknown AST function: _PyPegen_nonparen_genexp_in_call
-                _res = default(GeneratedPtr?);
+                _res = _PyPegen_nonparen_genexp_in_call(a, b);
                 if (_res != null) goto done;
             } while (false);
 
@@ -28341,6 +29472,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: args
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: args()");
+                #endif
                 var _tmp0 = Args();
                 if (_tmp0 == null)
                 {
@@ -28350,7 +29484,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(",");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -28359,6 +29493,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -28368,6 +29505,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: for_if_clauses()");
+                #endif
                 var b = ForIfClauses();
                 if (b == null)
                 {
@@ -28397,6 +29537,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: args
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: args()");
+                #endif
                 var a = Args();
                 if (a == null)
                 {
@@ -28406,7 +29549,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(",");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -28415,6 +29558,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: args
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: args()");
+                #endif
                 var _tmp1 = Args();
                 if (_tmp1 == null)
                 {
@@ -28424,8 +29570,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: _PyPegen_arguments_parsing_error(a)
-                // Unknown AST function: _PyPegen_arguments_parsing_error
-                _res = default(GeneratedPtr?);
+                _res = _PyPegen_arguments_parsing_error(a);
                 if (_res != null) goto done;
             } while (false);
 
@@ -28522,7 +29667,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '='
-                var b = Expect("=");
+                var b = Expect(GeneratedTokenType.OP, "=");
                 if (b == null)
                 {
                     _position = _mark;
@@ -28561,7 +29706,7 @@ namespace SharpPy.Generated
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect '='
-                var b = Expect("=");
+                var b = Expect(GeneratedTokenType.OP, "=");
                 if (b == null)
                 {
                     _position = _mark;
@@ -28570,6 +29715,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var _tmp0 = Expression();
                 if (_tmp0 == null)
                 {
@@ -28579,6 +29727,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: for_if_clauses()");
+                #endif
                 var _tmp1 = ForIfClauses();
                 if (_tmp1 == null)
                 {
@@ -28617,6 +29768,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -28626,7 +29780,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '='
-                var b = Expect("=");
+                var b = Expect(GeneratedTokenType.OP, "=");
                 if (b == null)
                 {
                     _position = _mark;
@@ -28657,7 +29811,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var a = Expect("**");
+                var a = Expect(GeneratedTokenType.OP, "**");
                 if (a == null)
                 {
                     _position = _mark;
@@ -28666,6 +29820,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var _tmp0 = Expression();
                 if (_tmp0 == null)
                 {
@@ -28675,7 +29832,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '='
-                var _tmp1 = Expect("=");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "=");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -28684,6 +29841,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var b = Expression();
                 if (b == null)
                 {
@@ -28741,6 +29901,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: disjunction
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: disjunction()");
+                #endif
                 var a = Disjunction();
                 if (a == null)
                 {
@@ -28749,8 +29912,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'if'
-                var _tmp0 = Expect("if");
+                // Expect keyword: 'if' (token type 513)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -28759,6 +29922,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: disjunction
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: disjunction()");
+                #endif
                 var b = Disjunction();
                 if (b == null)
                 {
@@ -28767,8 +29933,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'else'
-                var _tmp1 = Expect("else");
+                // Expect keyword: 'else' (token type 521)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.ELSE);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -28777,6 +29943,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var c = Expression();
                 if (c == null)
                 {
@@ -28804,6 +29973,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: disjunction
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: disjunction()");
+                #endif
                 var _tmp0 = Disjunction();
                 if (_tmp0 == null)
                 {
@@ -28830,6 +30002,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: lambdef
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambdef()");
+                #endif
                 var _tmp0 = Lambdef();
                 if (_tmp0 == null)
                 {
@@ -28906,6 +30081,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: star_expressions
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_expressions()");
+                #endif
                 var b = StarExpressions();
                 if (b == null)
                 {
@@ -28970,6 +30148,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: disjunction
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: disjunction()");
+                #endif
                 var a = Disjunction();
                 if (a == null)
                 {
@@ -28979,6 +30160,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression_without_invalid
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression_without_invalid()");
+                #endif
                 var b = ExpressionWithoutInvalid();
                 if (b == null)
                 {
@@ -29010,6 +30194,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: disjunction
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: disjunction()");
+                #endif
                 var a = Disjunction();
                 if (a == null)
                 {
@@ -29018,8 +30205,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'if'
-                var _tmp0 = Expect("if");
+                // Expect keyword: 'if' (token type 513)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -29028,6 +30215,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: disjunction
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: disjunction()");
+                #endif
                 var b = Disjunction();
                 if (b == null)
                 {
@@ -29067,8 +30257,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'lambda'
-                var a = Expect("lambda");
+                // Expect keyword: 'lambda' (token type 532)
+                var a = ExpectToken((GeneratedTokenType)KeywordType.LAMBDA);
                 if (a == null)
                 {
                     _position = _mark;
@@ -29111,7 +30301,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                 }
                 // Expect ':'
-                var b = Expect(":");
+                var b = Expect(GeneratedTokenType.OP, ":");
                 if (b == null)
                 {
                     _position = _mark;
@@ -29185,6 +30375,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -29194,7 +30387,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':='
-                var _tmp0 = Expect(":=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ":=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -29203,6 +30396,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var _tmp1 = Expression();
                 if (_tmp1 == null)
                 {
@@ -29246,7 +30442,7 @@ namespace SharpPy.Generated
                 var a = NameToken(_token_a);
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 // Expect '='
-                var _tmp0 = Expect("=");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -29255,6 +30451,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var b = BitwiseOr();
                 if (b == null)
                 {
@@ -29309,6 +30508,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var a = BitwiseOr();
                 if (a == null)
                 {
@@ -29318,7 +30520,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '='
-                var b = Expect("=");
+                var b = Expect(GeneratedTokenType.OP, "=");
                 if (b == null)
                 {
                     _position = _mark;
@@ -29327,6 +30529,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var _tmp1 = BitwiseOr();
                 if (_tmp1 == null)
                 {
@@ -29425,7 +30630,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(":");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -29434,6 +30639,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var _tmp1 = Expression();
                 if (_tmp1 == null)
                 {
@@ -29468,6 +30676,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: star_named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_named_expression()");
+                #endif
                 var a = StarNamedExpression();
                 if (a == null)
                 {
@@ -29477,7 +30688,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(",");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -29488,7 +30699,7 @@ namespace SharpPy.Generated
                 // Zero or more: star_named_expressions* (CPython: _Loop0_N rule)
                 var _tmp1 = _Loop0_76();
                 // Expect ':'
-                var _tmp2 = Expect(":");
+                var _tmp2 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -29497,6 +30708,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var _tmp3 = Expression();
                 if (_tmp3 == null)
                 {
@@ -29526,6 +30740,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -29535,7 +30752,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(":");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -29544,6 +30761,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var _tmp1 = Expression();
                 if (_tmp1 == null)
                 {
@@ -29575,6 +30795,9 @@ namespace SharpPy.Generated
                 // Zero or more: (star_targets '=')* (CPython: _Loop0_N rule)
                 var _tmp0 = _Loop0_77();
                 // Call rule: star_expressions
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_expressions()");
+                #endif
                 var a = StarExpressions();
                 if (a == null)
                 {
@@ -29584,7 +30807,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '='
-                var _tmp1 = Expect("=");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "=");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -29615,6 +30838,9 @@ namespace SharpPy.Generated
                 // Zero or more: (star_targets '=')* (CPython: _Loop0_N rule)
                 var _tmp0 = _Loop0_78();
                 // Call rule: yield_expr
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: yield_expr()");
+                #endif
                 var a = YieldExpr();
                 if (a == null)
                 {
@@ -29624,7 +30850,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '='
-                var _tmp1 = Expect("=");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "=");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -29653,6 +30879,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: star_expressions
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_expressions()");
+                #endif
                 var a = StarExpressions();
                 if (a == null)
                 {
@@ -29662,6 +30891,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: augassign
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: augassign()");
+                #endif
                 var _tmp0 = Augassign();
                 if (_tmp0 == null)
                 {
@@ -29761,6 +30993,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: list
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: list()");
+                #endif
                 var _tmp0 = List();
                 if (_tmp0 == null)
                 {
@@ -29787,6 +31022,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: tuple
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: tuple()");
+                #endif
                 var _tmp0 = Tuple();
                 if (_tmp0 == null)
                 {
@@ -29813,7 +31051,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -29848,7 +31086,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ')'
-                var _tmp1 = Expect(")");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -29899,8 +31137,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'del'
-                var _tmp0 = Expect("del");
+                // Expect keyword: 'del' (token type 505)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.DEL);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -29909,6 +31147,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: star_expressions
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_expressions()");
+                #endif
                 var a = StarExpressions();
                 if (a == null)
                 {
@@ -30086,6 +31327,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: starred_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: starred_expression()");
+                #endif
                 var a = StarredExpression();
                 if (a == null)
                 {
@@ -30095,6 +31339,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: for_if_clauses()");
+                #endif
                 var _tmp1 = ForIfClauses();
                 if (_tmp1 == null)
                 {
@@ -30163,6 +31410,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: star_named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_named_expression()");
+                #endif
                 var a = StarNamedExpression();
                 if (a == null)
                 {
@@ -30172,7 +31422,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(",");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -30181,6 +31431,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: star_named_expressions
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_named_expressions()");
+                #endif
                 var b = StarNamedExpressions();
                 if (b == null)
                 {
@@ -30190,6 +31443,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: for_if_clauses()");
+                #endif
                 var _tmp2 = ForIfClauses();
                 if (_tmp2 == null)
                 {
@@ -30260,6 +31516,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: star_named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_named_expression()");
+                #endif
                 var a = StarNamedExpression();
                 if (a == null)
                 {
@@ -30269,7 +31528,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var b = Expect(",");
+                var b = Expect(GeneratedTokenType.OP, ",");
                 if (b == null)
                 {
                     _position = _mark;
@@ -30278,6 +31537,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: for_if_clauses()");
+                #endif
                 var _tmp1 = ForIfClauses();
                 if (_tmp1 == null)
                 {
@@ -30331,7 +31593,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -30340,7 +31602,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '**'
-                var a = Expect("**");
+                var a = Expect(GeneratedTokenType.OP, "**");
                 if (a == null)
                 {
                     _position = _mark;
@@ -30349,6 +31611,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var _tmp1 = BitwiseOr();
                 if (_tmp1 == null)
                 {
@@ -30358,6 +31623,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: for_if_clauses
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: for_if_clauses()");
+                #endif
                 var _tmp2 = ForIfClauses();
                 if (_tmp2 == null)
                 {
@@ -30367,7 +31635,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '}'
-                var _tmp3 = Expect("}");
+                var _tmp3 = Expect(GeneratedTokenType.OP, "}");
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -30422,7 +31690,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '\"/\"'
-                var a = Expect("\"/\"");
+                var a = Expect(GeneratedTokenType.OP, "\"/\"");
                 if (a == null)
                 {
                     _position = _mark;
@@ -30431,7 +31699,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(",");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -30503,7 +31771,7 @@ namespace SharpPy.Generated
                 // Zero or more: param_maybe_default* (CPython: _Loop0_N rule)
                 var _tmp1 = _Loop0_18();
                 // Expect '/'
-                var a = Expect("/");
+                var a = Expect(GeneratedTokenType.OP, "/");
                 if (a == null)
                 {
                     _position = _mark;
@@ -30534,6 +31802,9 @@ namespace SharpPy.Generated
                 // Optional: [slash_no_default]
                 int _opt_mark__tmp0 = _position;
                 // Call rule: slash_no_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: slash_no_default()");
+                #endif
                 var _opt__tmp0 = SlashNoDefault();
                 if (_opt__tmp0 == null)
                 {
@@ -30586,6 +31857,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: param_no_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param_no_default()");
+                #endif
                 var a = ParamNoDefault();
                 if (a == null)
                 {
@@ -30617,7 +31891,7 @@ namespace SharpPy.Generated
                 // Zero or more: param_no_default* (CPython: _Loop0_N rule)
                 var _tmp0 = _Loop0_14();
                 // Expect '('
-                var a = Expect("(");
+                var a = Expect(GeneratedTokenType.OP, "(");
                 if (a == null)
                 {
                     _position = _mark;
@@ -30637,7 +31911,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp2 = _position;
                 // Expect ','
-                var _opt__tmp2 = Expect(",");
+                var _opt__tmp2 = Expect(GeneratedTokenType.OP, ",");
                 if (_opt__tmp2 == null)
                 {
                     _position = _mark;
@@ -30661,7 +31935,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp2; // Reset position
                 }
                 // Expect ')'
-                var b = Expect(")");
+                var b = Expect(GeneratedTokenType.OP, ")");
                 if (b == null)
                 {
                     _position = _mark;
@@ -30741,7 +32015,7 @@ namespace SharpPy.Generated
                 // Zero or more: param_maybe_default* (CPython: _Loop0_N rule)
                 var _tmp1 = _Loop0_18();
                 // Expect '*'
-                var _tmp2 = Expect("*");
+                var _tmp2 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -30793,7 +32067,7 @@ namespace SharpPy.Generated
                 // Zero or more: param_maybe_default* (CPython: _Loop0_N rule)
                 var _tmp4 = _Loop0_18();
                 // Expect '/'
-                var a = Expect("/");
+                var a = Expect(GeneratedTokenType.OP, "/");
                 if (a == null)
                 {
                     _position = _mark;
@@ -30831,7 +32105,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp1 = Expect("/");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "/");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -30840,7 +32114,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '*'
-                var a = Expect("*");
+                var a = Expect(GeneratedTokenType.OP, "*");
                 if (a == null)
                 {
                     _position = _mark;
@@ -30895,7 +32169,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '='
-                var a = Expect("=");
+                var a = Expect(GeneratedTokenType.OP, "=");
                 if (a == null)
                 {
                     _position = _mark;
@@ -30966,7 +32240,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var a = Expect("*");
+                var a = Expect(GeneratedTokenType.OP, "*");
                 if (a == null)
                 {
                     _position = _mark;
@@ -31069,7 +32343,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -31078,7 +32352,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(",");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -31118,7 +32392,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -31127,6 +32401,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param()");
+                #endif
                 var _tmp1 = Param();
                 if (_tmp1 == null)
                 {
@@ -31136,7 +32413,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '='
-                var a = Expect("=");
+                var a = Expect(GeneratedTokenType.OP, "=");
                 if (a == null)
                 {
                     _position = _mark;
@@ -31165,7 +32442,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -31217,7 +32494,7 @@ namespace SharpPy.Generated
                 // Zero or more: param_maybe_default* (CPython: _Loop0_N rule)
                 var _tmp2 = _Loop0_18();
                 // Expect '*'
-                var a = Expect("*");
+                var a = Expect(GeneratedTokenType.OP, "*");
                 if (a == null)
                 {
                     _position = _mark;
@@ -31313,7 +32590,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect("**");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -31322,6 +32599,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param()");
+                #endif
                 var _tmp1 = Param();
                 if (_tmp1 == null)
                 {
@@ -31331,7 +32611,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '='
-                var a = Expect("=");
+                var a = Expect(GeneratedTokenType.OP, "=");
                 if (a == null)
                 {
                     _position = _mark;
@@ -31360,7 +32640,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect("**");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -31369,6 +32649,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param()");
+                #endif
                 var _tmp1 = Param();
                 if (_tmp1 == null)
                 {
@@ -31378,7 +32661,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp2 = Expect(",");
+                var _tmp2 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -31387,6 +32670,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param()");
+                #endif
                 var a = Param();
                 if (a == null)
                 {
@@ -31416,7 +32702,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect("**");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -31425,6 +32711,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param()");
+                #endif
                 var _tmp1 = Param();
                 if (_tmp1 == null)
                 {
@@ -31434,7 +32723,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp2 = Expect(",");
+                var _tmp2 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -31543,6 +32832,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: slash_with_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: slash_with_default()");
+                #endif
                 var a = SlashWithDefault();
                 if (a == null)
                 {
@@ -31621,7 +32913,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '\"/\"'
-                var a = Expect("\"/\"");
+                var a = Expect(GeneratedTokenType.OP, "\"/\"");
                 if (a == null)
                 {
                     _position = _mark;
@@ -31630,7 +32922,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(",");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -31702,7 +32994,7 @@ namespace SharpPy.Generated
                 // Zero or more: lambda_param_maybe_default* (CPython: _Loop0_N rule)
                 var _tmp1 = _Loop0_50();
                 // Expect '/'
-                var a = Expect("/");
+                var a = Expect(GeneratedTokenType.OP, "/");
                 if (a == null)
                 {
                     _position = _mark;
@@ -31733,6 +33025,9 @@ namespace SharpPy.Generated
                 // Optional: [lambda_slash_no_default]
                 int _opt_mark__tmp0 = _position;
                 // Call rule: lambda_slash_no_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_slash_no_default()");
+                #endif
                 var _opt__tmp0 = LambdaSlashNoDefault();
                 if (_opt__tmp0 == null)
                 {
@@ -31785,6 +33080,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: lambda_param_no_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param_no_default()");
+                #endif
                 var a = LambdaParamNoDefault();
                 if (a == null)
                 {
@@ -31816,7 +33114,7 @@ namespace SharpPy.Generated
                 // Zero or more: lambda_param_no_default* (CPython: _Loop0_N rule)
                 var _tmp0 = _Loop0_46();
                 // Expect '('
-                var a = Expect("(");
+                var a = Expect(GeneratedTokenType.OP, "(");
                 if (a == null)
                 {
                     _position = _mark;
@@ -31836,7 +33134,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp2 = _position;
                 // Expect ','
-                var _opt__tmp2 = Expect(",");
+                var _opt__tmp2 = Expect(GeneratedTokenType.OP, ",");
                 if (_opt__tmp2 == null)
                 {
                     _position = _mark;
@@ -31860,7 +33158,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp2; // Reset position
                 }
                 // Expect ')'
-                var b = Expect(")");
+                var b = Expect(GeneratedTokenType.OP, ")");
                 if (b == null)
                 {
                     _position = _mark;
@@ -31940,7 +33238,7 @@ namespace SharpPy.Generated
                 // Zero or more: lambda_param_maybe_default* (CPython: _Loop0_N rule)
                 var _tmp1 = _Loop0_50();
                 // Expect '*'
-                var _tmp2 = Expect("*");
+                var _tmp2 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -31992,7 +33290,7 @@ namespace SharpPy.Generated
                 // Zero or more: lambda_param_maybe_default* (CPython: _Loop0_N rule)
                 var _tmp4 = _Loop0_50();
                 // Expect '/'
-                var a = Expect("/");
+                var a = Expect(GeneratedTokenType.OP, "/");
                 if (a == null)
                 {
                     _position = _mark;
@@ -32030,7 +33328,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp1 = Expect("/");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "/");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -32039,7 +33337,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '*'
-                var a = Expect("*");
+                var a = Expect(GeneratedTokenType.OP, "*");
                 if (a == null)
                 {
                     _position = _mark;
@@ -32094,6 +33392,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: lambda_slash_with_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_slash_with_default()");
+                #endif
                 var a = LambdaSlashWithDefault();
                 if (a == null)
                 {
@@ -32172,7 +33473,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -32275,7 +33576,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -32284,6 +33585,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: lambda_param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param()");
+                #endif
                 var _tmp1 = LambdaParam();
                 if (_tmp1 == null)
                 {
@@ -32293,7 +33597,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '='
-                var a = Expect("=");
+                var a = Expect(GeneratedTokenType.OP, "=");
                 if (a == null)
                 {
                     _position = _mark;
@@ -32322,7 +33626,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -32374,7 +33678,7 @@ namespace SharpPy.Generated
                 // Zero or more: lambda_param_maybe_default* (CPython: _Loop0_N rule)
                 var _tmp2 = _Loop0_50();
                 // Expect '*'
-                var a = Expect("*");
+                var a = Expect(GeneratedTokenType.OP, "*");
                 if (a == null)
                 {
                     _position = _mark;
@@ -32470,7 +33774,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect("**");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -32479,6 +33783,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: lambda_param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param()");
+                #endif
                 var _tmp1 = LambdaParam();
                 if (_tmp1 == null)
                 {
@@ -32488,7 +33795,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '='
-                var a = Expect("=");
+                var a = Expect(GeneratedTokenType.OP, "=");
                 if (a == null)
                 {
                     _position = _mark;
@@ -32517,7 +33824,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect("**");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -32526,6 +33833,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: lambda_param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param()");
+                #endif
                 var _tmp1 = LambdaParam();
                 if (_tmp1 == null)
                 {
@@ -32535,7 +33845,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp2 = Expect(",");
+                var _tmp2 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -32544,6 +33854,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: lambda_param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param()");
+                #endif
                 var a = LambdaParam();
                 if (a == null)
                 {
@@ -32573,7 +33886,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect("**");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -32582,6 +33895,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: lambda_param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param()");
+                #endif
                 var _tmp1 = LambdaParam();
                 if (_tmp1 == null)
                 {
@@ -32591,7 +33907,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp2 = Expect(",");
+                var _tmp2 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -32801,6 +34117,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var _tmp0 = Expression();
                 if (_tmp0 == null)
                 {
@@ -32809,8 +34128,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'as'
-                var _tmp1 = Expect("as");
+                // Expect keyword: 'as' (token type 519)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.AS);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -32819,6 +34138,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -32918,8 +34240,8 @@ namespace SharpPy.Generated
                     // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
                 }
-                // Expect 'for'
-                var _tmp1 = Expect("for");
+                // Expect keyword: 'for' (token type 516)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.FOR);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -32928,6 +34250,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: star_expressions
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_expressions()");
+                #endif
                 var a = StarExpressions();
                 if (a == null)
                 {
@@ -32983,7 +34308,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -32992,6 +34317,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: starred_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: starred_expression()");
+                #endif
                 var a = StarredExpression();
                 if (a == null)
                 {
@@ -33001,7 +34329,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ')'
-                var _tmp1 = Expect(")");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -33030,7 +34358,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect("(");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -33039,7 +34367,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '**'
-                var a = Expect("**");
+                var a = Expect(GeneratedTokenType.OP, "**");
                 if (a == null)
                 {
                     _position = _mark;
@@ -33048,6 +34376,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var _tmp1 = Expression();
                 if (_tmp1 == null)
                 {
@@ -33057,7 +34388,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ')'
-                var _tmp2 = Expect(")");
+                var _tmp2 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -33111,8 +34442,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'import'
-                var a = Expect("import");
+                // Expect keyword: 'import' (token type 501)
+                var a = ExpectToken((GeneratedTokenType)KeywordType.IMPORT);
                 if (a == null)
                 {
                     _position = _mark;
@@ -33129,8 +34460,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'from'
-                var _tmp1 = Expect("from");
+                // Expect keyword: 'from' (token type 502)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.FROM);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -33139,6 +34470,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: dotted_name
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: dotted_name()");
+                #endif
                 var _tmp2 = DottedName();
                 if (_tmp2 == null)
                 {
@@ -33194,6 +34528,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: import_from_as_names
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: import_from_as_names()");
+                #endif
                 var _tmp0 = ImportFromAsNames();
                 if (_tmp0 == null)
                 {
@@ -33203,7 +34540,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(",");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -33302,8 +34639,8 @@ namespace SharpPy.Generated
                     // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
                 }
-                // Expect 'with'
-                var _tmp1 = Expect("with");
+                // Expect keyword: 'with' (token type 515)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.WITH);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -33385,8 +34722,8 @@ namespace SharpPy.Generated
                     // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
                 }
-                // Expect 'with'
-                var _tmp1 = Expect("with");
+                // Expect keyword: 'with' (token type 515)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.WITH);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -33395,7 +34732,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp2 = Expect("(");
+                var _tmp2 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -33415,7 +34752,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp4 = _position;
                 // Expect ','
-                var _opt__tmp4 = Expect(",");
+                var _opt__tmp4 = Expect(GeneratedTokenType.OP, ",");
                 if (_opt__tmp4 == null)
                 {
                     _position = _mark;
@@ -33439,7 +34776,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp4; // Reset position
                 }
                 // Expect ')'
-                var _tmp5 = Expect(")");
+                var _tmp5 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp5 == null)
                 {
                     _position = _mark;
@@ -33538,8 +34875,8 @@ namespace SharpPy.Generated
                     // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
                 }
-                // Expect 'with'
-                var a = Expect("with");
+                // Expect keyword: 'with' (token type 515)
+                var a = ExpectToken((GeneratedTokenType)KeywordType.WITH);
                 if (a == null)
                 {
                     _position = _mark;
@@ -33557,7 +34894,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp2 = Expect(":");
+                var _tmp2 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -33641,8 +34978,8 @@ namespace SharpPy.Generated
                     // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
                 }
-                // Expect 'with'
-                var a = Expect("with");
+                // Expect keyword: 'with' (token type 515)
+                var a = ExpectToken((GeneratedTokenType)KeywordType.WITH);
                 if (a == null)
                 {
                     _position = _mark;
@@ -33651,7 +34988,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp1 = Expect("(");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -33671,7 +35008,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp3 = _position;
                 // Expect ','
-                var _opt__tmp3 = Expect(",");
+                var _opt__tmp3 = Expect(GeneratedTokenType.OP, ",");
                 if (_opt__tmp3 == null)
                 {
                     _position = _mark;
@@ -33695,7 +35032,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp3; // Reset position
                 }
                 // Expect ')'
-                var _tmp4 = Expect(")");
+                var _tmp4 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp4 == null)
                 {
                     _position = _mark;
@@ -33704,7 +35041,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp5 = Expect(":");
+                var _tmp5 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp5 == null)
                 {
                     _position = _mark;
@@ -33780,8 +35117,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'try'
-                var a = Expect("try");
+                // Expect keyword: 'try' (token type 517)
+                var a = ExpectToken((GeneratedTokenType)KeywordType.TRY);
                 if (a == null)
                 {
                     _position = _mark;
@@ -33790,7 +35127,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(":");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -33840,8 +35177,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'try'
-                var _tmp0 = Expect("try");
+                // Expect keyword: 'try' (token type 517)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.TRY);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -33850,7 +35187,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(":");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -33859,6 +35196,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var _tmp2 = Block();
                 if (_tmp2 == null)
                 {
@@ -33900,8 +35240,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'try'
-                var _tmp0 = Expect("try");
+                // Expect keyword: 'try' (token type 517)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.TRY);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -33910,7 +35250,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(":");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -33929,8 +35269,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'except'
-                var a = Expect("except");
+                // Expect keyword: 'except' (token type 523)
+                var a = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (a == null)
                 {
                     _position = _mark;
@@ -33939,7 +35279,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '*'
-                var b = Expect("*");
+                var b = Expect(GeneratedTokenType.OP, "*");
                 if (b == null)
                 {
                     _position = _mark;
@@ -33948,7 +35288,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var expression = Expect(":");
+                var expression = Expect(GeneratedTokenType.OP, ":");
                 if (expression == null)
                 {
                     _position = _mark;
@@ -33974,8 +35314,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'try'
-                var _tmp0 = Expect("try");
+                // Expect keyword: 'try' (token type 517)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.TRY);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -33984,7 +35324,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(":");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -34003,8 +35343,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'except'
-                var a = Expect("except");
+                // Expect keyword: 'except' (token type 523)
+                var a = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (a == null)
                 {
                     _position = _mark;
@@ -34037,7 +35377,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp4; // Reset position
                 }
                 // Expect ':'
-                var _tmp5 = Expect(":");
+                var _tmp5 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp5 == null)
                 {
                     _position = _mark;
@@ -34091,8 +35431,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'except'
-                var _tmp0 = Expect("except");
+                // Expect keyword: 'except' (token type 523)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -34103,7 +35443,7 @@ namespace SharpPy.Generated
                 // Optional: ['*']
                 int _opt_mark__tmp1 = _position;
                 // Expect '*'
-                var _opt__tmp1 = Expect("*");
+                var _opt__tmp1 = Expect(GeneratedTokenType.OP, "*");
                 if (_opt__tmp1 == null)
                 {
                     _position = _mark;
@@ -34127,6 +35467,9 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp1; // Reset position
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -34136,7 +35479,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp2 = Expect(",");
+                var _tmp2 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -34145,7 +35488,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var expressions = Expect(":");
+                var expressions = Expect(GeneratedTokenType.OP, ":");
                 if (expressions == null)
                 {
                     _position = _mark;
@@ -34173,8 +35516,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'except'
-                var a = Expect("except");
+                // Expect keyword: 'except' (token type 523)
+                var a = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (a == null)
                 {
                     _position = _mark;
@@ -34185,7 +35528,7 @@ namespace SharpPy.Generated
                 // Optional: ['*']
                 int _opt_mark__tmp0 = _position;
                 // Expect '*'
-                var _opt__tmp0 = Expect("*");
+                var _opt__tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_opt__tmp0 == null)
                 {
                     _position = _mark;
@@ -34239,8 +35582,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'except'
-                var a = Expect("except");
+                // Expect keyword: 'except' (token type 523)
+                var a = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (a == null)
                 {
                     _position = _mark;
@@ -34279,8 +35622,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'except'
-                var a = Expect("except");
+                // Expect keyword: 'except' (token type 523)
+                var a = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (a == null)
                 {
                     _position = _mark;
@@ -34289,7 +35632,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -34382,8 +35725,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'finally'
-                var a = Expect("finally");
+                // Expect keyword: 'finally' (token type 524)
+                var a = ExpectToken((GeneratedTokenType)KeywordType.FINALLY);
                 if (a == null)
                 {
                     _position = _mark;
@@ -34392,7 +35735,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(":");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -34468,8 +35811,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'except'
-                var a = Expect("except");
+                // Expect keyword: 'except' (token type 523)
+                var a = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (a == null)
                 {
                     _position = _mark;
@@ -34478,7 +35821,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var expression = Expect(":");
+                var expression = Expect(GeneratedTokenType.OP, ":");
                 if (expression == null)
                 {
                     _position = _mark;
@@ -34528,8 +35871,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'except'
-                var a = Expect("except");
+                // Expect keyword: 'except' (token type 523)
+                var a = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (a == null)
                 {
                     _position = _mark;
@@ -34538,7 +35881,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(":");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -34614,8 +35957,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'except'
-                var a = Expect("except");
+                // Expect keyword: 'except' (token type 523)
+                var a = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (a == null)
                 {
                     _position = _mark;
@@ -34624,7 +35967,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '*'
-                var _tmp0 = Expect("*");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -34633,7 +35976,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var expression = Expect(":");
+                var expression = Expect(GeneratedTokenType.OP, ":");
                 if (expression == null)
                 {
                     _position = _mark;
@@ -34710,7 +36053,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '\"match\"'
-                var _tmp0 = Expect("\"match\"");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "\"match\"");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -34719,6 +36062,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: subject_expr
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: subject_expr()");
+                #endif
                 var _tmp1 = SubjectExpr();
                 if (_tmp1 == null)
                 {
@@ -34759,7 +36105,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '\"match\"'
-                var a = Expect("\"match\"");
+                var a = Expect(GeneratedTokenType.OP, "\"match\"");
                 if (a == null)
                 {
                     _position = _mark;
@@ -34768,6 +36114,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: subject_expr
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: subject_expr()");
+                #endif
                 var subject = SubjectExpr();
                 if (subject == null)
                 {
@@ -34777,7 +36126,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(":");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -34854,7 +36203,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '\"case\"'
-                var _tmp0 = Expect("\"case\"");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "\"case\"");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -34863,6 +36212,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: patterns
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: patterns()");
+                #endif
                 var _tmp1 = Patterns();
                 if (_tmp1 == null)
                 {
@@ -34874,6 +36226,9 @@ namespace SharpPy.Generated
                 // Optional: [guard]
                 int _opt_mark__tmp2 = _position;
                 // Call rule: guard
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: guard()");
+                #endif
                 var _opt__tmp2 = Guard();
                 if (_opt__tmp2 == null)
                 {
@@ -34929,7 +36284,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '\"case\"'
-                var a = Expect("\"case\"");
+                var a = Expect(GeneratedTokenType.OP, "\"case\"");
                 if (a == null)
                 {
                     _position = _mark;
@@ -34938,6 +36293,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: patterns
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: patterns()");
+                #endif
                 var _tmp0 = Patterns();
                 if (_tmp0 == null)
                 {
@@ -34949,6 +36307,9 @@ namespace SharpPy.Generated
                 // Optional: [guard]
                 int _opt_mark__tmp1 = _position;
                 // Call rule: guard
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: guard()");
+                #endif
                 var _opt__tmp1 = Guard();
                 if (_opt__tmp1 == null)
                 {
@@ -34973,7 +36334,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp1; // Reset position
                 }
                 // Expect ':'
-                var _tmp2 = Expect(":");
+                var _tmp2 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -35050,6 +36411,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: or_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: or_pattern()");
+                #endif
                 var _tmp0 = OrPattern();
                 if (_tmp0 == null)
                 {
@@ -35058,8 +36422,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'as'
-                var _tmp1 = Expect("as");
+                // Expect keyword: 'as' (token type 519)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.AS);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -35068,7 +36432,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '\"_\"'
-                var a = Expect("\"_\"");
+                var a = Expect(GeneratedTokenType.OP, "\"_\"");
                 if (a == null)
                 {
                     _position = _mark;
@@ -35097,6 +36461,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: or_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: or_pattern()");
+                #endif
                 var _tmp0 = OrPattern();
                 if (_tmp0 == null)
                 {
@@ -35105,8 +36472,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'as'
-                var _tmp1 = Expect("as");
+                // Expect keyword: 'as' (token type 519)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.AS);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -35126,6 +36493,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -35181,6 +36551,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: name_or_attr
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: name_or_attr()");
+                #endif
                 var _tmp0 = NameOrAttr();
                 if (_tmp0 == null)
                 {
@@ -35190,7 +36563,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp1 = Expect("(");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "(");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -35313,6 +36686,9 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                 }
                 // Call rule: keyword_patterns
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: keyword_patterns()");
+                #endif
                 var _tmp1 = KeywordPatterns();
                 if (_tmp1 == null)
                 {
@@ -35322,7 +36698,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp2 = Expect(",");
+                var _tmp2 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -35331,6 +36707,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: positional_patterns
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: positional_patterns()");
+                #endif
                 var a = PositionalPatterns();
                 if (a == null)
                 {
@@ -35382,8 +36761,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'if'
-                var _tmp0 = Expect("if");
+                // Expect keyword: 'if' (token type 513)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -35392,6 +36771,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: named_expression()");
+                #endif
                 var _tmp1 = NamedExpression();
                 if (_tmp1 == null)
                 {
@@ -35431,8 +36813,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'if'
-                var a = Expect("if");
+                // Expect keyword: 'if' (token type 513)
+                var a = ExpectToken((GeneratedTokenType)KeywordType.IF);
                 if (a == null)
                 {
                     _position = _mark;
@@ -35441,6 +36823,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: named_expression()");
+                #endif
                 var a_2 = NamedExpression();
                 if (a_2 == null)
                 {
@@ -35450,7 +36835,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(":");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -35526,8 +36911,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'elif'
-                var _tmp0 = Expect("elif");
+                // Expect keyword: 'elif' (token type 520)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.ELIF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -35536,6 +36921,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: named_expression()");
+                #endif
                 var _tmp1 = NamedExpression();
                 if (_tmp1 == null)
                 {
@@ -35575,8 +36963,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'elif'
-                var a = Expect("elif");
+                // Expect keyword: 'elif' (token type 520)
+                var a = ExpectToken((GeneratedTokenType)KeywordType.ELIF);
                 if (a == null)
                 {
                     _position = _mark;
@@ -35585,6 +36973,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: named_expression()");
+                #endif
                 var _tmp0 = NamedExpression();
                 if (_tmp0 == null)
                 {
@@ -35594,7 +36985,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(":");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -35670,8 +37061,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'else'
-                var a = Expect("else");
+                // Expect keyword: 'else' (token type 521)
+                var a = ExpectToken((GeneratedTokenType)KeywordType.ELSE);
                 if (a == null)
                 {
                     _position = _mark;
@@ -35680,7 +37071,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(":");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -35756,8 +37147,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'while'
-                var _tmp0 = Expect("while");
+                // Expect keyword: 'while' (token type 518)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.WHILE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -35766,6 +37157,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: named_expression()");
+                #endif
                 var _tmp1 = NamedExpression();
                 if (_tmp1 == null)
                 {
@@ -35805,8 +37199,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'while'
-                var a = Expect("while");
+                // Expect keyword: 'while' (token type 518)
+                var a = ExpectToken((GeneratedTokenType)KeywordType.WHILE);
                 if (a == null)
                 {
                     _position = _mark;
@@ -35815,6 +37209,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: named_expression()");
+                #endif
                 var _tmp0 = NamedExpression();
                 if (_tmp0 == null)
                 {
@@ -35824,7 +37221,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(":");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -35934,8 +37331,8 @@ namespace SharpPy.Generated
                     // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
                 }
-                // Expect 'for'
-                var _tmp1 = Expect("for");
+                // Expect keyword: 'for' (token type 516)
+                var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.FOR);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -35944,6 +37341,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: star_targets
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_targets()");
+                #endif
                 var _tmp2 = StarTargets();
                 if (_tmp2 == null)
                 {
@@ -35952,8 +37352,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'in'
-                var _tmp3 = Expect("in");
+                // Expect keyword: 'in' (token type 522)
+                var _tmp3 = ExpectToken((GeneratedTokenType)KeywordType.IN);
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -35962,6 +37362,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: star_expressions
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_expressions()");
+                #endif
                 var _tmp4 = StarExpressions();
                 if (_tmp4 == null)
                 {
@@ -36035,8 +37438,8 @@ namespace SharpPy.Generated
                     // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
                 }
-                // Expect 'for'
-                var a = Expect("for");
+                // Expect keyword: 'for' (token type 516)
+                var a = ExpectToken((GeneratedTokenType)KeywordType.FOR);
                 if (a == null)
                 {
                     _position = _mark;
@@ -36045,6 +37448,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: star_targets
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_targets()");
+                #endif
                 var _tmp1 = StarTargets();
                 if (_tmp1 == null)
                 {
@@ -36053,8 +37459,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect 'in'
-                var _tmp2 = Expect("in");
+                // Expect keyword: 'in' (token type 522)
+                var _tmp2 = ExpectToken((GeneratedTokenType)KeywordType.IN);
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -36063,6 +37469,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: star_expressions
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_expressions()");
+                #endif
                 var _tmp3 = StarExpressions();
                 if (_tmp3 == null)
                 {
@@ -36072,7 +37481,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp4 = Expect(":");
+                var _tmp4 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp4 == null)
                 {
                     _position = _mark;
@@ -36182,8 +37591,8 @@ namespace SharpPy.Generated
                     // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
                 }
-                // Expect 'def'
-                var a = Expect("def");
+                // Expect keyword: 'def' (token type 512)
+                var a = ExpectToken((GeneratedTokenType)KeywordType.DEF);
                 if (a == null)
                 {
                     _position = _mark;
@@ -36192,7 +37601,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '('
-                var NAME = Expect("(");
+                var NAME = Expect(GeneratedTokenType.OP, "(");
                 if (NAME == null)
                 {
                     _position = _mark;
@@ -36235,7 +37644,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp1; // Reset position
                 }
                 // Expect ')'
-                var _tmp2 = Expect(")");
+                var _tmp2 = Expect(GeneratedTokenType.OP, ")");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -36282,7 +37691,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp3; // Reset position
                 }
                 // Expect ':'
-                var _tmp4 = Expect(":");
+                var _tmp4 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp4 == null)
                 {
                     _position = _mark;
@@ -36358,8 +37767,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'class'
-                var _tmp0 = Expect("class");
+                // Expect keyword: 'class' (token type 514)
+                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.CLASS);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -36473,8 +37882,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect 'class'
-                var a = Expect("class");
+                // Expect keyword: 'class' (token type 514)
+                var a = ExpectToken((GeneratedTokenType)KeywordType.CLASS);
                 if (a == null)
                 {
                     _position = _mark;
@@ -36558,7 +37967,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_NAME; // Reset position
                 }
                 // Expect ':'
-                var _tmp0 = Expect(":");
+                var _tmp0 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -36644,7 +38053,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(",");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -36704,6 +38113,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var _tmp0 = Expression();
                 if (_tmp0 == null)
                 {
@@ -36713,7 +38125,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(":");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -36722,7 +38134,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '*'
-                var a = Expect("*");
+                var a = Expect(GeneratedTokenType.OP, "*");
                 if (a == null)
                 {
                     _position = _mark;
@@ -36731,6 +38143,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var _tmp2 = BitwiseOr();
                 if (_tmp2 == null)
                 {
@@ -36760,6 +38175,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var _tmp0 = Expression();
                 if (_tmp0 == null)
                 {
@@ -36769,7 +38187,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var a = Expect(":");
+                var a = Expect(GeneratedTokenType.OP, ":");
                 if (a == null)
                 {
                     _position = _mark;
@@ -36840,6 +38258,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var a = Expression();
                 if (a == null)
                 {
@@ -36881,6 +38302,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var _tmp0 = Expression();
                 if (_tmp0 == null)
                 {
@@ -36890,7 +38314,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(":");
+                var _tmp1 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -36899,7 +38323,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '*'
-                var a = Expect("*");
+                var a = Expect(GeneratedTokenType.OP, "*");
                 if (a == null)
                 {
                     _position = _mark;
@@ -36908,6 +38332,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: bitwise_or
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: bitwise_or()");
+                #endif
                 var _tmp2 = BitwiseOr();
                 if (_tmp2 == null)
                 {
@@ -36937,6 +38364,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var _tmp0 = Expression();
                 if (_tmp0 == null)
                 {
@@ -36946,7 +38376,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var a = Expect(":");
+                var a = Expect(GeneratedTokenType.OP, ":");
                 if (a == null)
                 {
                     _position = _mark;
@@ -37017,7 +38447,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var a = Expect("*");
+                var a = Expect(GeneratedTokenType.OP, "*");
                 if (a == null)
                 {
                     _position = _mark;
@@ -37026,6 +38456,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var _tmp0 = Expression();
                 if (_tmp0 == null)
                 {
@@ -37035,7 +38468,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '='
-                var _tmp1 = Expect("=");
+                var _tmp1 = Expect(GeneratedTokenType.OP, "=");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -37044,6 +38477,9 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var b = Expression();
                 if (b == null)
                 {
@@ -37097,7 +38533,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -37106,7 +38542,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '='
-                var a = Expect("=");
+                var a = Expect(GeneratedTokenType.OP, "=");
                 if (a == null)
                 {
                     _position = _mark;
@@ -37135,7 +38571,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -37144,7 +38580,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '!'
-                var a = Expect("!");
+                var a = Expect(GeneratedTokenType.OP, "!");
                 if (a == null)
                 {
                     _position = _mark;
@@ -37173,7 +38609,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -37182,7 +38618,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect ':'
-                var a = Expect(":");
+                var a = Expect(GeneratedTokenType.OP, ":");
                 if (a == null)
                 {
                     _position = _mark;
@@ -37211,7 +38647,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -37220,7 +38656,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '}'
-                var a = Expect("}");
+                var a = Expect(GeneratedTokenType.OP, "}");
                 if (a == null)
                 {
                     _position = _mark;
@@ -37249,7 +38685,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -37289,7 +38725,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -37372,7 +38808,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -37420,7 +38856,7 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '='
-                var _tmp2 = Expect("=");
+                var _tmp2 = Expect(GeneratedTokenType.OP, "=");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -37463,7 +38899,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -37513,7 +38949,7 @@ namespace SharpPy.Generated
                 // Optional: ['=']
                 int _opt_mark__tmp2 = _position;
                 // Expect '='
-                var _opt__tmp2 = Expect("=");
+                var _opt__tmp2 = Expect(GeneratedTokenType.OP, "=");
                 if (_opt__tmp2 == null)
                 {
                     _position = _mark;
@@ -37588,7 +39024,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -37638,7 +39074,7 @@ namespace SharpPy.Generated
                 // Optional: ['=']
                 int _opt_mark__tmp2 = _position;
                 // Expect '='
-                var _opt__tmp2 = Expect("=");
+                var _opt__tmp2 = Expect(GeneratedTokenType.OP, "=");
                 if (_opt__tmp2 == null)
                 {
                     _position = _mark;
@@ -37733,7 +39169,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -37783,7 +39219,7 @@ namespace SharpPy.Generated
                 // Optional: ['=']
                 int _opt_mark__tmp2 = _position;
                 // Expect '='
-                var _opt__tmp2 = Expect("=");
+                var _opt__tmp2 = Expect(GeneratedTokenType.OP, "=");
                 if (_opt__tmp2 == null)
                 {
                     _position = _mark;
@@ -37845,7 +39281,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp3; // Reset position
                 }
                 // Expect ':'
-                var _tmp4 = Expect(":");
+                var _tmp4 = Expect(GeneratedTokenType.OP, ":");
                 if (_tmp4 == null)
                 {
                     _position = _mark;
@@ -37887,7 +39323,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect("{");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -37937,7 +39373,7 @@ namespace SharpPy.Generated
                 // Optional: ['=']
                 int _opt_mark__tmp2 = _position;
                 // Expect '='
-                var _opt__tmp2 = Expect("=");
+                var _opt__tmp2 = Expect(GeneratedTokenType.OP, "=");
                 if (_opt__tmp2 == null)
                 {
                     _position = _mark;
@@ -38056,7 +39492,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '!'
-                var _tmp0 = Expect("!");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "!");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -38101,7 +39537,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '!'
-                var _tmp0 = Expect("!");
+                var _tmp0 = Expect(GeneratedTokenType.OP, "!");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -38176,6 +39612,9 @@ namespace SharpPy.Generated
             var _items = new List<GeneratedStmtSeq>();
             // CPython: First element required
             // Call rule: statement
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[CALL] {_position,4}: statement()");
+            #endif
             var _first = Statement();
             if (_first == null) return null;
             _items.Add(_first);
@@ -38183,6 +39622,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: statement
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: statement()");
+                #endif
                 var _item = Statement();
                 if (_item == null)
                 {
@@ -38483,6 +39925,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: param_no_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param_no_default()");
+                #endif
                 var _item = ParamNoDefault();
                 if (_item == null)
                 {
@@ -38506,6 +39951,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: param_with_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param_with_default()");
+                #endif
                 var _item = ParamWithDefault();
                 if (_item == null)
                 {
@@ -38527,6 +39975,9 @@ namespace SharpPy.Generated
             var _items = new GeneratedArgSeq();
             // CPython: First element required
             // Call rule: param_no_default
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[CALL] {_position,4}: param_no_default()");
+            #endif
             var _first = ParamNoDefault();
             if (_first == null) return null;
             _items.Add(_first);
@@ -38534,6 +39985,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: param_no_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param_no_default()");
+                #endif
                 var _item = ParamNoDefault();
                 if (_item == null)
                 {
@@ -38554,6 +40008,9 @@ namespace SharpPy.Generated
             var _items = new GeneratedExprSeq();
             // CPython: First element required
             // Call rule: param_with_default
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[CALL] {_position,4}: param_with_default()");
+            #endif
             var _first = ParamWithDefault();
             if (_first == null) return null;
             _items.Add(_first);
@@ -38561,6 +40018,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: param_with_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param_with_default()");
+                #endif
                 var _item = ParamWithDefault();
                 if (_item == null)
                 {
@@ -38583,6 +40043,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: param_maybe_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param_maybe_default()");
+                #endif
                 var _item = ParamMaybeDefault();
                 if (_item == null)
                 {
@@ -38604,6 +40067,9 @@ namespace SharpPy.Generated
             var _items = new GeneratedExprSeq();
             // CPython: First element required
             // Call rule: param_maybe_default
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[CALL] {_position,4}: param_maybe_default()");
+            #endif
             var _first = ParamMaybeDefault();
             if (_first == null) return null;
             _items.Add(_first);
@@ -38611,6 +40077,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: param_maybe_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: param_maybe_default()");
+                #endif
                 var _item = ParamMaybeDefault();
                 if (_item == null)
                 {
@@ -38631,6 +40100,9 @@ namespace SharpPy.Generated
             var _items = new GeneratedExcepthandlerSeq();
             // CPython: First element required
             // Call rule: except_block
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[CALL] {_position,4}: except_block()");
+            #endif
             var _first = ExceptBlock();
             if (_first == null) return null;
             _items.Add(_first);
@@ -38638,6 +40110,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: except_block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: except_block()");
+                #endif
                 var _item = ExceptBlock();
                 if (_item == null)
                 {
@@ -38658,6 +40133,9 @@ namespace SharpPy.Generated
             var _items = new GeneratedExcepthandlerSeq();
             // CPython: First element required
             // Call rule: except_star_block
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[CALL] {_position,4}: except_star_block()");
+            #endif
             var _first = ExceptStarBlock();
             if (_first == null) return null;
             _items.Add(_first);
@@ -38665,6 +40143,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: except_star_block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: except_star_block()");
+                #endif
                 var _item = ExceptStarBlock();
                 if (_item == null)
                 {
@@ -38685,6 +40166,9 @@ namespace SharpPy.Generated
             var _items = new GeneratedMatchCaseSeq();
             // CPython: First element required
             // Call rule: case_block
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[CALL] {_position,4}: case_block()");
+            #endif
             var _first = CaseBlock();
             if (_first == null) return null;
             _items.Add(_first);
@@ -38692,6 +40176,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: case_block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: case_block()");
+                #endif
                 var _item = CaseBlock();
                 if (_item == null)
                 {
@@ -38972,6 +40459,9 @@ namespace SharpPy.Generated
             var _items = new GeneratedExprSeq();
             // CPython: First element required
             // Call rule: compare_op_bitwise_or_pair
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[CALL] {_position,4}: compare_op_bitwise_or_pair()");
+            #endif
             var _first = CompareOpBitwiseOrPair();
             if (_first == null) return null;
             _items.Add(_first);
@@ -38979,6 +40469,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: compare_op_bitwise_or_pair
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: compare_op_bitwise_or_pair()");
+                #endif
                 var _item = CompareOpBitwiseOrPair();
                 if (_item == null)
                 {
@@ -39001,6 +40494,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: lambda_param_no_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param_no_default()");
+                #endif
                 var _item = LambdaParamNoDefault();
                 if (_item == null)
                 {
@@ -39024,6 +40520,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: lambda_param_with_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param_with_default()");
+                #endif
                 var _item = LambdaParamWithDefault();
                 if (_item == null)
                 {
@@ -39045,6 +40544,9 @@ namespace SharpPy.Generated
             var _items = new GeneratedArgSeq();
             // CPython: First element required
             // Call rule: lambda_param_no_default
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[CALL] {_position,4}: lambda_param_no_default()");
+            #endif
             var _first = LambdaParamNoDefault();
             if (_first == null) return null;
             _items.Add(_first);
@@ -39052,6 +40554,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: lambda_param_no_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param_no_default()");
+                #endif
                 var _item = LambdaParamNoDefault();
                 if (_item == null)
                 {
@@ -39072,6 +40577,9 @@ namespace SharpPy.Generated
             var _items = new GeneratedExprSeq();
             // CPython: First element required
             // Call rule: lambda_param_with_default
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[CALL] {_position,4}: lambda_param_with_default()");
+            #endif
             var _first = LambdaParamWithDefault();
             if (_first == null) return null;
             _items.Add(_first);
@@ -39079,6 +40587,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: lambda_param_with_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param_with_default()");
+                #endif
                 var _item = LambdaParamWithDefault();
                 if (_item == null)
                 {
@@ -39101,6 +40612,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: lambda_param_maybe_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param_maybe_default()");
+                #endif
                 var _item = LambdaParamMaybeDefault();
                 if (_item == null)
                 {
@@ -39122,6 +40636,9 @@ namespace SharpPy.Generated
             var _items = new GeneratedExprSeq();
             // CPython: First element required
             // Call rule: lambda_param_maybe_default
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[CALL] {_position,4}: lambda_param_maybe_default()");
+            #endif
             var _first = LambdaParamMaybeDefault();
             if (_first == null) return null;
             _items.Add(_first);
@@ -39129,6 +40646,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: lambda_param_maybe_default
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param_maybe_default()");
+                #endif
                 var _item = LambdaParamMaybeDefault();
                 if (_item == null)
                 {
@@ -39151,6 +40671,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: fstring_format_spec
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: fstring_format_spec()");
+                #endif
                 var _item = FstringFormatSpec();
                 if (_item == null)
                 {
@@ -39174,6 +40697,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: fstring_middle
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: fstring_middle()");
+                #endif
                 var _item = FstringMiddle();
                 if (_item == null)
                 {
@@ -39282,6 +40808,9 @@ namespace SharpPy.Generated
             var _items = new GeneratedComprehensionSeq();
             // CPython: First element required
             // Call rule: for_if_clause
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[CALL] {_position,4}: for_if_clause()");
+            #endif
             var _first = ForIfClause();
             if (_first == null) return null;
             _items.Add(_first);
@@ -39289,6 +40818,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: for_if_clause
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: for_if_clause()");
+                #endif
                 var _item = ForIfClause();
                 if (_item == null)
                 {
@@ -39502,6 +41034,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: star_named_expressions
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_named_expressions()");
+                #endif
                 var _item = StarNamedExpressions();
                 if (_item == null)
                 {
@@ -39609,6 +41144,9 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Call rule: block
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: block()");
+                #endif
                 var _item = Block();
                 if (_item == null)
                 {
@@ -39639,13 +41177,16 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ';'
-                var _item = Expect(";");
+                var _item = Expect(GeneratedTokenType.OP, ";");
                 if (_item == null)
                 {
                     _position = _loop_mark;
                     break;
                 }
                 // Call rule: simple_stmt
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: simple_stmt()");
+                #endif
                 var elem = SimpleStmt();
                 if (elem == null)
                 {
@@ -39677,6 +41218,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: simple_stmt
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: simple_stmt()");
+                #endif
                 var elem = SimpleStmt();
                 if (elem == null)
                 {
@@ -39712,7 +41256,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -39790,13 +41334,16 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
                     break;
                 }
                 // Call rule: import_from_as_name
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: import_from_as_name()");
+                #endif
                 var elem = ImportFromAsName();
                 if (elem == null)
                 {
@@ -39828,6 +41375,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: import_from_as_name
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: import_from_as_name()");
+                #endif
                 var elem = ImportFromAsName();
                 if (elem == null)
                 {
@@ -39863,13 +41413,16 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
                     break;
                 }
                 // Call rule: dotted_as_name
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: dotted_as_name()");
+                #endif
                 var elem = DottedAsName();
                 if (elem == null)
                 {
@@ -39901,6 +41454,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: dotted_as_name
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: dotted_as_name()");
+                #endif
                 var elem = DottedAsName();
                 if (elem == null)
                 {
@@ -39936,13 +41492,16 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
                     break;
                 }
                 // Call rule: with_item
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: with_item()");
+                #endif
                 var elem = WithItem();
                 if (elem == null)
                 {
@@ -39974,6 +41533,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: with_item
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: with_item()");
+                #endif
                 var elem = WithItem();
                 if (elem == null)
                 {
@@ -40009,13 +41571,16 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect '|'
-                var _item = Expect("|");
+                var _item = Expect(GeneratedTokenType.OP, "|");
                 if (_item == null)
                 {
                     _position = _loop_mark;
                     break;
                 }
                 // Call rule: closed_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: closed_pattern()");
+                #endif
                 var elem = ClosedPattern();
                 if (elem == null)
                 {
@@ -40047,6 +41612,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: closed_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: closed_pattern()");
+                #endif
                 var elem = ClosedPattern();
                 if (elem == null)
                 {
@@ -40082,13 +41650,16 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
                     break;
                 }
                 // Call rule: maybe_star_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: maybe_star_pattern()");
+                #endif
                 var elem = MaybeStarPattern();
                 if (elem == null)
                 {
@@ -40120,6 +41691,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: maybe_star_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: maybe_star_pattern()");
+                #endif
                 var elem = MaybeStarPattern();
                 if (elem == null)
                 {
@@ -40155,13 +41729,16 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
                     break;
                 }
                 // Call rule: key_value_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: key_value_pattern()");
+                #endif
                 var elem = KeyValuePattern();
                 if (elem == null)
                 {
@@ -40193,6 +41770,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: key_value_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: key_value_pattern()");
+                #endif
                 var elem = KeyValuePattern();
                 if (elem == null)
                 {
@@ -40228,13 +41808,16 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
                     break;
                 }
                 // Call rule: pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: pattern()");
+                #endif
                 var elem = Pattern();
                 if (elem == null)
                 {
@@ -40266,6 +41849,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: pattern()");
+                #endif
                 var elem = Pattern();
                 if (elem == null)
                 {
@@ -40301,13 +41887,16 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
                     break;
                 }
                 // Call rule: keyword_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: keyword_pattern()");
+                #endif
                 var elem = KeywordPattern();
                 if (elem == null)
                 {
@@ -40339,6 +41928,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: keyword_pattern
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: keyword_pattern()");
+                #endif
                 var elem = KeywordPattern();
                 if (elem == null)
                 {
@@ -40374,13 +41966,16 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
                     break;
                 }
                 // Call rule: type_param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: type_param()");
+                #endif
                 var elem = TypeParam();
                 if (elem == null)
                 {
@@ -40412,6 +42007,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: type_param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: type_param()");
+                #endif
                 var elem = TypeParam();
                 if (elem == null)
                 {
@@ -40447,13 +42045,16 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
                     break;
                 }
                 // Call rule: star_named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_named_expression()");
+                #endif
                 var elem = StarNamedExpression();
                 if (elem == null)
                 {
@@ -40485,6 +42086,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: star_named_expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_named_expression()");
+                #endif
                 var elem = StarNamedExpression();
                 if (elem == null)
                 {
@@ -40520,7 +42124,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -40653,13 +42257,16 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
                     break;
                 }
                 // Call rule: double_starred_kvpair
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: double_starred_kvpair()");
+                #endif
                 var elem = DoubleStarredKvpair();
                 if (elem == null)
                 {
@@ -40691,6 +42298,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: double_starred_kvpair
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: double_starred_kvpair()");
+                #endif
                 var elem = DoubleStarredKvpair();
                 if (elem == null)
                 {
@@ -40726,7 +42336,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -40945,13 +42555,16 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
                     break;
                 }
                 // Call rule: kwarg_or_starred
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: kwarg_or_starred()");
+                #endif
                 var elem = KwargOrStarred();
                 if (elem == null)
                 {
@@ -40983,6 +42596,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: kwarg_or_starred
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: kwarg_or_starred()");
+                #endif
                 var elem = KwargOrStarred();
                 if (elem == null)
                 {
@@ -41018,13 +42634,16 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
                     break;
                 }
                 // Call rule: kwarg_or_double_starred
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: kwarg_or_double_starred()");
+                #endif
                 var elem = KwargOrDoubleStarred();
                 if (elem == null)
                 {
@@ -41056,6 +42675,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: kwarg_or_double_starred
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: kwarg_or_double_starred()");
+                #endif
                 var elem = KwargOrDoubleStarred();
                 if (elem == null)
                 {
@@ -41091,13 +42713,16 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
                     break;
                 }
                 // Call rule: star_target
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_target()");
+                #endif
                 var elem = StarTarget();
                 if (elem == null)
                 {
@@ -41129,6 +42754,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: star_target
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: star_target()");
+                #endif
                 var elem = StarTarget();
                 if (elem == null)
                 {
@@ -41164,13 +42792,16 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
                     break;
                 }
                 // Call rule: del_target
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: del_target()");
+                #endif
                 var elem = DelTarget();
                 if (elem == null)
                 {
@@ -41202,6 +42833,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: del_target
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: del_target()");
+                #endif
                 var elem = DelTarget();
                 if (elem == null)
                 {
@@ -41237,13 +42871,16 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
                     break;
                 }
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var elem = Expression();
                 if (elem == null)
                 {
@@ -41275,6 +42912,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: expression
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: expression()");
+                #endif
                 var elem = Expression();
                 if (elem == null)
                 {
@@ -41310,7 +42950,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -41419,13 +43059,16 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
                     break;
                 }
                 // Call rule: lambda_param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param()");
+                #endif
                 var elem = LambdaParam();
                 if (elem == null)
                 {
@@ -41457,6 +43100,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: lambda_param
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: lambda_param()");
+                #endif
                 var elem = LambdaParam();
                 if (elem == null)
                 {
@@ -41492,13 +43138,16 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
                     break;
                 }
                 // Call rule: dotted_name
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: dotted_name()");
+                #endif
                 var elem = DottedName();
                 if (elem == null)
                 {
@@ -41530,6 +43179,9 @@ namespace SharpPy.Generated
                 }
 
                 // Call rule: dotted_name
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CALL] {_position,4}: dotted_name()");
+                #endif
                 var elem = DottedName();
                 if (elem == null)
                 {
@@ -41565,7 +43217,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(",");
+                var _item = Expect(GeneratedTokenType.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -41755,7 +43407,7 @@ namespace SharpPy.Generated
         // ============ Entry Points from @trailer ============
         
 // CPython 3.12: Entry point for file parsing
-public GeneratedModule ParseFile()
+public GeneratedMod ParseFile()
 {
     var result = File();
     if (result == null || _pendingSyntaxError != null)
@@ -41767,7 +43419,7 @@ public GeneratedModule ParseFile()
 }
 
 // CPython 3.12: Entry point for interactive parsing
-public GeneratedModule ParseInteractive()
+public GeneratedMod ParseInteractive()
 {
     var result = Interactive();
     if (result == null || _pendingSyntaxError != null)
@@ -41779,7 +43431,7 @@ public GeneratedModule ParseInteractive()
 }
 
 // CPython 3.12: Entry point for eval parsing
-public GeneratedModule ParseEval()
+public GeneratedMod ParseEval()
 {
     var result = Eval();
     if (result == null || _pendingSyntaxError != null)
@@ -41791,7 +43443,7 @@ public GeneratedModule ParseEval()
 }
 
 // CPython 3.12: Entry point for function type parsing
-public GeneratedModule ParseFuncType()
+public GeneratedMod ParseFuncType()
 {
     var result = FuncType();
     if (result == null || _pendingSyntaxError != null)

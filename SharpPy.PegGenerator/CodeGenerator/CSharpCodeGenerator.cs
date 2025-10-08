@@ -67,6 +67,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private readonly Dictionary<string, string> _ruleReturnTypeCache = new();
         private readonly HashSet<string> _ruleReturnTypeInProgress = new();
 
+        // CPython 3.12: Keyword management (like CPython's self.keywords and self.keyword_counter)
+        // Maps keyword string to unique token type number (starting from 500)
+        private readonly Dictionary<string, int> _keywords = new(); // keyword -> token type
+        private int _keywordCounter = 499; // CPython starts at 499, increments to 500, 501, etc.
+
         public CSharpCodeGenerator(Grammar.Grammar grammar, List<TokenDefinition> tokens)
         {
             _grammar = grammar;
@@ -388,9 +393,89 @@ namespace SharpPy.PegGenerator.CodeGenerator
         /// </summary>
         public string GenerateParser()
         {
+            // CPython 3.12: First pass - collect all keywords from grammar
+            CollectKeywords();
+
             GenerateHeader();
             GenerateParserClass();
             return _output.ToString();
+        }
+
+        /// <summary>
+        /// CPython 3.12: Collect all keywords from grammar (like CPython's parser_generator.py)
+        /// Scans all StringLiteral atoms and assigns unique token type numbers
+        /// </summary>
+        private void CollectKeywords()
+        {
+            foreach (var rule in _grammar.Rules)
+            {
+                CollectKeywordsFromRule(rule);
+            }
+            Console.WriteLine($"[INFO] Collected {_keywords.Count} keywords from grammar");
+        }
+
+        private void CollectKeywordsFromRule(Rule rule)
+        {
+            foreach (var alt in rule.Alternatives)
+            {
+                foreach (var item in alt.Items)
+                {
+                    CollectKeywordsFromAtom(item.Atom);
+                }
+            }
+        }
+
+        private void CollectKeywordsFromAtom(Atom atom)
+        {
+            switch (atom)
+            {
+                case StringLiteral lit:
+                    // CPython 3.12: Check if this is a keyword (alphabetic identifier)
+                    if (System.Text.RegularExpressions.Regex.IsMatch(lit.Value, @"^[a-zA-Z_]\w*$"))
+                    {
+                        if (!_keywords.ContainsKey(lit.Value))
+                        {
+                            _keywordCounter++;
+                            _keywords[lit.Value] = _keywordCounter;
+                        }
+                    }
+                    break;
+
+                case Grammar.Group grp:
+                    foreach (var alt in grp.Alternatives)
+                    {
+                        foreach (var item in alt.Items)
+                        {
+                            CollectKeywordsFromAtom(item.Atom);
+                        }
+                    }
+                    break;
+
+                case Optional opt:
+                    CollectKeywordsFromAtom(opt.Expression);
+                    break;
+
+                case ZeroOrMore zm:
+                    CollectKeywordsFromAtom(zm.Expression);
+                    break;
+
+                case OneOrMore om:
+                    CollectKeywordsFromAtom(om.Expression);
+                    break;
+
+                case Gather gather:
+                    CollectKeywordsFromAtom(gather.Item);
+                    CollectKeywordsFromAtom(gather.Separator);
+                    break;
+
+                case PositiveLookahead pla:
+                    CollectKeywordsFromAtom(pla.Expression);
+                    break;
+
+                case NegativeLookahead nla:
+                    CollectKeywordsFromAtom(nla.Expression);
+                    break;
+            }
         }
 
         private void GenerateHeader()
@@ -405,6 +490,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("using static SharpPy.Generated.PegenHelpers;");
             WriteLine("using static SharpPy.Generated.AstFactory;");
+            WriteLine("using static SharpPy.GeneratedParserBridge;");
             WriteLine();
         }
 
@@ -421,6 +507,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("using arguments_ty = SharpPy.Generated.GeneratedArguments;");
             WriteLine("using asdl_stmt_seq = SharpPy.Generated.GeneratedStmtSeq;");
             WriteLine("using asdl_expr_seq = SharpPy.Generated.GeneratedExprSeq;");
+            WriteLine("using asdl_arg_seq = SharpPy.Generated.GeneratedArgSeq;");
             WriteLine("using asdl_identifier_seq = SharpPy.Generated.GeneratedIdentifierSeq;");
             WriteLine("using asdl_pattern_seq = SharpPy.Generated.GeneratedPatternSeq;");
             WriteLine("using asdl_int_seq = SharpPy.Generated.GeneratedCmpopSeq;");
@@ -443,9 +530,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("/// Generated PEG parser for Python 3.12 grammar");
             WriteLine("/// Inherits from PyParserBase for common parsing logic");
             WriteLine("/// </summary>");
-            WriteLine("public partial class GeneratedPyParser : PyParserBase<GeneratedModule>");
+            WriteLine("public partial class GeneratedPyParser : PyParserBase<GeneratedMod>");
             WriteLine("{");
             Indent();
+
+            // CPython 3.12: Generate keyword table (like CPython's reserved_keywords)
+            GenerateKeywordTable();
 
             GenerateParserConstructor();
             // CPython 3.12: Generate all rule methods from grammar
@@ -462,6 +552,143 @@ namespace SharpPy.PegGenerator.CodeGenerator
         }
 
 
+        /// <summary>
+        /// CPython 3.12: Generate keyword table (like CPython's reserved_keywords in parser.c)
+        /// Groups keywords by length for efficient lookup
+        /// </summary>
+        private void GenerateKeywordTable()
+        {
+            WriteLine("// CPython 3.12: Keyword token types as enum");
+            WriteLine("// C# improvement: Type-safe keyword types");
+            WriteLine("private enum KeywordType");
+            WriteLine("{");
+            Indent();
+
+            var sortedKeywords = _keywords.OrderBy(kv => kv.Key).ToList();
+            for (int i = 0; i < sortedKeywords.Count; i++)
+            {
+                var kv = sortedKeywords[i];
+                string enumName = kv.Key.ToUpper();
+                if (enumName == "NONE" || enumName == "TRUE" || enumName == "FALSE")
+                {
+                    enumName = "KW_" + enumName; // Avoid conflict with C# keywords
+                }
+                string comma = (i < sortedKeywords.Count - 1) ? "," : "";
+                WriteLine($"{enumName} = {kv.Value}{comma}");
+            }
+
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            WriteLine("// CPython 3.12: Keyword table (like reserved_keywords in parser.c)");
+            WriteLine("// Length-indexed array for O(1) lookup by keyword length");
+            WriteLine();
+
+            // Group keywords by length (CPython optimization)
+            var keywordsByLength = new Dictionary<int, List<KeyValuePair<string, int>>>();
+            foreach (var kv in _keywords)
+            {
+                int len = kv.Key.Length;
+                if (!keywordsByLength.ContainsKey(len))
+                {
+                    keywordsByLength[len] = new List<KeyValuePair<string, int>>();
+                }
+                keywordsByLength[len].Add(kv);
+            }
+
+            int maxLength = keywordsByLength.Keys.Max();
+
+            // CPython: static KeywordToken *reserved_keywords[]
+            WriteLine($"private static readonly int NKeywordLists = {maxLength + 1};");
+            WriteLine("private static readonly Dictionary<string, int>[] ReservedKeywords = new Dictionary<string, int>[]");
+            WriteLine("{");
+            Indent();
+
+            // Generate array indexed by keyword length
+            for (int len = 0; len <= maxLength; len++)
+            {
+                if (keywordsByLength.ContainsKey(len))
+                {
+                    WriteLine("new Dictionary<string, int> {");
+                    Indent();
+                    var keywords = keywordsByLength[len];
+                    for (int i = 0; i < keywords.Count; i++)
+                    {
+                        var kv = keywords[i];
+                        string comma = (i < keywords.Count - 1) ? "," : "";
+                        WriteLine($"{{ \"{kv.Key}\", {kv.Value} }}{comma}");
+                    }
+                    Dedent();
+                    string arrayComma = (len < maxLength) ? "}," : "}";
+                    WriteLine(arrayComma);
+                }
+                else
+                {
+                    string arrayComma = (len < maxLength) ? "null," : "null";
+                    WriteLine(arrayComma);
+                }
+            }
+
+            Dedent();
+            WriteLine("};");
+            WriteLine();
+
+            // CPython: _get_keyword_or_name_type() equivalent
+            WriteLine("// CPython 3.12: _get_keyword_or_name_type() - Check if NAME token is a keyword");
+            WriteLine("// Implements abstract method from PyParserBase");
+            WriteLine("protected override int GetKeywordOrNameType(string name, int nameLen)");
+            WriteLine("{");
+            Indent();
+            WriteLine("#if DEBUG_PARSE_LOG");
+            WriteLine("Console.WriteLine($\"[GetKeywordOrNameType] name='{name}', nameLen={nameLen}, NKeywordLists={NKeywordLists}\");");
+            WriteLine("#endif");
+            WriteLine("if (nameLen >= NKeywordLists || ReservedKeywords[nameLen] == null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("#if DEBUG_PARSE_LOG");
+            WriteLine("Console.WriteLine($\"[GetKeywordOrNameType] OUT OF BOUNDS or NULL, returning NAME\");");
+            WriteLine("#endif");
+            WriteLine("return (int)GeneratedTokenType.NAME;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("if (ReservedKeywords[nameLen].TryGetValue(name, out int keywordType))");
+            WriteLine("{");
+            Indent();
+            WriteLine("#if DEBUG_PARSE_LOG");
+            WriteLine("Console.WriteLine($\"[GetKeywordOrNameType] FOUND keyword '{name}' = {keywordType}\");");
+            WriteLine("#endif");
+            WriteLine("return keywordType;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("#if DEBUG_PARSE_LOG");
+            WriteLine("Console.WriteLine($\"[GetKeywordOrNameType] NOT FOUND '{name}', returning NAME\");");
+            WriteLine("#endif");
+            WriteLine("return (int)GeneratedTokenType.NAME;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // Helper for compile.cs to check if a string is a keyword
+            WriteLine("// Helper for compile.cs to check if a string is a keyword");
+            WriteLine("public static bool IsKeyword(string name)");
+            WriteLine("{");
+            Indent();
+            WriteLine("int nameLen = name.Length;");
+            WriteLine("if (nameLen >= NKeywordLists || ReservedKeywords[nameLen] == null)");
+            WriteLine("{");
+            Indent();
+            WriteLine("return false;");
+            Dedent();
+            WriteLine("}");
+            WriteLine("return ReservedKeywords[nameLen].ContainsKey(name);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
         private void GenerateParserConstructor()
         {
             // CPython 3.12: Generated parser is independent - no interpreter needed
@@ -473,7 +700,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             WriteLine("// Override abstract Parse method");
-            WriteLine("public override GeneratedModule Parse()");
+            WriteLine("public override GeneratedMod Parse()");
             WriteLine("{");
             Indent();
             WriteLine("return ParseFile();");
@@ -1437,7 +1664,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             return pegType switch
             {
                 // AST types (from ASDL) - CPython 3.12: All non-nullable at declaration, null checks at usage
-                "mod_ty" => "GeneratedModule",
+                "mod_ty" => "GeneratedMod",
                 "stmt_ty" => "GeneratedStmt",
                 "expr_ty" => "GeneratedExpr",
                 "pattern_ty" => "GeneratedPattern",
@@ -3353,6 +3580,19 @@ namespace SharpPy.PegGenerator.CodeGenerator
         {
             // Escape backslashes first, then quotes, then newlines
             return str.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t");
+        }
+
+        /// <summary>
+        /// CPython 3.12: Get keyword token type number, or 0 if not a keyword
+        /// Like CPython's self.keywords.get(keyword_str, 0)
+        /// </summary>
+        public int GetKeywordTokenType(string value)
+        {
+            if (_keywords.TryGetValue(value, out int tokenType))
+            {
+                return tokenType;
+            }
+            return 0;
         }
 
         private string GenerateEmbeddedAtom(Grammar.Atom atom)

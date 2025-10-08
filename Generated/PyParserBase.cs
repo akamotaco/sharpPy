@@ -5,15 +5,18 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using SharpPy.Tokenizer;
+using static SharpPy.GeneratedParserBridge;
 
 // CPython 3.12: Type aliases for grammar compatibility
 // Allows python_cs.gram to use C type names directly
+using mod_ty = SharpPy.Generated.GeneratedMod;
 using stmt_ty = SharpPy.Generated.GeneratedStmt;
 using expr_ty = SharpPy.Generated.GeneratedExpr;
 using alias_ty = SharpPy.Generated.GeneratedAlias;
 using arguments_ty = SharpPy.Generated.GeneratedArguments;
 using asdl_stmt_seq = SharpPy.Generated.GeneratedStmtSeq;
 using asdl_expr_seq = SharpPy.Generated.GeneratedExprSeq;
+using asdl_arg_seq = SharpPy.Generated.GeneratedArgSeq;
 using asdl_identifier_seq = SharpPy.Generated.GeneratedIdentifierSeq;
 using asdl_pattern_seq = SharpPy.Generated.GeneratedPatternSeq;
 using asdl_int_seq = SharpPy.Generated.GeneratedCmpopSeq;  // CPython: int sequence used for comparison operators
@@ -78,6 +81,9 @@ namespace SharpPy.Generated
 
         public abstract TResult Parse();
 
+        // CPython 3.12: _get_keyword_or_name_type - Must be implemented by generated parser
+        protected abstract int GetKeywordOrNameType(string name, int nameLen);
+
         protected virtual GeneratedModule ParseFile()
         {
             // Override in generated parser
@@ -87,7 +93,20 @@ namespace SharpPy.Generated
         protected GeneratedTokenInfo ExpectToken(GeneratedTokenType type)
         {
             var token = CurrentToken;
-            if (token != null && token.Type == type)
+            if (token == null) return null;
+
+            // CPython 3.12: If token is NAME, check if it's a keyword
+            // This implements initialize_token + _get_keyword_or_name_type logic
+            int tokenTypeInt = (int)token.Type;
+            if (token.Type == GeneratedTokenType.NAME)
+            {
+                tokenTypeInt = GetKeywordOrNameType(token.Value, token.Value.Length);
+            }
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[ExpectToken] type={(int)type}, tokenTypeInt={tokenTypeInt}, match={tokenTypeInt == (int)type}");
+            #endif
+            if (tokenTypeInt == (int)type)
             {
                 _position++;
                 return token;
@@ -98,6 +117,9 @@ namespace SharpPy.Generated
         protected GeneratedTokenInfo Expect(GeneratedTokenType type, string value)
         {
             var token = CurrentToken;
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[Expect] type={(int)type}, value='{value}', token={(token != null ? $"{(int)token.Type}:'{token.Value}'" : "null")}, match={token != null && token.Type == type && token.Value == value}");
+            #endif
             if (token != null && token.Type == type && token.Value == value)
             {
                 _position++;
@@ -2373,8 +2395,8 @@ namespace SharpPy.Generated
 
     public class GeneratedCmpopExprPair : GeneratedPtr
     {
-        public GeneratedCmpop Op { get; set; }
-        public GeneratedExpr Expr { get; set; }
+        public GeneratedCmpop Cmpop { get; set; }  // CPython: cmpop_ty cmpop
+        public GeneratedExpr Expr { get; set; }    // CPython: expr_ty expr
     }
 
     public class GeneratedResultTokenWithMetadata : GeneratedPtr

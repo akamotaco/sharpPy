@@ -263,7 +263,7 @@ namespace SharpPy
             {
                 case NameExpression name:
                     // Only add if it's not a keyword
-                    if (!KeywordHelper.IsKeywordLexeme(name.Name))
+                    if (!SharpPy.Generated.GeneratedPyParser.IsKeyword(name.Name))
                     {
                         _usedVars.Add(name.Name);
                     }
@@ -4194,7 +4194,7 @@ namespace SharpPy
             {
                 case NameExpression nameExpr:
                     // Only add if it's not a keyword
-                    if (!KeywordHelper.IsKeywordLexeme(nameExpr.Name))
+                    if (!SharpPy.Generated.GeneratedPyParser.IsKeyword(nameExpr.Name))
                     {
                         variables.Add(nameExpr.Name);
                     }
@@ -4267,8 +4267,8 @@ namespace SharpPy
 
         private bool IsKeywordOrBuiltin(string varName)
         {
-            // Use PyToken's keyword checking functionality
-            return KeywordHelper.IsKeywordLexeme(varName) || IsBuiltinVariable(varName);
+            // CPython 3.12: Check using generated parser's keyword table
+            return SharpPy.Generated.GeneratedPyParser.IsKeyword(varName) || IsBuiltinVariable(varName);
         }
 
         #if DEBUG_LOG

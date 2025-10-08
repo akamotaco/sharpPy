@@ -157,6 +157,22 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 return GenerateExprConstruction(exprType, translatedArgs, variables);
             }
 
+            // CPython 3.12: Generic fallback for all other _PyAST_* functions
+            // PyParserBase.cs contains all ASDL type constructors
+            // Examples: _PyAST_alias, _PyAST_arg, _PyAST_keyword, _PyAST_withitem, etc.
+            if (funcName.StartsWith("_PyAST_"))
+            {
+                var typeName = funcName.Substring(7); // Remove "_PyAST_" prefix
+                if (translatedArgs.Count > 0)
+                {
+                    return $"_res = _PyAST_{typeName}({string.Join(", ", translatedArgs)});";
+                }
+                else
+                {
+                    return $"_res = _PyAST_{typeName}();";
+                }
+            }
+
             return null;
         }
 
@@ -322,10 +338,38 @@ namespace SharpPy.PegGenerator.CodeGenerator
                         return $"_res = _PyPegen_collect_call_seqs({a}, {b}, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);";
                     }
                     break;
+
+                case "_PyPegen_cmpop_expr_pair":
+                    // CPython 3.12: C -> C# 직역
+                    // C code:
+                    //   CmpopExprPair *a = _PyArena_Malloc(p->arena, sizeof(CmpopExprPair));
+                    //   if (!a) { return NULL; }
+                    //   a->cmpop = cmpop;
+                    //   a->expr = expr;
+                    //   return a;
+                    // C# translation:
+                    //   new GeneratedCmpopExprPair { Cmpop = cmpop, Expr = expr }
+                    if (filteredArgs.Count >= 2)
+                    {
+                        var cmpop = TranslateToCSharp(filteredArgs[0].Trim(), variables);
+                        var expr = TranslateToCSharp(filteredArgs[1].Trim(), variables);
+                        return $"_res = new GeneratedCmpopExprPair {{ Cmpop = {cmpop}, Expr = {expr} }};";
+                    }
+                    break;
             }
 
-            // Unknown _PyPegen_ function
-            return null;
+            // CPython 3.12: Generic fallback for all other _PyPegen_* functions
+            // PyParserBase.cs contains implementations for remaining helper functions
+            // Examples: _PyPegen_key_value_pair, _PyPegen_make_arguments, etc.
+            // Simply call the function with translated arguments
+            if (filteredArgs.Count > 0)
+            {
+                return $"_res = {funcName}({string.Join(", ", filteredArgs.Select(a => TranslateToCSharp(a, variables)))});";
+            }
+            else
+            {
+                return $"_res = {funcName}();";
+            }
         }
 
         /// <summary>
@@ -469,6 +513,38 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 return $"ASTHelpers.ExtractStringValue({varName})";
             }
 
+            // CHECK<type>(...) macro - CPython type cast, remove all CHECK wrappers iteratively
+            // Example: CHECK<asdl_identifier_seq>(_PyPegen_map(...CHECK<asdl_expr_seq>(...)))
+            // → _PyPegen_map(..._PyPegen_get...(...))
+            // Process innermost CHECK first to preserve function calls
+            while (expr.Contains("CHECK<"))
+            {
+                // Find innermost CHECK (last occurrence before its closing paren)
+                var lastCheckStart = expr.LastIndexOf("CHECK<");
+                if (lastCheckStart >= 0)
+                {
+                    var typeEnd = expr.IndexOf('>', lastCheckStart);
+                    if (typeEnd > lastCheckStart)
+                    {
+                        var parenStart = expr.IndexOf('(', typeEnd);
+                        if (parenStart > typeEnd)
+                        {
+                            var parenEnd = FindMatchingParen(expr, parenStart);
+                            if (parenEnd > parenStart)
+                            {
+                                // Extract inner expression
+                                var innerExpr = expr.Substring(parenStart + 1, parenEnd - parenStart - 1);
+                                // Remove CHECK<type>(...) wrapper, keep inner expression
+                                expr = expr.Substring(0, lastCheckStart) + innerExpr + expr.Substring(parenEnd + 1);
+                                continue;
+                            }
+                        }
+                    }
+                }
+                // Can't parse, break to avoid infinite loop
+                break;
+            }
+
             // Function calls: _PyPegen_*, _PyAST_* - recursively process arguments
             // CPython 3.12: Need to expand EXTRA in nested function calls
             // Example: _PyPegen_alias_for_star(p, EXTRA) → _PyPegen_alias_for_star(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset)
@@ -532,6 +608,23 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // python_cs.gram already contains C# code - no escaping needed
             // Just return expression as-is
             return expr;
+        }
+
+        /// <summary>
+        /// Find matching closing parenthesis
+        /// </summary>
+        private int FindMatchingParen(string str, int openParenIndex)
+        {
+            int depth = 1;
+            for (int i = openParenIndex + 1; i < str.Length; i++)
+            {
+                if (str[i] == '(') depth++;
+                else if (str[i] == ')') depth--;
+
+                if (depth == 0)
+                    return i;
+            }
+            return -1;
         }
 
         /// <summary>

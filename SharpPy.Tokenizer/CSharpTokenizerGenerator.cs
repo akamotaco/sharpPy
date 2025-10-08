@@ -194,14 +194,16 @@ namespace SharpPy.Tokenizer
         {
             WriteLine("/// <summary>");
             WriteLine("/// CPython 3.12 compatible token types");
+            WriteLine("/// Explicit values to match CPython token indices");
             WriteLine("/// </summary>");
             WriteLine("public enum GeneratedTokenType");
             WriteLine("{");
             Indent();
 
-            foreach (var token in _tokens)
+            for (int i = 0; i < _tokens.Count; i++)
             {
-                WriteLine($"{token.Name},");
+                var token = _tokens[i];
+                WriteLine($"{token.Name} = {i},");
             }
 
             Dedent();

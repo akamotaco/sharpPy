@@ -100,9 +100,27 @@ namespace SharpPy.PegGenerator.CodeGenerator
         {
             var escaped = _parent.EscapeString(lit.Value);
 
-            // CPython 3.12 pattern: Expect exact token match and store result
-            _parent.WriteLine($"// Expect '{escaped}'");
-            _parent.WriteLine($"var {_varName} = Expect(\"{escaped}\");");
+            // CPython 3.12: Check if this is a keyword (alphabetic identifier) or operator
+            int keywordTokenType = _parent.GetKeywordTokenType(lit.Value);
+
+            if (keywordTokenType > 0)
+            {
+                // CPython 3.12: This is a keyword - use KeywordType enum
+                string enumName = lit.Value.ToUpper();
+                if (lit.Value == "None" || lit.Value == "True" || lit.Value == "False")
+                {
+                    enumName = "KW_" + enumName; // Avoid conflict with C# keywords
+                }
+                _parent.WriteLine($"// Expect keyword: '{escaped}' (token type {keywordTokenType})");
+                _parent.WriteLine($"var {_varName} = ExpectToken((GeneratedTokenType)KeywordType.{enumName});");
+            }
+            else
+            {
+                // CPython 3.12: This is an operator - use OP token type with value check
+                // CPython tokenizer generates all operators as OP type, parser checks value
+                _parent.WriteLine($"// Expect '{escaped}'");
+                _parent.WriteLine($"var {_varName} = Expect(GeneratedTokenType.OP, \"{escaped}\");");
+            }
 
             // CPython 3.12: Only add null check if NOT inside a repeater or loop rule
             if (!_insideRepeater && !_insideLoopRule)
@@ -194,6 +212,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 bool isInvalidRule = ruleRef.Name.StartsWith("invalid_", StringComparison.OrdinalIgnoreCase);
 
                 _parent.WriteLine($"// Call rule: {ruleRef.Name}");
+                // Debug log for rule calls (conditional compilation for DEBUG_PARSE_LOG)
+                if (!isArtificialRule && !isInvalidRule)
+                {
+                    _parent.WriteLine($"#if DEBUG_PARSE_LOG");
+                    _parent.WriteLine($"Console.WriteLine($\"[CALL] {{_position,4}}: {ruleRef.Name}()\");");
+                    _parent.WriteLine($"#endif");
+                }
 
                 // CPython 3.12: Wrap invalid_* rule calls in if (_callInvalidRules) check
                 // Declare variable outside if block to avoid scope issues

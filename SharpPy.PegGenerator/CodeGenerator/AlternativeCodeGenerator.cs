@@ -438,11 +438,25 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             // Extract function name and arguments
             // Example: _PyAST_If(a, b, c, EXTRA) or _PyPegen_set_expr_context(p, a, Store)
-            var funcStart = action.IndexOf("_PyAST_");
-            if (funcStart < 0)
+            // Find the OUTERMOST (leftmost) function call
+            // CPython: action may have nested calls like _PyPegen_func(CHECK<type>(_PyAST_func(...)))
+            // We need to find the outermost function, not the first occurrence in string
+            var funcStart = -1;
+            var pyastIdx = action.IndexOf("_PyAST_");
+            var pyPegenIdx = action.IndexOf("_PyPegen_");
+
+            // Choose the leftmost (outermost) function
+            if (pyastIdx >= 0 && pyPegenIdx >= 0)
             {
-                // Try _PyPegen_* functions
-                funcStart = action.IndexOf("_PyPegen_");
+                funcStart = Math.Min(pyastIdx, pyPegenIdx);
+            }
+            else if (pyastIdx >= 0)
+            {
+                funcStart = pyastIdx;
+            }
+            else if (pyPegenIdx >= 0)
+            {
+                funcStart = pyPegenIdx;
             }
 
             if (funcStart < 0)

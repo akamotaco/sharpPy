@@ -26,15 +26,18 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("using System.Collections.Generic;");
             WriteLine("using System.Linq;");
             WriteLine("using SharpPy.Tokenizer;");
+            WriteLine("using static SharpPy.GeneratedParserBridge;");
             WriteLine();
             WriteLine("// CPython 3.12: Type aliases for grammar compatibility");
             WriteLine("// Allows python_cs.gram to use C type names directly");
+            WriteLine("using mod_ty = SharpPy.Generated.GeneratedMod;");
             WriteLine("using stmt_ty = SharpPy.Generated.GeneratedStmt;");
             WriteLine("using expr_ty = SharpPy.Generated.GeneratedExpr;");
             WriteLine("using alias_ty = SharpPy.Generated.GeneratedAlias;");
             WriteLine("using arguments_ty = SharpPy.Generated.GeneratedArguments;");
             WriteLine("using asdl_stmt_seq = SharpPy.Generated.GeneratedStmtSeq;");
             WriteLine("using asdl_expr_seq = SharpPy.Generated.GeneratedExprSeq;");
+            WriteLine("using asdl_arg_seq = SharpPy.Generated.GeneratedArgSeq;");
             WriteLine("using asdl_identifier_seq = SharpPy.Generated.GeneratedIdentifierSeq;");
             WriteLine("using asdl_pattern_seq = SharpPy.Generated.GeneratedPatternSeq;");
             WriteLine("using asdl_int_seq = SharpPy.Generated.GeneratedCmpopSeq;  // CPython: int sequence used for comparison operators");
@@ -141,6 +144,11 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("public abstract TResult Parse();");
             WriteLine();
 
+            // CPython 3.12: Abstract keyword checker (implemented in generated parser)
+            WriteLine("// CPython 3.12: _get_keyword_or_name_type - Must be implemented by generated parser");
+            WriteLine("protected abstract int GetKeywordOrNameType(string name, int nameLen);");
+            WriteLine();
+
             // ParseFile method (default implementation)
             WriteLine("protected virtual GeneratedModule ParseFile()");
             WriteLine("{");
@@ -152,11 +160,27 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine();
 
             // ExpectToken method
+            // CPython 3.12: _PyPegen_expect_token equivalent
             WriteLine("protected GeneratedTokenInfo ExpectToken(GeneratedTokenType type)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("var token = CurrentToken;");
-            WriteLine("if (token != null && token.Type == type)");
+            WriteLine("if (token == null) return null;");
+            WriteLine();
+            WriteLine("// CPython 3.12: If token is NAME, check if it's a keyword");
+            WriteLine("// This implements initialize_token + _get_keyword_or_name_type logic");
+            WriteLine("int tokenTypeInt = (int)token.Type;");
+            WriteLine("if (token.Type == GeneratedTokenType.NAME)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("tokenTypeInt = GetKeywordOrNameType(token.Value, token.Value.Length);");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+            WriteLine("#if DEBUG_PARSE_LOG");
+            WriteLine("Console.WriteLine($\"[ExpectToken] type={(int)type}, tokenTypeInt={tokenTypeInt}, match={tokenTypeInt == (int)type}\");");
+            WriteLine("#endif");
+            WriteLine("if (tokenTypeInt == (int)type)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("_position++;");
@@ -173,6 +197,9 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("{");
             _indentLevel++;
             WriteLine("var token = CurrentToken;");
+            WriteLine("#if DEBUG_PARSE_LOG");
+            WriteLine("Console.WriteLine($\"[Expect] type={(int)type}, value='{value}', token={(token != null ? $\"{(int)token.Type}:'{token.Value}'\" : \"null\")}, match={token != null && token.Type == type && token.Value == value}\");");
+            WriteLine("#endif");
             WriteLine("if (token != null && token.Type == type && token.Value == value)");
             WriteLine("{");
             _indentLevel++;
@@ -1651,11 +1678,12 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine();
 
             // CmpopExprPair
+            // CPython 3.12: typedef struct { cmpop_ty cmpop; expr_ty expr; } CmpopExprPair;
             WriteLine("public class GeneratedCmpopExprPair : GeneratedPtr");
             WriteLine("{");
             _indentLevel++;
-            WriteLine("public GeneratedCmpop Op { get; set; }");  // Fixed: CmpOp → Cmpop
-            WriteLine("public GeneratedExpr Expr { get; set; }");
+            WriteLine("public GeneratedCmpop Cmpop { get; set; }  // CPython: cmpop_ty cmpop");
+            WriteLine("public GeneratedExpr Expr { get; set; }    // CPython: expr_ty expr");
             _indentLevel--;
             WriteLine("}");
             WriteLine();

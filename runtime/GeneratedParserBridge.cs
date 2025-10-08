@@ -64,7 +64,7 @@ namespace SharpPy
         /// Convert generated parser result to SharpPy AST
         /// This is where CPython 3.12 AST compatibility is implemented
         /// </summary>
-        private static List<Statement> ConvertToSharpPyAST(GeneratedModule? parseResult, string filename)
+        private static List<Statement> ConvertToSharpPyAST(GeneratedMod? parseResult, string filename)
         {
 #if DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] ConvertToSharpPyAST: parseResult is {(parseResult == null ? "null" : "not null")}");
@@ -77,17 +77,29 @@ namespace SharpPy
                 return new List<Statement>();
             }
 
-#if DEBUG_AST_LOG
-            Console.WriteLine($"[DEBUG] ConvertToSharpPyAST: parseResult.Body is {(parseResult.Body == null ? "null" : "not null")}");
-            if (parseResult.Body != null)
+            // CPython 3.12: mod_ty is a union (Module | Interactive | Expression | FunctionType)
+            // SharpPy: GeneratedMod is abstract, cast to specific type
+            if (parseResult is not GeneratedModule moduleResult)
             {
-                Console.WriteLine($"[DEBUG] ConvertToSharpPyAST: parseResult.Body.Count = {parseResult.Body.Count}");
+#if DEBUG_AST_LOG
+                Console.WriteLine($"[DEBUG] ConvertToSharpPyAST: parseResult is {parseResult.GetType().Name}, not GeneratedModule");
+#endif
+                // For now, only support Module mode (file parsing)
+                // TODO: Support Interactive, Expression, FunctionType modes
+                return new List<Statement>();
+            }
+
+#if DEBUG_AST_LOG
+            Console.WriteLine($"[DEBUG] ConvertToSharpPyAST: moduleResult.Body is {(moduleResult.Body == null ? "null" : "not null")}");
+            if (moduleResult.Body != null)
+            {
+                Console.WriteLine($"[DEBUG] ConvertToSharpPyAST: moduleResult.Body.Count = {moduleResult.Body.Count}");
             }
 
             // Phase 2: Start implementing AST conversion
             Console.WriteLine("[DEBUG] ConvertToSharpPyAST: Calling ConvertGeneratedAST...");
 #endif
-            var result = ConvertGeneratedAST(parseResult, filename);
+            var result = ConvertGeneratedAST(moduleResult, filename);
 #if DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] ConvertToSharpPyAST: ConvertGeneratedAST returned {result.Count} statements");
 #endif
