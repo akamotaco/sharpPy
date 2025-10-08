@@ -5033,10 +5033,35 @@ namespace SharpPy
                 {
                     CompileStatement(stmt);
                 }
-                
-                // 바디 실행 후 전체 if-elif-else 끝으로 점프 (return이 없는 경우)
-                var hasReturn = body.Any(stmt => stmt is ReturnStatement);
-                if (!hasReturn)
+
+                // CPython pattern: JUMP은 다음 elif가 있거나 (마지막 조건이 아니거나), 현재 블록 뒤에 else가 있을 때 emit
+                // Optimizer will remove unreachable jumps after continue/break/return
+                // NOTE: finalElse는 아직 선언 안되었으므로 ifStmt 사용
+                bool isLastCondition = (i == conditions.Count - 1);
+                bool needsJump = !isLastCondition; // 다음 elif가 있으면 JUMP 필요
+
+                // 마지막 조건이고 else 블록이 있으면 JUMP 필요
+                if (isLastCondition)
+                {
+                    // Check if there's an else block (not elif)
+                    var checkElse = ifStmt;
+                    for (int j = 0; j < i; j++)
+                    {
+                        if (checkElse.OrElse != null && checkElse.OrElse.Count == 1 &&
+                            checkElse.OrElse[0] is IfStatement)
+                        {
+                            checkElse = (IfStatement)checkElse.OrElse[0];
+                        }
+                    }
+                    // 마지막 if의 OrElse가 IfStatement가 아니면 pure else 블록
+                    if (checkElse.OrElse != null && checkElse.OrElse.Count > 0 &&
+                        !(checkElse.OrElse.Count == 1 && checkElse.OrElse[0] is IfStatement))
+                    {
+                        needsJump = true;
+                    }
+                }
+
+                if (needsJump)
                 {
                     var jumpToEnd = _instructions.Count;
                     EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
@@ -5147,33 +5172,44 @@ namespace SharpPy
             #if DEBUG_LOG
             Console.WriteLine("🔧 CPython 3.12 호환 while 루프 컴파일 시작");
             #endif
-            
+
             // Check if this is while True: case
             bool isWhileTrue = IsConstantTrue(whileStmt.Test);
             #if DEBUG_LOG
             Console.WriteLine($"  while True 패턴: {isWhileTrue}");
             #endif
-            
+
             if (isWhileTrue)
             {
                 CompileWhileTrue(whileStmt);
                 return;
             }
-            
-            // Phase 1: 초기 조건 체크 (CPython pattern)
+
+            // CPython pattern: loop label at condition start, body label at body start
+            // continue jumps to loop label, break jumps to end label
+            var loopLabel = CreateLabel("while_loop");     // continue target
+            var endLabel = CreateLabel("while_end");       // break target
+
+            // Phase 1: loop label - 조건 체크 시작 (CPython pattern)
             #if DEBUG_LOG
-            Console.WriteLine("  Phase 1: 초기 조건 체크");
+            Console.WriteLine("  Phase 1: loop label - 조건 체크 시작");
             #endif
+            MarkLabel(loopLabel);  // ← CPython: USE_LABEL(c, loop)
+            var loopStart = _instructions.Count;
+
+            // Push loop context RIGHT AFTER MarkLabel (CPython: compiler_push_fblock)
+            // This must be done BEFORE compiling body so continue statements can reference loopLabel
+            PushLoopContext(endLabel, loopLabel);  // break → end, continue → loop
+
             CompileExpression(whileStmt.Test);
-            
+
             var initialJumpIfFalse = _instructions.Count;
             EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // 주소는 나중에 패치
-            
-            // Phase 2: 루프 바디 컴파일 (JUMP_BACKWARD 타겟은 첫 번째 바디 명령어)
-            // CPython 패턴: JUMP_BACKWARD는 실제 루프 바디 시작으로 점프
-            var bodyStart = _instructions.Count; // 바디 첫 번째 명령어 위치
+
+            // Phase 2: body label - 루프 바디 컴파일
+            var bodyStart = _instructions.Count;
             #if DEBUG_LOG
-            Console.WriteLine($"  Phase 2: 바디 시작점 = {bodyStart} (JUMP_BACKWARD 타겟)");
+            Console.WriteLine($"  Phase 2: 바디 시작점 = {bodyStart}");
             Console.WriteLine($"  Phase 2: 바디 statement 개수 = {whileStmt.Body.Count}");
             #endif
 
@@ -5191,12 +5227,11 @@ namespace SharpPy
             #if DEBUG_LOG
             Console.WriteLine($"  Phase 2 완료: 현재 instruction count = {_instructions.Count}");
             #endif
-            
+
             // Phase 3: 루프 끝 조건 체크 (CPython pattern)
             #if DEBUG_LOG
             Console.WriteLine("  Phase 3: 루프 끝 조건 체크");
             #endif
-            var conditionRecheckStart = _instructions.Count; // 조건 재체크 시작점
             CompileExpression(whileStmt.Test);  // 조건을 두 번째로 체크
 
             var endJumpIfFalse = _instructions.Count;
@@ -5209,13 +5244,17 @@ namespace SharpPy
             Console.WriteLine($"  Phase 4: JUMP_BACKWARD {currentPos} → {bodyStart} (arg={jumpBackwardArg})");
             #endif
             EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
-            
-            // Phase 5: 루프 종료 지점
+
+            // Pop loop context (CPython: compiler_pop_fblock)
+            PopLoopContext();
+
+            // Phase 5: end label - 루프 종료 지점
+            MarkLabel(endLabel);  // ← CPython: USE_LABEL(c, end)
             var loopEnd = _instructions.Count;
             #if DEBUG_LOG
             Console.WriteLine($"  Phase 5: 루프 종료점 = {loopEnd}");
             #endif
-            
+
             // 점프 주소 패치 (상대 오프셋 사용)
             var relativeOffsetInitial = loopEnd - initialJumpIfFalse - 1;
             var relativeOffsetEnd = loopEnd - endJumpIfFalse - 1;
@@ -5230,7 +5269,7 @@ namespace SharpPy
             #endif
             _instructions[initialJumpIfFalse] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, relativeOffsetInitial);
             _instructions[endJumpIfFalse] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, relativeOffsetEnd);
-            
+
             // While completed normally - execute else clause if present
             if (whileStmt.ElseClause != null && whileStmt.ElseClause.Count > 0)
             {
@@ -5239,7 +5278,7 @@ namespace SharpPy
                     CompileStatement(stmt);
                 }
             }
-            
+
             #if DEBUG_LOG
             Console.WriteLine("🔧 CPython 3.12 호환 while 루프 컴파일 완료");
             #endif
@@ -7891,8 +7930,32 @@ namespace SharpPy
         /// </summary>
         private void EmitJumpToLabel(ByteCodeOp jumpOp, Label label)
         {
+            int refIndex = _instructions.Count;
             EmitInstruction(jumpOp, 0);
-            label.References.Add(_instructions.Count - 1);
+            label.References.Add(refIndex);
+
+            // If label is already marked, patch the jump immediately
+            if (label.IsMarked)
+            {
+                int argument;
+                if (jumpOp == ByteCodeOp.JUMP_FORWARD)
+                {
+                    argument = label.Offset - (refIndex + 1);
+                }
+                else if (jumpOp == ByteCodeOp.POP_JUMP_IF_FALSE || jumpOp == ByteCodeOp.POP_JUMP_IF_TRUE)
+                {
+                    argument = label.Offset - (refIndex + 1);
+                }
+                else if (jumpOp == ByteCodeOp.JUMP_BACKWARD)
+                {
+                    argument = PyJumpBackwardUtil.CalculateJumpBackwardOpArg(refIndex, label.Offset, _instructions);
+                }
+                else
+                {
+                    argument = label.Offset;
+                }
+                _instructions[refIndex] = new ByteCodeInstruction(jumpOp, argument);
+            }
         }
         
         /// <summary>
