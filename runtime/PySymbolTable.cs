@@ -442,6 +442,37 @@ namespace SharpPy
                     }
                     break;
 
+                case WithStatement withStmt:
+#if DEBUG_LOG
+                    Console.WriteLine($"  AnalyzeStatement: WithStatement in scope '{_currentTable?.GetName()}'");
+#endif
+                    // 1. Analyze context expressions
+                    foreach (var item in withStmt.Items)
+                    {
+                        AnalyzeExpression(item.ContextExpr);
+
+                        // 2. Define optional variable if present (as target)
+                        if (item.OptionalVars != null)
+                        {
+                            if (item.OptionalVars is NameExpression nameExpr)
+                            {
+                                _currentTable?.DefineSymbol(nameExpr.Name, SymbolFlags.Assigned);
+                            }
+                            else
+                            {
+                                // Handle complex assignment targets (tuples, lists, etc.)
+                                AnalyzeExpression(item.OptionalVars);
+                            }
+                        }
+                    }
+
+                    // 3. Analyze body
+                    foreach (var stmt in withStmt.Body)
+                    {
+                        AnalyzeStatement(stmt);
+                    }
+                    break;
+
                 // For now, skip complex statement types
                 default:
 #if DEBUG_LOG

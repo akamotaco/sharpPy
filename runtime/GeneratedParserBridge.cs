@@ -1177,10 +1177,13 @@ namespace SharpPy
                         {
                             foreach (var item in withStmt.Items)
                             {
-                                var itemData = item as dynamic;
-                                var contextExpr = ConvertAnyExpression(itemData.context_expr);
-                                Expression? optionalVars = itemData.optional_vars != null ?
-                                    ConvertAnyExpression(itemData.optional_vars) : null;
+                                // GeneratedWithitem uses Pascal Case: ContextExpr, OptionalVars
+                                var itemData = item as GeneratedWithitem;
+                                if (itemData == null) continue;
+
+                                var contextExpr = ConvertAnyExpression(itemData.ContextExpr);
+                                Expression? optionalVars = itemData.OptionalVars != null ?
+                                    ConvertAnyExpression(itemData.OptionalVars) : null;
 
                                 items.Add(new WithItem(contextExpr, optionalVars));
                             }
@@ -1210,10 +1213,13 @@ namespace SharpPy
                         {
                             foreach (var item in asyncWithStmt.Items)
                             {
-                                var itemData = item as dynamic;
-                                var contextExpr = ConvertAnyExpression(itemData.context_expr);
-                                Expression? optionalVars = itemData.optional_vars != null ?
-                                    ConvertAnyExpression(itemData.optional_vars) : null;
+                                // GeneratedWithitem uses Pascal Case: ContextExpr, OptionalVars
+                                var itemData = item as GeneratedWithitem;
+                                if (itemData == null) continue;
+
+                                var contextExpr = ConvertAnyExpression(itemData.ContextExpr);
+                                Expression? optionalVars = itemData.OptionalVars != null ?
+                                    ConvertAnyExpression(itemData.OptionalVars) : null;
 
                                 items.Add(new WithItem(contextExpr, optionalVars));
                             }
