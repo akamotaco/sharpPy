@@ -915,6 +915,14 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("public static GeneratedExprSeq _PyPegen_seq_insert_in_front(GeneratedExpr item, GeneratedExprSeq seq)");
             WriteLine("{");
             _indentLevel++;
+            WriteLine("if (seq == null)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("var singletonSeq = new GeneratedExprSeq();");
+            WriteLine("singletonSeq.Add(item);");
+            WriteLine("return singletonSeq;");
+            _indentLevel--;
+            WriteLine("}");
             WriteLine("var newSeq = new GeneratedExprSeq(seq.Count + 1);");
             WriteLine("newSeq.Add(item);");
             WriteLine("newSeq.AddRange(seq);");
@@ -926,6 +934,14 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("public static GeneratedPatternSeq _PyPegen_seq_insert_in_front(GeneratedPattern item, GeneratedPatternSeq seq)");
             WriteLine("{");
             _indentLevel++;
+            WriteLine("if (seq == null)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("var singletonSeq = new GeneratedPatternSeq();");
+            WriteLine("singletonSeq.Add(item);");
+            WriteLine("return singletonSeq;");
+            _indentLevel--;
+            WriteLine("}");
             WriteLine("var newSeq = new GeneratedPatternSeq(seq.Count + 1);");
             WriteLine("newSeq.Add(item);");
             WriteLine("newSeq.AddRange(seq);");
@@ -1733,7 +1749,22 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("}");
             WriteLine();
 
+            // _PyPegen_check_barry_as_flufl - Easter egg from PEP 401
+            WriteLine("// CPython: _PyPegen_check_barry_as_flufl");
+            WriteLine("// Easter egg: from __future__ import barry_as_BDFL");
+            WriteLine("// Returns 0 if token is '!=', non-zero otherwise");
+            WriteLine("public static bool _PyPegen_check_barry_as_flufl(GeneratedTokenInfo tok)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("// SharpPy doesn't implement barry_as_BDFL flag");
+            WriteLine("// CPython: return strcmp(tok_str, \"!=\")");
+            WriteLine("// strcmp returns 0 if equal, non-zero if different");
+            WriteLine("return tok.Value == \"!=\" ? true : false;");
             _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            _indentLevel--;  // Close PegenHelpers class
             WriteLine("}");
             WriteLine();
         }

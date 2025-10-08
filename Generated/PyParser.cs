@@ -18166,16 +18166,16 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Group: (tok='!=' { _PyPegen_check_barry_as_flufl(tok) ? null : tok })
+                // Group: (tok='!=' { ASTHelpers._PyPegen_check_barry_as_flufl(tok) ? null : tok })
                 GeneratedTokenInfo? _tmp0 = null;
                 int _group_mark__tmp0 = _position;
-                // Try group alternative 1: tok='!=' { _PyPegen_check_barry_as_flufl(tok) ? null : tok }
+                // Try group alternative 1: tok='!=' { ASTHelpers._PyPegen_check_barry_as_flufl(tok) ? null : tok }
                 {
                     _position = _group_mark__tmp0;
                     GeneratedTokenInfo? _group_alt0__tmp0_item0 = Expect("!=");
                     if (_group_alt0__tmp0_item0 != null)
                     {
-                        _tmp0 = _group_alt0__tmp0_item0;
+                        _tmp0 = ASTHelpers._PyPegen_check_barry_as_flufl(_group_alt0__tmp0_item0) ? null : _group_alt0__tmp0_item0;
                     }
                     else
                     {
@@ -21068,8 +21068,8 @@ namespace SharpPy.Generated
                         }
                         else
                         {
-                            // CPython 3.12: Group alternative failed, restore position
-                            _position = _group_mark__opt_c;
+                            // Last item is optional and returned null - group still succeeds
+                            _opt_c = _group_alt0__opt_c_item1;
                         }
                     }
                 }
@@ -24335,12 +24335,12 @@ namespace SharpPy.Generated
                             }
                             if (_group_alt0__opt_a_item2 != null)
                             {
-                                _opt_a = _group_alt0__opt_a_item2;
+                                _opt_a = _PyPegen_seq_insert_in_front(_group_alt0__opt_a_item0, _group_alt0__opt_a_item2);
                             }
                             else
                             {
-                                // CPython 3.12: Group alternative failed, restore position
-                                _position = _group_mark__opt_a;
+                                // Last item is optional and returned null - group still succeeds
+                                _opt_a = _PyPegen_seq_insert_in_front(_group_alt0__opt_a_item0, _group_alt0__opt_a_item2);
                             }
                         }
                     }

@@ -3,7 +3,7 @@
 
 @trailer '''
 // CPython 3.12: Entry point for file parsing
-public GeneratedModule ParseFile()
+public GeneratedMod ParseFile()
 {
     var result = File();
     if (result == null || _pendingSyntaxError != null)
@@ -15,7 +15,7 @@ public GeneratedModule ParseFile()
 }
 
 // CPython 3.12: Entry point for interactive parsing
-public GeneratedModule ParseInteractive()
+public GeneratedMod ParseInteractive()
 {
     var result = Interactive();
     if (result == null || _pendingSyntaxError != null)
@@ -27,7 +27,7 @@ public GeneratedModule ParseInteractive()
 }
 
 // CPython 3.12: Entry point for eval parsing
-public GeneratedModule ParseEval()
+public GeneratedMod ParseEval()
 {
     var result = Eval();
     if (result == null || _pendingSyntaxError != null)
@@ -39,7 +39,7 @@ public GeneratedModule ParseEval()
 }
 
 // CPython 3.12: Entry point for function type parsing
-public GeneratedModule ParseFuncType()
+public GeneratedMod ParseFuncType()
 {
     var result = FuncType();
     if (result == null || _pendingSyntaxError != null)
@@ -230,7 +230,7 @@ import_name[stmt_ty]: 'import' a=dotted_as_names { _PyAST_Import(a, EXTRA) }
 # note below: the ('.' | '...') is necessary because '...' is tokenized as ELLIPSIS
 import_from[stmt_ty]:
     | 'from' a=('.' | '...')* b=dotted_name 'import' c=import_from_targets {
-        _PyPegen_checked_future_import(b.Id, c, _PyPegen_seq_count_dots(a), EXTRA) }
+        _PyPegen_checked_future_import(((GeneratedName)b).Id, c, _PyPegen_seq_count_dots(a), EXTRA) }
     | 'from' a=('.' | '...')+ 'import' b=import_from_targets {
         _PyAST_ImportFrom(null, b, _PyPegen_seq_count_dots(a), EXTRA) }
 import_from_targets[asdl_alias_seq*]:
@@ -242,13 +242,13 @@ import_from_as_names[asdl_alias_seq*]:
     | a[asdl_alias_seq*]=','.import_from_as_name+ { a }
 import_from_as_name[alias_ty]:
     | a=NAME b=['as' z=NAME { z }] { _PyAST_alias(a.Id,
-                                               (b) ? (b).Id : null,
+                                               b?.Value,
                                                EXTRA) }
 dotted_as_names[asdl_alias_seq*]:
     | a[asdl_alias_seq*]=','.dotted_as_name+ { a }
 dotted_as_name[alias_ty]:
-    | a=dotted_name b=['as' z=NAME { z }] { _PyAST_alias(a.Id,
-                                                      (b) ? (b).Id : null,
+    | a=dotted_name b=['as' z=NAME { z }] { _PyAST_alias(((GeneratedName)a).Id,
+                                                      b?.Value,
                                                       EXTRA) }
 dotted_name[expr_ty]:
     | a=dotted_name '.' b=NAME { _PyPegen_join_names_with_dot(a, b) }
@@ -329,8 +329,8 @@ slash_no_default[asdl_arg_seq*]:
     | a[asdl_arg_seq*]=param_no_default+ '/' ',' { a }
     | a[asdl_arg_seq*]=param_no_default+ '/' &')' { a }
 slash_with_default[SlashWithDefault*]:
-    | a=param_no_default* b=param_with_default+ '/' ',' { _PyPegen_slash_with_default((asdl_arg_seq *)a, b) }
-    | a=param_no_default* b=param_with_default+ '/' &')' { _PyPegen_slash_with_default((asdl_arg_seq *)a, b) }
+    | a=param_no_default* b=param_with_default+ '/' ',' { _PyPegen_slash_with_default(a.Cast<asdl_arg_seq>(), b) }
+    | a=param_no_default* b=param_with_default+ '/' &')' { _PyPegen_slash_with_default(a.Cast<asdl_arg_seq>(), b) }
 
 star_etc[StarEtc*]:
     | invalid_star_etc
@@ -450,13 +450,13 @@ try_stmt[stmt_ty]:
 except_block[excepthandler_ty]:
     | invalid_except_stmt_indent
     | 'except' e=expression t=['as' z=NAME { z }] ':' b=block {
-        _PyAST_ExceptHandler(e, (t) ? (t).Id : null, b, EXTRA) }
+        _PyAST_ExceptHandler(e, (t) ? NameToken(t).Id : null, b, EXTRA) }
     | 'except' ':' b=block { _PyAST_ExceptHandler(null, null, b, EXTRA) }
     | invalid_except_stmt
 except_star_block[excepthandler_ty]:
     | invalid_except_star_stmt_indent
     | 'except' '*' e=expression t=['as' z=NAME { z }] ':' b=block {
-        _PyAST_ExceptHandler(e, (t) ? (t).Id : null, b, EXTRA) }
+        _PyAST_ExceptHandler(e, (t) ? NameToken(t).Id : null, b, EXTRA) }
     | invalid_except_stmt
 finally_block[asdl_stmt_seq*]:
     | invalid_finally_stmt
@@ -493,7 +493,7 @@ pattern[pattern_ty]:
 
 as_pattern[pattern_ty]:
     | pattern=or_pattern 'as' target=pattern_capture_target {
-        _PyAST_MatchAs(pattern, target.Id, EXTRA) }
+        _PyAST_MatchAs(pattern, ((GeneratedName)target).Id, EXTRA) }
     | invalid_as_pattern
 
 or_pattern[pattern_ty]:
@@ -549,7 +549,7 @@ imaginary_number[expr_ty]:
     | imag=NUMBER { _PyPegen_ensure_imaginary(imag) }
 
 capture_pattern[pattern_ty]:
-    | target=pattern_capture_target { _PyAST_MatchAs(null, target.Id, EXTRA) }
+    | target=pattern_capture_target { _PyAST_MatchAs(null, ((GeneratedName)target).Id, EXTRA) }
 
 pattern_capture_target[expr_ty]:
     | !"_" name=NAME !('.' | '(' | '=') {
@@ -573,8 +573,8 @@ group_pattern[pattern_ty]:
     | '(' pattern=pattern ')' { pattern }
 
 sequence_pattern[pattern_ty]:
-    | '[' patterns=maybe_sequence_pattern? ']' { _PyAST_MatchSequence(patterns, EXTRA) }
-    | '(' patterns=open_sequence_pattern? ')' { _PyAST_MatchSequence(patterns, EXTRA) }
+    | '[' patterns=maybe_sequence_pattern? ']' { _PyAST_MatchSequence(patterns.Cast<asdl_pattern_seq>(), EXTRA) }
+    | '(' patterns=open_sequence_pattern? ')' { _PyAST_MatchSequence(patterns.Cast<asdl_pattern_seq>(), EXTRA) }
 
 open_sequence_pattern[asdl_seq*]:
     | pattern=maybe_star_pattern ',' patterns=maybe_sequence_pattern? {
@@ -589,7 +589,7 @@ maybe_star_pattern[pattern_ty]:
 
 star_pattern[pattern_ty] (memo):
     | '*' target=pattern_capture_target {
-        _PyAST_MatchStar(target.Id, EXTRA) }
+        _PyAST_MatchStar(((GeneratedName)target).Id, EXTRA) }
     | '*' wildcard_pattern {
         _PyAST_MatchStar(null, EXTRA) }
 
@@ -597,12 +597,12 @@ mapping_pattern[pattern_ty]:
     | '{' '}' {
         _PyAST_MatchMapping(null, null, null, EXTRA) }
     | '{' rest=double_star_pattern ','? '}' {
-        _PyAST_MatchMapping(null, null, rest.Id, EXTRA) }
+        _PyAST_MatchMapping(null, null, ((GeneratedName)rest).Id, EXTRA) }
     | '{' items=items_pattern ',' rest=double_star_pattern ','? '}' {
         _PyAST_MatchMapping(
             CHECK<asdl_expr_seq>(_PyPegen_get_pattern_keys(items)),
             CHECK<asdl_pattern_seq>(_PyPegen_get_patterns(items)),
-            rest.Id,
+            ((GeneratedName)rest).Id,
             EXTRA) }
     | '{' items=items_pattern ','? '}' {
         _PyAST_MatchMapping(
@@ -777,7 +777,7 @@ compare_op_bitwise_or_pair[CmpopExprPair*]:
 
 eq_bitwise_or[CmpopExprPair*]: '==' a=bitwise_or { _PyPegen_cmpop_expr_pair(Eq, a) }
 noteq_bitwise_or[CmpopExprPair*]:
-    | (tok='!=' { _PyPegen_check_barry_as_flufl(tok) ? null : tok}) a=bitwise_or {_PyPegen_cmpop_expr_pair(NotEq, a) }
+    | (tok='!=' { ASTHelpers._PyPegen_check_barry_as_flufl(tok) ? null : tok}) a=bitwise_or {_PyPegen_cmpop_expr_pair(NotEq, a) }
 lte_bitwise_or[CmpopExprPair*]: '<=' a=bitwise_or { _PyPegen_cmpop_expr_pair(LtE, a) }
 lt_bitwise_or[CmpopExprPair*]: '<' a=bitwise_or { _PyPegen_cmpop_expr_pair(Lt, a) }
 gte_bitwise_or[CmpopExprPair*]: '>=' a=bitwise_or { _PyPegen_cmpop_expr_pair(GtE, a) }
@@ -907,8 +907,8 @@ lambda_slash_no_default[asdl_arg_seq*]:
     | a[asdl_arg_seq*]=lambda_param_no_default+ '/' &':' { a }
 
 lambda_slash_with_default[SlashWithDefault*]:
-    | a=lambda_param_no_default* b=lambda_param_with_default+ '/' ',' { _PyPegen_slash_with_default((asdl_arg_seq *)a, b) }
-    | a=lambda_param_no_default* b=lambda_param_with_default+ '/' &':' { _PyPegen_slash_with_default((asdl_arg_seq *)a, b) }
+    | a=lambda_param_no_default* b=lambda_param_with_default+ '/' ',' { _PyPegen_slash_with_default(a.Cast<asdl_arg_seq>(), b) }
+    | a=lambda_param_no_default* b=lambda_param_with_default+ '/' &':' { _PyPegen_slash_with_default(a.Cast<asdl_arg_seq>(), b) }
 
 lambda_star_etc[StarEtc*]:
     | invalid_lambda_star_etc
@@ -943,10 +943,10 @@ fstring_replacement_field[expr_ty]:
     | '{' a=(yield_expr | star_expressions) debug_expr='='? conversion=[fstring_conversion] format=[fstring_full_format_spec] rbrace='}' {
         _PyPegen_formatted_value(a, debug_expr, conversion, format, rbrace, EXTRA) }
     | invalid_replacement_field
-fstring_conversion[ResultTokenWithMetadata*]:
+fstring_conversion[ResultTokenWithMetadata]:
     | conv_token="!" conv=NAME { _PyPegen_check_fstring_conversion(conv_token, conv) }
-fstring_full_format_spec[ResultTokenWithMetadata*]:
-    | colon=':' spec=fstring_format_spec* { _PyPegen_setup_full_format_spec(colon, (asdl_expr_seq *) spec, EXTRA) }
+fstring_full_format_spec[ResultTokenWithMetadata]:
+    | colon=':' spec=fstring_format_spec* { _PyPegen_setup_full_format_spec(colon, spec.Cast<asdl_expr_seq>(), EXTRA) }
 fstring_format_spec[expr_ty]:
     | t=FSTRING_MIDDLE { _PyPegen_decoded_constant_from_token(t) }
     | fstring_replacement_field

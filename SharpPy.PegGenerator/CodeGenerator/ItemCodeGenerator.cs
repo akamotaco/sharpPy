@@ -957,6 +957,16 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 lastValueItemIndex = items.Count - 1; // Fallback
             }
 
+            // Check if last value item is optional
+            // This is critical for patterns like: [y=expr ',' z=[exprs] { action }]
+            // where z is optional - if z is null, the group still succeeds if y and ',' succeeded
+            bool lastItemIsOptional = false;
+            if (lastValueItemIndex >= 0 && lastValueItemIndex < items.Count)
+            {
+                var lastItem = items[lastValueItemIndex];
+                lastItemIsOptional = lastItem.Atom is Optional;
+            }
+
             var lastItemVar = $"{altVarName}_item{lastValueItemIndex}";
 
             // Extract original group var name from altVarName
@@ -978,15 +988,18 @@ namespace SharpPy.PegGenerator.CodeGenerator
             _parent.Indent();
 
             // CPython 3.12: Respect grammar action if present
-            // If action is { varname }, return that variable instead of last item
-            string resultVar = lastItemVar;
+            // Action can be:
+            // 1. Simple variable reference: { varname }
+            // 2. Function call: { _PyPegen_seq_insert_in_front(y, z) }
+            // 3. Complex expression: { _PyAST_Tuple(a, Load, EXTRA) }
             if (!string.IsNullOrWhiteSpace(alt.Action))
             {
                 var actionContent = alt.Action.Trim();
                 // Check if action is a simple variable reference
                 if (actionContent.Length > 0 && char.IsLetter(actionContent[0]) && actionContent.All(c => char.IsLetterOrDigit(c) || c == '_'))
                 {
-                    // Find which item has this name
+                    // Simple variable reference: find which item has this name
+                    string resultVar = lastItemVar;
                     for (int i = 0; i < items.Count; i++)
                     {
                         if (items[i].Name == actionContent)
@@ -995,23 +1008,94 @@ namespace SharpPy.PegGenerator.CodeGenerator
                             break;
                         }
                     }
+                    _parent.WriteLine($"{groupVarName} = {resultVar};");
+                }
+                else
+                {
+                    // Function call or complex expression: substitute variable names
+                    // python_cs.gram contains C# code, not C code, so just replace variable names
+                    string translatedAction = actionContent;
+
+                    // Build variable mapping: grammar name → generated variable name
+                    // Example: y → _group_alt0__opt_a_item0
+                    for (int i = 0; i < items.Count; i++)
+                    {
+                        if (!string.IsNullOrWhiteSpace(items[i].Name))
+                        {
+                            string grammarName = items[i].Name;
+                            string generatedName = $"{altVarName}_item{i}";
+
+                            // Replace whole word only (not part of other identifiers)
+                            // Use regex word boundary \b to match whole words
+                            translatedAction = System.Text.RegularExpressions.Regex.Replace(
+                                translatedAction,
+                                $@"\b{grammarName}\b",
+                                generatedName);
+                        }
+                    }
+
+                    _parent.WriteLine($"{groupVarName} = {translatedAction};");
                 }
             }
-
-            _parent.WriteLine($"{groupVarName} = {resultVar};");
+            else
+            {
+                // No action: use last value-producing item
+                _parent.WriteLine($"{groupVarName} = {lastItemVar};");
+            }
             _parent.Dedent();
             _parent.WriteLine("}");
 
-            // CPython 3.12: If group alternative failed (last item is null), restore position
-            // This is critical for sequences like "star_targets '='" where star_targets succeeds
-            // but '=' fails - position must be restored to group start
-            _parent.WriteLine($"else");
-            _parent.WriteLine("{");
-            _parent.Indent();
-            _parent.WriteLine($"// CPython 3.12: Group alternative failed, restore position");
-            _parent.WriteLine($"_position = _group_mark_{_varName};");
-            _parent.Dedent();
-            _parent.WriteLine("}");
+            // CPython 3.12: Handle case when last item is null
+            // If last item is optional, group can still succeed even if it's null
+            // If last item is required, group fails and position must be restored
+            if (lastItemIsOptional)
+            {
+                // Last item is optional - if it's null, group still succeeds
+                // Execute the action with null value for optional item
+                _parent.WriteLine($"else");
+                _parent.WriteLine("{");
+                _parent.Indent();
+                _parent.WriteLine($"// Last item is optional and returned null - group still succeeds");
+
+                // If there's an action, execute it with null for the optional item
+                // The action will handle null (e.g., _PyPegen_seq_insert_in_front(y, null))
+                if (!string.IsNullOrWhiteSpace(alt.Action))
+                {
+                    var actionContent = alt.Action.Trim();
+
+                    // Substitute variable names
+                    string translatedAction = actionContent;
+                    for (int i = 0; i < items.Count; i++)
+                    {
+                        if (!string.IsNullOrWhiteSpace(items[i].Name))
+                        {
+                            string grammarName = items[i].Name;
+                            string generatedName = $"{altVarName}_item{i}";
+                            translatedAction = System.Text.RegularExpressions.Regex.Replace(
+                                translatedAction,
+                                $@"\b{grammarName}\b",
+                                generatedName);
+                        }
+                    }
+
+                    _parent.WriteLine($"{groupVarName} = {translatedAction};");
+                }
+                // If no action, the group variable should already be set or remain null
+
+                _parent.Dedent();
+                _parent.WriteLine("}");
+            }
+            else
+            {
+                // Last item is required - if it's null, group failed, restore position
+                _parent.WriteLine($"else");
+                _parent.WriteLine("{");
+                _parent.Indent();
+                _parent.WriteLine($"// CPython 3.12: Group alternative failed, restore position");
+                _parent.WriteLine($"_position = _group_mark_{_varName};");
+                _parent.Dedent();
+                _parent.WriteLine("}");
+            }
 
             // Close nested if blocks - use the count passed from caller
             // This accounts for lookaheads which close their own blocks

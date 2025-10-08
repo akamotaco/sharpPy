@@ -1952,6 +1952,12 @@ namespace SharpPy.Generated
         // Typed sequence versions - same type input and output
         public static GeneratedExprSeq _PyPegen_seq_insert_in_front(GeneratedExpr item, GeneratedExprSeq seq)
         {
+            if (seq == null)
+            {
+                var singletonSeq = new GeneratedExprSeq();
+                singletonSeq.Add(item);
+                return singletonSeq;
+            }
             var newSeq = new GeneratedExprSeq(seq.Count + 1);
             newSeq.Add(item);
             newSeq.AddRange(seq);
@@ -1960,6 +1966,12 @@ namespace SharpPy.Generated
 
         public static GeneratedPatternSeq _PyPegen_seq_insert_in_front(GeneratedPattern item, GeneratedPatternSeq seq)
         {
+            if (seq == null)
+            {
+                var singletonSeq = new GeneratedPatternSeq();
+                singletonSeq.Add(item);
+                return singletonSeq;
+            }
             var newSeq = new GeneratedPatternSeq(seq.Count + 1);
             newSeq.Add(item);
             newSeq.AddRange(seq);
@@ -2549,6 +2561,17 @@ namespace SharpPy.Generated
             // CPython 3.12 parses them but mostly ignores them
             // For now, we return the arg unchanged
             return arg;
+        }
+
+        // CPython: _PyPegen_check_barry_as_flufl
+        // Easter egg: from __future__ import barry_as_BDFL
+        // Returns 0 if token is '!=', non-zero otherwise
+        public static bool _PyPegen_check_barry_as_flufl(GeneratedTokenInfo tok)
+        {
+            // SharpPy doesn't implement barry_as_BDFL flag
+            // CPython: return strcmp(tok_str, "!=")
+            // strcmp returns 0 if equal, non-zero if different
+            return tok.Value == "!=" ? true : false;
         }
 
     }
