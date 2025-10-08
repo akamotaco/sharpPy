@@ -2536,6 +2536,21 @@ namespace SharpPy.Generated
             return GeneratedKeywordSeq.Empty;
         }
 
+        // CPython: _PyPegen_add_type_comment_to_arg
+        // action_helpers.c: Add type comment to argument (Python 2 legacy)
+        public static GeneratedArg _PyPegen_add_type_comment_to_arg(GeneratedArg arg, GeneratedTokenInfo tc)
+        {
+            // If no type comment, return arg as-is
+            if (tc == null)
+            {
+                return arg;
+            }
+            // Type comments are Python 2 legacy feature
+            // CPython 3.12 parses them but mostly ignores them
+            // For now, we return the arg unchanged
+            return arg;
+        }
+
     }
 
 }

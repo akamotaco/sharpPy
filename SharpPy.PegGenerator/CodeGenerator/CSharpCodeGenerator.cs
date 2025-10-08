@@ -9301,6 +9301,28 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
         }
 
+        private void GeneratePyPegen_add_type_comment_to_arg()
+        {
+            WriteLine("// CPython 3.12: _PyPegen_add_type_comment_to_arg");
+            WriteLine("// Adds type comment to argument (for Python 2 compatibility)");
+            WriteLine("private GeneratedArg _PyPegen_add_type_comment_to_arg(GeneratedArg arg, GeneratedTokenInfo tc)");
+            WriteLine("{");
+            Indent();
+            WriteLine("// If no type comment, return arg as-is");
+            WriteLine("if (tc == null)");
+            Indent();
+            WriteLine("return arg;");
+            Dedent();
+            WriteLine();
+            WriteLine("// Type comments are stored as strings in GeneratedArg.TypeComment");
+            WriteLine("// For now, we ignore type comments (Python 2 legacy feature)");
+            WriteLine("// CPython 3.12 also mostly ignores them");
+            WriteLine("return arg;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+        }
+
         /// <summary>
         /// CPython 3.12: artifical_rule_from_gather
         /// Creates helper rules for gather patterns: separator.item+ or separator.item*

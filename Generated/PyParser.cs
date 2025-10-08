@@ -7075,13 +7075,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
                 var _opt_tc = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                if (_opt_tc == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -7136,13 +7129,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
                 var _opt_tc = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                if (_opt_tc == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -7246,13 +7232,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
                 var _opt_tc = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                if (_opt_tc == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -7307,13 +7286,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
                 var _opt_tc = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                if (_opt_tc == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -7429,13 +7401,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
                 var _opt_tc = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                if (_opt_tc == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -7502,13 +7467,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
                 var _opt_tc = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                if (_opt_tc == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -7603,13 +7561,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[CALL] {_position,4}: default()");
                 #endif
                 var _opt_c = Default();
-                if (_opt_c == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? c = _opt_c;
                 if (_pendingSyntaxError != null)
@@ -7641,13 +7592,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
                 var _opt_tc = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                if (_opt_tc == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -7702,13 +7646,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[CALL] {_position,4}: default()");
                 #endif
                 var _opt_c = Default();
-                if (_opt_c == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? c = _opt_c;
                 if (_pendingSyntaxError != null)
@@ -7731,13 +7668,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
                 var _opt_tc = ExpectToken(GeneratedTokenType.TYPE_COMMENT);
-                if (_opt_tc == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -7836,13 +7766,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[CALL] {_position,4}: annotation()");
                 #endif
                 var _opt_b = Annotation();
-                if (_opt_b == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? b = _opt_b;
                 if (_pendingSyntaxError != null)
@@ -11506,13 +11429,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[CALL] {_position,4}: star_named_expressions()");
                 #endif
                 var _opt_values = StarNamedExpressions();
-                if (_opt_values == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExprSeq? values = _opt_values;
                 if (_pendingSyntaxError != null)
@@ -11688,13 +11604,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[CALL] {_position,4}: guard()");
                 #endif
                 var _opt_guard = Guard();
-                if (_opt_guard == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? guard = _opt_guard;
                 if (_pendingSyntaxError != null)
@@ -13887,13 +13796,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[CALL] {_position,4}: maybe_sequence_pattern()");
                 #endif
                 var _opt_patterns = MaybeSequencePattern();
-                if (_opt_patterns == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedSeq? patterns = _opt_patterns;
                 if (_pendingSyntaxError != null)
@@ -13951,13 +13853,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[CALL] {_position,4}: open_sequence_pattern()");
                 #endif
                 var _opt_patterns = OpenSequencePattern();
-                if (_opt_patterns == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedSeq? patterns = _opt_patterns;
                 if (_pendingSyntaxError != null)
@@ -14053,13 +13948,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[CALL] {_position,4}: maybe_sequence_pattern()");
                 #endif
                 var _opt_patterns = MaybeSequencePattern();
-                if (_opt_patterns == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedSeq? patterns = _opt_patterns;
                 if (_pendingSyntaxError != null)
@@ -23359,13 +23247,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[CALL] {_position,4}: default()");
                 #endif
                 var _opt_c = Default();
-                if (_opt_c == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? c = _opt_c;
                 if (_pendingSyntaxError != null)
@@ -23426,13 +23307,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[CALL] {_position,4}: default()");
                 #endif
                 var _opt_c = Default();
-                if (_opt_c == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? c = _opt_c;
                 if (_pendingSyntaxError != null)
@@ -32511,13 +32385,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[CALL] {_position,4}: slash_no_default()");
                 #endif
                 var _opt__tmp0 = SlashNoDefault();
-                if (_opt__tmp0 == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedArgSeq? _tmp0 = _opt__tmp0;
                 if (_pendingSyntaxError != null)
@@ -33739,13 +33606,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[CALL] {_position,4}: lambda_slash_no_default()");
                 #endif
                 var _opt__tmp0 = LambdaSlashNoDefault();
-                if (_opt__tmp0 == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedArgSeq? _tmp0 = _opt__tmp0;
                 if (_pendingSyntaxError != null)
@@ -34950,13 +34810,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
                 var _opt__tmp0 = ExpectToken(GeneratedTokenType.ASYNC);
-                if (_opt__tmp0 == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_opt__tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -37017,13 +36870,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[CALL] {_position,4}: guard()");
                 #endif
                 var _opt__tmp2 = Guard();
-                if (_opt__tmp2 == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? _tmp2 = _opt__tmp2;
                 if (_pendingSyntaxError != null)
@@ -37102,13 +36948,6 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[CALL] {_position,4}: guard()");
                 #endif
                 var _opt__tmp1 = Guard();
-                if (_opt__tmp1 == null)
-                {
-                    _position = _mark;
-                    _pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails
-                    _res = null;
-                    break;  // Exit this alternative
-                }
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedExpr? _tmp1 = _opt__tmp1;
                 if (_pendingSyntaxError != null)

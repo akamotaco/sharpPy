@@ -163,8 +163,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     // Store token temporarily, then convert to AST
                     _parent.WriteLine($"var _token_{_varName} = ExpectToken(GeneratedTokenType.{tokenName});");
 
-                    // CPython 3.12: Only add null check if NOT inside a repeater or loop rule
-                    if (!_insideRepeater && !_insideLoopRule)
+                    // CPython 3.12: Only add null check if NOT inside a repeater, loop rule, or optional
+                    if (!_insideRepeater && !_insideLoopRule && !_insideOptional)
                     {
                         _parent.WriteLine($"if (_token_{_varName} == null)");
                         _parent.WriteLine("{");
@@ -189,8 +189,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     // Other tokens - no conversion needed
                     _parent.WriteLine($"var {_varName} = ExpectToken(GeneratedTokenType.{tokenName});");
 
-                    // CPython 3.12: Only add null check if NOT inside a repeater or loop rule
-                    if (!_insideRepeater && !_insideLoopRule)
+                    // CPython 3.12: Only add null check if NOT inside a repeater, loop rule, or optional
+                    if (!_insideRepeater && !_insideLoopRule && !_insideOptional)
                     {
                         _parent.WriteLine($"if ({_varName} == null)");
                         _parent.WriteLine("{");
@@ -272,10 +272,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     }
                 }
 
-                // CPython 3.12: Only add null check if NOT inside a repeater or loop rule
+                // CPython 3.12: Only add null check if NOT inside a repeater, loop rule, or optional
                 // Repeaters (OneOrMore/ZeroOrMore) handle null checks themselves
                 // Loop rules also handle null checks themselves
-                if (!_insideRepeater && !_insideLoopRule)
+                // Optionals allow null and handle it in their own logic
+                if (!_insideRepeater && !_insideLoopRule && !_insideOptional)
                 {
                     _parent.WriteLine($"if ({_varName} == null)");
                     _parent.WriteLine("{");

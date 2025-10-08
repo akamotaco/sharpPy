@@ -1712,6 +1712,27 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("}");
             WriteLine();
 
+            // CPython 3.12: _PyPegen_add_type_comment_to_arg
+            WriteLine("// CPython: _PyPegen_add_type_comment_to_arg");
+            WriteLine("// action_helpers.c: Add type comment to argument (Python 2 legacy)");
+            WriteLine("public static GeneratedArg _PyPegen_add_type_comment_to_arg(GeneratedArg arg, GeneratedTokenInfo tc)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("// If no type comment, return arg as-is");
+            WriteLine("if (tc == null)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("return arg;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine("// Type comments are Python 2 legacy feature");
+            WriteLine("// CPython 3.12 parses them but mostly ignores them");
+            WriteLine("// For now, we return the arg unchanged");
+            WriteLine("return arg;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
             _indentLevel--;
             WriteLine("}");
             WriteLine();
