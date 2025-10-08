@@ -166,7 +166,6 @@ namespace SharpPy.PegGenerator.Interpreter
 
         // ===== Parser Context Stack (CPython 3.12 Style) =====
         private readonly Stack<ParserContext> _contextStack = new();
-        private int _indentLevel = 0; // Track current indentation level
 
         public PegInterpreter(Grammar.Grammar grammar, List<ITokenInfo> tokens)
         {

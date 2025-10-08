@@ -8663,6 +8663,15 @@ namespace SharpPy
             CollectComprehensionVars(firstGenerator.Target, currentLevelVars);
             CompileComprehensionTarget(firstGenerator.Target, currentLevelVars);
 
+            // 첫 번째 generator의 조건 검사 - CPython 3.12 패턴 (list/set comprehension과 동일)
+            List<int> conditionJumps = new List<int>();
+            foreach (var condition in firstGenerator.Ifs)
+            {
+                CompileExpression(condition);
+                conditionJumps.Add(_instructions.Count);
+                EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // 조건이 거짓이면 JUMP_BACKWARD로 점프 (패치 대상)
+            }
+
             // 6. 나머지 generator들과 내부 블록 처리
             if (dictComp.Generators.Count > 1)
             {
@@ -8674,6 +8683,25 @@ namespace SharpPy
             else
             {
                 CompileInnerBlock();
+            }
+
+            // 조건부 점프 패치: POP_JUMP_IF_FALSE가 JUMP_BACKWARD로 점프하도록
+            var jumpBackwardTargetPos = _instructions.Count;
+            foreach (var jumpPos in conditionJumps)
+            {
+                // CPython 3.12: POP_JUMP_IF_FALSE는 JUMP_BACKWARD 위치로 점프
+                int condJumpDist;
+                if (SharpPyConfig._enable_optimizer)
+                {
+                    condJumpDist = jumpBackwardTargetPos - jumpPos - 1;
+                }
+                else
+                {
+                    int currentByteOffset = PyJumpBackwardUtil.CalculateByteOffset(jumpPos, _instructions);
+                    int targetByteOffset = PyJumpBackwardUtil.CalculateByteOffset(jumpBackwardTargetPos, _instructions);
+                    condJumpDist = (targetByteOffset - currentByteOffset - 2) / 2;
+                }
+                _instructions[jumpPos] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, condJumpDist);
             }
 
             void CompileInnerBlock()
@@ -9009,6 +9037,15 @@ namespace SharpPy
             // 첫 번째 generator target 컴파일
             CompileComprehensionTarget(firstGenerator.Target, comprehensionVars);
 
+            // 첫 번째 generator의 조건 검사 - CPython 3.12 패턴 (list comprehension과 동일)
+            List<int> conditionJumps = new List<int>();
+            foreach (var condition in firstGenerator.Ifs)
+            {
+                CompileExpression(condition);
+                conditionJumps.Add(_instructions.Count);
+                EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // 조건이 거짓이면 JUMP_BACKWARD로 점프 (패치 대상)
+            }
+
             // 나머지 generator들 처리 (있는 경우)
             if (setComp.Generators.Count > 1)
             {
@@ -9021,18 +9058,28 @@ namespace SharpPy
             else
             {
                 // 단일 generator인 경우 직접 처리
-                // 조건부 처리 (if 절이 있는 경우)
-                foreach (var condition in firstGenerator.Ifs)
-                {
-                    CompileExpression(condition);
-                    var conditionJump = _instructions.Count;
-                    EmitInstruction(ByteCodeOp.POP_JUMP_IF_TRUE, 0); // 조건이 참이면 SET_ADD로 점프
-                    EmitInstruction(ByteCodeOp.JUMP_BACKWARD, 0); // 패치 대상 - FOR_ITER로 돌아감
-                }
-
                 // element 값 계산 및 SET_ADD
                 CompileExpression(setComp.Element);
                 EmitInstruction(ByteCodeOp.SET_ADD, setAddDepth);
+            }
+
+            // 조건부 점프 패치: POP_JUMP_IF_FALSE가 JUMP_BACKWARD로 점프하도록
+            var jumpBackwardTargetPos = _instructions.Count;
+            foreach (var jumpPos in conditionJumps)
+            {
+                // CPython 3.12: POP_JUMP_IF_FALSE는 JUMP_BACKWARD 위치로 점프
+                int jumpDistance;
+                if (SharpPyConfig._enable_optimizer)
+                {
+                    jumpDistance = jumpBackwardTargetPos - jumpPos - 1;
+                }
+                else
+                {
+                    int currentByteOffset = PyJumpBackwardUtil.CalculateByteOffset(jumpPos, _instructions);
+                    int targetByteOffset = PyJumpBackwardUtil.CalculateByteOffset(jumpBackwardTargetPos, _instructions);
+                    jumpDistance = (targetByteOffset - currentByteOffset - 2) / 2;
+                }
+                _instructions[jumpPos] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, jumpDistance);
             }
 
             // JUMP_BACKWARD to FOR_ITER

@@ -50,7 +50,6 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private readonly List<TokenDefinition> _tokens;
         private readonly StringBuilder _output;
         private int _indentLevel;
-        private int _groupCounter;
         private readonly List<PegRule> _pegRules = new();
 
         // CPython 3.12: artificial_rule_from_repeat - Loop rule 레지스트리

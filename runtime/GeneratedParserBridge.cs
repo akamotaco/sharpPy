@@ -1690,7 +1690,7 @@ namespace SharpPy
                 ),
 
                 GeneratedTuple tuple => new TupleExpression(
-                    tuple.Elts.ToEnumerable<GeneratedExpr>().Select(e => ConvertAnyExpression(e)).ToList()
+                    tuple.Elts?.ToEnumerable<GeneratedExpr>().Select(e => ConvertAnyExpression(e)).ToList() ?? new List<Expression>()
                 ),
 
                 GeneratedDict dict => new DictExpression(
