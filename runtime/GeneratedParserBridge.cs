@@ -19,26 +19,35 @@ namespace SharpPy
         /// </summary>
         public static List<Statement> ParseSource(string source, string filename = "<string>")
         {
+#if DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] GeneratedParserBridge.ParseSource START for {filename}");
-#if DEBUG_PARSE_LOG
             Console.WriteLine($"[DEBUG] GeneratedParserBridge: Using auto-generated CPython 3.12 tokenizer + parser for {filename}");
 #endif
 
+#if DEBUG_AST_LOG
             Console.WriteLine("[DEBUG] Creating tokenizer...");
+#endif
             // Use generated tokenizer
             var tokenizer = new GeneratedPyTokenizer(source, filename);
+#if DEBUG_AST_LOG
             Console.WriteLine("[DEBUG] Calling tokenizer.Tokenize()...");
+#endif
             var generatedTokens = tokenizer.Tokenize();
+#if DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] Tokenize returned {generatedTokens.Count} tokens");
+#endif
 
+#if DEBUG_AST_LOG
             Console.WriteLine("[DEBUG] Creating parser...");
+#endif
             // Use generated parser
             var parser = new GeneratedPyParser(generatedTokens, filename);
+#if DEBUG_AST_LOG
             Console.WriteLine("[DEBUG] Calling parser.ParseFile()...");
+#endif
             var parseResult = parser.ParseFile();
+#if DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] ParseFile returned: {parseResult?.GetType()?.Name ?? "null"}");
-
-#if DEBUG_PARSE_LOG
             Console.WriteLine($"[DEBUG] Parse result type: {parseResult?.GetType()?.Name ?? "null"}");
             if (parseResult != null)
             {
@@ -57,13 +66,18 @@ namespace SharpPy
         /// </summary>
         private static List<Statement> ConvertToSharpPyAST(GeneratedModule? parseResult, string filename)
         {
+#if DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] ConvertToSharpPyAST: parseResult is {(parseResult == null ? "null" : "not null")}");
+#endif
             if (parseResult == null)
             {
+#if DEBUG_AST_LOG
                 Console.WriteLine("[DEBUG] ConvertToSharpPyAST: returning empty list (parseResult is null)");
+#endif
                 return new List<Statement>();
             }
 
+#if DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] ConvertToSharpPyAST: parseResult.Body is {(parseResult.Body == null ? "null" : "not null")}");
             if (parseResult.Body != null)
             {
@@ -72,8 +86,11 @@ namespace SharpPy
 
             // Phase 2: Start implementing AST conversion
             Console.WriteLine("[DEBUG] ConvertToSharpPyAST: Calling ConvertGeneratedAST...");
+#endif
             var result = ConvertGeneratedAST(parseResult, filename);
+#if DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] ConvertToSharpPyAST: ConvertGeneratedAST returned {result.Count} statements");
+#endif
             return result;
         }
 
@@ -96,15 +113,30 @@ namespace SharpPy
             if (module.Body != null)
             {
                 // Convert each statement in the module body
+#if DEBUG_AST_LOG
+                int stmtIndex = 0;
+#endif
                 foreach (var stmt in module.Body.AsEnumerable())
                 {
 #if DEBUG_AST_LOG
-                    Console.WriteLine($"[DEBUG] Module statement: Type={stmt.GetType().Name}");
+                    Console.WriteLine($"[DEBUG] Module statement #{stmtIndex}: Type={stmt.GetType().Name}");
 #endif
-                    // Regular statement conversion - all assignments are already properly structured
-                    var converted = ConvertStatement((GeneratedStmt)stmt, false, false);
-                    if (converted != null)
-                        statements.Add(converted);
+                    try
+                    {
+                        // Regular statement conversion - all assignments are already properly structured
+                        var converted = ConvertStatement((GeneratedStmt)stmt, false, false);
+                        if (converted != null)
+                            statements.Add(converted);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[ERROR] Failed to convert statement (Type={stmt.GetType().Name}): {ex.Message}");
+                        Console.WriteLine($"[ERROR] Stack trace: {ex.StackTrace}");
+                        throw;
+                    }
+#if DEBUG_AST_LOG
+                    stmtIndex++;
+#endif
                 }
             }
 
@@ -1608,11 +1640,7 @@ namespace SharpPy
                 ),
 
                 // Function calls and attribute access
-                GeneratedCall call => new CallExpression(
-                    ConvertAnyExpression(call.Func),
-                    call.Args.ToEnumerable<GeneratedExpr>().Select(a => ConvertAnyExpression(a)).ToList(),
-                    call.Keywords.ToEnumerable<GeneratedKeyword>().Select(k => ConvertKeyword(k)).ToList()
-                ),
+                GeneratedCall call => ConvertCallExpression(call),
 
                 GeneratedAttribute attr => new AttributeExpression(
                     ConvertAnyExpression(attr.Value),
@@ -1839,6 +1867,59 @@ namespace SharpPy
                 "not in" => NotIn.Instance,
                 _ => throw new NotImplementedException($"Unknown comparison operator: {op}")
             };
+        }
+
+        /// <summary>
+        /// Convert GeneratedCall to CallExpression with proper null checks
+        /// </summary>
+        private static CallExpression ConvertCallExpression(GeneratedCall call)
+        {
+#if DEBUG_AST_LOG
+            Console.WriteLine($"[DEBUG] ConvertCallExpression: Func={call.Func != null}, Args={call.Args != null}, Keywords={call.Keywords != null}");
+#endif
+
+            // Convert function expression
+            var funcExpr = ConvertAnyExpression(call.Func);
+#if DEBUG_AST_LOG
+            Console.WriteLine($"[DEBUG] ConvertCallExpression: funcExpr converted successfully");
+#endif
+
+            // Convert arguments
+            var args = new List<Expression>();
+            if (call.Args != null)
+            {
+#if DEBUG_AST_LOG
+                Console.WriteLine($"[DEBUG] ConvertCallExpression: Converting {call.Args.Count} args");
+#endif
+                foreach (var arg in call.Args.ToEnumerable<GeneratedExpr>())
+                {
+                    if (arg != null)
+                    {
+                        args.Add(ConvertAnyExpression(arg));
+                    }
+                }
+            }
+
+            // Convert keyword arguments
+            var keywords = new List<KeywordExpression>();
+            if (call.Keywords != null)
+            {
+#if DEBUG_AST_LOG
+                Console.WriteLine($"[DEBUG] ConvertCallExpression: Converting {call.Keywords.Count} keywords");
+#endif
+                foreach (var kw in call.Keywords.ToEnumerable<GeneratedKeyword>())
+                {
+                    if (kw != null)
+                    {
+                        keywords.Add(ConvertKeyword(kw));
+                    }
+                }
+            }
+
+#if DEBUG_AST_LOG
+            Console.WriteLine($"[DEBUG] ConvertCallExpression: Creating CallExpression with {args.Count} args, {keywords.Count} keywords");
+#endif
+            return new CallExpression(funcExpr, args, keywords);
         }
 
         /// <summary>
