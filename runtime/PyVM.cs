@@ -1046,13 +1046,15 @@ namespace SharpPy
 
                 case ByteCodeOp.STORE_FAST:
                     // CPython 3.12 style: Direct array access for fast locals
+                    // STORE_FAST는 frame의 fast locals에만 저장하고, 전역 스코프에는 저장하지 않음
                     var storeIndex = instruction.Argument;
                     if (storeIndex < frame.Code.VarNames.Count)
                     {
                         var varName = frame.Code.VarNames[storeIndex];
                         var storeVal = frame.ValueStack.Pop();
                         frame.FastLocals[varName] = storeVal;
-                        frame.ScopeChain.AssignVariable(varName, storeVal);
+                        // CPython 3.12: STORE_FAST는 FastLocals에만 저장 (ScopeChain에 저장하지 않음)
+                        // frame.ScopeChain.AssignVariable(varName, storeVal); // ❌ 제거: 전역 스코프 오염 방지
                     }
                     else
                     {

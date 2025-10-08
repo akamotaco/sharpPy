@@ -38,10 +38,10 @@ namespace SharpPy
         
         /// <summary>
         /// 바이트코드 최적화 비활성화 (--no-optimize)
-        /// true: 최적화 단계를 건너뛰고 원본 바이트코드 사용
-        /// false: 최적화 적용 (기본값)
+        /// true: 최적화 단계를 건너뛰고 원본 바이트코드 사용 (기본값)
+        /// false: 최적화 적용
         /// </summary>
-        public static bool DisableOptimizer { get; set; } = false;
+        public static bool DisableOptimizer { get; set; } = true;
         
         /// <summary>
         /// 바이트코드 최적화 활성화 여부
@@ -75,7 +75,7 @@ namespace SharpPy
             VerboseMode = false;
             QuietMode = false;
             ShowBytecode = false;
-            DisableOptimizer = false;
+            DisableOptimizer = true;
         }
         
         /// <summary>

@@ -8161,11 +8161,9 @@ namespace SharpPy
             #endif
             
             // CPython 3.12 패턴: 컴프리헨션 변수 사전 할당 및 정리 - 튜플 언패킹 지원
+            // CPython의 ste_symbols와 동일하게, 모든 nested comprehension 변수 수집
             var comprehensionVars = new List<string>();
-            foreach (var gen in listComp.Generators)
-            {
-                CollectComprehensionVars(gen.Target, comprehensionVars);
-            }
+            CollectAllComprehensionVars(listComp, comprehensionVars);
             
             #if DEBUG_LOG
             Console.WriteLine($"🔧 List comprehension vars: {string.Join(", ", comprehensionVars)} (count: {comprehensionVars.Count})");
@@ -8317,31 +8315,16 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
             }
             
-            // END_FOR 라벨 (FOR_ITER 패치용) - 실제 FOR_ITER가 있는 경우에만
+            // CPython 3.12 PEP 709: FOR_ITER → END_FOR → cleanup (SWAP, STORE_FAST)
+            // END_FOR를 먼저 emit하고, cleanup 코드는 나중에 emit
+            // FOR_ITER는 END_FOR로 점프해야 함 (cleanup 코드로 점프하지 않음!)
             if (loopStart >= 0)
             {
-                var endFor = _instructions.Count;
+                var endForPosition = _instructions.Count;
                 EmitInstruction(ByteCodeOp.END_FOR);
-
-                // FOR_ITER 패치 - CPython 3.12 바이트 오프셋 방식
-                int forIterJump;
-                if (SharpPyConfig._enable_optimizer)
-                {
-                    // 최적화 모드: 명령어 단위 계산 (SharpPy는 최적화된 상태)
-                    forIterJump = endFor - loopStart - 1;
-                }
-                else
-                {
-                    // 비최적화 모드: 바이트 오프셋 계산
-                    int currentByteOffset = PyJumpBackwardUtil.CalculateByteOffset(loopStart, _instructions);
-                    int targetByteOffset = PyJumpBackwardUtil.CalculateByteOffset(endFor, _instructions);
-                    forIterJump = (targetByteOffset - currentByteOffset - 2) / 2;
-                }
-
-                _instructions[loopStart] = new ByteCodeInstruction(
-                    ByteCodeOp.FOR_ITER,
-                    forIterJump
-                );
+                #if DEBUG_LOG
+                Console.WriteLine($"🔧 END_FOR emitted at position {endForPosition}");
+                #endif
             }
             
             // 조건 점프들 패치 - CPython 3.12 패턴
@@ -8392,6 +8375,38 @@ namespace SharpPy
 
             // Exception table end는 변수 복원 완료 후에 설정 (CPython 3.12 호환)
             var exceptionTableEnd = _instructions.Count;
+
+            // CPython 3.12 PEP 709: cleanup 코드 완료 후 FOR_ITER 패치
+            // FOR_ITER는 END_FOR로 점프해야 함 (cleanup 코드를 건너뛰지 않음!)
+            if (loopStart >= 0)
+            {
+                var endForPosition = _instructions.IndexOf(_instructions.First(inst =>
+                    inst.OpCode == ByteCodeOp.END_FOR &&
+                    _instructions.IndexOf(inst) > loopStart));
+
+                // FOR_ITER 패치 - CPython 3.12 바이트 오프셋 방식
+                int forIterJump;
+                if (SharpPyConfig._enable_optimizer)
+                {
+                    // 최적화 모드: 명령어 단위 계산
+                    forIterJump = endForPosition - loopStart - 1;
+                }
+                else
+                {
+                    // 비최적화 모드: 바이트 오프셋 계산
+                    int currentByteOffset = PyJumpBackwardUtil.CalculateByteOffset(loopStart, _instructions);
+                    int targetByteOffset = PyJumpBackwardUtil.CalculateByteOffset(endForPosition, _instructions);
+                    forIterJump = (targetByteOffset - currentByteOffset - 2) / 2;
+                }
+
+                _instructions[loopStart] = new ByteCodeInstruction(
+                    ByteCodeOp.FOR_ITER,
+                    forIterJump
+                );
+                #if DEBUG_LOG
+                Console.WriteLine($"🔧 FOR_ITER at {loopStart} patched to jump to END_FOR at {endForPosition}, arg={forIterJump}");
+                #endif
+            }
 
             // CPython 3.12: Exception handler를 지연 생성으로 등록
             var pendingHandler = new PendingExceptionHandler
@@ -9024,14 +9039,8 @@ namespace SharpPy
             CompileExpression(firstGenerator.Iter);
             EmitInstruction(ByteCodeOp.GET_ITER);
 
-            // 각 generator 변수를 컴프리헨션 변수로 추가
-            foreach (var gen in setComp.Generators)
-            {
-                if (gen.Target is NameExpression nameExpr)
-                {
-                    comprehensionVars.Add(nameExpr.Name);
-                }
-            }
+            // CPython의 ste_symbols와 동일하게, 모든 nested comprehension 변수 수집
+            CollectAllComprehensionVars(setComp, comprehensionVars);
 
             // CPython 3.12: LOAD_FAST_AND_CLEAR
             foreach (var varName in comprehensionVars)
@@ -9902,6 +9911,54 @@ namespace SharpPy
                 {
                     CollectComprehensionVars(element, comprehensionVars);
                 }
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12: 모든 nested comprehension의 변수를 수집 (ste_symbols 패턴)
+        /// Symbol table 없이 AST를 재귀적으로 순회하여 모든 comprehension 변수 수집
+        /// </summary>
+        private void CollectAllComprehensionVars(Expression expr, List<string> comprehensionVars)
+        {
+            switch (expr)
+            {
+                case ListComprehension listComp:
+                    foreach (var gen in listComp.Generators)
+                    {
+                        CollectComprehensionVars(gen.Target, comprehensionVars);
+                    }
+                    // 재귀적으로 element 표현식의 nested comprehension도 수집
+                    CollectAllComprehensionVars(listComp.Element, comprehensionVars);
+                    break;
+
+                case SetComprehension setComp:
+                    foreach (var gen in setComp.Generators)
+                    {
+                        CollectComprehensionVars(gen.Target, comprehensionVars);
+                    }
+                    CollectAllComprehensionVars(setComp.Element, comprehensionVars);
+                    break;
+
+                case DictComprehension dictComp:
+                    foreach (var gen in dictComp.Generators)
+                    {
+                        CollectComprehensionVars(gen.Target, comprehensionVars);
+                    }
+                    CollectAllComprehensionVars(dictComp.Key, comprehensionVars);
+                    CollectAllComprehensionVars(dictComp.Value, comprehensionVars);
+                    break;
+
+                case GeneratorExpression genExpr:
+                    foreach (var gen in genExpr.Generators)
+                    {
+                        CollectComprehensionVars(gen.Target, comprehensionVars);
+                    }
+                    CollectAllComprehensionVars(genExpr.Element, comprehensionVars);
+                    break;
+
+                default:
+                    // 다른 표현식 타입은 무시 (comprehension 아님)
+                    break;
             }
         }
 
