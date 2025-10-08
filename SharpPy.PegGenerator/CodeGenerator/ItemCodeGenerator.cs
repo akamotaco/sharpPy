@@ -126,8 +126,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 _parent.WriteLine($"var {_varName} = Expect(GeneratedTokenType.OP, \"{escaped}\");");
             }
 
-            // CPython 3.12: Only add null check if NOT inside a repeater or loop rule
-            if (!_insideRepeater && !_insideLoopRule)
+            // CPython 3.12: Only add null check if NOT inside a repeater, loop rule, or optional
+            if (!_insideRepeater && !_insideLoopRule && !_insideOptional)
             {
                 _parent.WriteLine($"if ({_varName} == null)");
                 _parent.WriteLine("{");
@@ -147,7 +147,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             {
                 // Token reference - use Expect()
                 _parent.WriteLine($"// Expect token: {ruleRef.Name}");
+                _parent.WriteLine("#if DEBUG_PARSE_LOG");
                 _parent.WriteLine($"Console.WriteLine($\"[DEBUG] ExpectToken({ruleRef.Name}): pos={{_position}}, token={{CurrentToken?.Type}}:'{{CurrentToken?.Value}}'\");");
+                _parent.WriteLine("#endif");
 
                 // CPython 3.12: NAME/STRING/NUMBER tokens are automatically converted to AST nodes
                 // BUT: Inside repeaters (Gather, ZeroOrMore, OneOrMore), tokens stay as tokens
@@ -194,7 +196,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                         _parent.WriteLine("{");
                         _parent.Indent();
                         _parent.WriteLine("_position = _mark;");
-                _parent.WriteLine("_pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails");
+                        _parent.WriteLine("_pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails");
                         _parent.WriteLine("_res = null;");
                         _parent.WriteLine("break;  // Exit this alternative");
                         _parent.Dedent();
@@ -202,7 +204,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     }
                 }
 
+                _parent.WriteLine($"#if DEBUG_PARSE_LOG");
                 _parent.WriteLine($"Console.WriteLine($\"[DEBUG] ExpectToken({ruleRef.Name}): result={{({_varName} != null ? \"SUCCESS\" : \"FAIL\")}}, newPos={{_position}}\");");
+                _parent.WriteLine($"#endif");
             }
             else
             {
@@ -230,19 +234,27 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 {
                     var ruleReturnType = _parent.GetRuleReturnType(ruleRef.Name);
                     _parent.WriteLine($"{ruleReturnType} {_varName} = null;");
+                    _parent.WriteLine($"#if DEBUG_PARSE_LOG");
                     _parent.WriteLine($"Console.WriteLine($\"[{ruleRef.Name.ToUpper()}] _callInvalidRules={{_callInvalidRules}}\");");
+                    _parent.WriteLine($"#endif");
                     _parent.WriteLine($"if (_callInvalidRules)");
                     _parent.WriteLine("{");
                     _parent.Indent();
+                    _parent.WriteLine($"#if DEBUG_PARSE_LOG");
                     _parent.WriteLine($"Console.WriteLine($\"[{ruleRef.Name.ToUpper()}] Calling {methodName}()\");");
+                    _parent.WriteLine($"#endif");
                     _parent.WriteLine($"{_varName} = {methodName}();");
+                    _parent.WriteLine($"#if DEBUG_PARSE_LOG");
                     _parent.WriteLine($"Console.WriteLine($\"[{ruleRef.Name.ToUpper()}] Returned {{({_varName} == null ? \"null\" : \"non-null\")}}\");");
+                    _parent.WriteLine($"#endif");
                     _parent.Dedent();
                     _parent.WriteLine("}");
                     _parent.WriteLine("else");
                     _parent.WriteLine("{");
                     _parent.Indent();
+                    _parent.WriteLine($"#if DEBUG_PARSE_LOG");
                     _parent.WriteLine($"Console.WriteLine($\"[{ruleRef.Name.ToUpper()}] SKIP due to _callInvalidRules=false\");");
+                    _parent.WriteLine($"#endif");
                     _parent.Dedent();
                     _parent.WriteLine("}");
                 }

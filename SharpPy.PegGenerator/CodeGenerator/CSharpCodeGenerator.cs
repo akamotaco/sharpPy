@@ -9147,6 +9147,158 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Dedent();
             WriteLine("}");
             WriteLine();
+
+            // _PyPegen_joined_str - CPython: Parser/pegen.c
+            WriteLine("// CPython: _PyPegen_joined_str (pegen.c)");
+            WriteLine("// Create JoinedStr node from f-string tokens");
+            WriteLine("private GeneratedExpr _PyPegen_joined_str(GeneratedTokenInfo start, GeneratedExprSeq middle, GeneratedTokenInfo end)");
+            WriteLine("{");
+            Indent();
+            WriteLine("if (start == null || end == null)");
+            Indent();
+            WriteLine("return null;");
+            Dedent();
+            WriteLine();
+            WriteLine("// Create list of string parts and expressions");
+            WriteLine("var values = middle ?? new GeneratedExprSeq();");
+            WriteLine("int endLine = end.EndLine > 0 ? end.EndLine : end.Line;");
+            WriteLine("int endCol = end.EndColumn > 0 ? end.EndColumn : end.Column;");
+            WriteLine("return _PyAST_JoinedStr(values, start.Line, start.Column, endLine, endCol);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // _PyPegen_constant_from_token
+            WriteLine("// CPython: _PyPegen_constant_from_token");
+            WriteLine("// Create Constant node from FSTRING_MIDDLE token");
+            WriteLine("private GeneratedExpr _PyPegen_constant_from_token(GeneratedTokenInfo token)");
+            WriteLine("{");
+            Indent();
+            WriteLine("if (token == null)");
+            Indent();
+            WriteLine("return null;");
+            Dedent();
+            WriteLine();
+            WriteLine("// FSTRING_MIDDLE contains plain text (no quotes needed)");
+            WriteLine("var pyConstant = new GeneratedPyConstantString(token.Value);");
+            WriteLine("int endLine = token.EndLine > 0 ? token.EndLine : token.Line;");
+            WriteLine("int endCol = token.EndColumn > 0 ? token.EndColumn : token.Column;");
+            WriteLine("return _PyAST_Constant(pyConstant, null, token.Line, token.Column, endLine, endCol);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // _PyPegen_check_fstring_conversion
+            WriteLine("// CPython: _PyPegen_check_fstring_conversion (action_helpers.c)");
+            WriteLine("// Validate f-string conversion (!s, !r, !a)");
+            WriteLine("private ResultTokenWithMetadata _PyPegen_check_fstring_conversion(GeneratedTokenInfo conv_token, GeneratedExpr conv)");
+            WriteLine("{");
+            Indent();
+            WriteLine("if (conv == null || conv_token == null)");
+            Indent();
+            WriteLine("return null;");
+            Dedent();
+            WriteLine();
+            WriteLine("// conv should be a Name node");
+            WriteLine("if (conv is GeneratedName name)");
+            WriteLine("{");
+            Indent();
+            WriteLine("var conversion = name.Id;");
+            WriteLine("// CPython 3.12: Only 's', 'r', 'a' are valid");
+            WriteLine("if (conversion != \"s\" && conversion != \"r\" && conversion != \"a\")");
+            WriteLine("{");
+            Indent();
+            WriteLine("RaiseErrorKnownLocation(conv_token, $\"f-string: invalid conversion character '{conversion}': expected 's', 'r', or 'a'\");");
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// Return metadata with conversion token");
+            WriteLine("return new ResultTokenWithMetadata { Token = conv_token, Metadata = conversion };");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("return null;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // _PyPegen_formatted_value
+            WriteLine("// CPython: _PyPegen_formatted_value (action_helpers.c)");
+            WriteLine("// Create FormattedValue node for f-string replacement field");
+            WriteLine("private GeneratedExpr _PyPegen_formatted_value(GeneratedExpr expr, GeneratedTokenInfo debug_expr, GeneratedPtr conversion, GeneratedPtr format, GeneratedTokenInfo rbrace, int lineno, int col, int end_lineno, int end_col)");
+            WriteLine("{");
+            Indent();
+            WriteLine("if (expr == null)");
+            Indent();
+            WriteLine("return null;");
+            Dedent();
+            WriteLine();
+            WriteLine("// Parse conversion character (!s, !r, !a)");
+            WriteLine("int conversionChar = -1; // -1 = no conversion");
+            WriteLine("if (conversion is ResultTokenWithMetadata convMeta && convMeta.Metadata is string convStr)");
+            WriteLine("{");
+            Indent();
+            WriteLine("if (convStr.Length > 0)");
+            Indent();
+            WriteLine("conversionChar = convStr[0]; // 's', 'r', or 'a'");
+            Dedent();
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// Parse format spec");
+            WriteLine("GeneratedExpr formatSpec = null;");
+            WriteLine("if (format is ResultTokenWithMetadata fmtMeta && fmtMeta.Metadata is GeneratedExpr formatExpr)");
+            WriteLine("{");
+            Indent();
+            WriteLine("formatSpec = formatExpr;");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("return _PyAST_FormattedValue(expr, conversionChar, formatSpec, lineno, col, end_lineno, end_col);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // _PyPegen_decoded_constant_from_token
+            WriteLine("// CPython: _PyPegen_decoded_constant_from_token");
+            WriteLine("// Create Constant from token without decoding (for FSTRING_MIDDLE)");
+            WriteLine("private GeneratedExpr _PyPegen_decoded_constant_from_token(GeneratedTokenInfo token)");
+            WriteLine("{");
+            Indent();
+            WriteLine("// Same as _PyPegen_constant_from_token - FSTRING_MIDDLE is already decoded");
+            WriteLine("return _PyPegen_constant_from_token(token);");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+
+            // _PyPegen_setup_full_format_spec
+            WriteLine("// CPython: _PyPegen_setup_full_format_spec (action_helpers.c)");
+            WriteLine("// Create format spec from colon and spec parts");
+            WriteLine("private ResultTokenWithMetadata _PyPegen_setup_full_format_spec(GeneratedTokenInfo colon, GeneratedExprSeq spec, int lineno, int col, int end_lineno, int end_col)");
+            WriteLine("{");
+            Indent();
+            WriteLine("if (colon == null)");
+            Indent();
+            WriteLine("return null;");
+            Dedent();
+            WriteLine();
+            WriteLine("// If no spec parts, create empty JoinedStr");
+            WriteLine("if (spec == null || spec.Count == 0)");
+            WriteLine("{");
+            Indent();
+            WriteLine("var emptySeq = new GeneratedExprSeq();");
+            WriteLine("var emptyJoined = _PyAST_JoinedStr(emptySeq, lineno, col, end_lineno, end_col);");
+            WriteLine("return new ResultTokenWithMetadata { Token = colon, Metadata = emptyJoined };");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// Create JoinedStr from spec parts");
+            WriteLine("var joinedStr = _PyAST_JoinedStr(spec, lineno, col, end_lineno, end_col);");
+            WriteLine("return new ResultTokenWithMetadata { Token = colon, Metadata = joinedStr };");
+            Dedent();
+            WriteLine("}");
+            WriteLine();
         }
 
         /// <summary>

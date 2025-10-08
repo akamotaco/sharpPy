@@ -112,6 +112,16 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("}");
             WriteLine("protected Dictionary<(int, string), LREntry> _lrCache = new();");
             WriteLine();
+            WriteLine("// CPython 3.12: ResultTokenWithMetadata for f-string conversions/formats");
+            WriteLine("// Must inherit from GeneratedPtr to be used as optional rule result");
+            WriteLine("protected class ResultTokenWithMetadata : GeneratedPtr");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("public GeneratedTokenInfo Token { get; set; }");
+            WriteLine("public object Metadata { get; set; }");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
             WriteLine("// CPython 3.12: Token-based memoization");
             WriteLine("// Each Token owns its Memo list - no global cache needed");
             WriteLine("// MemoEntry is defined in GeneratedTokenInfo (PyTokenizer.cs)");
@@ -601,6 +611,31 @@ namespace SharpPy.PegGenerator.Asdl
             _indentLevel++;
             WriteLine("// Return token as-is so _PyPegen_constant_from_string can decode it");
             WriteLine("return token;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
+            // RaiseErrorKnownLocation helper
+            WriteLine("/// <summary>");
+            WriteLine("/// CPython 3.12: Raise syntax error at known token location");
+            WriteLine("/// Uses PySyntaxErrorException with location info for parsing errors");
+            WriteLine("/// </summary>");
+            WriteLine("protected void RaiseErrorKnownLocation(GeneratedTokenInfo token, string message)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("if (token == null)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("_errorIndicator = 1;");
+            WriteLine("throw new PySyntaxErrorException(message);");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// Mark error and throw exception with location");
+            WriteLine("_errorIndicator = 1;");
+            WriteLine("_knownErrToken = token;");
+            WriteLine("var locationMsg = $\"  File \\\"{_filename}\\\", line {token.Line}\\n    {message}\";");
+            WriteLine("throw new PySyntaxErrorException(locationMsg);");
             _indentLevel--;
             WriteLine("}");
             WriteLine();

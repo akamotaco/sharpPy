@@ -60,6 +60,14 @@ namespace SharpPy.Generated
         }
         protected Dictionary<(int, string), LREntry> _lrCache = new();
 
+        // CPython 3.12: ResultTokenWithMetadata for f-string conversions/formats
+        // Must inherit from GeneratedPtr to be used as optional rule result
+        protected class ResultTokenWithMetadata : GeneratedPtr
+        {
+            public GeneratedTokenInfo Token { get; set; }
+            public object Metadata { get; set; }
+        }
+
         // CPython 3.12: Token-based memoization
         // Each Token owns its Memo list - no global cache needed
         // MemoEntry is defined in GeneratedTokenInfo (PyTokenizer.cs)
@@ -442,6 +450,25 @@ namespace SharpPy.Generated
         {
             // Return token as-is so _PyPegen_constant_from_string can decode it
             return token;
+        }
+
+        /// <summary>
+        /// CPython 3.12: Raise syntax error at known token location
+        /// Uses PySyntaxErrorException with location info for parsing errors
+        /// </summary>
+        protected void RaiseErrorKnownLocation(GeneratedTokenInfo token, string message)
+        {
+            if (token == null)
+            {
+                _errorIndicator = 1;
+                throw new PySyntaxErrorException(message);
+            }
+
+            // Mark error and throw exception with location
+            _errorIndicator = 1;
+            _knownErrToken = token;
+            var locationMsg = $"  File \"{_filename}\", line {token.Line}\n    {message}";
+            throw new PySyntaxErrorException(locationMsg);
         }
 
     }
