@@ -592,21 +592,15 @@ namespace SharpPy.PegGenerator.Asdl
 
             // StringToken helper
             WriteLine("/// <summary>");
-            WriteLine("/// Convert STRING token to AST Constant expression");
-            WriteLine("/// CPython 3.12: Strings are represented as Constant nodes");
+            WriteLine("/// Convert STRING token to token wrapper for _PyPegen_constant_from_string");
+            WriteLine("/// CPython 3.12: Token is passed to string_parser.c for decoding");
+            WriteLine("/// Note: Returns GeneratedTokenInfo directly to trigger DecodeStringLiteral");
             WriteLine("/// </summary>");
-            WriteLine("protected GeneratedConstant StringToken(GeneratedTokenInfo token)");
+            WriteLine("protected GeneratedTokenInfo StringToken(GeneratedTokenInfo token)");
             WriteLine("{");
             _indentLevel++;
-            WriteLine("if (token == null) return null;");
-            WriteLine("var constant = new GeneratedConstant();");
-            WriteLine("// Parse string value");
-            WriteLine("constant.Value = new GeneratedPyConstantString(token.Value);");
-            WriteLine("constant.LineNo = token.Line;");
-            WriteLine("constant.ColOffset = token.Column;");
-            WriteLine("constant.EndLineNo = token.EndLine;");
-            WriteLine("constant.EndColOffset = token.EndColumn;");
-            WriteLine("return constant;");
+            WriteLine("// Return token as-is so _PyPegen_constant_from_string can decode it");
+            WriteLine("return token;");
             _indentLevel--;
             WriteLine("}");
             WriteLine();

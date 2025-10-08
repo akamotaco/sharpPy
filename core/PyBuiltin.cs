@@ -259,8 +259,8 @@ namespace SharpPy
                 catch { }
             }
 
-            // 출력 생성
-            var output = string.Join(sep.Value, args.Select(arg => arg.ToString()));
+            // 출력 생성 - CPython 3.12: print는 str()을 사용, repr()이 아님
+            var output = string.Join(sep.Value, args.Select(arg => arg.ToStr()));
 
             // file이 지정되지 않았으면 Console에 출력 (기본값)
             if (file == null)

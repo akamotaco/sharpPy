@@ -43741,5 +43741,52 @@ public GeneratedMod ParseFuncType()
             return _PyAST_Constant(pyConstant, null, lineno, col, end_lineno ?? 0, end_col ?? 0);
         }
 
+        // CPython: _PyPegen_parse_string (string_parser.c)
+        // Decode string literal: remove quotes and handle escape sequences
+        private string DecodeStringLiteral(string literal)
+        {
+            if (string.IsNullOrEmpty(literal) || literal.Length < 2)
+                return literal;
+
+            // Check for raw string prefix
+            bool isRawString = literal.StartsWith("r'") || literal.StartsWith("r\"") || 
+                               literal.StartsWith("R'") || literal.StartsWith("R\"");
+            int startIdx = isRawString ? 2 : 1;
+            int endIdx = literal.Length - 1;
+
+            // Extract content between quotes
+            var content = literal.Substring(startIdx, endIdx - startIdx);
+
+            // Raw strings: no escape processing
+            if (isRawString)
+                return content;
+
+            // Process escape sequences (CPython 3.12 compatible)
+            var result = new System.Text.StringBuilder(content.Length);
+            for (int i = 0; i < content.Length; i++)
+            {
+                if (content[i] == '\\' && i + 1 < content.Length)
+                {
+                    char next = content[i + 1];
+                    switch (next)
+                    {
+                        case 'n': result.Append('\n'); i++; break;
+                        case 't': result.Append('\t'); i++; break;
+                        case 'r': result.Append('\r'); i++; break;
+                        case '\\': result.Append('\\'); i++; break;
+                        case '\'': result.Append('\''); i++; break;
+                        case '\"': result.Append('\"'); i++; break;
+                        case '0': result.Append('\0'); i++; break;
+                        default: result.Append('\\'); break; // Unknown escape: keep backslash
+                    }
+                }
+                else
+                {
+                    result.Append(content[i]);
+                }
+            }
+            return result.ToString();
+        }
+
     }
 }

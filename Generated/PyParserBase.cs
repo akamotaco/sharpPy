@@ -434,20 +434,14 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// Convert STRING token to AST Constant expression
-        /// CPython 3.12: Strings are represented as Constant nodes
+        /// Convert STRING token to token wrapper for _PyPegen_constant_from_string
+        /// CPython 3.12: Token is passed to string_parser.c for decoding
+        /// Note: Returns GeneratedTokenInfo directly to trigger DecodeStringLiteral
         /// </summary>
-        protected GeneratedConstant StringToken(GeneratedTokenInfo token)
+        protected GeneratedTokenInfo StringToken(GeneratedTokenInfo token)
         {
-            if (token == null) return null;
-            var constant = new GeneratedConstant();
-            // Parse string value
-            constant.Value = new GeneratedPyConstantString(token.Value);
-            constant.LineNo = token.Line;
-            constant.ColOffset = token.Column;
-            constant.EndLineNo = token.EndLine;
-            constant.EndColOffset = token.EndColumn;
-            return constant;
+            // Return token as-is so _PyPegen_constant_from_string can decode it
+            return token;
         }
 
     }

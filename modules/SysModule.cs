@@ -227,6 +227,17 @@ namespace SharpPy.Modules
             return PyImportSystem.SysModules.Count;
         }
 
+        // CPython 3.12: __contains__ for 'in' operator
+        public override PyBool Contains(PyObject item)
+        {
+            if (item is PyString keyStr)
+            {
+                bool exists = PyImportSystem.SysModules.ContainsKey(keyStr.Value);
+                return exists ? PyBool.True : PyBool.False;
+            }
+            return PyBool.False;
+        }
+
         public override PyObject GetAttribute(string name)
         {
             if (name == "keys")

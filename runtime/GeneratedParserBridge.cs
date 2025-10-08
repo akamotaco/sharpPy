@@ -976,8 +976,8 @@ namespace SharpPy
 #if DEBUG_AST_LOG
                         Console.WriteLine($"[DEBUG] ConvertStatement: Processing class statement");
                         Console.WriteLine($"[DEBUG] classDef.Name: {classDef.Name}");
-                        Console.WriteLine($"[DEBUG] classDef.Bases count: {classDef.Bases.Count}");
-                        Console.WriteLine($"[DEBUG] classDef.Body count: {classDef.Body.Count}");
+                        Console.WriteLine($"[DEBUG] classDef.Bases count: {classDef.Bases?.Count ?? 0}");
+                        Console.WriteLine($"[DEBUG] classDef.Body count: {classDef.Body?.Count ?? 0}");
 #endif
                         // Get class name
                         var className = classDef.Name ?? "";
