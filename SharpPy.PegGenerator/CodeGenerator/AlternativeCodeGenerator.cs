@@ -49,27 +49,33 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // Add debug logging for Expression, Primary, Arguments, SimpleStmt and Assignment alternatives
             if (_rule.Name.Equals("expression", StringComparison.OrdinalIgnoreCase))
             {
+                _parent.WriteLine("#if DEBUG_PARSE_LOG");
                 _parent.WriteLine($"Console.WriteLine($\"[EXPRESSION-ALT{_alternativeIndex + 1}] START at pos={{_position}}\");");
+                _parent.WriteLine("#endif");
             }
             if (_rule.Name.Equals("simple_stmt", StringComparison.OrdinalIgnoreCase))
             {
+                _parent.WriteLine("#if DEBUG_PARSE_LOG");
                 _parent.WriteLine($"Console.WriteLine($\"[SIMPLE_STMT-ALT{_alternativeIndex + 1}] START at pos={{_position}}\");");
+                _parent.WriteLine("#endif");
             }
             if (_rule.Name.Equals("assignment", StringComparison.OrdinalIgnoreCase))
             {
+                _parent.WriteLine("#if DEBUG_PARSE_LOG");
                 _parent.WriteLine($"Console.WriteLine($\"[ASSIGNMENT-ALT{_alternativeIndex + 1}] START at pos={{_position}}\");");
+                _parent.WriteLine("#endif");
             }
             if (_rule.Name.Equals("primary", StringComparison.OrdinalIgnoreCase))
             {
-                _parent.WriteLine($"#if DEBUG_PARSE_LOG");
+                _parent.WriteLine("#if DEBUG_PARSE_LOG");
                 _parent.WriteLine($"Console.WriteLine($\"[PRIMARY-ALT{_alternativeIndex + 1}] START at pos={{_position}}, token={{CurrentToken?.Type}}:'{{CurrentToken?.Value}}'\");");
-                _parent.WriteLine($"#endif");
+                _parent.WriteLine("#endif");
             }
             if (_rule.Name.Equals("arguments", StringComparison.OrdinalIgnoreCase))
             {
-                _parent.WriteLine($"#if DEBUG_PARSE_LOG");
+                _parent.WriteLine("#if DEBUG_PARSE_LOG");
                 _parent.WriteLine($"Console.WriteLine($\"[ARGUMENTS-ALT{_alternativeIndex + 1}] START at pos={{_position}}\");");
-                _parent.WriteLine($"#endif");
+                _parent.WriteLine("#endif");
             }
 
             _parent.WriteLine();
@@ -80,7 +86,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // Add debug logging for Expression error check
             if (_rule.Name.Equals("expression", StringComparison.OrdinalIgnoreCase))
             {
+                _parent.WriteLine("#if DEBUG_PARSE_LOG");
                 _parent.WriteLine($"Console.WriteLine($\"[EXPRESSION-ALT{_alternativeIndex + 1}] pendingSyntaxError={{(_pendingSyntaxError == null ? \"null\" : \"SET\")}}\");");
+                _parent.WriteLine("#endif");
             }
 
             _parent.WriteLine("if (_pendingSyntaxError != null)");
@@ -89,7 +97,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             if (_rule.Name.Equals("expression", StringComparison.OrdinalIgnoreCase))
             {
+                _parent.WriteLine("#if DEBUG_PARSE_LOG");
                 _parent.WriteLine($"Console.WriteLine($\"[EXPRESSION-ALT{_alternativeIndex + 1}] SKIP due to pendingSyntaxError\");");
+                _parent.WriteLine("#endif");
             }
 
             _parent.WriteLine("_res = null;");

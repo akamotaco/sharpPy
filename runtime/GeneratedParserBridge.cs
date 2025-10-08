@@ -400,11 +400,14 @@ namespace SharpPy
 
                         // Convert optional else statements (Python while-else construct)
                         var elseStmts = new List<Statement>();
-                        foreach (var elseStmt in whileStmt.Orelse.AsEnumerable())
+                        if (whileStmt.Orelse != null)
                         {
-                            var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
-                            if (convertedStmt != null)
-                                elseStmts.Add(convertedStmt);
+                            foreach (var elseStmt in whileStmt.Orelse.AsEnumerable())
+                            {
+                                var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
+                                if (convertedStmt != null)
+                                    elseStmts.Add(convertedStmt);
+                            }
                         }
 
                         return new WhileStatement(conditionExpr, bodyStmts, elseStmts);
@@ -435,11 +438,14 @@ namespace SharpPy
 
                         // Convert optional else statements (Python for-else construct)
                         var elseStmts = new List<Statement>();
-                        foreach (var elseStmt in forStmt.Orelse.AsEnumerable())
+                        if (forStmt.Orelse != null)
                         {
-                            var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
-                            if (convertedStmt != null)
-                                elseStmts.Add(convertedStmt);
+                            foreach (var elseStmt in forStmt.Orelse.AsEnumerable())
+                            {
+                                var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
+                                if (convertedStmt != null)
+                                    elseStmts.Add(convertedStmt);
+                            }
                         }
 
                         return new ForStatement(targetVar, iterableExpr, bodyStmts, elseStmts);
@@ -470,11 +476,14 @@ namespace SharpPy
 
                         // Convert optional else statements
                         var elseStmts = new List<Statement>();
-                        foreach (var elseStmt in asyncForStmt.Orelse.AsEnumerable())
+                        if (asyncForStmt.Orelse != null)
                         {
-                            var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
-                            if (convertedStmt != null)
-                                elseStmts.Add(convertedStmt);
+                            foreach (var elseStmt in asyncForStmt.Orelse.AsEnumerable())
+                            {
+                                var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
+                                if (convertedStmt != null)
+                                    elseStmts.Add(convertedStmt);
+                            }
                         }
 
                         return new AsyncForStatement(targetVar, iterableExpr, bodyStmts, elseStmts);
@@ -500,15 +509,15 @@ namespace SharpPy
                         var exceptHandlersList = new List<ExceptHandler>();
                         foreach (var exceptBlock in tryStmt.Handlers.AsEnumerable())
                         {
-                            var exceptData = exceptBlock as dynamic;
+                            var exceptData = (GeneratedExceptHandler)exceptBlock;
 #if DEBUG_AST_LOG
                             Console.WriteLine($"[DEBUG] exceptData type: {exceptData?.GetType()?.Name}");
 #endif
                             // Convert except body statements
                             var exceptBodyStmts = new List<Statement>();
-                            if (exceptData.body != null)
+                            if (exceptData.Body != null)
                             {
-                                foreach (var exceptStmt in (exceptData.body as IEnumerable<GeneratedPtr>).Cast<GeneratedStmt>())
+                                foreach (var exceptStmt in exceptData.Body.AsEnumerable().Cast<GeneratedStmt>())
                                 {
                                     var convertedStmt = ConvertStatement(exceptStmt, insideLoop, insideFunction);
                                     if (convertedStmt != null)
@@ -518,22 +527,15 @@ namespace SharpPy
 
                             // CPython 3.12: Parse exception type and variable name
                             Expression? exceptionTypeExpr = null;
-                            if (exceptData.type != null)
+                            if (exceptData.Type != null)
                             {
-                                if (exceptData.type is string typeStr)
-                                {
-                                    exceptionTypeExpr = new NameExpression(typeStr);
-                                }
-                                else if (exceptData.type is GeneratedExpr)
-                                {
-                                    exceptionTypeExpr = ConvertAnyExpression(exceptData.type);
-                                }
+                                exceptionTypeExpr = ConvertAnyExpression(exceptData.Type);
                             }
 
                             string? variableName = null;
                             try
                             {
-                                variableName = exceptData.name != null ? exceptData.name.ToString() : null;
+                                variableName = exceptData.Name != null ? exceptData.Name.ToString() : null;
                             }
                             catch { }
 
@@ -542,19 +544,25 @@ namespace SharpPy
 
                         // Convert else and finally blocks
                         var elseStatements = new List<Statement>();
-                        foreach (var elseStmt in tryStmt.Orelse.AsEnumerable())
+                        if (tryStmt.Orelse != null)
                         {
-                            var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
-                            if (convertedStmt != null)
-                                elseStatements.Add(convertedStmt);
+                            foreach (var elseStmt in tryStmt.Orelse.AsEnumerable())
+                            {
+                                var convertedStmt = ConvertStatement((GeneratedStmt)elseStmt, insideLoop, insideFunction);
+                                if (convertedStmt != null)
+                                    elseStatements.Add(convertedStmt);
+                            }
                         }
 
                         var finallyStatements = new List<Statement>();
-                        foreach (var finallyStmt in tryStmt.Finalbody.AsEnumerable())
+                        if (tryStmt.Finalbody != null)
                         {
-                            var convertedStmt = ConvertStatement((GeneratedStmt)finallyStmt, insideLoop, insideFunction);
-                            if (convertedStmt != null)
-                                finallyStatements.Add(convertedStmt);
+                            foreach (var finallyStmt in tryStmt.Finalbody.AsEnumerable())
+                            {
+                                var convertedStmt = ConvertStatement((GeneratedStmt)finallyStmt, insideLoop, insideFunction);
+                                if (convertedStmt != null)
+                                    finallyStatements.Add(convertedStmt);
+                            }
                         }
 
                         return new TryStatement(tryBodyStatements, exceptHandlersList, elseStatements, finallyStatements);
@@ -581,13 +589,13 @@ namespace SharpPy
                         {
                             foreach (var handlerData in tryStarStmt.Handlers.AsEnumerable())
                             {
-                                var handler = handlerData as dynamic;
+                                var handler = (GeneratedExceptHandler)handlerData;
 
                                 // Convert except body statements
                                 var exceptBodyStmts = new List<Statement>();
-                                if (handler.body != null)
+                                if (handler.Body != null)
                                 {
-                                    foreach (var exceptStmt in handler.body)
+                                    foreach (var exceptStmt in handler.Body.AsEnumerable().Cast<GeneratedStmt>())
                                     {
                                         var convertedStmt = ConvertStatement(exceptStmt, insideLoop, insideFunction);
                                         if (convertedStmt != null)
@@ -597,12 +605,12 @@ namespace SharpPy
 
                                 // Handle exception type and variable name for except*
                                 Expression? exceptionTypeExpr = null;
-                                if (handler.type != null)
+                                if (handler.Type != null)
                                 {
-                                    exceptionTypeExpr = ConvertAnyExpression(handler.type);
+                                    exceptionTypeExpr = ConvertAnyExpression(handler.Type);
                                 }
 
-                                string? variableName = handler.name != null ? handler.name.ToString() : null;
+                                string? variableName = handler.Name != null ? handler.Name.ToString() : null;
 
                                 // Create except* handler (marked as exception group handler)
                                 var exHandler = new ExceptHandler(exceptionTypeExpr, variableName, exceptBodyStmts, isStar: true);  // Mark as except* handler for PEP 654
@@ -1121,20 +1129,26 @@ namespace SharpPy
                 case GeneratedImportFrom importFromStmt:
                     // From import statement (from module import name) - CPython 3.12 compatible
                     {
-                        Console.WriteLine($"[DEBUG] Processing from_import: module={importFromStmt.Module}, level={importFromStmt.Level}, names={importFromStmt.Names?.Count ?? 0}");
-
-                        var module = importFromStmt.Module;
+                        Console.WriteLine($"[DEBUG] importFromStmt.Module type: {importFromStmt.Module?.GetType()?.Name}, value: {importFromStmt.Module}");
+                        var module = importFromStmt.Module?.ToString();
+                        Console.WriteLine($"[DEBUG] Processing from_import: module={module}, level={importFromStmt.Level}, names={importFromStmt.Names?.Count ?? 0}");
                         var level = importFromStmt.Level ?? 0;  // CPython 3.12: None → 0 (absolute import)
                         var importAliases = new List<ImportAlias>();
 
                         if (importFromStmt.Names != null)
                         {
+                            Console.WriteLine($"[DEBUG] importFromStmt.Names type: {importFromStmt.Names.GetType().Name}");
+                            int nameIndex = 0;
                             foreach (var nameItem in importFromStmt.Names)
-                        {
-                            if (nameItem is GeneratedAlias alias)
                             {
-                                var name = alias.Name;
-                                var asName = alias.Asname;
+                                Console.WriteLine($"[DEBUG] Processing name item #{nameIndex}: type={nameItem?.GetType()?.Name}");
+                                var alias = (GeneratedAlias)nameItem;
+                                Console.WriteLine($"[DEBUG] alias.Name type: {alias.Name?.GetType()?.Name}, value: {alias.Name}");
+                                Console.WriteLine($"[DEBUG] alias.Asname type: {alias.Asname?.GetType()?.Name}, value: {alias.Asname}");
+                                var name = alias.Name?.ToString();
+                                var asName = alias.Asname?.ToString();
+                                Console.WriteLine($"[DEBUG] Converted: name={name}, asName={asName}");
+                                nameIndex++;
 
                                 if (!string.IsNullOrEmpty(name))
                                 {
@@ -1142,35 +1156,6 @@ namespace SharpPy
                                     Console.WriteLine($"[DEBUG] Added import alias: {name} as {asName ?? name}");
                                 }
                             }
-                            else if (nameItem != null)
-                            {
-                                // Handle anonymous objects with Name and AsName properties
-                                var nameObj = nameItem as dynamic;
-                                try
-                                {
-                                    var name = nameObj?.Name?.ToString();
-                                    var asName = nameObj?.Asname?.ToString();
-
-                                    if (!string.IsNullOrEmpty(name))
-                                    {
-                                        importAliases.Add(new ImportAlias(name, string.IsNullOrEmpty(asName) ? null : asName));
-                                        Console.WriteLine($"[DEBUG] Added dynamic import: {name} as {asName ?? name}");
-                                    }
-                                    else
-                                    {
-                                        // Fallback for other formats
-                                        importAliases.Add(new ImportAlias(nameItem.ToString()));
-                                        Console.WriteLine($"[DEBUG] Added fallback import: {nameItem}");
-                                    }
-                                }
-                                catch
-                                {
-                                    // Final fallback
-                                    importAliases.Add(new ImportAlias(nameItem.ToString()));
-                                    Console.WriteLine($"[DEBUG] Added fallback import: {nameItem}");
-                                }
-                            }
-                        }
                         }
 
                         if (importAliases.Count > 0)
@@ -1261,20 +1246,20 @@ namespace SharpPy
                         {
                             foreach (var caseItem in matchStmt.Cases)
                             {
-                                var caseData = caseItem as dynamic;
+                                var caseData = (GeneratedMatchCase)caseItem;
 
-                                // Convert pattern (simplified for now)
-                                var pattern = ConvertAnyExpression(caseData.pattern);
+                                // Convert pattern (CPython 3.12: Use GeneratedPattern from ASDL)
+                                var pattern = ConvertAnyExpression(caseData.Pattern);
 
                                 // Convert guard (optional)
-                                Expression? guard = caseData.guard != null ?
-                                    ConvertAnyExpression(caseData.guard) : null;
+                                Expression? guard = caseData.Guard != null ?
+                                    ConvertAnyExpression(caseData.Guard) : null;
 
                                 // Convert body statements
                                 var caseBodyStmts = new List<Statement>();
-                                if (caseData.body != null)
+                                if (caseData.Body != null)
                                 {
-                                    foreach (var bodyStmt in caseData.body)
+                                    foreach (var bodyStmt in caseData.Body.AsEnumerable().Cast<GeneratedStmt>())
                                     {
 #if DEBUG_AST_LOG
                                         Console.WriteLine($"[DEBUG] Match case body statement type: {bodyStmt?.GetType()?.Name}");
@@ -1388,24 +1373,6 @@ namespace SharpPy
             };
         }
 
-        private static string ConvertCmpopToString(GeneratedCmpop op)
-        {
-            return op switch
-            {
-                GeneratedEq _ => "Eq",
-                GeneratedNotEq _ => "NotEq",
-                GeneratedLt _ => "Lt",
-                GeneratedLtE _ => "LtE",
-                GeneratedGt _ => "Gt",
-                GeneratedGtE _ => "GtE",
-                GeneratedIs _ => "Is",
-                GeneratedIsNot _ => "IsNot",
-                GeneratedIn _ => "In",
-                GeneratedNotIn _ => "NotIn",
-                _ => throw new NotImplementedException($"Unknown GeneratedCmpop: {op.GetType().Name}")
-            };
-        }
-
         /// <summary>
         /// Convert string operator to CPython 3.12 compatible BinaryOperator node
         /// </summary>
@@ -1428,50 +1395,6 @@ namespace SharpPy
                 "@" => MatMult.Instance,
                 _ => throw new NotImplementedException($"Unknown binary operator: {op}")
             };
-        }
-
-        /// <summary>
-        /// Convert comparison operation from parser to SharpPy comparison expression
-        /// </summary>
-        private static Expression ConvertComparisonOperation(dynamic compareOp)
-        {
-            // Extract operator and operands
-            string op = compareOp.op.ToString();
-            dynamic left = compareOp.left;
-            dynamic right = compareOp.right;
-
-            // Convert left operand
-            Expression leftExpr = ConvertAnyExpression(left);
-
-            // Convert right operand
-            Expression rightExpr = ConvertAnyExpression(right);
-
-            // CompareExpression takes string operator directly
-            return new CompareExpression(leftExpr, op, rightExpr);
-        }
-
-        /// <summary>
-        /// Convert chained comparison operation (x < 5 > 3) from parser to SharpPy chained comparison expression
-        /// </summary>
-        private static Expression ConvertChainedComparisonOperation(dynamic chainedCompareOp)
-        {
-            // Extract left operand
-            dynamic left = chainedCompareOp.left;
-            Expression leftExpr = ConvertAnyExpression(left);
-
-            // Extract operators array
-            string[] ops = ((object[])chainedCompareOp.ops).Cast<string>().ToArray();
-
-            // Extract comparators array and convert each
-            object[] comparators = (object[])chainedCompareOp.comparators;
-            Expression[] comparatorExprs = comparators.Select(comp => ConvertAnyExpressionDynamic(comp)).ToArray();
-
-            // Create ChainedCompareExpression for CPython-compatible bytecode generation
-            return new ChainedCompareExpression(
-                leftExpr,
-                ops.ToList(),
-                comparatorExprs.ToList()
-            );
         }
 
         /// <summary>
@@ -1587,6 +1510,82 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Convert GeneratedAstNode (expr or pattern) to Expression
+        /// </summary>
+        private static Expression ConvertAnyExpression(GeneratedAstNode node)
+        {
+            if (node == null)
+            {
+                throw new ArgumentNullException(nameof(node), "Node cannot be null");
+            }
+
+            // Handle GeneratedExpr
+            if (node is GeneratedExpr expr)
+            {
+                return ConvertGeneratedExpression(expr);
+            }
+
+            // Handle GeneratedPattern
+            if (node is GeneratedPattern pattern)
+            {
+                return ConvertPattern(pattern);
+            }
+
+            throw new InvalidOperationException($"Cannot convert {node.GetType().Name} to Expression");
+        }
+
+        /// <summary>
+        /// Convert GeneratedPattern to Expression for match statement
+        /// CPython 3.12: Pattern types from ASDL
+        /// </summary>
+        private static Expression ConvertPattern(GeneratedPattern pattern)
+        {
+            return pattern switch
+            {
+                // MatchValue: pattern that matches a specific value
+                GeneratedMatchValue mv => ConvertAnyExpression(mv.Value),
+
+                // MatchSingleton: matches True, False, None
+                GeneratedMatchSingleton ms => new ConstantExpression(ConvertGeneratedPyConstantToPyObject(ms.Value)),
+
+                // MatchSequence: matches sequence patterns like [x, y, z]
+                GeneratedMatchSequence seq => new ListExpression(
+                    seq.Patterns.ToEnumerable<GeneratedPattern>().Select(p => ConvertPattern(p)).ToList()
+                ),
+
+                // MatchMapping: matches dict patterns like {"key": value}
+                GeneratedMatchMapping map => new DictExpression(
+                    map.Keys.ToEnumerable<GeneratedExpr>()
+                        .Zip(map.Patterns.ToEnumerable<GeneratedPattern>(),
+                             (k, p) => (Key: ConvertAnyExpression(k), Value: ConvertPattern(p)))
+                        .ToList()
+                ),
+
+                // MatchClass: matches class patterns like Point(x=1, y=2)
+                GeneratedMatchClass cls => new CallExpression(
+                    ConvertAnyExpression(cls.Cls),
+                    cls.Patterns.ToEnumerable<GeneratedPattern>().Select(p => ConvertPattern(p)).ToList(),
+                    new List<KeywordExpression>()  // TODO: handle keyword patterns
+                ),
+
+                // MatchStar: matches *rest pattern
+                GeneratedMatchStar star => star.Name != null
+                    ? new NameExpression(star.Name.ToString()!)
+                    : new NameExpression("_"),
+
+                // MatchAs: matches pattern as name (or just name, or just wildcard)
+                GeneratedMatchAs mas => mas.Pattern != null
+                    ? ConvertPattern(mas.Pattern)
+                    : new NameExpression(mas.Name?.ToString() ?? "_"),
+
+                // MatchOr: matches pattern1 | pattern2 | ...
+                GeneratedMatchOr mor => ConvertPattern(mor.Patterns.ToEnumerable<GeneratedPattern>().First()),
+
+                _ => throw new NotImplementedException($"Pattern type {pattern.GetType().Name} not implemented")
+            };
+        }
+
+        /// <summary>
         /// Legacy method for backward compatibility - converts dynamic to Expression
         /// This should be phased out
         /// </summary>
@@ -1668,7 +1667,7 @@ namespace SharpPy
 
                 GeneratedCompare compare => new CompareExpression(
                     ConvertAnyExpression(compare.Left),
-                    ConvertCmpopToString((GeneratedCmpop)compare.Ops.First()),
+                    (GeneratedCmpop)compare.Ops.First(),  // CPython 3.12: Direct use of GeneratedCmpop from ASDL
                     ConvertAnyExpression(compare.Comparators.ToEnumerable<GeneratedExpr>().First())
                 ),
 

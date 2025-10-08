@@ -3768,8 +3768,31 @@ namespace SharpPy
                 // Loop control now uses structured JUMP_FORWARD/JUMP_BACKWARD
 
                 case ByteCodeOp.IMPORT_NAME:
+                    // CPython 3.12: IMPORT_NAME(namei)
+                    // TOS = fromlist, TOS1 = level
+                    // Implements: __import__(name, globals(), locals(), fromlist, level)
+                    var fromlist = frame.ValueStack.Pop(); // TOS
+                    var level = frame.ValueStack.Pop();    // TOS1
                     var moduleName = ((PyString)frame.Code.Constants[instruction.Argument]).Value;
-                    var importedModule = PyImportSystem.Import(moduleName);
+
+                    // Extract level as integer (0 for absolute, 1+ for relative)
+                    int importLevel = 0;
+                    if (level is PyInt pyIntLevel)
+                    {
+                        importLevel = (int)pyIntLevel.Value;
+                    }
+
+                    // Extract fromlist as string array
+                    string[] fromlistArray = null;
+                    if (fromlist is PyTuple pyTupleFromlist)
+                    {
+                        fromlistArray = pyTupleFromlist.Items
+                            .Select(item => item is PyString s ? s.Value : item.ToString())
+                            .ToArray();
+                    }
+
+                    // Call import system with level and fromlist
+                    var importedModule = PyImportSystem.Import(moduleName, importLevel, fromlistArray);
                     frame.ValueStack.Push(importedModule);
                     break;
 

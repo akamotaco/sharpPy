@@ -267,6 +267,30 @@ public class PyModule : PyObject
 
 
         // import module_name (dotted import 지원)
+        /// <summary>
+        /// CPython 3.12 compatible import
+        /// Implements: __import__(name, globals, locals, fromlist, level)
+        /// </summary>
+        public static PyModule Import(string moduleName, int level = 0, string[] fromlist = null)
+        {
+            // CPython 3.12: level parameter for relative imports
+            // level=0: absolute import (default)
+            // level>0: relative import (1=., 2=.., etc)
+
+            // TODO: Implement relative import using level parameter
+            // For now, only support absolute imports (level=0)
+            if (level > 0)
+            {
+                throw new NotImplementedException($"Relative imports (level={level}) not yet implemented");
+            }
+
+            // CPython 3.12: fromlist parameter affects what is returned
+            // If fromlist is empty/null, return top-level package
+            // If fromlist has items, return the actual module with those attributes
+
+            return Import(moduleName);
+        }
+
         public static PyModule Import(string moduleName)
         {
             // 1. sys.modules 캐시 확인

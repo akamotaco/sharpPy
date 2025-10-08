@@ -982,13 +982,17 @@ namespace SharpPy.Generated
             int _end_lineno = 0;
             int _end_col_offset = 0;
 
+            #if DEBUG_PARSE_LOG
             Console.WriteLine($"[SIMPLE_STMT] START at pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+            #endif
 
             // Alternative 1
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[SIMPLE_STMT-ALT1] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1018,7 +1022,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[SIMPLE_STMT-ALT2] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1062,7 +1068,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[SIMPLE_STMT-ALT3] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1093,7 +1101,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[SIMPLE_STMT-ALT4] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1137,7 +1147,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[SIMPLE_STMT-ALT5] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1183,7 +1195,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[SIMPLE_STMT-ALT6] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1227,7 +1241,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[SIMPLE_STMT-ALT7] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1255,7 +1271,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[SIMPLE_STMT-ALT8] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1299,7 +1317,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[SIMPLE_STMT-ALT9] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1343,7 +1363,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[SIMPLE_STMT-ALT10] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1387,7 +1409,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[SIMPLE_STMT-ALT11] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1415,7 +1439,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[SIMPLE_STMT-ALT12] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1443,7 +1469,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[SIMPLE_STMT-ALT13] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1487,7 +1515,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[SIMPLE_STMT-ALT14] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -1536,7 +1566,9 @@ namespace SharpPy.Generated
             var _end_token = CurrentToken ?? _start_token;
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
+            #if DEBUG_PARSE_LOG
             Console.WriteLine($"[SIMPLE_STMT] RETURN {(_res == null ? "null" : "not-null")} at pos={_position}");
+            #endif
             // CPython: _PyPegen_insert_memo(p, _mark, SimpleStmt_type, _res)
             UpdateMemoized("SimpleStmt", _mark, _res, _position);
             return _res;
@@ -1925,7 +1957,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[ASSIGNMENT-ALT1] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -2021,7 +2055,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[ASSIGNMENT-ALT2] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -2146,7 +2182,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[ASSIGNMENT-ALT3] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -2259,7 +2297,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[ASSIGNMENT-ALT4] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -2343,7 +2383,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[ASSIGNMENT-ALT5] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -4184,9 +4226,9 @@ namespace SharpPy.Generated
                 }
                 // Action (multiline):
                 //   _PyAST_alias(a.Id,
-                //   (b) ? NameToken(b).Id : null,
+                //   b?.Value,
                 //   EXTRA)
-                _res = _PyAST_alias(a.Id, b != null ? NameToken(b).Id : null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_alias(a.Id, b?.Value, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -4333,9 +4375,9 @@ namespace SharpPy.Generated
                 }
                 // Action (multiline):
                 //   _PyAST_alias(((GeneratedName)a).Id,
-                //   (b) ? NameToken(b).Id : null,
+                //   b?.Value,
                 //   EXTRA)
-                _res = _PyAST_alias(((GeneratedName)a).Id, b != null ? NameToken(b).Id : null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                _res = _PyAST_alias(((GeneratedName)a).Id, b?.Value, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
 
@@ -15902,19 +15944,27 @@ namespace SharpPy.Generated
             int _end_lineno = 0;
             int _end_col_offset = 0;
 
+            #if DEBUG_PARSE_LOG
             Console.WriteLine($"[EXPRESSION] START at pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+            #endif
 
             // Alternative 1
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[EXPRESSION-ALT1] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[EXPRESSION-ALT1] pendingSyntaxError={(_pendingSyntaxError == null ? "null" : "SET")}");
+                #endif
                 if (_pendingSyntaxError != null)
                 {
+                    #if DEBUG_PARSE_LOG
                     Console.WriteLine($"[EXPRESSION-ALT1] SKIP due to pendingSyntaxError");
+                    #endif
                     _res = null;
                     break;
                 }
@@ -15962,13 +16012,19 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[EXPRESSION-ALT2] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[EXPRESSION-ALT2] pendingSyntaxError={(_pendingSyntaxError == null ? "null" : "SET")}");
+                #endif
                 if (_pendingSyntaxError != null)
                 {
+                    #if DEBUG_PARSE_LOG
                     Console.WriteLine($"[EXPRESSION-ALT2] SKIP due to pendingSyntaxError");
+                    #endif
                     _res = null;
                     break;
                 }
@@ -16016,13 +16072,19 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[EXPRESSION-ALT3] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[EXPRESSION-ALT3] pendingSyntaxError={(_pendingSyntaxError == null ? "null" : "SET")}");
+                #endif
                 if (_pendingSyntaxError != null)
                 {
+                    #if DEBUG_PARSE_LOG
                     Console.WriteLine($"[EXPRESSION-ALT3] SKIP due to pendingSyntaxError");
+                    #endif
                     _res = null;
                     break;
                 }
@@ -16091,13 +16153,19 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[EXPRESSION-ALT4] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[EXPRESSION-ALT4] pendingSyntaxError={(_pendingSyntaxError == null ? "null" : "SET")}");
+                #endif
                 if (_pendingSyntaxError != null)
                 {
+                    #if DEBUG_PARSE_LOG
                     Console.WriteLine($"[EXPRESSION-ALT4] SKIP due to pendingSyntaxError");
+                    #endif
                     _res = null;
                     break;
                 }
@@ -16123,13 +16191,19 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[EXPRESSION-ALT5] START at pos={_position}");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
+                #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[EXPRESSION-ALT5] pendingSyntaxError={(_pendingSyntaxError == null ? "null" : "SET")}");
+                #endif
                 if (_pendingSyntaxError != null)
                 {
+                    #if DEBUG_PARSE_LOG
                     Console.WriteLine($"[EXPRESSION-ALT5] SKIP due to pendingSyntaxError");
+                    #endif
                     _res = null;
                     break;
                 }
@@ -16160,7 +16234,9 @@ namespace SharpPy.Generated
             var _end_token = CurrentToken ?? _start_token;
             _end_lineno = _end_token?.Line ?? _start_lineno;
             _end_col_offset = _end_token?.Column ?? _start_col_offset;
+            #if DEBUG_PARSE_LOG
             Console.WriteLine($"[EXPRESSION] RETURN {(_res == null ? "null" : "not-null")} at pos={_position}");
+            #endif
             // CPython: _PyPegen_insert_memo(p, _mark, Expression_type, _res)
             UpdateMemoized("Expression", _mark, _res, _position);
             return _res;

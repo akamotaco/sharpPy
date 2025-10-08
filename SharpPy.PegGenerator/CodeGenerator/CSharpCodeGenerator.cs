@@ -1971,7 +1971,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             if (rule.Name.Equals("expression", StringComparison.OrdinalIgnoreCase) ||
                 rule.Name.Equals("simple_stmt", StringComparison.OrdinalIgnoreCase))
             {
+                WriteLine("#if DEBUG_PARSE_LOG");
                 WriteLine($"Console.WriteLine($\"[{rule.Name.ToUpper()}] START at pos={{_position}}, token={{CurrentToken?.Type}}:'{{CurrentToken?.Value}}'\");");
+                WriteLine("#endif");
                 WriteLine();
             }
 
@@ -2007,7 +2009,9 @@ namespace SharpPy.PegGenerator.CodeGenerator
             if (rule.Name.Equals("expression", StringComparison.OrdinalIgnoreCase) ||
                 rule.Name.Equals("simple_stmt", StringComparison.OrdinalIgnoreCase))
             {
+                WriteLine("#if DEBUG_PARSE_LOG");
                 WriteLine($"Console.WriteLine($\"[{rule.Name.ToUpper()}] RETURN {{(_res == null ? \"null\" : \"not-null\")}} at pos={{_position}}\");");
+                WriteLine("#endif");
             }
 
             // CPython 3.12: Insert memo before returning (for memoized functions)

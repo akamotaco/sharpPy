@@ -3508,6 +3508,52 @@ namespace SharpPy
             EmitInstruction(opCode);
         }
         
+        // CPython 3.12: Emit compare op from GeneratedCmpop (ASDL)
+        private void EmitCompareOp(Generated.GeneratedCmpop op)
+        {
+            switch (op)
+            {
+                // CPython: CONTAINS_OP
+                case Generated.GeneratedIn _:
+                    EmitInstruction(ByteCodeOp.CONTAINS_OP, 0); // 0 = in
+                    return;
+                case Generated.GeneratedNotIn _:
+                    EmitInstruction(ByteCodeOp.CONTAINS_OP, 1); // 1 = not in
+                    return;
+
+                // CPython: IS_OP
+                case Generated.GeneratedIs _:
+                    EmitInstruction(ByteCodeOp.IS_OP, 0); // 0 = is
+                    return;
+                case Generated.GeneratedIsNot _:
+                    EmitInstruction(ByteCodeOp.IS_OP, 1); // 1 = is not
+                    return;
+
+                // CPython: COMPARE_OP
+                case Generated.GeneratedLt _:
+                    EmitInstruction(ByteCodeOp.COMPARE_OP, (int)CompareOp.LT);
+                    return;
+                case Generated.GeneratedLtE _:
+                    EmitInstruction(ByteCodeOp.COMPARE_OP, (int)CompareOp.LE);
+                    return;
+                case Generated.GeneratedEq _:
+                    EmitInstruction(ByteCodeOp.COMPARE_OP, (int)CompareOp.EQ);
+                    return;
+                case Generated.GeneratedNotEq _:
+                    EmitInstruction(ByteCodeOp.COMPARE_OP, (int)CompareOp.NE);
+                    return;
+                case Generated.GeneratedGt _:
+                    EmitInstruction(ByteCodeOp.COMPARE_OP, (int)CompareOp.GT);
+                    return;
+                case Generated.GeneratedGtE _:
+                    EmitInstruction(ByteCodeOp.COMPARE_OP, (int)CompareOp.GE);
+                    return;
+
+                default:
+                    throw new NotImplementedException($"Compare operator {op.GetType().Name} not implemented");
+            }
+        }
+
         private void EmitCompareOp(string op)
         {
             // Handle membership test operations with CONTAINS_OP
@@ -4900,33 +4946,38 @@ namespace SharpPy
         }
         private void CompileImportFrom(ImportFromStatement importFrom)
         {
-            // Load the module first
-            var moduleIndex = GetOrAddConstant(new PyString(importFrom.Module));
+            // CPython 3.12: IMPORT_NAME expects (level, fromlist) on stack
+            // 1. LOAD_CONST - level (0 for absolute import, 1 for ., 2 for .., etc)
+            var levelIndex = GetOrAddConstant(new PyInt(importFrom.Level));
+            EmitInstruction(ByteCodeOp.LOAD_CONST, levelIndex);
+
+            // 2. LOAD_CONST - fromlist (tuple of imported names)
+            var fromlistItems = importFrom.Names.Select(alias => (PyObject)new PyString(alias.Name)).ToArray();
+            var fromlist = new PyTuple(fromlistItems);
+            var fromlistIndex = GetOrAddConstant(fromlist);
+            EmitInstruction(ByteCodeOp.LOAD_CONST, fromlistIndex);
+
+            // 3. IMPORT_NAME - module name
+            var moduleIndex = GetOrAddConstant(new PyString(importFrom.Module ?? ""));
             EmitInstruction(ByteCodeOp.IMPORT_NAME, moduleIndex);
-            
+
+            // 4. For each imported name, emit IMPORT_FROM and STORE
             foreach (var importAlias in importFrom.Names)
             {
                 // Extract actual item name and alias from ImportAlias object
                 string actualItem = importAlias.Name;
                 string alias = importAlias.AsName ?? importAlias.Name;
-                
+
                 // Emit IMPORT_FROM bytecode
                 var itemIndex = GetOrAddConstant(new PyString(actualItem));
                 EmitInstruction(ByteCodeOp.IMPORT_FROM, itemIndex);
-                
+
                 // Store the imported item in the correct variable name
-                // CPython 3.12: Use STORE_GLOBAL for module level imports
+                // CPython 3.12: Use STORE_NAME for both module and function level
                 var nameIndex = AddName(alias);
-                if (IsModuleLevel())
-                {
-                    EmitInstruction(ByteCodeOp.STORE_GLOBAL, nameIndex);
-                }
-                else
-                {
-                    EmitInstruction(ByteCodeOp.STORE_NAME, nameIndex);
-                }
+                EmitInstruction(ByteCodeOp.STORE_NAME, nameIndex);
             }
-            
+
             // Pop the module from stack (cleanup)
             EmitInstruction(ByteCodeOp.POP_TOP);
         }

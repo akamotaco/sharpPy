@@ -182,6 +182,21 @@ namespace SharpPy.Tools
                 return FormatNode(node, indentLevel);
             }
 
+            // ImportAlias 처리 (CPython 3.12 호환)
+            if (value is ImportAlias alias)
+            {
+                var sb = new StringBuilder();
+                sb.Append(indent);
+                sb.Append("alias(");
+                sb.Append($"name='{alias.Name}'");
+                if (!string.IsNullOrEmpty(alias.AsName))
+                {
+                    sb.Append($", asname='{alias.AsName}'");
+                }
+                sb.Append(")");
+                return sb.ToString();
+            }
+
             // 기본 타입 처리
             if (value is string str)
                 return $"'{str}'";
