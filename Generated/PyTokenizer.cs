@@ -608,11 +608,16 @@ namespace SharpPy.Generated
                         var newlineColumn = _column;
                         var newlineValue = "\r";
 
-                        // CPython 3.12: Colon-followed-by-newline always generates NEWLINE token
-                        #if DEBUG_TOKEN_LOG
-                        Console.WriteLine($"[DEBUG] Standalone \r: checking _lastTokenWasColon: {_lastTokenWasColon}");
-                        #endif
-                        if (_lastTokenWasColon)
+                        // CPython 3.12: Inside parentheses always NL, even after colon
+                        if (IsInsideParentheses)
+                        {
+                            AddToken(GeneratedTokenType.NL, newlineValue, _line, newlineColumn);
+                            // Process pending DEDENT tokens after NL
+                            ProcessPendingTokens();
+                            _lastTokenWasColon = false; // Reset after processing
+                        }
+                        // CPython 3.12: Colon-followed-by-newline generates NEWLINE token (only outside parentheses)
+                        else if (_lastTokenWasColon)
                         {
                             #if DEBUG_TOKEN_LOG
                             Console.WriteLine($"[DEBUG] Generating NEWLINE token after colon (standalone \r): value='{newlineValue}', line={_line}, col={newlineColumn}");
@@ -620,13 +625,7 @@ namespace SharpPy.Generated
                             AddToken(GeneratedTokenType.NEWLINE, newlineValue, _line, newlineColumn);
                             _lastTokenWasColon = false; // Reset after processing
                         }
-                        // Inside parentheses: always NL; Outside: check if blank line
-                        else if (IsInsideParentheses)
-                        {
-                            AddToken(GeneratedTokenType.NL, newlineValue, _line, newlineColumn);
-                            // Process pending DEDENT tokens after NL
-                            ProcessPendingTokens();
-                        }
+                        // Outside parentheses: check if blank line
                         else
                         {
                             bool isBlankLine = IsBlankLine();
@@ -665,11 +664,16 @@ namespace SharpPy.Generated
                         newlineColumn = _column - 1; // Start from \r position
                     }
 
-                    // CPython 3.12: Colon-followed-by-newline always generates NEWLINE token
-                    #if DEBUG_TOKEN_LOG
-                    Console.WriteLine($"[DEBUG] \n processing: checking _lastTokenWasColon: {_lastTokenWasColon}, newlineValue='{newlineValue}'");
-                    #endif
-                    if (_lastTokenWasColon)
+                    // CPython 3.12: Inside parentheses always NL, even after colon
+                    if (IsInsideParentheses)
+                    {
+                        AddToken(GeneratedTokenType.NL, newlineValue, _line, newlineColumn);
+                        // Process pending DEDENT tokens after NL
+                        ProcessPendingTokens();
+                        _lastTokenWasColon = false; // Reset after processing
+                    }
+                    // CPython 3.12: Colon-followed-by-newline generates NEWLINE token (only outside parentheses)
+                    else if (_lastTokenWasColon)
                     {
                         #if DEBUG_TOKEN_LOG
                         Console.WriteLine($"[DEBUG] Generating NEWLINE token after colon (\n processing): value='{newlineValue}', line={_line}, col={newlineColumn}");
@@ -677,13 +681,7 @@ namespace SharpPy.Generated
                         AddToken(GeneratedTokenType.NEWLINE, newlineValue, _line, newlineColumn);
                         _lastTokenWasColon = false; // Reset after processing
                     }
-                    // Inside parentheses: always NL; Outside: check if blank line
-                    else if (IsInsideParentheses)
-                    {
-                        AddToken(GeneratedTokenType.NL, newlineValue, _line, newlineColumn);
-                        // Process pending DEDENT tokens after NL
-                        ProcessPendingTokens();
-                    }
+                    // Outside parentheses: check if blank line
                     else
                     {
                         bool isBlankLine = IsBlankLine();
@@ -1149,6 +1147,10 @@ namespace SharpPy.Generated
 
         private void ParseFStringExpression()
         {
+            // CPython 3.12: Track bracket/paren depth to distinguish slice colon from format spec colon
+            int bracketDepth = 0;  // Tracks [] nesting
+            int parenDepth = 0;    // Tracks () nesting
+
             // Parse the expression inside f-string braces with full tokenization like CPython
             while (_position < _source.Length && CurrentChar != '}')
             {
@@ -1159,8 +1161,43 @@ namespace SharpPy.Generated
                     continue;
                 }
 
-                // Handle colon for format specification - switch to FSTRING_MIDDLE mode
-                if (CurrentChar == ':')
+                // CPython 3.12: Track bracket depth for slice vs format spec distinction
+                if (CurrentChar == '[')
+                {
+                    bracketDepth++;
+                    AddToken(GeneratedTokenType.OP, "[", _line, _column);
+                    _currentLineHasRealTokens = true;
+                    Advance();
+                    continue;
+                }
+                if (CurrentChar == ']')
+                {
+                    bracketDepth--;
+                    AddToken(GeneratedTokenType.OP, "]", _line, _column);
+                    _currentLineHasRealTokens = true;
+                    Advance();
+                    continue;
+                }
+                if (CurrentChar == '(')
+                {
+                    parenDepth++;
+                    AddToken(GeneratedTokenType.OP, "(", _line, _column);
+                    _currentLineHasRealTokens = true;
+                    Advance();
+                    continue;
+                }
+                if (CurrentChar == ')')
+                {
+                    parenDepth--;
+                    AddToken(GeneratedTokenType.OP, ")", _line, _column);
+                    _currentLineHasRealTokens = true;
+                    Advance();
+                    continue;
+                }
+
+                // CPython 3.12: Handle colon - distinguish between slice colon and format spec colon
+                // Colon is format spec ONLY if we're not inside brackets/parens
+                if (CurrentChar == ':' && bracketDepth == 0 && parenDepth == 0)
                 {
                     // Emit colon as OP token
                     AddToken(GeneratedTokenType.OP, ":", _line, _column);
@@ -1182,6 +1219,14 @@ namespace SharpPy.Generated
                         _currentLineHasRealTokens = true;
                     }
                     break; // Exit the main loop
+                }
+                else if (CurrentChar == ':')
+                {
+                    // Colon inside brackets/parens - this is a slice operator, emit as OP
+                    AddToken(GeneratedTokenType.OP, ":", _line, _column);
+                    _currentLineHasRealTokens = true;
+                    Advance();
+                    continue;
                 }
 
                 // Handle numbers

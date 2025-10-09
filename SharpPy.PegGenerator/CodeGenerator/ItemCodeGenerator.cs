@@ -1207,14 +1207,70 @@ namespace SharpPy.PegGenerator.CodeGenerator
             switch (nla.Expression)
             {
                 case Group grp:
-                    // For group like ('=' | ':='), test each alternative
+                    // For group like ('=' | ':=') or sequence like (NAME '=')
                     _parent.WriteLine($"// Test if current token matches: {nla.Expression}");
-                    foreach (var alt in grp.Alternatives)
+
+                    // Check if this is a sequence (single alternative with multiple items) or alternatives
+                    if (grp.Alternatives.Count == 1 && grp.Alternatives[0].Items.Count > 1)
                     {
-                        if (alt.Items.Count == 1 && alt.Items[0].Atom is StringLiteral lit)
+                        // This is a sequence like (NAME '=')
+                        // We need to check all items in sequence match
+                        var alt = grp.Alternatives[0];
+                        _parent.WriteLine($"int _nla_mark = _position;");
+                        _parent.WriteLine($"{{");
+                        _parent.Indent();
+
+                        List<string> checks = new();
+                        for (int i = 0; i < alt.Items.Count; i++)
                         {
-                            var escaped = _parent.EscapeString(lit.Value);
-                            _parent.WriteLine($"if (CurrentToken?.Value == \"{escaped}\") {{ {testVar} = CurrentToken; }}");
+                            var item = alt.Items[i];
+                            var checkVar = $"_nla_check_{i}";
+
+                            switch (item.Atom)
+                            {
+                                case RuleRef rref:
+                                    bool isTokenSeq = char.IsUpper(rref.Name[0]);
+                                    if (isTokenSeq)
+                                    {
+                                        _parent.WriteLine($"var {checkVar} = ExpectToken(GeneratedTokenType.{rref.Name});");
+                                    }
+                                    else
+                                    {
+                                        var methodName = ToPascalCase(rref.Name);
+                                        _parent.WriteLine($"var {checkVar} = {methodName}();");
+                                    }
+                                    break;
+
+                                case StringLiteral slit:
+                                    var escaped = _parent.EscapeString(slit.Value);
+                                    _parent.WriteLine($"var {checkVar} = Expect(GeneratedTokenType.OP, \"{escaped}\");");
+                                    break;
+
+                                default:
+                                    _parent.WriteLine($"// Unsupported atom type in sequence lookahead: {item.Atom.GetType().Name}");
+                                    break;
+                            }
+                            checks.Add(checkVar);
+                        }
+
+                        // If all checks passed, set testVar
+                        var condition = string.Join(" != null && ", checks) + " != null";
+                        _parent.WriteLine($"if ({condition}) {{ {testVar} = CurrentToken; }}");
+
+                        _parent.Dedent();
+                        _parent.WriteLine($"}}");
+                        _parent.WriteLine($"_position = _nla_mark;  // Restore position after lookahead");
+                    }
+                    else
+                    {
+                        // This is alternatives like ('=' | ':=')
+                        foreach (var alt in grp.Alternatives)
+                        {
+                            if (alt.Items.Count == 1 && alt.Items[0].Atom is StringLiteral lit)
+                            {
+                                var escaped = _parent.EscapeString(lit.Value);
+                                _parent.WriteLine($"if (CurrentToken?.Value == \"{escaped}\") {{ {testVar} = CurrentToken; }}");
+                            }
                         }
                     }
                     break;

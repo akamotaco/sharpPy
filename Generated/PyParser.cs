@@ -30302,6 +30302,13 @@ namespace SharpPy.Generated
                 // Negative lookahead: !((NAME '='))
                 GeneratedTokenInfo? _lookahead_test_58 = null;
                 // Test if current token matches: (NAME '=')
+                int _nla_mark = _position;
+                {
+                    var _nla_check_0 = ExpectToken(GeneratedTokenType.NAME);
+                    var _nla_check_1 = Expect(GeneratedTokenType.OP, "=");
+                    if (_nla_check_0 != null && _nla_check_1 != null) { _lookahead_test_58 = CurrentToken; }
+                }
+                _position = _nla_mark;  // Restore position after lookahead
                 if (_lookahead_test_58 != null)
                 {
                     // Negative lookahead matched - fail
