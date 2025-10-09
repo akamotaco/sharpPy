@@ -3864,35 +3864,47 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.SET_ADD:
-                    // CPython 호환: SET_ADD i
+                    // CPython 3.12 호환: SET_ADD i
                     // 스택: [..., set, ..., item] → [..., set, ...]
                     var setItem = frame.ValueStack.Pop();
-                    var setStackArray = frame.ValueStack.ToArray();
-                    Array.Reverse(setStackArray); // CPython 호환 스택 순서
 
-                    if (instruction.Argument > 0 && instruction.Argument <= setStackArray.Length)
+                    // CPython 3.12: SET_ADD i에서 타겟 set 찾기 (LIST_APPEND와 동일한 방식)
+                    var setTargetDepth = instruction.Argument - 1; // 0-based 인덱스
+
+                    if (frame.ValueStack.Count <= setTargetDepth)
                     {
-                        var targetSet = setStackArray[instruction.Argument - 1];
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔍 SET_ADD Debug: depth={instruction.Argument}, stackArray.Length={setStackArray.Length}");
-                        Console.WriteLine($"🔍 SET_ADD Debug: targetSet at index {instruction.Argument - 1} = {targetSet?.GetType().Name ?? "null"}, value = {targetSet?.ToString() ?? "null"}");
-                        for (int i = 0; i < Math.Min(5, setStackArray.Length); i++)
+                        throw new Exception($"SET_ADD: not enough items on stack (need {setTargetDepth + 1}, got {frame.ValueStack.Count})");
+                    }
+
+                    // 스택 위치에서 set 찾기 - PyNull 건너뛰기
+                    var targetSet = frame.ValueStack.ElementAt(setTargetDepth);
+
+                    // PyNull인 경우 실제 set을 찾기 위해 스택을 탐색
+                    if (PyNull.IsNull(targetSet))
+                    {
+                        // PyNull들을 건너뛰고 실제 set 찾기
+                        for (int i = setTargetDepth; i < frame.ValueStack.Count; i++)
                         {
-                            Console.WriteLine($"    Stack[{i}]: {setStackArray[i]?.GetType().Name ?? "null"} = {setStackArray[i]?.ToString() ?? "null"}");
+                            var candidate = frame.ValueStack.ElementAt(i);
+                            if (!PyNull.IsNull(candidate))
+                            {
+                                targetSet = candidate;
+                                break;
+                            }
                         }
-                        #endif
-                        if (targetSet is PySet targetPySet)
-                        {
-                            targetPySet.Add(setItem);
-                        }
-                        else
-                        {
-                            throw new Exception($"SET_ADD: target is not a set, got {targetSet?.GetType().Name ?? "null"}");
-                        }
+                    }
+
+                    if (targetSet is PySet targetPySet)
+                    {
+                        targetPySet.Add(setItem);
+                    }
+                    else if (PyNull.IsNull(targetSet))
+                    {
+                        throw new Exception($"SET_ADD: target is NULL at depth {setTargetDepth}");
                     }
                     else
                     {
-                        throw new Exception($"SET_ADD: invalid stack position {instruction.Argument}");
+                        throw new Exception($"SET_ADD: target is not a set, got {targetSet?.GetType().Name ?? "null"}");
                     }
                     break;
 
