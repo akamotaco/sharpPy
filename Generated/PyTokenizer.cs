@@ -1327,7 +1327,7 @@ namespace SharpPy.Generated
             #if DEBUG_TOKEN_LOG
             Console.WriteLine($"[DEBUG] Checking empty line: position={_position}, length={_source.Length}, char='{CurrentChar}'");
             #endif
-            if (_position >= _source.Length || CurrentChar == '\n' || CurrentChar == '#')
+            if (_position >= _source.Length || CurrentChar == '\n' || CurrentChar == '\r' || CurrentChar == '#')
             {
                 #if DEBUG_TOKEN_LOG
                 Console.WriteLine("[DEBUG] Empty line detected, setting _atLineStart=false");

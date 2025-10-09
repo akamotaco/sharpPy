@@ -1684,7 +1684,7 @@ namespace SharpPy.Tokenizer
             WriteLine("#if DEBUG_TOKEN_LOG");
             WriteLine("Console.WriteLine($\"[DEBUG] Checking empty line: position={_position}, length={_source.Length}, char='{CurrentChar}'\");");
             WriteLine("#endif");
-            WriteLine("if (_position >= _source.Length || CurrentChar == '\\n' || CurrentChar == '#')");
+            WriteLine("if (_position >= _source.Length || CurrentChar == '\\n' || CurrentChar == '\\r' || CurrentChar == '#')");
             WriteLine("{");
             Indent();
             WriteLine("#if DEBUG_TOKEN_LOG");

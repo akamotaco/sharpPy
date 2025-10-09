@@ -4243,57 +4243,13 @@ namespace SharpPy
             // Compile class body into a function
             var classBodyName = $"<class_body_{cls.Name}>";
 
-            // Check if class has free variables (needs closure)
-            var classFreeVars = GetClassFreeVariables(cls.Name);
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 GetClassFreeVariables for {cls.Name}: {classFreeVars.Count} free vars [{string.Join(", ", classFreeVars)}]");
-            #endif
-
-            // Try alternative class body name if first attempt failed
-            if (classFreeVars.Count == 0)
-            {
-                var classBodyFreeVars = GetClassFreeVariables(classBodyName);
-                #if DEBUG_LOG
-                Console.WriteLine($"🔍 Alternative GetClassFreeVariables for {classBodyName}: {classBodyFreeVars.Count} free vars [{string.Join(", ", classBodyFreeVars)}]");
-                #endif
-                if (classBodyFreeVars.Count > 0)
-                {
-                    classFreeVars = classBodyFreeVars;
-                }
-                else
-                {
-                    // Fallback: Analyze class body directly to find free variables
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 Symbol table lookup failed, using direct class body analysis");
-                    #endif
-                    classFreeVars = GetClassFreeVariablesFromBody(cls.Body);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 GetClassFreeVariablesFromBody for {cls.Name}: {classFreeVars.Count} free vars [{string.Join(", ", classFreeVars)}]");
-                    #endif
-                }
-            }
-
-            if (classFreeVars.Count > 0)
-            {
-                // Create closure: LOAD_CLOSURE + BUILD_TUPLE
-                foreach (var freeVar in classFreeVars)
-                {
-                    EmitLoadClosure(freeVar);
-                }
-                EmitInstruction(ByteCodeOp.BUILD_TUPLE, classFreeVars.Count);
-
-                // Compile class body with closure support
-                var classBodyCode = CompileClassBody(cls.Body, classBodyName);
-                EmitLoadConst(classBodyCode);
-                EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 8); // 8 = closure flag
-            }
-            else
-            {
-                // No closure needed - original logic
-                var classBodyCode = CompileClassBody(cls.Body, classBodyName);
-                EmitLoadConst(classBodyCode);
-                EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 0);
-            }
+            // CPython 3.12: Class bodies do NOT use closures/free variables
+            // All external variable references in class bodies use LOAD_NAME (global/builtin lookup)
+            // This is different from regular functions which use LOAD_DEREF for closures
+            // See CPython's symtable.c: class scopes are handled differently
+            var classBodyCode = CompileClassBody(cls.Body, classBodyName);
+            EmitLoadConst(classBodyCode);
+            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 0); // No closure flag
             
             // Load class name
             EmitLoadConst(new PyString(cls.Name));
@@ -4751,18 +4707,9 @@ namespace SharpPy
             // Keep existing Exception Table entries instead of resetting
             // _exceptionTable = new List<ExceptionTableEntry>(); // Removed: This was causing Exception Table entry loss
 
-            // Set up free variables if class symbol table is available
-            if (classSymbolTable != null)
-            {
-                var classFreeVars = classSymbolTable.FindFreeVariables();
-                _freeVars.AddRange(classFreeVars);
-                #if DEBUG_LOG
-                if (classFreeVars.Count > 0)
-                {
-                    Console.WriteLine($"🔍 Class {className} has {classFreeVars.Count} free variables: [{string.Join(", ", classFreeVars)}]");
-                }
-                #endif
-            }
+            // CPython 3.12: Class bodies do NOT use free variables
+            // All external variable references use LOAD_NAME (global/builtin lookup)
+            // Do NOT set up free variables even if symbol table reports them
             
             // Check if class body contains super() calls and add __class__ cell variable if needed
             if (ContainsSuperCalls(body))
@@ -4789,14 +4736,8 @@ namespace SharpPy
             
             try
             {
-                // CPython 3.12: Emit COPY_FREE_VARS if there are free variables
-                if (_freeVars.Count > 0)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 Emitting COPY_FREE_VARS for {_freeVars.Count} free variables in class {className}");
-                    #endif
-                    EmitInstruction(ByteCodeOp.COPY_FREE_VARS, _freeVars.Count);
-                }
+                // CPython 3.12: Class bodies do NOT emit COPY_FREE_VARS
+                // Classes use LOAD_NAME for external variable access, not closures
 
                 // CPython 3.12: Setup __module__ attribute in class body
                 // This is equivalent to: __module__ = __name__
