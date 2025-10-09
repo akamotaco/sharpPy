@@ -1083,17 +1083,45 @@ namespace SharpPy
                             {
                                 string moduleName = "";
 
-                                // Try to extract module name from dynamic object
+                                // CPython 3.12: ImportStatement.Names contains GeneratedAlias objects
+                                // GeneratedAlias.Name is GeneratedIdentifier (string wrapper)
                                 try
                                 {
-                                    var moduleObjDyn = moduleObj as dynamic;
-                                    if (moduleObjDyn?.name != null)
+                                    if (moduleObj is GeneratedAlias alias && alias.Name != null)
                                     {
-                                        moduleName = moduleObjDyn.name.ToString();
+                                        // Get name from GeneratedIdentifier (implicit conversion to string)
+                                        string nameStr = alias.Name;
+
+                                        // Handle "as" clause if present
+                                        if (alias.Asname != null)
+                                        {
+                                            string asnameStr = alias.Asname;
+                                            if (!string.IsNullOrEmpty(asnameStr))
+                                            {
+                                                moduleName = $"{nameStr} as {asnameStr}";
+                                            }
+                                            else
+                                            {
+                                                moduleName = nameStr;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            moduleName = nameStr;
+                                        }
                                     }
                                     else
                                     {
-                                        moduleName = moduleObj.ToString();
+                                        // Fallback: try dynamic access
+                                        var moduleObjDyn = moduleObj as dynamic;
+                                        if (moduleObjDyn?.Name != null)
+                                        {
+                                            moduleName = moduleObjDyn.Name.ToString();
+                                        }
+                                        else
+                                        {
+                                            moduleName = moduleObj.ToString();
+                                        }
                                     }
                                 }
                                 catch

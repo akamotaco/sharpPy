@@ -425,15 +425,41 @@ namespace SharpPy.Generated
         {
             if (token == null) return null;
             var constant = new GeneratedConstant();
-            // Parse number value
-            if (token.Value.Contains(".") || token.Value.Contains("e") || token.Value.Contains("E"))
+            // CPython 3.12: Parse number value (decimal, hex, octal, binary, float)
+            string value = token.Value;
+
+            // Check for complex numbers (j suffix) - TODO: implement PyComplex
+            if (value.EndsWith("j", StringComparison.OrdinalIgnoreCase) || value.EndsWith("J"))
             {
-                constant.Value = new GeneratedPyConstantFloat(double.Parse(token.Value));
+                // For now, treat as comment/unsupported
+                throw new System.NotImplementedException("Complex numbers not yet supported");
             }
+            // Check for floating point
+            else if (value.Contains(".") || value.Contains("e", StringComparison.OrdinalIgnoreCase))
+            {
+                constant.Value = new GeneratedPyConstantFloat(double.Parse(value));
+            }
+            // Check for hexadecimal (0x or 0X)
+            else if (value.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            {
+                constant.Value = new GeneratedPyConstantInt(Convert.ToInt64(value, 16));
+            }
+            // Check for octal (0o or 0O)
+            else if (value.StartsWith("0o", StringComparison.OrdinalIgnoreCase))
+            {
+                constant.Value = new GeneratedPyConstantInt(Convert.ToInt64(value.Substring(2), 8));
+            }
+            // Check for binary (0b or 0B)
+            else if (value.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
+            {
+                constant.Value = new GeneratedPyConstantInt(Convert.ToInt64(value.Substring(2), 2));
+            }
+            // Decimal integer
             else
             {
-                constant.Value = new GeneratedPyConstantInt(long.Parse(token.Value));
+                constant.Value = new GeneratedPyConstantInt(long.Parse(value));
             }
+
             constant.LineNo = token.Line;
             constant.ColOffset = token.Column;
             constant.EndLineNo = token.EndLine;

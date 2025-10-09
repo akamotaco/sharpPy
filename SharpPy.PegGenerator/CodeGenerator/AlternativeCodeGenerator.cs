@@ -417,18 +417,36 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             // Remove CHECK_VERSION wrapper first
             // CHECK_VERSION(type, version, "message", actual_call)
-            if (action.Contains("CHECK_VERSION("))
+            if (action.Contains("CHECK_VERSION"))
             {
-                var cvStart = action.IndexOf("CHECK_VERSION(");
-                var cvEnd = FindMatchingParen(action, cvStart + 13);  // +13 for "CHECK_VERSION"
-                if (cvEnd > cvStart)
+                var cvStart = action.IndexOf("CHECK_VERSION");
+                // Skip past "CHECK_VERSION" to find opening paren
+                var cvParenStart = action.IndexOf('(', cvStart);
+                if (cvParenStart >= 0)
                 {
-                    var cvContent = action.Substring(cvStart + 14, cvEnd - cvStart - 14);
-                    // Find the last comma to get the actual AST call
-                    var lastComma = cvContent.LastIndexOf(',');
-                    if (lastComma >= 0)
+                    var cvEnd = FindMatchingParen(action, cvParenStart);
+                    if (cvEnd > cvParenStart)
                     {
-                        action = cvContent.Substring(lastComma + 1).Trim();
+                        var cvContent = action.Substring(cvParenStart + 1, cvEnd - cvParenStart - 1);
+
+                        Console.WriteLine($"[DEBUG CHECK_VERSION] Full action: {action}");
+                        Console.WriteLine($"[DEBUG CHECK_VERSION] Content: {cvContent}");
+
+                        // Split by comma respecting nested parens/quotes
+                        var cvArgs = SplitArgumentsRespectingParens(cvContent);
+
+                        Console.WriteLine($"[DEBUG CHECK_VERSION] Args count: {cvArgs.Count}");
+                        for (int i = 0; i < cvArgs.Count; i++)
+                        {
+                            Console.WriteLine($"[DEBUG CHECK_VERSION] Arg[{i}]: {cvArgs[i]}");
+                        }
+
+                        // Last argument is the actual expression
+                        if (cvArgs.Count >= 4)
+                        {
+                            action = cvArgs[cvArgs.Count - 1].Trim();
+                            Console.WriteLine($"[DEBUG CHECK_VERSION] Extracted action: {action}");
+                        }
                     }
                 }
             }

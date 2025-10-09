@@ -645,6 +645,24 @@ namespace SharpPy
         }
     }
 
+    /// <summary>
+    /// Python EOFError - 입력에서 예상치 못한 EOF 발생
+    /// CPython 3.12: Raised when input() hits EOF (Ctrl+D/Ctrl+Z)
+    /// </summary>
+    public class PyEOFError : PyException
+    {
+        public PyEOFError(string message = "EOF when reading a line") : base(message) { }
+
+        public override string GetTypeName() => "EOFError";
+        public override PyType GetPyType() => PyType.EOFErrorType;
+
+        public new static PythonException Create(string message = "EOF when reading a line")
+        {
+            var pyException = new PyEOFError(message);
+            return new PythonException(pyException);
+        }
+    }
+
     #endregion
 
     #region Exception Utilities

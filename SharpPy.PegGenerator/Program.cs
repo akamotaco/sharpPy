@@ -203,7 +203,7 @@ namespace SharpPy.PegGenerator
             Console.WriteLine();
             Console.WriteLine("Options:");
             Console.WriteLine("  --asdl <path>           Path to Python.asdl file (default: ../Grammar/Python.asdl)");
-            Console.WriteLine("  --grammar <path>        Path to python.gram file (default: ../Grammar/python.gram)");
+            Console.WriteLine("  --grammar <path>        Path to python_cs.gram file (default: ../Grammar/python_cs.gram)");
             Console.WriteLine("  --tokens <path>         Path to Tokens file (default: ../Grammar/Tokens)");
             Console.WriteLine("  --ast-output <path>     AST types output C# file path (default: ../Generated/GeneratedAstTypes.cs)");
             Console.WriteLine("  --parser-output <path>  Parser output C# file path (default: ../Generated/PyParser.cs)");

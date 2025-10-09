@@ -159,6 +159,7 @@ namespace SharpPy
             return Name switch
             {
                 "print" => CallPrint(args, kwargs),
+                "input" => CallInput(args, kwargs),
                 "len" => CallLen(args, kwargs),
                 "abs" => CallAbs(args, kwargs),
                 "callable" => CallCallable(args, kwargs),
@@ -278,6 +279,53 @@ namespace SharpPy
             }
 
             return PyNone.Instance;
+        }
+
+        private PyObject CallInput(PyObject[] args, PyDict kwargs = null)
+        {
+            // CPython 3.12: input(prompt='', /)
+            // Read a string from standard input. The trailing newline is stripped.
+            // If the user hits EOF, raise EOFError.
+
+            // input()은 kwargs를 받지 않음 (positional-only parameter)
+            if (kwargs != null && kwargs.InternalDict.Count > 0)
+                throw PyTypeError.Create("input() takes no keyword arguments");
+
+            // 최대 1개 인수 (prompt)
+            if (args.Length > 1)
+                throw PyTypeError.Create($"input() takes at most 1 argument ({args.Length} given)");
+
+            // prompt가 주어지면 출력 (줄바꿈 없이)
+            if (args.Length == 1)
+            {
+                var prompt = args[0].ToStr();
+                Console.Write(prompt);
+            }
+
+            // stdin에서 한 줄 읽기
+            try
+            {
+                var line = Console.ReadLine();
+
+                // CPython 3.12: EOF (Ctrl+D on Unix, Ctrl+Z on Windows) raises EOFError
+                if (line == null)
+                {
+                    throw PyEOFError.Create("EOF when reading a line");
+                }
+
+                // CPython 3.12: 줄바꿈은 자동으로 제거됨 (ReadLine이 이미 제거함)
+                return new PyString(line);
+            }
+            catch (PythonException)
+            {
+                // Python 예외는 그대로 전파
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // I/O error 등 다른 예외는 EOFError로 변환
+                throw PyEOFError.Create($"Error reading input: {ex.Message}");
+            }
         }
 
         private PyObject CallLen(PyObject[] args, PyDict kwargs = null)

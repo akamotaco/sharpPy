@@ -2082,8 +2082,8 @@ namespace SharpPy.Generated
                 //   "Variable annotation syntax is",
                 //   _PyAST_AnnAssign(CHECK<expr_ty>(_PyPegen_set_expr_context(a, Store)), b, c, 1, EXTRA)
                 //   )
-                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedStmt?);
+                _res = _PyAST_AnnAssign(_PyPegen_set_expr_context(a, GeneratedStore.Instance), b, c, 1, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+
                 if (_res != null) goto done;
             } while (false);
 
@@ -2209,8 +2209,8 @@ namespace SharpPy.Generated
                     _position = _opt_mark_c; // Reset position
                 }
                 // Action: CHECK_VERSION(stmt_ty, 6, "Variable annotations syntax is", _PyAST_AnnAssign(a, b, c, 0, EXTRA))
-                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedStmt?);
+                _res = _PyAST_AnnAssign(a, b, c, 0, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+
                 if (_res != null) goto done;
             } while (false);
 
@@ -5870,8 +5870,8 @@ namespace SharpPy.Generated
                 //   (params) ? params : CHECK<arguments_ty>(_PyPegen_empty_arguments()),
                 //   b, null, a, tc?.Value, t, EXTRA)
                 //   )
-                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedStmt?);
+                _res = _PyAST_AsyncFunctionDef(n.Id, params_ ?? _PyPegen_empty_arguments(), b, null, a, tc?.Value, t, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+
                 if (_res != null) goto done;
             } while (false);
 
@@ -6079,8 +6079,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_d; // Reset position
                 }
                 // Action: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(a, null, b, c, d))
-                // No _PyAST_ or _PyPegen_ function in action: d)
-                _res = default(GeneratedArguments?);
+                _res = _PyPegen_make_arguments(a, null, b, c, d);
                 if (_res != null) goto done;
             } while (false);
 
@@ -6145,8 +6144,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_c; // Reset position
                 }
                 // Action: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(null, a, null, b, c))
-                // No _PyAST_ or _PyPegen_ function in action: c)
-                _res = default(GeneratedArguments?);
+                _res = _PyPegen_make_arguments(null, a, null, b, c);
                 if (_res != null) goto done;
             } while (false);
 
@@ -9317,8 +9315,8 @@ namespace SharpPy.Generated
                     _position = _opt_mark_el; // Reset position
                 }
                 // Action: CHECK_VERSION(stmt_ty, 5, "Async for loops are", _PyAST_AsyncFor(t, ex, b, el, tc?.Value, EXTRA))
-                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedStmt?);
+                _res = _PyAST_AsyncFor(t, ex, b, el, tc?.Value, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+
                 if (_res != null) goto done;
             } while (false);
 
@@ -9758,8 +9756,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: CHECK_VERSION(stmt_ty, 5, "Async with statements are", _PyAST_AsyncWith(a, b, null, EXTRA))
-                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedStmt?);
+                _res = _PyAST_AsyncWith(a, b, null, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+
                 if (_res != null) goto done;
             } while (false);
 
@@ -9865,8 +9863,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: CHECK_VERSION(stmt_ty, 5, "Async with statements are", _PyAST_AsyncWith(a, b, tc?.Value, EXTRA))
-                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedStmt?);
+                _res = _PyAST_AsyncWith(a, b, tc?.Value, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+
                 if (_res != null) goto done;
             } while (false);
 
@@ -10501,8 +10499,8 @@ namespace SharpPy.Generated
                 // Action (multiline):
                 //   CHECK_VERSION(stmt_ty, 11, "Exception groups are",
                 //   _PyAST_TryStar(b, ex, el, f, EXTRA))
-                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedStmt?);
+                _res = _PyAST_TryStar(b, ex, el, f, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+
                 if (_res != null) goto done;
             } while (false);
 
@@ -11299,8 +11297,8 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(DEDENT): result={(_tmp4 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
                 // Action: CHECK_VERSION(stmt_ty, 10, "Pattern matching is", _PyAST_Match(subject, cases, EXTRA))
-                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedStmt?);
+                _res = _PyAST_Match(subject, cases, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+
                 if (_res != null) goto done;
             } while (false);
 
@@ -15449,8 +15447,8 @@ namespace SharpPy.Generated
                 // Action (multiline):
                 //   CHECK_VERSION(stmt_ty, 12, "Type statement is",
                 //   _PyAST_TypeAlias(CHECK<expr_ty>(_PyPegen_set_expr_context(n, Store)), t, b, EXTRA))
-                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedStmt?);
+                _res = _PyAST_TypeAlias(_PyPegen_set_expr_context(n, GeneratedStore.Instance), t, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+
                 if (_res != null) goto done;
             } while (false);
 
@@ -17173,8 +17171,8 @@ namespace SharpPy.Generated
                 // Action (multiline):
                 //   CHECK_VERSION(expr_ty, 8, "Assignment expressions are",
                 //   _PyAST_NamedExpr(CHECK<expr_ty>(_PyPegen_set_expr_context(a, Store)), b, EXTRA))
-                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedExpr?);
+                _res = _PyAST_NamedExpr(_PyPegen_set_expr_context(a, GeneratedStore.Instance), b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+
                 if (_res != null) goto done;
             } while (false);
 
@@ -19963,8 +19961,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: CHECK_VERSION(expr_ty, 5, "The '@' operator is", _PyAST_BinOp(a, MatMult, b, EXTRA))
-                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedExpr?);
+                _res = _PyAST_BinOp(a, GeneratedMatMult.Instance, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+
                 if (_res != null) goto done;
             } while (false);
 
@@ -20357,8 +20355,8 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Action: CHECK_VERSION(expr_ty, 5, "Await expressions are", _PyAST_Await(a, EXTRA))
-                // No _PyAST_ or _PyPegen_ function in action: EXTRA)
-                _res = default(GeneratedExpr?);
+                _res = _PyAST_Await(a, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+
                 if (_res != null) goto done;
             } while (false);
 
@@ -22096,8 +22094,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_d; // Reset position
                 }
                 // Action: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(a, null, b, c, d))
-                // No _PyAST_ or _PyPegen_ function in action: d)
-                _res = default(GeneratedArguments?);
+                _res = _PyPegen_make_arguments(a, null, b, c, d);
                 if (_res != null) goto done;
             } while (false);
 
@@ -22162,8 +22159,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_c; // Reset position
                 }
                 // Action: CHECK_VERSION(arguments_ty, 8, "Positional-only parameters are", _PyPegen_make_arguments(null, a, null, b, c))
-                // No _PyAST_ or _PyPegen_ function in action: c)
-                _res = default(GeneratedArguments?);
+                _res = _PyPegen_make_arguments(null, a, null, b, c);
                 if (_res != null) goto done;
             } while (false);
 
@@ -25035,8 +25031,7 @@ namespace SharpPy.Generated
                 // Using type annotation: asdl_expr_seq* → GeneratedExprSeq
                 GeneratedExprSeq c = (GeneratedExprSeq)_Loop0_58();
                 // Action: CHECK_VERSION(comprehension_ty, 6, "Async comprehensions are", _PyAST_comprehension(a, b, c, 1))
-                // No _PyAST_ or _PyPegen_ function in action: 1)
-                _res = default(GeneratedComprehension?);
+                _res = _PyAST_comprehension(a, b, c, 1);
                 if (_res != null) goto done;
             } while (false);
 
