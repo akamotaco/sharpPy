@@ -934,6 +934,57 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("}");
             WriteLine();
 
+            // CPython 3.12: _PyPegen_slash_with_default
+            WriteLine("// CPython 3.12: _PyPegen_slash_with_default");
+            WriteLine("// Creates a SlashWithDefault structure for positional-only parameters");
+            WriteLine("// plain_names: arguments without defaults (e.g., \"self\" in \"self, other=()\")");
+            WriteLine("// names_with_defaults: arguments with defaults (e.g., \"other=()\" -> arg + default value)");
+            WriteLine("public static GeneratedSlashWithDefault? _PyPegen_slash_with_default(");
+            _indentLevel++;
+            WriteLine("IEnumerable<GeneratedArg>? plain_names,");
+            WriteLine("GeneratedSeq? names_with_defaults)");
+            _indentLevel--;
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("var slash_with_default = new GeneratedSlashWithDefault();");
+            WriteLine();
+            WriteLine("// CPython: plain_names are args without defaults");
+            WriteLine("if (plain_names != null)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("foreach (var arg in plain_names)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("slash_with_default.Args.Add(arg);");
+            _indentLevel--;
+            WriteLine("}");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+            WriteLine("// CPython: names_with_defaults is a seq of NameDefaultPair");
+            WriteLine("// Extract both args and defaults from NameDefaultPair");
+            WriteLine("if (names_with_defaults != null)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("foreach (var item in names_with_defaults)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("if (item is GeneratedNameDefaultPair pair)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("slash_with_default.Args.Add(pair.Arg);");
+            WriteLine("slash_with_default.Defaults.Add(pair.Default);");
+            _indentLevel--;
+            WriteLine("}");
+            _indentLevel--;
+            WriteLine("}");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+            WriteLine("return slash_with_default;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
 
             // seq_insert_in_front
             WriteLine("// CPython: _PyPegen_seq_insert_in_front");

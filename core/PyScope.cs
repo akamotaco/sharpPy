@@ -129,7 +129,22 @@ public class PyBuiltinsModule : PyObject
         BuiltinDict["StopIteration"] = PyType.StopIterationType;
         BuiltinDict["AssertionError"] = PyType.AssertionErrorType;
         BuiltinDict["SyntaxError"] = new PyBuiltinType("SyntaxError");
-        
+        BuiltinDict["ImportError"] = PyType.ImportErrorType;
+        BuiltinDict["ModuleNotFoundError"] = PyType.ModuleNotFoundErrorType;
+
+        // Warning Types (CPython 3.12)
+        BuiltinDict["Warning"] = PyType.WarningType;
+        BuiltinDict["UserWarning"] = PyType.UserWarningType;
+        BuiltinDict["DeprecationWarning"] = PyType.DeprecationWarningType;
+        BuiltinDict["PendingDeprecationWarning"] = PyType.PendingDeprecationWarningType;
+        BuiltinDict["SyntaxWarning"] = PyType.SyntaxWarningType;
+        BuiltinDict["RuntimeWarning"] = PyType.RuntimeWarningType;
+        BuiltinDict["FutureWarning"] = PyType.FutureWarningType;
+        BuiltinDict["ImportWarning"] = PyType.ImportWarningType;
+        BuiltinDict["UnicodeWarning"] = PyType.UnicodeWarningType;
+        BuiltinDict["BytesWarning"] = PyType.BytesWarningType;
+        BuiltinDict["ResourceWarning"] = PyType.ResourceWarningType;
+
         // Buffer Protocol (PEP 688) - Functions
         BuiltinDict["bytes"] = new PyBuiltinFunction("bytes");
         BuiltinDict["bytearray"] = new PyBuiltinFunction("bytearray");

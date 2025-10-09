@@ -116,17 +116,13 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// 코드 이름으로 모듈 실행인지 판단
+        /// CPython 3.12 호환: 코드 이름으로 모듈 실행인지 판단
+        /// 모듈 레벨 코드는 항상 "<module>"이어야 함
         /// </summary>
         private static bool IsModuleExecution(string codeName)
         {
-            return codeName == "<module>" ||
-                   codeName == "contextlib" ||
-                   codeName == "abc" ||
-                   codeName == "functools" ||
-                   codeName == "typing" ||
-                   codeName.EndsWith(".py") ||
-                   codeName.Contains("module");
+            // CPython 3.12: 모듈 코드 객체 이름은 항상 "<module>"
+            return codeName == "<module>";
         }
 
         /// <summary>

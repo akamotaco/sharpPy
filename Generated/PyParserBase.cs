@@ -1974,6 +1974,42 @@ namespace SharpPy.Generated
             return seq;
         }
 
+        // CPython 3.12: _PyPegen_slash_with_default
+        // Creates a SlashWithDefault structure for positional-only parameters
+        // plain_names: arguments without defaults (e.g., "self" in "self, other=()")
+        // names_with_defaults: arguments with defaults (e.g., "other=()" -> arg + default value)
+        public static GeneratedSlashWithDefault? _PyPegen_slash_with_default(
+            IEnumerable<GeneratedArg>? plain_names,
+            GeneratedSeq? names_with_defaults)
+        {
+            var slash_with_default = new GeneratedSlashWithDefault();
+
+            // CPython: plain_names are args without defaults
+            if (plain_names != null)
+            {
+                foreach (var arg in plain_names)
+                {
+                    slash_with_default.Args.Add(arg);
+                }
+            }
+
+            // CPython: names_with_defaults is a seq of NameDefaultPair
+            // Extract both args and defaults from NameDefaultPair
+            if (names_with_defaults != null)
+            {
+                foreach (var item in names_with_defaults)
+                {
+                    if (item is GeneratedNameDefaultPair pair)
+                    {
+                        slash_with_default.Args.Add(pair.Arg);
+                        slash_with_default.Defaults.Add(pair.Default);
+                    }
+                }
+            }
+
+            return slash_with_default;
+        }
+
         // CPython: _PyPegen_seq_insert_in_front
         // Typed sequence versions - same type input and output
         public static GeneratedExprSeq _PyPegen_seq_insert_in_front(GeneratedExpr item, GeneratedExprSeq seq)

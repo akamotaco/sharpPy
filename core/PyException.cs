@@ -663,6 +663,145 @@ namespace SharpPy
         }
     }
 
+    #region Warning Hierarchy (CPython 3.12)
+
+    /// <summary>
+    /// Base class for warning categories
+    /// </summary>
+    public class PyWarning : PyException
+    {
+        public PyWarning(string message = "") : base(message) { }
+        public override string GetTypeName() => "Warning";
+        public override PyType GetPyType() => PyType.WarningType;
+
+        public new static PythonException Create(string message = "")
+        {
+            return new PythonException(new PyWarning(message));
+        }
+    }
+
+    public class PyUserWarning : PyWarning
+    {
+        public PyUserWarning(string message = "") : base(message) { }
+        public override string GetTypeName() => "UserWarning";
+        public override PyType GetPyType() => PyType.UserWarningType;
+
+        public new static PythonException Create(string message = "")
+        {
+            return new PythonException(new PyUserWarning(message));
+        }
+    }
+
+    public class PyDeprecationWarning : PyWarning
+    {
+        public PyDeprecationWarning(string message = "") : base(message) { }
+        public override string GetTypeName() => "DeprecationWarning";
+        public override PyType GetPyType() => PyType.DeprecationWarningType;
+
+        public new static PythonException Create(string message = "")
+        {
+            return new PythonException(new PyDeprecationWarning(message));
+        }
+    }
+
+    public class PyPendingDeprecationWarning : PyWarning
+    {
+        public PyPendingDeprecationWarning(string message = "") : base(message) { }
+        public override string GetTypeName() => "PendingDeprecationWarning";
+        public override PyType GetPyType() => PyType.PendingDeprecationWarningType;
+
+        public new static PythonException Create(string message = "")
+        {
+            return new PythonException(new PyPendingDeprecationWarning(message));
+        }
+    }
+
+    public class PySyntaxWarning : PyWarning
+    {
+        public PySyntaxWarning(string message = "") : base(message) { }
+        public override string GetTypeName() => "SyntaxWarning";
+        public override PyType GetPyType() => PyType.SyntaxWarningType;
+
+        public new static PythonException Create(string message = "")
+        {
+            return new PythonException(new PySyntaxWarning(message));
+        }
+    }
+
+    public class PyRuntimeWarning : PyWarning
+    {
+        public PyRuntimeWarning(string message = "") : base(message) { }
+        public override string GetTypeName() => "RuntimeWarning";
+        public override PyType GetPyType() => PyType.RuntimeWarningType;
+
+        public new static PythonException Create(string message = "")
+        {
+            return new PythonException(new PyRuntimeWarning(message));
+        }
+    }
+
+    public class PyFutureWarning : PyWarning
+    {
+        public PyFutureWarning(string message = "") : base(message) { }
+        public override string GetTypeName() => "FutureWarning";
+        public override PyType GetPyType() => PyType.FutureWarningType;
+
+        public new static PythonException Create(string message = "")
+        {
+            return new PythonException(new PyFutureWarning(message));
+        }
+    }
+
+    public class PyImportWarning : PyWarning
+    {
+        public PyImportWarning(string message = "") : base(message) { }
+        public override string GetTypeName() => "ImportWarning";
+        public override PyType GetPyType() => PyType.ImportWarningType;
+
+        public new static PythonException Create(string message = "")
+        {
+            return new PythonException(new PyImportWarning(message));
+        }
+    }
+
+    public class PyUnicodeWarning : PyWarning
+    {
+        public PyUnicodeWarning(string message = "") : base(message) { }
+        public override string GetTypeName() => "UnicodeWarning";
+        public override PyType GetPyType() => PyType.UnicodeWarningType;
+
+        public new static PythonException Create(string message = "")
+        {
+            return new PythonException(new PyUnicodeWarning(message));
+        }
+    }
+
+    public class PyBytesWarning : PyWarning
+    {
+        public PyBytesWarning(string message = "") : base(message) { }
+        public override string GetTypeName() => "BytesWarning";
+        public override PyType GetPyType() => PyType.BytesWarningType;
+
+        public new static PythonException Create(string message = "")
+        {
+            return new PythonException(new PyBytesWarning(message));
+        }
+    }
+
+    public class PyResourceWarning : PyWarning
+    {
+        public PyResourceWarning(string message = "") : base(message) { }
+        public override string GetTypeName() => "ResourceWarning";
+        public override PyType GetPyType() => PyType.ResourceWarningType;
+
+        public new static PythonException Create(string message = "")
+        {
+            return new PythonException(new PyResourceWarning(message));
+        }
+    }
+
+    #endregion
+
     #endregion
 
     #region Exception Utilities

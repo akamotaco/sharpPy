@@ -1229,6 +1229,101 @@ namespace SharpPy.Generated
                     continue;
                 }
 
+                // CPython 3.12: Handle string literals inside f-string expressions
+                // Python 3.12 allows nested quotes: f"Value: {'hello'}"
+                if (CurrentChar == '\'' || CurrentChar == '"')
+                {
+                    var quoteChar = CurrentChar;
+                    var start = _position;
+                    var startLine = _line;
+                    var startColumn = _column;
+                    Advance(); // Skip opening quote
+
+                    // Check for triple-quoted string
+                    bool isTripleQuoted = false;
+                    if (_position + 1 < _source.Length && _source[_position] == quoteChar && _source[_position + 1] == quoteChar)
+                    {
+                        isTripleQuoted = true;
+                        Advance(); // Skip second quote
+                        Advance(); // Skip third quote
+                    }
+
+                    // Collect string content
+                    var stringContent = new System.Text.StringBuilder();
+                    stringContent.Append(_source.Substring(start, _position - start)); // Include opening quotes
+
+                    if (isTripleQuoted)
+                    {
+                        // Triple-quoted string - continue until we find three quotes
+                        int quoteCount = 0;
+                        while (_position < _source.Length)
+                        {
+                            if (CurrentChar == quoteChar)
+                            {
+                                quoteCount++;
+                                stringContent.Append(CurrentChar);
+                                Advance();
+                                if (quoteCount == 3) break;
+                            }
+                            else
+                            {
+                                quoteCount = 0;
+                                if (CurrentChar == '\\' && _position + 1 < _source.Length)
+                                {
+                                    // Handle escape sequence
+                                    stringContent.Append(CurrentChar);
+                                    Advance();
+                                    if (_position < _source.Length)
+                                    {
+                                        stringContent.Append(CurrentChar);
+                                        Advance();
+                                    }
+                                }
+                                else
+                                {
+                                    stringContent.Append(CurrentChar);
+                                    Advance();
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Single-quoted string - continue until closing quote
+                        while (_position < _source.Length && CurrentChar != quoteChar)
+                        {
+                            if (CurrentChar == '\\' && _position + 1 < _source.Length)
+                            {
+                                // Handle escape sequence
+                                stringContent.Append(CurrentChar);
+                                Advance();
+                                if (_position < _source.Length)
+                                {
+                                    stringContent.Append(CurrentChar);
+                                    Advance();
+                                }
+                            }
+                            else
+                            {
+                                stringContent.Append(CurrentChar);
+                                Advance();
+                            }
+                        }
+
+                        // Include closing quote
+                        if (_position < _source.Length && CurrentChar == quoteChar)
+                        {
+                            stringContent.Append(CurrentChar);
+                            Advance();
+                        }
+                    }
+
+                    // Emit as STRING token
+                    AddToken(GeneratedTokenType.STRING, stringContent.ToString(), startLine, startColumn);
+                    _currentLineHasRealTokens = true;
+                    continue;
+                }
+
                 // Handle numbers
                 if (char.IsDigit(CurrentChar))
                 {

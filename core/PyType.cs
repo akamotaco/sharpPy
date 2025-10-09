@@ -97,6 +97,19 @@ namespace SharpPy
         public static readonly PyType AssertionErrorType = new PyType("AssertionError", new[] { ExceptionType });
         public static readonly PyType GeneratorExitType = new PyType("GeneratorExit", new[] { BaseExceptionType });
 
+        // Warning hierarchy (CPython 3.12)
+        public static readonly PyType WarningType = new PyType("Warning", new[] { ExceptionType });
+        public static readonly PyType UserWarningType = new PyType("UserWarning", new[] { WarningType });
+        public static readonly PyType DeprecationWarningType = new PyType("DeprecationWarning", new[] { WarningType });
+        public static readonly PyType PendingDeprecationWarningType = new PyType("PendingDeprecationWarning", new[] { WarningType });
+        public static readonly PyType SyntaxWarningType = new PyType("SyntaxWarning", new[] { WarningType });
+        public static readonly PyType RuntimeWarningType = new PyType("RuntimeWarning", new[] { WarningType });
+        public static readonly PyType FutureWarningType = new PyType("FutureWarning", new[] { WarningType });
+        public static readonly PyType ImportWarningType = new PyType("ImportWarning", new[] { WarningType });
+        public static readonly PyType UnicodeWarningType = new PyType("UnicodeWarning", new[] { WarningType });
+        public static readonly PyType BytesWarningType = new PyType("BytesWarning", new[] { WarningType });
+        public static readonly PyType ResourceWarningType = new PyType("ResourceWarning", new[] { WarningType });
+
         // Typing system types (PEP 484, 585, 695)
         public static readonly PyType UnionType = new PyType("Union", new[] { ObjectType });
         public static readonly PyType TypeVarType = new PyType("TypeVar", new[] { ObjectType });

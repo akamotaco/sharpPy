@@ -2511,8 +2511,23 @@ namespace SharpPy
             }
             if (formattedValue.FormatSpec != null)
             {
-                CompileExpression(formattedValue.FormatSpec);
-                formatFlags |= 1; // Has format spec
+                // CPython 3.12: Format spec handling
+                // If format spec is a simple constant string (JoinedStr with single Constant),
+                // load it directly as LOAD_CONST instead of compiling as JoinedStr (which emits BUILD_STRING)
+                if (formattedValue.FormatSpec is JoinedStrExpression joinedStr &&
+                    joinedStr.Values.Count == 1 &&
+                    joinedStr.Values[0] is ConstantExpression constExpr)
+                {
+                    // Simple format spec like "05d" or ".2f" - load as constant
+                    int constIndex = GetOrAddConstant(constExpr.Value);
+                    EmitInstruction(ByteCodeOp.LOAD_CONST, constIndex);
+                }
+                else
+                {
+                    // Complex format spec (e.g., with embedded expressions) - compile normally
+                    CompileExpression(formattedValue.FormatSpec);
+                }
+                formatFlags |= 4; // CPython 3.12: flag 4 = with format spec
             }
 
             EmitInstruction(ByteCodeOp.FORMAT_VALUE, formatFlags);
@@ -9626,9 +9641,6 @@ namespace SharpPy
 
             #if DEBUG_LOG
             Console.WriteLine($"✅ Set comprehension 바이트코드 인라인 완료 ({setComp.Generators.Count}개 중첩 generator)");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"📊 Set comprehension 최종 위치: {afterGenerators}");
             #endif
         }
         

@@ -399,7 +399,7 @@ namespace SharpPy.PegGenerator.Grammar
                     break;
 
                 case GrammarTokenType.STRING:
-                    atom = new StringLiteral { Value = CurrentToken.Value.Trim('\'') };
+                    atom = new StringLiteral { Value = CurrentToken.Value.Trim('\'', '"') };
                     Advance();
                     break;
 
