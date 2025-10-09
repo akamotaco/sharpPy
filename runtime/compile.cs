@@ -548,6 +548,42 @@ namespace SharpPy
         private SymbolTable? _symbolTable = null;
         private SymbolTable? _currentSymbolTable = null;
 
+        // CPython 3.12: Frame block stack for exception handler tracking
+        private Stack<FBlock> _fblockStack = new Stack<FBlock>();
+
+        /// <summary>
+        /// CPython 3.12: Frame block types
+        /// </summary>
+        private enum FBlockType
+        {
+            WHILE_LOOP,
+            FOR_LOOP,
+            TRY_EXCEPT,
+            EXCEPTION_HANDLER,
+            HANDLER_CLEANUP,
+            EXCEPTION_GROUP_HANDLER
+        }
+
+        /// <summary>
+        /// CPython 3.12: Frame block structure
+        /// Tracks exception handlers and loop contexts
+        /// </summary>
+        private class FBlock
+        {
+            public FBlockType Type { get; }
+            public string? HandlerLabel { get; }  // Target label for exception/cleanup
+            public int StackDepth { get; }        // Stack depth when block started
+            public bool PreserveLasti { get; }    // Whether to preserve lasti for exception table
+
+            public FBlock(FBlockType type, string? handlerLabel, int stackDepth, bool preserveLasti = false)
+            {
+                Type = type;
+                HandlerLabel = handlerLabel;
+                StackDepth = stackDepth;
+                PreserveLasti = preserveLasti;
+            }
+        }
+
         /// <summary>
         /// CPython 3.12: 심볼 테이블 컨텍스트를 설정 (중첩 함수 컴파일용)
         /// </summary>
@@ -852,8 +888,12 @@ namespace SharpPy
             // CPython 3.12: 지연된 exception handler들을 바이트코드 끝에 생성
             GeneratePendingExceptionHandlers();
 
+            // CPython 3.12: Build exception table from instruction handler info (BEFORE creating code object)
+            // This replaces manual exception table entries with automatic generation
+            BuildExceptionTableFromInstructions();
+
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, parameters.Count, 0, null, null, null, 0, _currentFileName, _sourceLines, false, _lineNumberTable);
-            
+
             // Resolve Exception Table labels to offsets (CPython 3.12 compatible)
             ResolveExceptionTable();
             
@@ -979,7 +1019,93 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// CPython 호환: 매개변수 문자열에서 이름과 기본값 분리
+        /// CPython 3.12: FunctionArguments에서 매개변수와 기본값 추출
+        /// Returns default expressions, NOT evaluated PyObjects
+        /// </summary>
+        private (List<string> paramNames, List<Expression> defaultExprs, int flags, int argCount, int posonlyArgCount, Dictionary<string, string> annotations) ParseFunctionArguments(FunctionArguments arguments)
+        {
+            var paramNames = new List<string>();
+            var defaultExprs = new List<Expression>();
+            var annotations = new Dictionary<string, string>();
+            int flags = PyCodeObject.CO_OPTIMIZED | PyCodeObject.CO_NEWLOCALS;
+            int posonlyArgCount = arguments.PosOnlyArgs.Count;
+
+            #if DEBUG_LOG
+            Console.WriteLine($"🔍 ParseFunctionArguments: Processing FunctionArguments");
+            Console.WriteLine($"  PosOnlyArgs: {arguments.PosOnlyArgs.Count}, Args: {arguments.Args.Count}");
+            Console.WriteLine($"  Defaults: {arguments.Defaults.Count}, VarArg: {arguments.VarArg != null}, KwArg: {arguments.KwArg != null}");
+            #endif
+
+            // Add positional-only parameters
+            foreach (var arg in arguments.PosOnlyArgs)
+            {
+                paramNames.Add(arg.Name);
+                if (arg.Annotation != null)
+                {
+                    annotations[arg.Name] = arg.Annotation.ToString();
+                }
+            }
+
+            // Add regular parameters
+            foreach (var arg in arguments.Args)
+            {
+                paramNames.Add(arg.Name);
+                if (arg.Annotation != null)
+                {
+                    annotations[arg.Name] = arg.Annotation.ToString();
+                }
+            }
+
+            // Add *args parameter
+            if (arguments.VarArg != null)
+            {
+                paramNames.Add("*" + arguments.VarArg.Name);
+                flags |= PyCodeObject.CO_VARARGS;
+                if (arguments.VarArg.Annotation != null)
+                {
+                    annotations[arguments.VarArg.Name] = arguments.VarArg.Annotation.ToString();
+                }
+            }
+
+            // Add keyword-only parameters
+            foreach (var arg in arguments.KwOnlyArgs)
+            {
+                paramNames.Add(arg.Name);
+                if (arg.Annotation != null)
+                {
+                    annotations[arg.Name] = arg.Annotation.ToString();
+                }
+            }
+
+            // Add **kwargs parameter
+            if (arguments.KwArg != null)
+            {
+                paramNames.Add("**" + arguments.KwArg.Name);
+                flags |= PyCodeObject.CO_VARKEYWORDS;
+                if (arguments.KwArg.Annotation != null)
+                {
+                    annotations[arguments.KwArg.Name] = arguments.KwArg.Annotation.ToString();
+                }
+            }
+
+            // CPython 3.12: Defaults align with the LAST len(defaults) parameters in Args
+            // Store expressions, they will be compiled at MAKE_FUNCTION time
+            defaultExprs.AddRange(arguments.Defaults);
+
+            // Calculate argCount: total non-variadic parameters
+            int argCount = posonlyArgCount + arguments.Args.Count + arguments.KwOnlyArgs.Count;
+
+            #if DEBUG_LOG
+            Console.WriteLine($"🔍 ParseFunctionArguments: Final flags = {flags}, argCount = {argCount}, posonlyArgCount = {posonlyArgCount}");
+            Console.WriteLine($"  paramNames = [{string.Join(", ", paramNames)}]");
+            Console.WriteLine($"  default expressions = [{string.Join(", ", defaultExprs.Select(d => d.ToString()))}]");
+            #endif
+
+            return (paramNames, defaultExprs, flags, argCount, posonlyArgCount, annotations);
+        }
+
+        /// <summary>
+        /// CPython 호환: 매개변수 문자열에서 이름과 기본값 분리 (Legacy - for backwards compatibility)
         /// </summary>
         private (List<string> paramNames, List<PyObject> defaults, int flags, int argCount, int posonlyArgCount, Dictionary<string, string> annotations) ParseFunctionParameters(List<string> parameters)
         {
@@ -1113,11 +1239,25 @@ namespace SharpPy
         /// </summary>
         private PyCodeObject CompileAsyncFunctionBody(AsyncFunctionDefStatement asyncFunc, List<string> freeVars, List<string> cellVars)
         {
-            var (paramNames, defaults, flags, argCount, posonlyArgCount, annotations) = ParseAsyncFunctionParameters(asyncFunc.Parameters);
-            
+            var (paramNames, defaultExprs, flags, argCount, posonlyArgCount, annotations) = ParseFunctionArguments(asyncFunc.Arguments);
+
+            // Convert default expressions to PyObjects
+            var defaults = new List<PyObject>();
+            foreach (var defaultExpr in defaultExprs)
+            {
+                if (defaultExpr is ConstantExpression constExpr)
+                {
+                    defaults.Add(constExpr.Value);
+                }
+                else
+                {
+                    defaults.Add(PyNone.Instance);
+                }
+            }
+
             // CO_COROUTINE 플래그 추가
             flags |= PyCodeObject.CO_COROUTINE;
-            
+
             var compiler = new PythonCompiler();
             compiler.SetupClosureCompilation(cellVars, freeVars);
             var codeObject = compiler.CompileWithClosureAndDefaults(asyncFunc.Body, asyncFunc.Name, paramNames, defaults, freeVars, cellVars, flags, argCount, posonlyArgCount);
@@ -2545,8 +2685,24 @@ namespace SharpPy
             Console.WriteLine($"  Updated Cell variables: [{string.Join(", ", cellVars)}]");
             #endif
             
-            // 2. 매개변수와 기본값 파싱 (FunctionDefStatement에서 수행하던 로직)
-            var (paramNames, defaults, flags, argCount, posonlyArgCount, annotations) = ParseFunctionParameters(func.Parameters);
+            // 2. 매개변수와 기본값 파싱 (CPython 3.12: use Arguments instead of Parameters)
+            var (paramNames, defaultExprs, flags, argCount, posonlyArgCount, annotations) = ParseFunctionArguments(func.Arguments);
+
+            // Evaluate default expressions to PyObjects (defaults are evaluated at function definition time)
+            var defaults = new List<PyObject>();
+            foreach (var defaultExpr in defaultExprs)
+            {
+                if (defaultExpr is ConstantExpression constExpr)
+                {
+                    defaults.Add(constExpr.Value);
+                }
+                else
+                {
+                    // For complex expressions, we need to compile and evaluate them
+                    // But for now, this will be handled by compiling them as bytecode below
+                    defaults.Add(PyNone.Instance); // Placeholder, will be replaced below
+                }
+            }
 
             // 3. Return type annotation 처리 (CPython 3.12)
             if (func.ReturnTypeAnnotation != null)
@@ -2727,13 +2883,14 @@ namespace SharpPy
             // 4. MAKE_FUNCTION 스택 순서 맞추기 (CPython 3.12 compatible)
             // 기본값이 있는 경우 기본값 튜플을 먼저 푸시 (스택 맨 아래)
             int makeFunctionFlags = 0;
-            if (defaults.Count > 0)
+            if (defaultExprs.Count > 0)
             {
-                foreach (var defaultValue in defaults)
+                foreach (var defaultExpr in defaultExprs)
                 {
-                    EmitLoadConst(defaultValue);
+                    // CPython 3.12: Default expressions are compiled and evaluated at function definition time
+                    CompileExpression(defaultExpr);
                 }
-                EmitInstruction(ByteCodeOp.BUILD_TUPLE, defaults.Count);
+                EmitInstruction(ByteCodeOp.BUILD_TUPLE, defaultExprs.Count);
                 makeFunctionFlags |= MakeFunctionFlags.DEFAULTS;
             }
 
@@ -3014,12 +3171,46 @@ namespace SharpPy
                 _currentColumnOffset = node.ColOffset;
         }
         
+        /// <summary>
+        /// CPython 3.12: Get current exception handler info from fblock stack
+        /// </summary>
+        private ExceptHandlerInfo GetCurrentExceptHandlerInfo()
+        {
+            // Find the topmost exception handler fblock
+            foreach (var fblock in _fblockStack)
+            {
+                if (fblock.Type == FBlockType.EXCEPTION_HANDLER ||
+                    fblock.Type == FBlockType.EXCEPTION_GROUP_HANDLER ||
+                    fblock.Type == FBlockType.HANDLER_CLEANUP)
+                {
+                    // Handler label will be resolved to offset later in BuildExceptionTable
+                    return new ExceptHandlerInfo(
+                        handlerOffset: -1,  // Will be resolved from label
+                        stackDepth: fblock.StackDepth,
+                        preserveLasti: fblock.PreserveLasti
+                    );
+                }
+            }
+            return ExceptHandlerInfo.NoHandler;
+        }
+
         private void EmitInstruction(ByteCodeOp opCode, int argument = 0)
         {
             var instructionOffset = _instructions.Count;
+
+            // CPython 3.12: Get current exception handler info from fblock stack
+            var exceptHandlerInfo = GetCurrentExceptHandlerInfo();
+
             try
             {
-                _instructions.Add(new ByteCodeInstruction(opCode, argument, _currentLineNumber, _currentColumnOffset, _currentFileName));
+                _instructions.Add(new ByteCodeInstruction(
+                    opCode,
+                    argument,
+                    _currentLineNumber,
+                    _currentColumnOffset,
+                    _currentFileName,
+                    exceptHandlerInfo
+                ));
             }
             catch (Exception ex)
             {
@@ -3141,14 +3332,18 @@ namespace SharpPy
 
                         case SymbolScope.Local:
                             // Local variable: LOAD_FAST 사용
-                            var localIndex = _varNames.IndexOf(name);
-                            if (localIndex >= 0)
+                            // CPython 3.12: 모듈 레벨에서는 LOAD_NAME 사용 (comprehension 변수도 마찬가지)
+                            if (_isInFunction)
                             {
-                                EmitInstruction(ByteCodeOp.LOAD_FAST, localIndex);
-                                #if DEBUG_LOG
-                                Console.WriteLine($"    → LOAD_FAST for local var: {name} (index {localIndex})");
-                                #endif
-                                return;
+                                var localIndex = _varNames.IndexOf(name);
+                                if (localIndex >= 0)
+                                {
+                                    EmitInstruction(ByteCodeOp.LOAD_FAST, localIndex);
+                                    #if DEBUG_LOG
+                                    Console.WriteLine($"    → LOAD_FAST for local var: {name} (index {localIndex})");
+                                    #endif
+                                    return;
+                                }
                             }
                             break;
                     }
@@ -3183,9 +3378,23 @@ namespace SharpPy
             }
             
             // 2. 지역 변수(매개변수 포함) 처리
+            // CPython 3.12 PEP 709: 모듈 레벨에서 comprehension 외부에서는 LOAD_NAME 사용
             var varIndex = _varNames.IndexOf(name);
             if (varIndex >= 0)
             {
+                // 모듈 레벨이고 comprehension 내부가 아니면 LOAD_NAME 사용
+                if (!_isInFunction && !_isInComprehension)
+                {
+                    // Comprehension 변수가 모듈 레벨 코드에서 재사용되는 경우
+                    // LOAD_NAME 사용 (CPython 3.12 호환)
+                    var nameIndex = AddName(name);
+                    EmitInstruction(ByteCodeOp.LOAD_NAME, nameIndex);
+                    #if DEBUG_LOG
+                    Console.WriteLine($"    → Module level (outside comprehension) LOAD_NAME for: {name} (name index {nameIndex})");
+                    #endif
+                    return;
+                }
+
                 // 이 변수가 cell로 변환되었는지 확인
                 if (_cellVars.Contains(name))
                 {
@@ -3746,24 +3955,39 @@ namespace SharpPy
             Console.WriteLine($"  Cell variables: [{string.Join(", ", cellVars)}]");
             #endif
             
-            // 2. 매개변수와 기본값 파싱
-            var (paramNames, defaults, flags, argCount, posonlyArgCount, annotations) = ParseAsyncFunctionParameters(asyncFunc.Parameters);
-            
+            // 2. 매개변수와 기본값 파싱 (CPython 3.12: use Arguments)
+            var (paramNames, defaultExprs, flags, argCount, posonlyArgCount, annotations) = ParseFunctionArguments(asyncFunc.Arguments);
+
+            // Evaluate default expressions to PyObjects (defaults are evaluated at function definition time)
+            var defaults = new List<PyObject>();
+            foreach (var defaultExpr in defaultExprs)
+            {
+                if (defaultExpr is ConstantExpression constExpr)
+                {
+                    defaults.Add(constExpr.Value);
+                }
+                else
+                {
+                    defaults.Add(PyNone.Instance); // Placeholder
+                }
+            }
+
             // 3. 코드 객체 컴파일 (async 함수 전용)
             var codeObject = CompileAsyncFunctionBody(asyncFunc, freeVars, cellVars);
-            
+
             // 4. 클로저와 기본값은 나중에 MAKE_FUNCTION 직전에 로드
-            
+
             // 5. MAKE_FUNCTION을 위한 스택 준비 (CPython 순서: defaults, annotations, code)
 
             // 6. 기본값들을 tuple로 만들어 스택에 로드 (CPython 3.12 호환)
-            if (defaults.Any())
+            if (defaultExprs.Any())
             {
-                foreach (var defaultValue in defaults)
+                foreach (var defaultExpr in defaultExprs)
                 {
-                    EmitLoadConst(defaultValue); // 기본값은 이미 PyObject이므로 직접 로드
+                    // CPython 3.12: Default expressions are compiled and evaluated at function definition time
+                    CompileExpression(defaultExpr);
                 }
-                EmitInstruction(ByteCodeOp.BUILD_TUPLE, defaults.Count);
+                EmitInstruction(ByteCodeOp.BUILD_TUPLE, defaultExprs.Count);
             }
 
             // 7. annotations 튜플을 스택에 로드 (CPython 3.12 호환성)
@@ -3919,7 +4143,21 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, typeParams.Count);
                 
                 // Create annotations tuple: complex parameter annotations
-                var (paramNames, defaults, flags, argCount, posonlyArgCount, annotations) = ParseFunctionParameters(func.Parameters);
+                var (paramNames, defaultExprs, flags, argCount, posonlyArgCount, annotations) = ParseFunctionArguments(func.Arguments);
+
+                // Convert defaults for internal use
+                var defaults = new List<PyObject>();
+                foreach (var defaultExpr in defaultExprs)
+                {
+                    if (defaultExpr is ConstantExpression constExpr)
+                    {
+                        defaults.Add(constExpr.Value);
+                    }
+                    else
+                    {
+                        defaults.Add(PyNone.Instance);
+                    }
+                }
                 
                 // Build complex annotations tuple for all parameters and return type
                 var annotationCount = 0;
@@ -5327,8 +5565,8 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.FOR_ITER, 0); // Jump target will be patched later
             
             // 3. FOR_ITER pushes the next value on stack, store it in loop variable
-            // CPython 3.12에서 FOR_ITER는 4바이트 명령어이므로 자동으로 올바른 오프셋 생성
-            EmitStoreName(forStmt.Target);
+            // CPython 3.12: target can be Name, Tuple, List, etc.
+            CompileAssignmentTarget(forStmt.Target);
             
             // 4. Set up loop context for break/continue with FOR_ITER tracking
             var breakLabel = CreateLabel("for_break");
@@ -5712,15 +5950,26 @@ namespace SharpPy
             // CPython 3.12: Exception path starts with PUSH_EXC_INFO
             EmitInstruction(ByteCodeOp.PUSH_EXC_INFO);
 
-            // CPython 3.12: For except* handlers, start with BUILD_LIST 0 to collect matched handlers
+            // CPython 3.12: Push exception handler fblock AFTER PUSH_EXC_INFO
+            // This makes all subsequent instructions protected by outer exception handlers
             bool hasExceptStarHandlers = tryStmt.Handlers.Any(h => h.IsStar);
+            var handlerFBlockType = hasExceptStarHandlers ? FBlockType.EXCEPTION_GROUP_HANDLER : FBlockType.EXCEPTION_HANDLER;
+
+            // Create reraise handler label that will be used in exception table
+            var reraiseLabel = CreateLabel("reraise");
+
+            _fblockStack.Push(new FBlock(
+                type: handlerFBlockType,
+                handlerLabel: reraiseLabel.Name,
+                stackDepth: 1,  // Exception is on stack
+                preserveLasti: true  // Exception handlers need lasti
+            ));
+
+            // CPython 3.12: For except* handlers, start with BUILD_LIST 0 to collect matched handlers
             if (hasExceptStarHandlers)
             {
                 EmitInstruction(ByteCodeOp.BUILD_LIST, 0);
             }
-
-            // Pre-create the reraise label once
-            var reraiseLabel = CreateLabel("reraise");
 
             // Compile exception handlers sequentially
             for (int i = 0; i < tryStmt.Handlers.Count; i++)
@@ -5976,6 +6225,15 @@ namespace SharpPy
             // Reraise if no handler matched (before continuation point)
             if (tryStmt.Handlers.Count > 0)
             {
+                // CPython 3.12: Pop exception handler fblock before reraise
+                // Instructions after this point are NOT protected by this exception handler
+                if (_fblockStack.Count > 0 &&
+                    (_fblockStack.Peek().Type == FBlockType.EXCEPTION_HANDLER ||
+                     _fblockStack.Peek().Type == FBlockType.EXCEPTION_GROUP_HANDLER))
+                {
+                    _fblockStack.Pop();
+                }
+
                 MarkLabel(reraiseLabel);
                 var reraiseOffset = _instructions.Count;
                 EmitInstruction(ByteCodeOp.RERAISE, 0);
@@ -7292,9 +7550,20 @@ namespace SharpPy
         {
             if (raise.Exc != null)
             {
-                // raise Exception(...) - compile the exception expression
+                // raise Exception(...) [from Cause] - compile the exception expression
                 CompileExpression(raise.Exc);
-                EmitInstruction(ByteCodeOp.RAISE_VARARGS, 1);
+
+                if (raise.Cause != null)
+                {
+                    // raise Exception from Cause
+                    CompileExpression(raise.Cause);
+                    EmitInstruction(ByteCodeOp.RAISE_VARARGS, 2);
+                }
+                else
+                {
+                    // raise Exception
+                    EmitInstruction(ByteCodeOp.RAISE_VARARGS, 1);
+                }
             }
             else
             {
@@ -7989,7 +8258,141 @@ namespace SharpPy
         {
             MarkLabel(label);
         }
-        
+
+        /// <summary>
+        /// CPython 3.12: Build exception table from instruction handler info
+        /// This is the CORRECT way - exactly like CPython 3.12
+        /// </summary>
+        private void BuildExceptionTableFromInstructions()
+        {
+            // IMPORTANT: This REPLACES all manual exception table entries
+            // Clear existing table - we rebuild it completely from instructions
+            var manualEntries = _exceptionTable.ToList();
+            _exceptionTable.Clear();
+
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 Building Exception Table from {_instructions.Count} instructions (CPython 3.12 method)");
+            Console.WriteLine($"   Cleared {manualEntries.Count} manual entries");
+            #endif
+
+            ExceptHandlerInfo? currentHandler = null;
+            int startOffset = -1;
+
+            for (int i = 0; i < _instructions.Count; i++)
+            {
+                var instr = _instructions[i];
+                var instrHandler = instr.ExceptHandler;
+
+                // Check if handler info changed
+                bool handlerChanged = false;
+                if (currentHandler == null && instrHandler.HandlerOffset != -1)
+                {
+                    // Started new handler
+                    handlerChanged = true;
+                    currentHandler = instrHandler;
+                    startOffset = i;
+                }
+                else if (currentHandler != null && instrHandler.HandlerOffset == -1)
+                {
+                    // Exited handler
+                    handlerChanged = true;
+                }
+                else if (currentHandler != null && !currentHandler.Value.Equals(instrHandler))
+                {
+                    // Handler changed
+                    handlerChanged = true;
+                }
+
+                if (handlerChanged && currentHandler != null)
+                {
+                    // Emit exception table entry for previous handler
+                    // We need to find the handler label from fblock
+                    // For now, we'll reconstruct from manual entries if they exist
+                    string? handlerLabel = null;
+
+                    // Try to find matching manual entry to get handler label
+                    foreach (var manual in manualEntries)
+                    {
+                        if (manual.StartOffset <= startOffset && manual.EndOffset > startOffset)
+                        {
+                            handlerLabel = manual.HandlerLabelName;
+                            break;
+                        }
+                    }
+
+                    if (handlerLabel != null)
+                    {
+                        var entry = new ExceptionTableEntry(
+                            start: startOffset,
+                            end: i,
+                            handlerLabel: handlerLabel,
+                            depth: currentHandler.Value.StackDepth,
+                            lasti: currentHandler.Value.PreserveLasti
+                        );
+                        _exceptionTable.Add(entry);
+
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   Entry: [{startOffset}:{i}] -> {handlerLabel} (depth={currentHandler.Value.StackDepth}, lasti={currentHandler.Value.PreserveLasti})");
+                        #endif
+                    }
+
+                    // Update current handler
+                    if (instrHandler.HandlerOffset != -1)
+                    {
+                        currentHandler = instrHandler;
+                        startOffset = i;
+                    }
+                    else
+                    {
+                        currentHandler = null;
+                    }
+                }
+            }
+
+            // Handle last handler if any
+            if (currentHandler != null && startOffset >= 0)
+            {
+                string? handlerLabel = null;
+                foreach (var manual in manualEntries)
+                {
+                    if (manual.StartOffset <= startOffset)
+                    {
+                        handlerLabel = manual.HandlerLabelName;
+                        break;
+                    }
+                }
+
+                if (handlerLabel != null)
+                {
+                    var entry = new ExceptionTableEntry(
+                        start: startOffset,
+                        end: _instructions.Count,
+                        handlerLabel: handlerLabel,
+                        depth: currentHandler.Value.StackDepth,
+                        lasti: currentHandler.Value.PreserveLasti
+                    );
+                    _exceptionTable.Add(entry);
+                }
+            }
+
+            // Also add manual entries for try blocks (which don't have handler info in instructions)
+            foreach (var manual in manualEntries)
+            {
+                // Add try block entries (depth 0, lasti false)
+                if (manual.Depth == 0 && !manual.Lasti)
+                {
+                    _exceptionTable.Add(manual);
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   Try block: [{manual.StartOffset}:{manual.EndOffset}] -> {manual.HandlerLabelName}");
+                    #endif
+                }
+            }
+
+            #if DEBUG_LOG
+            Console.WriteLine($"✅ Built {_exceptionTable.Count} exception table entries from instructions");
+            #endif
+        }
+
         /// <summary>
         /// CPython 3.12 style: Resolve Exception Table labels to actual offsets
         /// </summary>
@@ -9599,7 +10002,17 @@ namespace SharpPy
                         CompileAssignmentTarget(element);
                     }
                     break;
-                    
+
+                case ListExpression list:
+                    // List unpacking: [a, b] = [1, 2]
+                    EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, list.Elements.Count);
+                    for (int i = 0; i < list.Elements.Count; i++)
+                    {
+                        var element = list.Elements[i];
+                        CompileAssignmentTarget(element);
+                    }
+                    break;
+
                 default:
                     throw new Exception($"Invalid assignment target expression: {target.GetType().Name}");
             }

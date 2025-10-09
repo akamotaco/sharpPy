@@ -317,6 +317,33 @@ namespace SharpPy
     }
 
     // 바이트코드 명령 구조체
+    /// <summary>
+    /// CPython 3.12: Exception handler information stored in each instruction
+    /// Used to generate exception table in assembly phase
+    /// </summary>
+    public struct ExceptHandlerInfo
+    {
+        public int HandlerOffset { get; }       // h_offset: target handler offset (-1 if no handler)
+        public int StackDepth { get; }          // h_startdepth: stack depth at handler entry
+        public bool PreserveLasti { get; }      // h_preserve_lasti: lasti flag for exception table
+
+        public ExceptHandlerInfo(int handlerOffset, int stackDepth, bool preserveLasti)
+        {
+            HandlerOffset = handlerOffset;
+            StackDepth = stackDepth;
+            PreserveLasti = preserveLasti;
+        }
+
+        public static ExceptHandlerInfo NoHandler => new ExceptHandlerInfo(-1, 0, false);
+
+        public bool Equals(ExceptHandlerInfo other)
+        {
+            return HandlerOffset == other.HandlerOffset &&
+                   StackDepth == other.StackDepth &&
+                   PreserveLasti == other.PreserveLasti;
+        }
+    }
+
     public struct ByteCodeInstruction
     {
         public ByteCodeOp OpCode { get; }
@@ -324,14 +351,18 @@ namespace SharpPy
         public int LineNumber { get; }      // Source line number (1-based)
         public int ColumnOffset { get; }    // Source column offset (0-based)
         public string? FileName { get; }    // Source file name
-        
-        public ByteCodeInstruction(ByteCodeOp opCode, int argument = 0, int lineNumber = -1, int columnOffset = -1, string? fileName = null)
+
+        // CPython 3.12: Exception handler info for this instruction
+        public ExceptHandlerInfo ExceptHandler { get; }
+
+        public ByteCodeInstruction(ByteCodeOp opCode, int argument = 0, int lineNumber = -1, int columnOffset = -1, string? fileName = null, ExceptHandlerInfo? exceptHandler = null)
         {
             OpCode = opCode;
             Argument = argument;
             LineNumber = lineNumber;
             ColumnOffset = columnOffset;
             FileName = fileName;
+            ExceptHandler = exceptHandler ?? ExceptHandlerInfo.NoHandler;
         }
         
         public override string ToString()

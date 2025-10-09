@@ -1009,7 +1009,7 @@ namespace SharpPy
             ReturnTypeAnnotation = returnTypeAnnotation;
         }
 
-        private static FunctionArguments ConvertLegacyParameters(List<string> parameters)
+        public static FunctionArguments ConvertLegacyParameters(List<string> parameters)
         {
             var args = new FunctionArguments();
 
@@ -1399,14 +1399,32 @@ namespace SharpPy
     {
         public override string NodeType => "AsyncFunctionDef";
         public string Name { get; }
-        public List<string> Parameters { get; }
+
+        // CPython 3.12: Use FunctionArguments instead of List<string>
+        public FunctionArguments Arguments { get; }
+
+        // Legacy support: keep Parameters for backwards compatibility
+        [Obsolete("Use Arguments instead - this is for backwards compatibility only")]
+        public List<string> Parameters => Arguments.GetAllParameterNames();
+
         public List<Statement> Body { get; }
         public List<string> TypeParams { get; } // Python 3.12
-        
+
+        // New constructor using FunctionArguments (CPython 3.12 compatible)
+        public AsyncFunctionDefStatement(string name, FunctionArguments arguments, List<Statement> body, List<string>? typeParams = null)
+        {
+            Name = name;
+            Arguments = arguments;
+            Body = body;
+            TypeParams = typeParams ?? new List<string>();
+        }
+
+        // Legacy constructor for backwards compatibility
+        [Obsolete("Use FunctionArguments constructor instead")]
         public AsyncFunctionDefStatement(string name, List<string> parameters, List<Statement> body, List<string>? typeParams = null)
         {
             Name = name;
-            Parameters = parameters;
+            Arguments = FunctionDefStatement.ConvertLegacyParameters(parameters);
             Body = body;
             TypeParams = typeParams ?? new List<string>();
         }
@@ -1592,24 +1610,30 @@ namespace SharpPy
     public class ForStatement : Statement
     {
         public override string NodeType => "For";
-        public string Target { get; }
+        public Expression Target { get; }  // CPython 3.12: target can be Name, Tuple, List, etc.
         public Expression Iter { get; }
         public List<Statement> Body { get; }
         public List<Statement>? ElseClause { get; }
-        
-        public ForStatement(string target, Expression iter, List<Statement> body, List<Statement>? elseClause = null)
+
+        public ForStatement(Expression target, Expression iter, List<Statement> body, List<Statement>? elseClause = null)
         {
             Target = target;
             Iter = iter;
             Body = body;
             ElseClause = elseClause;
         }
-        
+
+        // Backward compatibility constructor
+        public ForStatement(string target, Expression iter, List<Statement> body, List<Statement>? elseClause = null)
+            : this(new NameExpression(target), iter, body, elseClause)
+        {
+        }
+
         public override PyObject Evaluate(PyScope scope)
         {
             var iterable = Iter.Evaluate(scope);
             PyObject result = PyNone.Instance;
-            
+
             try
             {
                 // 반복 가능 객체에 따른 처리
@@ -1617,7 +1641,7 @@ namespace SharpPy
                 {
                     foreach (var item in list.Items)
                     {
-                        scope.SetVariable(Target, item);
+                        AssignTarget(scope, Target, item);
                         try
                         {
                             foreach (var stmt in Body)
@@ -1635,7 +1659,7 @@ namespace SharpPy
                 {
                     for (int i = range.Start; i < range.Stop; i += range.Step)
                     {
-                        scope.SetVariable(Target, new PyInt(i));
+                        AssignTarget(scope, Target, new PyInt(i));
                         try
                         {
                             foreach (var stmt in Body)
@@ -1653,7 +1677,7 @@ namespace SharpPy
                 {
                     for (int i = 0; i < str.Value.Length; i++)
                     {
-                        scope.SetVariable(Target, new PyString(str.Value[i].ToString()));
+                        AssignTarget(scope, Target, new PyString(str.Value[i].ToString()));
                         try
                         {
                             foreach (var stmt in Body)
@@ -1672,10 +1696,84 @@ namespace SharpPy
             {
                 // break로 루프 탈출
             }
-            
+
             return result;
         }
-        
+
+        // Helper method to assign value to target (supports tuple unpacking)
+        private void AssignTarget(PyScope scope, Expression target, PyObject value)
+        {
+            if (target is NameExpression nameExpr)
+            {
+                // Simple variable assignment
+                scope.SetVariable(nameExpr.Name, value);
+            }
+            else if (target is TupleExpression tupleExpr)
+            {
+                // Tuple unpacking: for k, v in items
+                if (value is PyTuple tuple)
+                {
+                    if (tuple.Items.Length != tupleExpr.Elements.Count)
+                    {
+                        throw new Exception($"Cannot unpack {tuple.Items.Length} values to {tupleExpr.Elements.Count} variables");
+                    }
+                    for (int i = 0; i < tupleExpr.Elements.Count; i++)
+                    {
+                        AssignTarget(scope, tupleExpr.Elements[i], tuple.Items[i]);
+                    }
+                }
+                else if (value is PyList list)
+                {
+                    if (list.Items.Length != tupleExpr.Elements.Count)
+                    {
+                        throw new Exception($"Cannot unpack {list.Items.Length} values to {tupleExpr.Elements.Count} variables");
+                    }
+                    for (int i = 0; i < tupleExpr.Elements.Count; i++)
+                    {
+                        AssignTarget(scope, tupleExpr.Elements[i], list.Items[i]);
+                    }
+                }
+                else
+                {
+                    throw new Exception($"Cannot unpack non-sequence type {value.GetType().Name}");
+                }
+            }
+            else if (target is ListExpression listExpr)
+            {
+                // List unpacking: for [k, v] in items
+                if (value is PyTuple tuple)
+                {
+                    if (tuple.Items.Length != listExpr.Elements.Count)
+                    {
+                        throw new Exception($"Cannot unpack {tuple.Items.Length} values to {listExpr.Elements.Count} variables");
+                    }
+                    for (int i = 0; i < listExpr.Elements.Count; i++)
+                    {
+                        AssignTarget(scope, listExpr.Elements[i], tuple.Items[i]);
+                    }
+                }
+                else if (value is PyList list)
+                {
+                    if (list.Items.Length != listExpr.Elements.Count)
+                    {
+                        throw new Exception($"Cannot unpack {list.Items.Length} values to {listExpr.Elements.Count} variables");
+                    }
+                    for (int i = 0; i < listExpr.Elements.Count; i++)
+                    {
+                        AssignTarget(scope, listExpr.Elements[i], list.Items[i]);
+                    }
+                }
+                else
+                {
+                    throw new Exception($"Cannot unpack non-sequence type {value.GetType().Name}");
+                }
+            }
+            else
+            {
+                throw new Exception($"Invalid assignment target: {target.GetType().Name}");
+            }
+        }
+
         public override string ToString() => $"for {Target} in {Iter}: ...";
     }
 
@@ -3275,14 +3373,14 @@ namespace SharpPy
     public class ConditionalExpression : Expression
     {
         public override string NodeType => "IfExp";
-        public Expression Body { get; }
         public Expression Test { get; }
+        public Expression Body { get; }
         public Expression OrElse { get; }
-        
-        public ConditionalExpression(Expression body, Expression test, Expression orElse)
+
+        public ConditionalExpression(Expression test, Expression body, Expression orElse)
         {
-            Body = body;
             Test = test;
+            Body = body;
             OrElse = orElse;
         }
         

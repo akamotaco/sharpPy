@@ -468,16 +468,20 @@ namespace SharpPy
             
             if (rangeSize > 0 && rangeSize <= MAX_UNROLL_SIZE)
             {
-                var unrolledStatements = new List<Statement>();
-                
-                for (int i = 0; i < rangeSize; i++)
+                // CPython 3.12: Only unroll if target is simple name (not tuple unpacking)
+                if (forStmt.Target is NameExpression nameExpr)
                 {
-                    // 각 반복에서 루프 변수를 상수로 치환
-                    var iterationStatements = ReplaceLoopVariable(forStmt.Body, forStmt.Target, i);
-                    unrolledStatements.AddRange(iterationStatements);
+                    var unrolledStatements = new List<Statement>();
+
+                    for (int i = 0; i < rangeSize; i++)
+                    {
+                        // 각 반복에서 루프 변수를 상수로 치환
+                        var iterationStatements = ReplaceLoopVariable(forStmt.Body, nameExpr.Name, i);
+                        unrolledStatements.AddRange(iterationStatements);
+                    }
+
+                    return new BlockStatement(unrolledStatements);
                 }
-                
-                return new BlockStatement(unrolledStatements);
             }
             
             return node;

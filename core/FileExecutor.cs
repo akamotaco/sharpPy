@@ -60,14 +60,10 @@ namespace SharpPy.Core
             catch (Exception ex)
             {
                 // PyInterpreter already handles and prints Python-style errors
-                // Only show additional details in debug mode
-#if DEBUG_LOG
-                if (SharpPyConfig.VerboseMode)
-                {
-                    Console.WriteLine("--- Debug Information ---");
-                    Console.WriteLine(ex.ToString());
-                }
-#endif
+                // TEMPORARY: Always show C# stack trace for debugging
+                Console.WriteLine("--- C# Exception Details ---");
+                Console.WriteLine(ex.ToString());
+
                 // Exit with non-zero code to indicate error
                 Environment.Exit(1);
             }
@@ -94,14 +90,10 @@ namespace SharpPy.Core
             catch (Exception ex)
             {
                 // PyInterpreter already handles and prints Python-style errors
-                // Only show additional details in debug mode
-#if DEBUG_LOG
-                if (SharpPyConfig.VerboseMode)
-                {
-                    Console.WriteLine("--- Debug Information ---");
-                    Console.WriteLine(ex.ToString());
-                }
-#endif
+                // TEMPORARY: Always show C# stack trace for debugging
+                Console.WriteLine("--- C# Exception Details ---");
+                Console.WriteLine(ex.ToString());
+
                 // Exit with non-zero code to indicate error
                 Environment.Exit(1);
             }

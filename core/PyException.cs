@@ -11,10 +11,18 @@ namespace SharpPy
         public string Message { get; protected set; }
         public PyObject[] Args { get; protected set; }
 
+        // CPython 3.12: Exception chaining attributes
+        public PyBaseException? __cause__ { get; set; }
+        public PyBaseException? __context__ { get; set; }
+        public bool __suppress_context__ { get; set; }
+
         public PyBaseException(string message = "", params PyObject[] args)
         {
             Message = message ?? "";
             Args = args.Length > 0 ? args : new PyObject[] { new PyString(Message) };
+            __cause__ = null;
+            __context__ = null;
+            __suppress_context__ = false;
         }
 
         public override PyType GetPyType() => PyType.BaseExceptionType;
@@ -48,8 +56,43 @@ namespace SharpPy
             {
                 case "args":
                     return new PyTuple(Args);
+                case "__cause__":
+                    return (PyObject?)__cause__ ?? PyNone.Instance;
+                case "__context__":
+                    return (PyObject?)__context__ ?? PyNone.Instance;
+                case "__suppress_context__":
+                    return __suppress_context__ ? PyBool.True : PyBool.False;
                 default:
                     return base.GetAttribute(name);
+            }
+        }
+
+        public override void SetAttribute(string name, PyObject value)
+        {
+            switch (name)
+            {
+                case "__cause__":
+                    if (value is PyNone)
+                        __cause__ = null;
+                    else if (value is PyBaseException exc)
+                        __cause__ = exc;
+                    else
+                        throw PyTypeError.Create($"exception cause must be None or derive from BaseException");
+                    break;
+                case "__context__":
+                    if (value is PyNone)
+                        __context__ = null;
+                    else if (value is PyBaseException exc)
+                        __context__ = exc;
+                    else
+                        throw PyTypeError.Create($"exception context must be None or derive from BaseException");
+                    break;
+                case "__suppress_context__":
+                    __suppress_context__ = value is PyBool b ? b.Value : !(value is PyNone || (value is PyInt i && i.Value == 0));
+                    break;
+                default:
+                    base.SetAttribute(name, value);
+                    break;
             }
         }
 
@@ -69,6 +112,7 @@ namespace SharpPy
     public class PyException : PyBaseException
     {
         public PyClass? OriginalClass { get; set; } // Store original user-defined class
+        public PyClassInstance? OriginalInstance { get; set; } // Store original user-defined instance
 
         public PyException(string message = "", params PyObject[] args) : base(message, args) { }
 
@@ -76,6 +120,13 @@ namespace SharpPy
         public PyException(string message, PyClass? originalClass) : base(message)
         {
             OriginalClass = originalClass;
+        }
+
+        // Constructor for wrapping user-defined exception instances
+        public PyException(string message, PyClass? originalClass, PyClassInstance? originalInstance) : base(message)
+        {
+            OriginalClass = originalClass;
+            OriginalInstance = originalInstance;
         }
 
         public override PyType GetPyType() => OriginalClass ?? PyType.ExceptionType;

@@ -3172,7 +3172,72 @@ namespace SharpPy
 
                 case ByteCodeOp.RAISE_VARARGS:
                     // instruction.Argument indicates the number of arguments to the raise statement
-                    if (instruction.Argument == 1)
+                    // 0: bare raise (reraise)
+                    // 1: raise exc
+                    // 2: raise exc from cause
+                    if (instruction.Argument == 2)
+                    {
+                        // raise exc from cause - exception chaining
+                        // Stack: TOS = cause, TOS1 = exc
+                        var cause = frame.ValueStack.Pop();  // Pop TOS (cause)
+                        var exc = frame.ValueStack.Pop();     // Pop TOS1 (exc)
+
+                        // Instantiate exc if it's a type
+                        PyException excInstance;
+                        if (exc is PyException pyExc)
+                        {
+                            excInstance = pyExc;
+                        }
+                        else if (exc is PyType pyType)
+                        {
+                            var instance = pyType.Call(Array.Empty<PyObject>());
+                            if (instance is PyException pyExcInst)
+                            {
+                                excInstance = pyExcInst;
+                            }
+                            else
+                            {
+                                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
+                            }
+                        }
+                        else if (exc is PyBuiltinType builtinType)
+                        {
+                            var instance = builtinType.Call(Array.Empty<PyObject>());
+                            if (instance is PyException pyExcInst)
+                            {
+                                excInstance = pyExcInst;
+                            }
+                            else
+                            {
+                                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
+                            }
+                        }
+                        else
+                        {
+                            throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
+                        }
+
+                        // Set __cause__ attribute
+                        if (cause is PyException causeExc)
+                        {
+                            excInstance.__cause__ = causeExc;
+                            excInstance.__suppress_context__ = true;
+                        }
+                        else if (cause is PyNone)
+                        {
+                            // raise exc from None - suppress context
+                            excInstance.__cause__ = null;
+                            excInstance.__suppress_context__ = true;
+                        }
+                        else
+                        {
+                            throw new PythonException(new PyTypeError($"exception cause must be None or derive from BaseException"));
+                        }
+
+                        frame.LastException = excInstance;
+                        throw new PythonException(excInstance);
+                    }
+                    else if (instruction.Argument == 1)
                     {
                         // raise exception_instance or exception_class
                         var raisedException = frame.ValueStack.Pop();
@@ -3185,18 +3250,40 @@ namespace SharpPy
                             frame.LastException = pyEx;
                             throw new PythonException(pyEx);
                         }
+                        else if (raisedException is PyType pyType)
+                        {
+                            // Exception class (PyType) - instantiate it
+                            #if DEBUG_LOG
+                            Console.WriteLine($"🔧 RAISE_VARARGS: Detected PyType exception class {pyType.Name}, instantiating it");
+                            #endif
+
+                            var instance = pyType.Call(Array.Empty<PyObject>());
+                            if (instance is PyException instanceException)
+                            {
+                                frame.LastException = instanceException;
+                                throw new PythonException(instanceException);
+                            }
+                            else
+                            {
+                                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
+                            }
+                        }
                         else if (raisedException is PyBuiltinType builtinType)
                         {
                             // Exception class - instantiate it
                             var builtinException = builtinType.Call(new PyObject[0], null);
-                            if (builtinException is PyException pyExInstance)
+                            if (builtinException == null)
+                            {
+                                throw new PythonException(new PyTypeError($"exception class {builtinType} returned null when instantiated"));
+                            }
+                            else if (builtinException is PyException pyExInstance)
                             {
                                 frame.LastException = pyExInstance;
                                 throw new PythonException(pyExInstance);
                             }
                             else
                             {
-                                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
+                                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException, got {builtinException.GetType().Name}"));
                             }
                         }
                         else if (raisedException is PyClass userClass)
@@ -3223,20 +3310,20 @@ namespace SharpPy
                         {
                             // Could be an instance of a user-defined exception class
                             #if DEBUG_LOG
-                            Console.WriteLine($"🔧 RAISE_VARARGS: Custom instance type = {customInstance.GetType().Name}");
+                            Console.WriteLine($"🔧 RAISE_VARARGS: Custom instance type = {customInstance.GetType().Name}, ToString = {customInstance.ToString()}");
                             #endif
-
                             // Check if it's derived from BaseException by checking its class hierarchy
                             // For now, treat as a PyException if it has the right properties
                             if (IsExceptionLike(customInstance))
                             {
-                                // Create a PyException wrapper with class information preserved
+                                // Create a PyException wrapper with class information AND instance preserved
                                 PyException wrappedException;
                                 if (customInstance is PyClassInstance classInst)
                                 {
-                                    wrappedException = new PyException(customInstance.ToString(), classInst.InstanceType);
+                                    // CRITICAL: Store the original PyClassInstance so attributes are preserved
+                                    wrappedException = new PyException(customInstance.ToString(), classInst.InstanceType, classInst);
                                     #if DEBUG_LOG
-                                    Console.WriteLine($"🔧 RAISE_VARARGS: Created PyException wrapper with OriginalClass={classInst.InstanceType.Name}, message='{customInstance.ToString()}'");
+                                    Console.WriteLine($"🔧 RAISE_VARARGS: Created PyException wrapper with OriginalClass={classInst.InstanceType.Name}, OriginalInstance preserved, message='{customInstance.ToString()}'");
                                     #endif
                                 }
                                 else
@@ -3275,6 +3362,12 @@ namespace SharpPy
                     #if DEBUG_LOG
                     Console.WriteLine($"🔧 CHECK_EXC_MATCH Entry: expectedType={expectedType?.GetType().Name}={expectedType}, stackTop={stackTop?.GetType().Name}={stackTop}");
                     #endif
+
+                    if (expectedType == null)
+                    {
+                        throw PyRuntimeError.Create("CHECK_EXC_MATCH: expectedType is null - exception type was not loaded properly");
+                    }
+
                     bool matches = false;
 
                     // Handle PyExceptionInfo case (from PUSH_EXC_INFO)
@@ -3287,9 +3380,19 @@ namespace SharpPy
                         Console.WriteLine($"🔧 CHECK_EXC_MATCH: actualException type = {actualException?.GetType().FullName}, value = {actualException}");
                         #endif
 
+                        // CRITICAL: If PyException has OriginalInstance, use that instead
+                        PyObject exceptionToStore = actualException;
+                        if (actualException is PyException pyExc && pyExc.OriginalInstance != null)
+                        {
+                            exceptionToStore = pyExc.OriginalInstance;
+                            #if DEBUG_LOG
+                            Console.WriteLine($"🔧 CHECK_EXC_MATCH: Using OriginalInstance instead of PyException wrapper");
+                            #endif
+                        }
+
                         // Replace PyExceptionInfo with actual exception on stack (for STORE_NAME)
                         frame.ValueStack.Pop(); // Remove PyExceptionInfo
-                        frame.ValueStack.Push(actualException); // Push actual exception
+                        frame.ValueStack.Push(exceptionToStore); // Push original instance or exception
 
                         if (actualException is PyException pyException)
                         {

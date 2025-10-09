@@ -1445,6 +1445,9 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("{");
             _indentLevel++;
             WriteLine("var keys = new GeneratedExprSeq();");
+            WriteLine("if (pairs != null)");
+            WriteLine("{");
+            _indentLevel++;
             WriteLine("foreach (var pair in pairs)");
             WriteLine("{");
             _indentLevel++;
@@ -1452,6 +1455,8 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("{");
             _indentLevel++;
             WriteLine("keys.Add(kvp.Key);");
+            _indentLevel--;
+            WriteLine("}");
             _indentLevel--;
             WriteLine("}");
             _indentLevel--;
@@ -1468,6 +1473,9 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("{");
             _indentLevel++;
             WriteLine("var values = new GeneratedExprSeq();");
+            WriteLine("if (pairs != null)");
+            WriteLine("{");
+            _indentLevel++;
             WriteLine("foreach (var pair in pairs)");
             WriteLine("{");
             _indentLevel++;
@@ -1475,6 +1483,8 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("{");
             _indentLevel++;
             WriteLine("values.Add(kvp.Value);");
+            _indentLevel--;
+            WriteLine("}");
             _indentLevel--;
             WriteLine("}");
             _indentLevel--;
@@ -1752,14 +1762,15 @@ namespace SharpPy.PegGenerator.Asdl
             // _PyPegen_check_barry_as_flufl - Easter egg from PEP 401
             WriteLine("// CPython: _PyPegen_check_barry_as_flufl");
             WriteLine("// Easter egg: from __future__ import barry_as_BDFL");
-            WriteLine("// Returns 0 if token is '!=', non-zero otherwise");
+            WriteLine("// Returns 0 (false) if token is '!=', non-zero (true) otherwise");
             WriteLine("public static bool _PyPegen_check_barry_as_flufl(GeneratedTokenInfo tok)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("// SharpPy doesn't implement barry_as_BDFL flag");
             WriteLine("// CPython: return strcmp(tok_str, \"!=\")");
             WriteLine("// strcmp returns 0 if equal, non-zero if different");
-            WriteLine("return tok.Value == \"!=\" ? true : false;");
+            WriteLine("// In C#: return false if tok is \"!=\", true otherwise");
+            WriteLine("return tok.Value != \"!=\";");
             _indentLevel--;
             WriteLine("}");
             WriteLine();

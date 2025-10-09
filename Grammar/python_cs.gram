@@ -450,7 +450,7 @@ try_stmt[stmt_ty]:
 except_block[excepthandler_ty]:
     | invalid_except_stmt_indent
     | 'except' e=expression t=['as' z=NAME { z }] ':' b=block {
-        _PyAST_ExceptHandler(e, (t) ? NameToken(t).Id : null, b, EXTRA) }
+        _PyAST_ExceptHandler(e, t ? NameToken(t).Id : null, b, EXTRA) }
     | 'except' ':' b=block { _PyAST_ExceptHandler(null, null, b, EXTRA) }
     | invalid_except_stmt
 except_star_block[excepthandler_ty]:

@@ -245,6 +245,8 @@ public class PyBuiltinType : PyObject
             case "SyntaxError":
                 message = args.Length > 0 ? args[0].ToStr() : "";
                 return new PySyntaxError(message);
+            case "StopIteration":
+                return args.Length > 0 ? new PyStopIteration(args[0]) : new PyStopIteration();
             case "BaseException":
                 message = args.Length > 0 ? args[0].ToStr() : "";
                 return new PyBaseException(message);

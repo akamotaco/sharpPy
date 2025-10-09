@@ -351,8 +351,8 @@ namespace SharpPy
                     // 1. Analyze iterable expression
                     AnalyzeExpression(forStmt.Iter);
 
-                    // 2. Define loop variable as assigned
-                    _currentTable?.DefineSymbol(forStmt.Target, SymbolFlags.Assigned);
+                    // 2. Define loop variable(s) as assigned (CPython 3.12: target can be tuple)
+                    DefineTargetSymbols(forStmt.Target, SymbolFlags.Assigned);
 
                     // 3. Analyze loop body
                     foreach (var stmt in forStmt.Body)
@@ -1321,6 +1321,33 @@ namespace SharpPy
                 "or", "pass", "raise", "return", "try", "while", "with", "yield", "match", "case"
             };
             return pythonKeywords.Contains(name);
+        }
+
+        /// <summary>
+        /// Define symbols from target expression (supports tuple unpacking)
+        /// CPython 3.12: for k, v in items -> both k and v are assigned
+        /// </summary>
+        private void DefineTargetSymbols(Expression target, SymbolFlags flags)
+        {
+            if (target is NameExpression nameExpr)
+            {
+                _currentTable?.DefineSymbol(nameExpr.Name, flags);
+            }
+            else if (target is TupleExpression tupleExpr)
+            {
+                foreach (var elem in tupleExpr.Elements)
+                {
+                    DefineTargetSymbols(elem, flags);  // Recursive for nested unpacking
+                }
+            }
+            else if (target is ListExpression listExpr)
+            {
+                foreach (var elem in listExpr.Elements)
+                {
+                    DefineTargetSymbols(elem, flags);
+                }
+            }
+            // AttributeExpression, SubscriptExpression don't define new symbols
         }
     }
 }

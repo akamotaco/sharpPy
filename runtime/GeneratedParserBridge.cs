@@ -416,13 +416,8 @@ namespace SharpPy
                 case GeneratedFor forStmt:
                     // For statement (for target in iterable: body [else: elseBody])
                     {
-                        // Convert target to get variable name
+                        // CPython 3.12: Convert target expression (supports Name, Tuple, List, etc.)
                         var targetExpr = ConvertAnyExpression(forStmt.Target);
-                        string targetVar = "i"; // default
-                        if (targetExpr is NameExpression nameExpr)
-                        {
-                            targetVar = nameExpr.Name;
-                        }
 
                         // Convert iterable expression
                         Expression iterableExpr = ConvertAnyExpression(forStmt.Iter);
@@ -448,7 +443,7 @@ namespace SharpPy
                             }
                         }
 
-                        return new ForStatement(targetVar, iterableExpr, bodyStmts, elseStmts);
+                        return new ForStatement(targetExpr, iterableExpr, bodyStmts, elseStmts);
                     }
 
                 case GeneratedAsyncFor asyncForStmt:
@@ -1692,7 +1687,7 @@ namespace SharpPy
 
                 // Collections
                 GeneratedList list => new ListExpression(
-                    list.Elts.ToEnumerable<GeneratedExpr>().Select(e => ConvertAnyExpression(e)).ToList()
+                    list.Elts?.ToEnumerable<GeneratedExpr>().Select(e => ConvertAnyExpression(e)).ToList() ?? new List<Expression>()
                 ),
 
                 GeneratedTuple tuple => new TupleExpression(
@@ -1700,14 +1695,15 @@ namespace SharpPy
                 ),
 
                 GeneratedDict dict => new DictExpression(
-                    dict.Keys.ToEnumerable<GeneratedExpr>().Zip(dict.Values.ToEnumerable<GeneratedExpr>(), (k, v) => (
-                        Key: ConvertAnyExpression(k),
-                        Value: ConvertAnyExpression(v))
-                    ).ToList()
+                    (dict.Keys?.ToEnumerable<GeneratedExpr>() ?? Enumerable.Empty<GeneratedExpr>())
+                        .Zip(dict.Values?.ToEnumerable<GeneratedExpr>() ?? Enumerable.Empty<GeneratedExpr>(), (k, v) => (
+                            Key: ConvertAnyExpression(k),
+                            Value: ConvertAnyExpression(v))
+                        ).ToList()
                 ),
 
                 GeneratedSet set => new SetExpression(
-                    set.Elts.ToEnumerable<GeneratedExpr>().Select(e => ConvertAnyExpression(e)).ToList()
+                    set.Elts?.ToEnumerable<GeneratedExpr>().Select(e => ConvertAnyExpression(e)).ToList() ?? new List<Expression>()
                 ),
 
                 // Comprehensions

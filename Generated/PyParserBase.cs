@@ -2321,11 +2321,14 @@ namespace SharpPy.Generated
         public static GeneratedExprSeq _PyPegen_get_keys(GeneratedSeq pairs)
         {
             var keys = new GeneratedExprSeq();
-            foreach (var pair in pairs)
+            if (pairs != null)
             {
-                if (pair is GeneratedKeyValuePair kvp)
+                foreach (var pair in pairs)
                 {
-                    keys.Add(kvp.Key);
+                    if (pair is GeneratedKeyValuePair kvp)
+                    {
+                        keys.Add(kvp.Key);
+                    }
                 }
             }
             return keys;
@@ -2336,11 +2339,14 @@ namespace SharpPy.Generated
         public static GeneratedExprSeq _PyPegen_get_values(GeneratedSeq pairs)
         {
             var values = new GeneratedExprSeq();
-            foreach (var pair in pairs)
+            if (pairs != null)
             {
-                if (pair is GeneratedKeyValuePair kvp)
+                foreach (var pair in pairs)
                 {
-                    values.Add(kvp.Value);
+                    if (pair is GeneratedKeyValuePair kvp)
+                    {
+                        values.Add(kvp.Value);
+                    }
                 }
             }
             return values;
@@ -2565,13 +2571,14 @@ namespace SharpPy.Generated
 
         // CPython: _PyPegen_check_barry_as_flufl
         // Easter egg: from __future__ import barry_as_BDFL
-        // Returns 0 if token is '!=', non-zero otherwise
+        // Returns 0 (false) if token is '!=', non-zero (true) otherwise
         public static bool _PyPegen_check_barry_as_flufl(GeneratedTokenInfo tok)
         {
             // SharpPy doesn't implement barry_as_BDFL flag
             // CPython: return strcmp(tok_str, "!=")
             // strcmp returns 0 if equal, non-zero if different
-            return tok.Value == "!=" ? true : false;
+            // In C#: return false if tok is "!=", true otherwise
+            return tok.Value != "!=";
         }
 
     }

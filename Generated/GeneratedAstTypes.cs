@@ -1539,7 +1539,7 @@ namespace SharpPy.Generated
 
         public GeneratedIdentifier(string value) { Value = value; }
 
-        public static implicit operator string(GeneratedIdentifier id) => id.Value;
+        public static implicit operator string(GeneratedIdentifier id) => id?.Value;
         public static implicit operator GeneratedIdentifier(string value) => new GeneratedIdentifier(value);
 
         public override string ToString() => Value;

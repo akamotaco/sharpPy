@@ -10683,7 +10683,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Action: _PyAST_ExceptHandler(e, (t) ? NameToken(t).Id : null, b, EXTRA)
+                // Action: _PyAST_ExceptHandler(e, t ? NameToken(t).Id : null, b, EXTRA)
                 _res = _PyAST_ExceptHandler(e, t != null ? NameToken(t).Id : null, b, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
                 if (_res != null) goto done;
             } while (false);
