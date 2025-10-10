@@ -22,6 +22,9 @@ public partial class PyFunction : PyObject, IDescriptor
     public PyCodeObject? CodeObject { get; set; }           // 함수의 코드 객체
     public PyScopeChain? ParentScope { get; set; }         // 부모 스코프 (클로저용)
 
+    // CPython 3.12: __globals__ attribute - function's global namespace
+    public Dictionary<string, PyObject>? GlobalsDict { get; set; }  // func.__globals__
+
     public PyFunction(string name, Func<PyObject[], PyObject> implementation = null, PyModule definingModule = null, List<PyObject>? typeParams = null, PyCell[] closure = null, PyCodeObject codeObject = null)
     {
         Name = name;

@@ -57,6 +57,7 @@ namespace SharpPy.Modules
             // 함수들
             module.ModuleDict["getsizeof"] = new PySysFunction("getsizeof");
             module.ModuleDict["getrefcount"] = new PySysFunction("getrefcount");
+            module.ModuleDict["exc_info"] = new PySysFunction("exc_info");
 
             return module;
         }
@@ -152,6 +153,7 @@ namespace SharpPy.Modules
                 "exit" => CallExit(args),
                 "getsizeof" => CallGetSizeOf(args),
                 "getrefcount" => CallGetRefCount(args),
+                "exc_info" => CallExcInfo(args),
                 _ => throw PyAttributeError.Create($"sys module has no function '{Name}'")
             };
         }
@@ -212,6 +214,37 @@ namespace SharpPy.Modules
 
             // C#에서는 참조 카운팅을 직접 구현하지 않으므로 더미 값 반환
             return new PyInt(1);
+        }
+
+        private PyObject CallExcInfo(PyObject[] args)
+        {
+            if (args.Length != 0)
+                throw PyTypeError.Create($"exc_info() takes no arguments ({args.Length} given)");
+
+            // Get current frame from VM
+            var currentFrame = PyVM.GetCurrentFrame();
+
+            if (currentFrame == null)
+            {
+                // No frame context: return (None, None, None)
+                return new PyTuple(PyNone.Instance, PyNone.Instance, PyNone.Instance);
+            }
+
+            // Check for current exception in frame
+            var exception = currentFrame.CurrentException ?? currentFrame.LastException;
+
+            if (exception == null)
+            {
+                // No exception: return (None, None, None)
+                return new PyTuple(PyNone.Instance, PyNone.Instance, PyNone.Instance);
+            }
+
+            // CPython 3.12: exc_info() returns (type, value, traceback)
+            var excType = exception.GetPyType();  // Exception type (class)
+            var excValue = exception;              // Exception instance
+            var excTraceback = PyNone.Instance;    // TODO: Implement traceback objects
+
+            return new PyTuple(excType, excValue, excTraceback);
         }
     }
 

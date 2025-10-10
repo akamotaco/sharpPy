@@ -255,7 +255,11 @@ namespace SharpPy
     /// <summary>
     /// Helper class for built-in methods
     /// </summary>
-    public class PyBuiltinMethod : PyObject
+    /// <summary>
+    /// CPython 3.12 호환: Descriptor protocol을 구현한 builtin method
+    /// 클래스에서 접근 시 unbound, 인스턴스에서 접근 시 자동으로 bound method 반환
+    /// </summary>
+    public class PyBuiltinMethod : PyObject, IDescriptor
     {
         public string Name { get; }
         public Func<PyObject, PyObject[], PyObject> Method { get; }
@@ -278,24 +282,98 @@ namespace SharpPy
             return PyType.MethodType; // builtin methods are instances of method type
         }
 
+        // Descriptor protocol: instance.method → bound method
+        public PyObject Get(PyObject instance, PyType owner)
+        {
+            if (instance == null || instance == PyNone.Instance)
+            {
+                // 클래스에서 접근: Class.method → unbound
+                return this;
+            }
+
+            // 인스턴스에서 접근: instance.method → bound method
+            return new PyBoundBuiltinMethod(instance, this);
+        }
+
+        public void Set(PyObject instance, PyObject value)
+        {
+            throw PyAttributeError.Create($"can't set attribute '{Name}'");
+        }
+
+        public void Delete(PyObject instance)
+        {
+            throw PyAttributeError.Create($"can't delete attribute '{Name}'");
+        }
+
+        public bool IsDataDescriptor() => false; // non-data descriptor
+
+        // Unbound call: 첫 인자를 self로 사용
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
-            // The first argument is 'self' for bound methods
+            // The first argument is 'self' for unbound methods
             if (args.Length < 1)
             {
                 throw PyTypeError.Create($"{Name}() missing required 'self' argument");
             }
-            
+
             var self = args[0];
             var methodArgs = new PyObject[args.Length - 1];
             Array.Copy(args, 1, methodArgs, 0, methodArgs.Length);
-            
+
             return Method(self, methodArgs);
         }
 
         public override bool IsCallable()
         {
             return true;
+        }
+    }
+
+    /// <summary>
+    /// Bound builtin method: self가 이미 바인딩된 메서드
+    /// </summary>
+    public class PyBoundBuiltinMethod : PyObject
+    {
+        private PyObject _instance;
+        private PyBuiltinMethod _method;
+
+        public PyBoundBuiltinMethod(PyObject instance, PyBuiltinMethod method)
+        {
+            _instance = instance;
+            _method = method;
+        }
+
+        public override string ToString()
+        {
+            return $"<bound method '{_method.Name}' of {_instance}>";
+        }
+
+        public override PyType GetPyType()
+        {
+            return PyType.MethodType;
+        }
+
+        // Bound call: self 자동 추가
+        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
+        {
+            return _method.Method(_instance, args);
+        }
+
+        public override bool IsCallable()
+        {
+            return true;
+        }
+
+        // Bound method attributes
+        public override PyObject GetAttribute(string name)
+        {
+            return name switch
+            {
+                "__self__" => _instance,
+                "__func__" => _method,
+                "__name__" => new PyString(_method.Name),
+                _ => base.GetAttribute(name)
+            };
         }
     }
 }

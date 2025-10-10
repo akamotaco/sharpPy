@@ -41,43 +41,39 @@ namespace SharpPy.Generated
         // C# improvement: Type-safe keyword types
         private enum KeywordType
         {
-            _ = 531,
-            AND = 533,
-            AS = 520,
-            ASSERT = 508,
-            BREAK = 509,
-            CASE = 527,
-            CLASS = 515,
-            CONTINUE = 510,
-            DEF = 513,
-            DEL = 506,
-            ELIF = 521,
-            ELSE = 522,
-            EXCEPT = 524,
-            KW_FALSE = 530,
-            FINALLY = 525,
-            FOR = 517,
-            FROM = 503,
-            GLOBAL = 511,
-            IF = 514,
-            IMPORT = 502,
-            IN = 523,
-            IS = 535,
-            LAMBDA = 536,
-            MATCH = 526,
-            KW_NONE = 528,
-            NONLOCAL = 512,
-            NOT = 534,
-            OR = 532,
-            PASS = 505,
-            RAISE = 504,
-            RETURN = 501,
-            KW_TRUE = 529,
-            TRY = 518,
-            TYPE = 500,
-            WHILE = 519,
-            WITH = 516,
-            YIELD = 507
+            AND = 529,
+            AS = 519,
+            ASSERT = 507,
+            BREAK = 508,
+            CLASS = 514,
+            CONTINUE = 509,
+            DEF = 512,
+            DEL = 505,
+            ELIF = 520,
+            ELSE = 521,
+            EXCEPT = 523,
+            KW_FALSE = 527,
+            FINALLY = 524,
+            FOR = 516,
+            FROM = 502,
+            GLOBAL = 510,
+            IF = 513,
+            IMPORT = 501,
+            IN = 522,
+            IS = 531,
+            LAMBDA = 532,
+            KW_NONE = 525,
+            NONLOCAL = 511,
+            NOT = 530,
+            OR = 528,
+            PASS = 504,
+            RAISE = 503,
+            RETURN = 500,
+            KW_TRUE = 526,
+            TRY = 517,
+            WHILE = 518,
+            WITH = 515,
+            YIELD = 506
         }
 
         // CPython 3.12: Keyword table (like reserved_keywords in parser.c)
@@ -87,58 +83,53 @@ namespace SharpPy.Generated
         private static readonly Dictionary<string, int>[] ReservedKeywords = new Dictionary<string, int>[]
         {
             null,
+            null,
             new Dictionary<string, int> {
-                { "_", 531 }
+                { "if", 513 },
+                { "as", 519 },
+                { "in", 522 },
+                { "or", 528 },
+                { "is", 531 }
             },
             new Dictionary<string, int> {
-                { "if", 514 },
-                { "as", 520 },
-                { "in", 523 },
-                { "or", 532 },
-                { "is", 535 }
+                { "del", 505 },
+                { "def", 512 },
+                { "for", 516 },
+                { "try", 517 },
+                { "and", 529 },
+                { "not", 530 }
             },
             new Dictionary<string, int> {
-                { "del", 506 },
-                { "def", 513 },
-                { "for", 517 },
-                { "try", 518 },
-                { "and", 533 },
-                { "not", 534 }
+                { "from", 502 },
+                { "pass", 504 },
+                { "with", 515 },
+                { "elif", 520 },
+                { "else", 521 },
+                { "None", 525 },
+                { "True", 526 }
             },
             new Dictionary<string, int> {
-                { "type", 500 },
-                { "from", 503 },
-                { "pass", 505 },
-                { "with", 516 },
-                { "elif", 521 },
-                { "else", 522 },
-                { "case", 527 },
-                { "None", 528 },
-                { "True", 529 }
+                { "raise", 503 },
+                { "yield", 506 },
+                { "break", 508 },
+                { "class", 514 },
+                { "while", 518 },
+                { "False", 527 }
             },
             new Dictionary<string, int> {
-                { "raise", 504 },
-                { "yield", 507 },
-                { "break", 509 },
-                { "class", 515 },
-                { "while", 519 },
-                { "match", 526 },
-                { "False", 530 }
+                { "return", 500 },
+                { "import", 501 },
+                { "assert", 507 },
+                { "global", 510 },
+                { "except", 523 },
+                { "lambda", 532 }
             },
             new Dictionary<string, int> {
-                { "return", 501 },
-                { "import", 502 },
-                { "assert", 508 },
-                { "global", 511 },
-                { "except", 524 },
-                { "lambda", 536 }
+                { "finally", 524 }
             },
             new Dictionary<string, int> {
-                { "finally", 525 }
-            },
-            new Dictionary<string, int> {
-                { "continue", 510 },
-                { "nonlocal", 512 }
+                { "continue", 509 },
+                { "nonlocal", 511 }
             }
         };
 
@@ -1074,7 +1065,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Positive lookahead: &('type')
+                // Positive lookahead: &("type")
                 int _lookahead_mark_1 = _position;
                 bool _lookahead_test_1 = false;
                 {
@@ -1293,7 +1284,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'pass' (token type 505)
+                // Expect hard keyword: 'pass' (token type 504)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.PASS);
                 if (_tmp0 == null)
                 {
@@ -1461,7 +1452,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'break' (token type 509)
+                // Expect hard keyword: 'break' (token type 508)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.BREAK);
                 if (_tmp0 == null)
                 {
@@ -1491,7 +1482,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'continue' (token type 510)
+                // Expect hard keyword: 'continue' (token type 509)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.CONTINUE);
                 if (_tmp0 == null)
                 {
@@ -2972,7 +2963,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'return' (token type 501)
+                // Expect hard keyword: 'return' (token type 500)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.RETURN);
                 if (_tmp0 == null)
                 {
@@ -3059,7 +3050,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'raise' (token type 504)
+                // Expect hard keyword: 'raise' (token type 503)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.RAISE);
                 if (_tmp0 == null)
                 {
@@ -3136,7 +3127,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'raise' (token type 504)
+                // Expect hard keyword: 'raise' (token type 503)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.RAISE);
                 if (_tmp0 == null)
                 {
@@ -3189,7 +3180,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'global' (token type 511)
+                // Expect hard keyword: 'global' (token type 510)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.GLOBAL);
                 if (_tmp0 == null)
                 {
@@ -3252,7 +3243,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'nonlocal' (token type 512)
+                // Expect hard keyword: 'nonlocal' (token type 511)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.NONLOCAL);
                 if (_tmp0 == null)
                 {
@@ -3315,7 +3306,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'del' (token type 506)
+                // Expect hard keyword: 'del' (token type 505)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.DEL);
                 if (_tmp0 == null)
                 {
@@ -3511,7 +3502,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'assert' (token type 508)
+                // Expect hard keyword: 'assert' (token type 507)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.ASSERT);
                 if (_tmp0 == null)
                 {
@@ -3757,7 +3748,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'import' (token type 502)
+                // Expect hard keyword: 'import' (token type 501)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IMPORT);
                 if (_tmp0 == null)
                 {
@@ -3822,7 +3813,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'from' (token type 503)
+                // Expect hard keyword: 'from' (token type 502)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.FROM);
                 if (_tmp0 == null)
                 {
@@ -3845,7 +3836,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'import' (token type 502)
+                // Expect hard keyword: 'import' (token type 501)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.IMPORT);
                 if (_tmp1 == null)
                 {
@@ -3883,7 +3874,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'from' (token type 503)
+                // Expect hard keyword: 'from' (token type 502)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.FROM);
                 if (_tmp0 == null)
                 {
@@ -3901,7 +3892,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'import' (token type 502)
+                // Expect hard keyword: 'import' (token type 501)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.IMPORT);
                 if (_tmp1 == null)
                 {
@@ -5072,7 +5063,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'class' (token type 515)
+                // Expect hard keyword: 'class' (token type 514)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.CLASS);
                 if (_tmp0 == null)
                 {
@@ -5430,7 +5421,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'def' (token type 513)
+                // Expect hard keyword: 'def' (token type 512)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.DEF);
                 if (_tmp0 == null)
                 {
@@ -5668,7 +5659,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
-                // Expect keyword: 'def' (token type 513)
+                // Expect hard keyword: 'def' (token type 512)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.DEF);
                 if (_tmp1 == null)
                 {
@@ -8212,7 +8203,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'if' (token type 514)
+                // Expect hard keyword: 'if' (token type 513)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IF);
                 if (_tmp0 == null)
                 {
@@ -8284,7 +8275,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'if' (token type 514)
+                // Expect hard keyword: 'if' (token type 513)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IF);
                 if (_tmp0 == null)
                 {
@@ -8463,7 +8454,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'elif' (token type 521)
+                // Expect hard keyword: 'elif' (token type 520)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.ELIF);
                 if (_tmp0 == null)
                 {
@@ -8535,7 +8526,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'elif' (token type 521)
+                // Expect hard keyword: 'elif' (token type 520)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.ELIF);
                 if (_tmp0 == null)
                 {
@@ -8714,7 +8705,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'else' (token type 522)
+                // Expect hard keyword: 'else' (token type 521)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.ELSE);
                 if (_tmp0 == null)
                 {
@@ -8845,7 +8836,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'while' (token type 519)
+                // Expect hard keyword: 'while' (token type 518)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.WHILE);
                 if (_tmp0 == null)
                 {
@@ -9024,7 +9015,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'for' (token type 517)
+                // Expect hard keyword: 'for' (token type 516)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.FOR);
                 if (_tmp0 == null)
                 {
@@ -9045,7 +9036,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'in' (token type 523)
+                // Expect hard keyword: 'in' (token type 522)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.IN);
                 if (_tmp1 == null)
                 {
@@ -9190,7 +9181,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
-                // Expect keyword: 'for' (token type 517)
+                // Expect hard keyword: 'for' (token type 516)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.FOR);
                 if (_tmp1 == null)
                 {
@@ -9211,7 +9202,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'in' (token type 523)
+                // Expect hard keyword: 'in' (token type 522)
                 var _tmp2 = ExpectToken((GeneratedTokenType)KeywordType.IN);
                 if (_tmp2 == null)
                 {
@@ -9485,7 +9476,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'with' (token type 516)
+                // Expect hard keyword: 'with' (token type 515)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.WITH);
                 if (_tmp0 == null)
                 {
@@ -9580,7 +9571,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'with' (token type 516)
+                // Expect hard keyword: 'with' (token type 515)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.WITH);
                 if (_tmp0 == null)
                 {
@@ -9687,7 +9678,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
-                // Expect keyword: 'with' (token type 516)
+                // Expect hard keyword: 'with' (token type 515)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.WITH);
                 if (_tmp1 == null)
                 {
@@ -9797,7 +9788,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
-                // Expect keyword: 'with' (token type 516)
+                // Expect hard keyword: 'with' (token type 515)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.WITH);
                 if (_tmp1 == null)
                 {
@@ -9986,7 +9977,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'as' (token type 520)
+                // Expect hard keyword: 'as' (token type 519)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.AS);
                 if (_tmp0 == null)
                 {
@@ -10214,7 +10205,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'try' (token type 518)
+                // Expect hard keyword: 'try' (token type 517)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.TRY);
                 if (_tmp0 == null)
                 {
@@ -10273,7 +10264,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'try' (token type 518)
+                // Expect hard keyword: 'try' (token type 517)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.TRY);
                 if (_tmp0 == null)
                 {
@@ -10398,7 +10389,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'try' (token type 518)
+                // Expect hard keyword: 'try' (token type 517)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.TRY);
                 if (_tmp0 == null)
                 {
@@ -10610,7 +10601,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'except' (token type 524)
+                // Expect hard keyword: 'except' (token type 523)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (_tmp0 == null)
                 {
@@ -10707,7 +10698,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'except' (token type 524)
+                // Expect hard keyword: 'except' (token type 523)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (_tmp0 == null)
                 {
@@ -10898,7 +10889,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'except' (token type 524)
+                // Expect hard keyword: 'except' (token type 523)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (_tmp0 == null)
                 {
@@ -11148,7 +11139,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'finally' (token type 525)
+                // Expect hard keyword: 'finally' (token type 524)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.FINALLY);
                 if (_tmp0 == null)
                 {
@@ -11220,8 +11211,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'match' (token type 526)
-                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.MATCH);
+                // Expect soft keyword: "match" (NAME token with value 'match')
+                var _tmp0 = ExpectSoftKeyword("match");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -11583,8 +11574,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'case' (token type 527)
-                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.CASE);
+                // Expect soft keyword: "case" (NAME token with value 'case')
+                var _tmp0 = ExpectSoftKeyword("case");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -11690,7 +11681,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'if' (token type 514)
+                // Expect hard keyword: 'if' (token type 513)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IF);
                 if (_tmp0 == null)
                 {
@@ -11934,7 +11925,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'as' (token type 520)
+                // Expect hard keyword: 'as' (token type 519)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.AS);
                 if (_tmp0 == null)
                 {
@@ -12477,7 +12468,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'None' (token type 528)
+                // Expect hard keyword: 'None' (token type 525)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.KW_NONE);
                 if (_tmp0 == null)
                 {
@@ -12503,7 +12494,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'True' (token type 529)
+                // Expect hard keyword: 'True' (token type 526)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.KW_TRUE);
                 if (_tmp0 == null)
                 {
@@ -12529,7 +12520,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'False' (token type 530)
+                // Expect hard keyword: 'False' (token type 527)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.KW_FALSE);
                 if (_tmp0 == null)
                 {
@@ -12681,7 +12672,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'None' (token type 528)
+                // Expect hard keyword: 'None' (token type 525)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.KW_NONE);
                 if (_tmp0 == null)
                 {
@@ -12708,7 +12699,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'True' (token type 529)
+                // Expect hard keyword: 'True' (token type 526)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.KW_TRUE);
                 if (_tmp0 == null)
                 {
@@ -12735,7 +12726,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'False' (token type 530)
+                // Expect hard keyword: 'False' (token type 527)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.KW_FALSE);
                 if (_tmp0 == null)
                 {
@@ -13286,7 +13277,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Negative lookahead: !('_')
+                // Negative lookahead: !("_")
                 GeneratedTokenInfo? _lookahead_test_29 = null;
                 if (CurrentToken?.Value == "_") { _lookahead_test_29 = CurrentToken; }
                 if (_lookahead_test_29 != null)
@@ -13370,8 +13361,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: '_' (token type 531)
-                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType._);
+                // Expect soft keyword: "_" (NAME token with value '_')
+                var _tmp0 = ExpectSoftKeyword("_");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -15373,8 +15364,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'type' (token type 500)
-                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.TYPE);
+                // Expect soft keyword: "type" (NAME token with value 'type')
+                var _tmp0 = ExpectSoftKeyword("type");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -16385,7 +16376,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'if' (token type 514)
+                // Expect hard keyword: 'if' (token type 513)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IF);
                 if (_tmp0 == null)
                 {
@@ -16406,7 +16397,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'else' (token type 522)
+                // Expect hard keyword: 'else' (token type 521)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.ELSE);
                 if (_tmp1 == null)
                 {
@@ -16552,7 +16543,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'yield' (token type 507)
+                // Expect hard keyword: 'yield' (token type 506)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.YIELD);
                 if (_tmp0 == null)
                 {
@@ -16561,7 +16552,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'from' (token type 503)
+                // Expect hard keyword: 'from' (token type 502)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.FROM);
                 if (_tmp1 == null)
                 {
@@ -16600,7 +16591,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'yield' (token type 507)
+                // Expect hard keyword: 'yield' (token type 506)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.YIELD);
                 if (_tmp0 == null)
                 {
@@ -17598,7 +17589,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'not' (token type 534)
+                // Expect hard keyword: 'not' (token type 530)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.NOT);
                 if (_tmp0 == null)
                 {
@@ -18508,7 +18499,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'not' (token type 534)
+                // Expect hard keyword: 'not' (token type 530)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.NOT);
                 if (_tmp0 == null)
                 {
@@ -18517,7 +18508,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'in' (token type 523)
+                // Expect hard keyword: 'in' (token type 522)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.IN);
                 if (_tmp1 == null)
                 {
@@ -18581,7 +18572,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'in' (token type 523)
+                // Expect hard keyword: 'in' (token type 522)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IN);
                 if (_tmp0 == null)
                 {
@@ -18645,7 +18636,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'is' (token type 535)
+                // Expect hard keyword: 'is' (token type 531)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IS);
                 if (_tmp0 == null)
                 {
@@ -18654,7 +18645,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'not' (token type 534)
+                // Expect hard keyword: 'not' (token type 530)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.NOT);
                 if (_tmp1 == null)
                 {
@@ -18718,7 +18709,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'is' (token type 535)
+                // Expect hard keyword: 'is' (token type 531)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IS);
                 if (_tmp0 == null)
                 {
@@ -21202,7 +21193,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'True' (token type 529)
+                // Expect hard keyword: 'True' (token type 526)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.KW_TRUE);
                 if (_tmp0 == null)
                 {
@@ -21229,7 +21220,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'False' (token type 530)
+                // Expect hard keyword: 'False' (token type 527)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.KW_FALSE);
                 if (_tmp0 == null)
                 {
@@ -21256,7 +21247,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'None' (token type 528)
+                // Expect hard keyword: 'None' (token type 525)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.KW_NONE);
                 if (_tmp0 == null)
                 {
@@ -21829,7 +21820,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'lambda' (token type 536)
+                // Expect hard keyword: 'lambda' (token type 532)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.LAMBDA);
                 if (_tmp0 == null)
                 {
@@ -24992,7 +24983,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
-                // Expect keyword: 'for' (token type 517)
+                // Expect hard keyword: 'for' (token type 516)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.FOR);
                 if (_tmp1 == null)
                 {
@@ -25013,7 +25004,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'in' (token type 523)
+                // Expect hard keyword: 'in' (token type 522)
                 var _tmp2 = ExpectToken((GeneratedTokenType)KeywordType.IN);
                 if (_tmp2 == null)
                 {
@@ -25056,7 +25047,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'for' (token type 517)
+                // Expect hard keyword: 'for' (token type 516)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.FOR);
                 if (_tmp0 == null)
                 {
@@ -25077,7 +25068,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'in' (token type 523)
+                // Expect hard keyword: 'in' (token type 522)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.IN);
                 if (_tmp1 == null)
                 {
@@ -30471,7 +30462,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'if' (token type 514)
+                // Expect hard keyword: 'if' (token type 513)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IF);
                 if (_tmp0 == null)
                 {
@@ -30492,7 +30483,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'else' (token type 522)
+                // Expect hard keyword: 'else' (token type 521)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.ELSE);
                 if (_tmp1 == null)
                 {
@@ -30768,7 +30759,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'if' (token type 514)
+                // Expect hard keyword: 'if' (token type 513)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IF);
                 if (_tmp0 == null)
                 {
@@ -30820,7 +30811,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'lambda' (token type 536)
+                // Expect hard keyword: 'lambda' (token type 532)
                 var a = ExpectToken((GeneratedTokenType)KeywordType.LAMBDA);
                 if (a == null)
                 {
@@ -31720,7 +31711,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'del' (token type 506)
+                // Expect hard keyword: 'del' (token type 505)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.DEL);
                 if (_tmp0 == null)
                 {
@@ -34730,7 +34721,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'as' (token type 520)
+                // Expect hard keyword: 'as' (token type 519)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.AS);
                 if (_tmp1 == null)
                 {
@@ -34839,7 +34830,7 @@ namespace SharpPy.Generated
                     // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
                 }
-                // Expect keyword: 'for' (token type 517)
+                // Expect hard keyword: 'for' (token type 516)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.FOR);
                 if (_tmp1 == null)
                 {
@@ -35041,7 +35032,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'import' (token type 502)
+                // Expect hard keyword: 'import' (token type 501)
                 var a = ExpectToken((GeneratedTokenType)KeywordType.IMPORT);
                 if (a == null)
                 {
@@ -35059,7 +35050,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'from' (token type 503)
+                // Expect hard keyword: 'from' (token type 502)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.FROM);
                 if (_tmp1 == null)
                 {
@@ -35242,7 +35233,7 @@ namespace SharpPy.Generated
                     // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
                 }
-                // Expect keyword: 'with' (token type 516)
+                // Expect hard keyword: 'with' (token type 515)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.WITH);
                 if (_tmp1 == null)
                 {
@@ -35329,7 +35320,7 @@ namespace SharpPy.Generated
                     // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
                 }
-                // Expect keyword: 'with' (token type 516)
+                // Expect hard keyword: 'with' (token type 515)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.WITH);
                 if (_tmp1 == null)
                 {
@@ -35479,7 +35470,7 @@ namespace SharpPy.Generated
                     // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
                 }
-                // Expect keyword: 'with' (token type 516)
+                // Expect hard keyword: 'with' (token type 515)
                 var a = ExpectToken((GeneratedTokenType)KeywordType.WITH);
                 if (a == null)
                 {
@@ -35589,7 +35580,7 @@ namespace SharpPy.Generated
                     // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
                 }
-                // Expect keyword: 'with' (token type 516)
+                // Expect hard keyword: 'with' (token type 515)
                 var a = ExpectToken((GeneratedTokenType)KeywordType.WITH);
                 if (a == null)
                 {
@@ -35728,7 +35719,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'try' (token type 518)
+                // Expect hard keyword: 'try' (token type 517)
                 var a = ExpectToken((GeneratedTokenType)KeywordType.TRY);
                 if (a == null)
                 {
@@ -35795,7 +35786,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'try' (token type 518)
+                // Expect hard keyword: 'try' (token type 517)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.TRY);
                 if (_tmp0 == null)
                 {
@@ -35858,7 +35849,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'try' (token type 518)
+                // Expect hard keyword: 'try' (token type 517)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.TRY);
                 if (_tmp0 == null)
                 {
@@ -35887,7 +35878,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'except' (token type 524)
+                // Expect hard keyword: 'except' (token type 523)
                 var a = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (a == null)
                 {
@@ -35932,7 +35923,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'try' (token type 518)
+                // Expect hard keyword: 'try' (token type 517)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.TRY);
                 if (_tmp0 == null)
                 {
@@ -35961,7 +35952,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'except' (token type 524)
+                // Expect hard keyword: 'except' (token type 523)
                 var a = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (a == null)
                 {
@@ -36049,7 +36040,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'except' (token type 524)
+                // Expect hard keyword: 'except' (token type 523)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (_tmp0 == null)
                 {
@@ -36127,7 +36118,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'except' (token type 524)
+                // Expect hard keyword: 'except' (token type 523)
                 var a = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (a == null)
                 {
@@ -36190,7 +36181,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'except' (token type 524)
+                // Expect hard keyword: 'except' (token type 523)
                 var a = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (a == null)
                 {
@@ -36234,7 +36225,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'except' (token type 524)
+                // Expect hard keyword: 'except' (token type 523)
                 var a = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (a == null)
                 {
@@ -36337,7 +36328,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'finally' (token type 525)
+                // Expect hard keyword: 'finally' (token type 524)
                 var a = ExpectToken((GeneratedTokenType)KeywordType.FINALLY);
                 if (a == null)
                 {
@@ -36430,7 +36421,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'except' (token type 524)
+                // Expect hard keyword: 'except' (token type 523)
                 var a = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (a == null)
                 {
@@ -36497,7 +36488,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'except' (token type 524)
+                // Expect hard keyword: 'except' (token type 523)
                 var a = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (a == null)
                 {
@@ -36590,7 +36581,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'except' (token type 524)
+                // Expect hard keyword: 'except' (token type 523)
                 var a = ExpectToken((GeneratedTokenType)KeywordType.EXCEPT);
                 if (a == null)
                 {
@@ -36692,8 +36683,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'match' (token type 526)
-                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.MATCH);
+                // Expect soft keyword: "match" (NAME token with value 'match')
+                var _tmp0 = ExpectSoftKeyword("match");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -36748,8 +36739,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'match' (token type 526)
-                var a = ExpectToken((GeneratedTokenType)KeywordType.MATCH);
+                // Expect soft keyword: "match" (NAME token with value 'match')
+                var a = ExpectSoftKeyword("match");
                 if (a == null)
                 {
                     _position = _mark;
@@ -36853,8 +36844,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'case' (token type 527)
-                var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.CASE);
+                // Expect soft keyword: "case" (NAME token with value 'case')
+                var _tmp0 = ExpectSoftKeyword("case");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -36931,8 +36922,8 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'case' (token type 527)
-                var a = ExpectToken((GeneratedTokenType)KeywordType.CASE);
+                // Expect soft keyword: "case" (NAME token with value 'case')
+                var a = ExpectSoftKeyword("case");
                 if (a == null)
                 {
                     _position = _mark;
@@ -37070,7 +37061,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'as' (token type 520)
+                // Expect hard keyword: 'as' (token type 519)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.AS);
                 if (_tmp1 == null)
                 {
@@ -37079,8 +37070,8 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: '_' (token type 531)
-                var a = ExpectToken((GeneratedTokenType)KeywordType._);
+                // Expect soft keyword: "_" (NAME token with value '_')
+                var a = ExpectSoftKeyword("_");
                 if (a == null)
                 {
                     _position = _mark;
@@ -37120,7 +37111,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'as' (token type 520)
+                // Expect hard keyword: 'as' (token type 519)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.AS);
                 if (_tmp1 == null)
                 {
@@ -37420,7 +37411,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'if' (token type 514)
+                // Expect hard keyword: 'if' (token type 513)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.IF);
                 if (_tmp0 == null)
                 {
@@ -37476,7 +37467,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'if' (token type 514)
+                // Expect hard keyword: 'if' (token type 513)
                 var a = ExpectToken((GeneratedTokenType)KeywordType.IF);
                 if (a == null)
                 {
@@ -37581,7 +37572,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'elif' (token type 521)
+                // Expect hard keyword: 'elif' (token type 520)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.ELIF);
                 if (_tmp0 == null)
                 {
@@ -37637,7 +37628,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'elif' (token type 521)
+                // Expect hard keyword: 'elif' (token type 520)
                 var a = ExpectToken((GeneratedTokenType)KeywordType.ELIF);
                 if (a == null)
                 {
@@ -37742,7 +37733,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'else' (token type 522)
+                // Expect hard keyword: 'else' (token type 521)
                 var a = ExpectToken((GeneratedTokenType)KeywordType.ELSE);
                 if (a == null)
                 {
@@ -37835,7 +37826,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'while' (token type 519)
+                // Expect hard keyword: 'while' (token type 518)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.WHILE);
                 if (_tmp0 == null)
                 {
@@ -37891,7 +37882,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'while' (token type 519)
+                // Expect hard keyword: 'while' (token type 518)
                 var a = ExpectToken((GeneratedTokenType)KeywordType.WHILE);
                 if (a == null)
                 {
@@ -38030,7 +38021,7 @@ namespace SharpPy.Generated
                     // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
                 }
-                // Expect keyword: 'for' (token type 517)
+                // Expect hard keyword: 'for' (token type 516)
                 var _tmp1 = ExpectToken((GeneratedTokenType)KeywordType.FOR);
                 if (_tmp1 == null)
                 {
@@ -38051,7 +38042,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'in' (token type 523)
+                // Expect hard keyword: 'in' (token type 522)
                 var _tmp3 = ExpectToken((GeneratedTokenType)KeywordType.IN);
                 if (_tmp3 == null)
                 {
@@ -38141,7 +38132,7 @@ namespace SharpPy.Generated
                     // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
                 }
-                // Expect keyword: 'for' (token type 517)
+                // Expect hard keyword: 'for' (token type 516)
                 var a = ExpectToken((GeneratedTokenType)KeywordType.FOR);
                 if (a == null)
                 {
@@ -38162,7 +38153,7 @@ namespace SharpPy.Generated
                     _res = null;
                     break;  // Exit this alternative
                 }
-                // Expect keyword: 'in' (token type 523)
+                // Expect hard keyword: 'in' (token type 522)
                 var _tmp2 = ExpectToken((GeneratedTokenType)KeywordType.IN);
                 if (_tmp2 == null)
                 {
@@ -38301,7 +38292,7 @@ namespace SharpPy.Generated
                     // CPython: No error, but expr returned NULL - optional not present
                     _position = _opt_mark__tmp0; // Reset position
                 }
-                // Expect keyword: 'def' (token type 513)
+                // Expect hard keyword: 'def' (token type 512)
                 var a = ExpectToken((GeneratedTokenType)KeywordType.DEF);
                 if (a == null)
                 {
@@ -38484,7 +38475,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'class' (token type 515)
+                // Expect hard keyword: 'class' (token type 514)
                 var _tmp0 = ExpectToken((GeneratedTokenType)KeywordType.CLASS);
                 if (_tmp0 == null)
                 {
@@ -38603,7 +38594,7 @@ namespace SharpPy.Generated
                     break;
                 }
 
-                // Expect keyword: 'class' (token type 515)
+                // Expect hard keyword: 'class' (token type 514)
                 var a = ExpectToken((GeneratedTokenType)KeywordType.CLASS);
                 if (a == null)
                 {

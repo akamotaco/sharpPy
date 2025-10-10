@@ -148,6 +148,31 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
+        /// CPython 3.12: _PyPegen_expect_soft_keyword
+        /// Soft keywords: _, case, match, type
+        /// These are NAME tokens that are treated as keywords only in specific contexts
+        /// </summary>
+        protected GeneratedTokenInfo ExpectSoftKeyword(string keyword)
+        {
+            var token = CurrentToken;
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[ExpectSoftKeyword] keyword='{keyword}', token={(token != null ? $\"{(int)token.Type}:'{token.Value}'\" : \"null\")}, match={token != null && token.Type == GeneratedTokenType.NAME && token.Value == keyword}");
+            #endif
+            // CPython: t->type != NAME → return NULL
+            if (token == null || token.Type != GeneratedTokenType.NAME)
+            {
+                return null;
+            }
+            // CPython: strcmp(keyword, the_token) == 0
+            if (token.Value == keyword)
+            {
+                _position++;
+                return token;
+            }
+            return null;
+        }
+
+        /// <summary>
         /// CPython 3.12: _PyPegen_expect_forced_token
         /// Token *_PyPegen_expect_forced_token(Parser *p, int type, const char* expected)
         /// Forced token must match or raise syntax error immediately

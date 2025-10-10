@@ -104,19 +104,45 @@ namespace SharpPy.PegGenerator.CodeGenerator
         {
             var escaped = _parent.EscapeString(lit.Value);
 
-            // CPython 3.12: Check if this is a keyword (alphabetic identifier) or operator
-            int keywordTokenType = _parent.GetKeywordTokenType(lit.Value);
+            // CPython 3.12: Check if this is an identifier (keyword candidate)
+            bool isIdentifier = System.Text.RegularExpressions.Regex.IsMatch(lit.Value, @"^[a-zA-Z_]\w*$");
 
-            if (keywordTokenType > 0)
+            if (isIdentifier)
             {
-                // CPython 3.12: This is a keyword - use KeywordType enum
-                string enumName = lit.Value.ToUpper();
-                if (lit.Value == "None" || lit.Value == "True" || lit.Value == "False")
+                // CPython 3.12 c_generator.py:186-192
+                // Grammar quote convention:
+                // 'keyword' (single quote) → hard keyword (ExpectToken with keyword type)
+                // "keyword" (double quote) → soft keyword (ExpectSoftKeyword with NAME token)
+
+                if (lit.QuoteChar == '\'')
                 {
-                    enumName = "KW_" + enumName; // Avoid conflict with C# keywords
+                    // Hard keyword: 'return', 'if', 'class', etc.
+                    int keywordTokenType = _parent.GetKeywordTokenType(lit.Value);
+                    if (keywordTokenType > 0)
+                    {
+                        string enumName = lit.Value.ToUpper();
+                        if (lit.Value == "None" || lit.Value == "True" || lit.Value == "False")
+                        {
+                            enumName = "KW_" + enumName; // Avoid conflict with C# keywords
+                        }
+                        _parent.WriteLine($"// Expect hard keyword: '{escaped}' (token type {keywordTokenType})");
+                        _parent.WriteLine($"var {_varName} = ExpectToken((GeneratedTokenType)KeywordType.{enumName});");
+                    }
+                    else
+                    {
+                        // Not a keyword - treat as operator
+                        _parent.WriteLine($"// Expect '{escaped}'");
+                        _parent.WriteLine($"var {_varName} = Expect(GeneratedTokenType.OP, \"{escaped}\");");
+                    }
                 }
-                _parent.WriteLine($"// Expect keyword: '{escaped}' (token type {keywordTokenType})");
-                _parent.WriteLine($"var {_varName} = ExpectToken((GeneratedTokenType)KeywordType.{enumName});");
+                else // lit.QuoteChar == '"'
+                {
+                    // Soft keyword: "type", "match", "case", "_"
+                    // CPython: _PyPegen_expect_soft_keyword(p, "type")
+                    // Returns expr_ty (NAME node) if NAME token matches the value
+                    _parent.WriteLine($"// Expect soft keyword: \"{escaped}\" (NAME token with value '{escaped}')");
+                    _parent.WriteLine($"var {_varName} = ExpectSoftKeyword(\"{escaped}\");");
+                }
             }
             else
             {

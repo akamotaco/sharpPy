@@ -429,9 +429,18 @@ namespace SharpPy.PegGenerator.CodeGenerator
             switch (atom)
             {
                 case StringLiteral lit:
-                    // CPython 3.12: Check if this is a keyword (alphabetic identifier)
+                    // CPython 3.12: Grammar quote convention determines keyword type
+                    // 'keyword' (single quote) = hard keyword → add to KeywordType enum
+                    // "keyword" (double quote) = soft keyword → handled by ExpectSoftKeyword()
                     if (System.Text.RegularExpressions.Regex.IsMatch(lit.Value, @"^[a-zA-Z_]\w*$"))
                     {
+                        // Soft keywords use ExpectSoftKeyword() and are NOT added to KeywordType enum
+                        if (lit.QuoteChar == '"')
+                        {
+                            // This is a soft keyword - do NOT add to keyword dictionary
+                            break;
+                        }
+                        // Hard keyword (single quote) - add to keyword dictionary for token type mapping
                         if (!_keywords.ContainsKey(lit.Value))
                         {
                             _keywordCounter++;

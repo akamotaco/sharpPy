@@ -399,7 +399,12 @@ namespace SharpPy.PegGenerator.Grammar
                     break;
 
                 case GrammarTokenType.STRING:
-                    atom = new StringLiteral { Value = CurrentToken.Value.Trim('\'', '"') };
+                    // CPython 3.12: Preserve quote type for soft keyword detection
+                    // ' (single quote) = hard keyword, " (double quote) = soft keyword
+                    var rawValue = CurrentToken.Value;
+                    char quoteChar = rawValue[0]; // First char is the quote
+                    var trimmedValue = rawValue.Trim('\'', '"');
+                    atom = new StringLiteral { Value = trimmedValue, QuoteChar = quoteChar };
                     Advance();
                     break;
 

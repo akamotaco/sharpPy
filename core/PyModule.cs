@@ -240,29 +240,37 @@ public class PyModule : PyObject
         // sys.modules 캐시
         public static Dictionary<string, PyModule> SysModules { get; } = new Dictionary<string, PyModule>();
 
-        // C# 구현 모듈들 (성능 또는 시스템 접근이 중요한 모듈)
+        // C# 구현 모듈들 (CPython 3.12 C 확장 모듈만)
         private static Dictionary<string, Func<PyModule>> _builtinModules = new Dictionary<string, Func<PyModule>>
         {
-            // 핵심 C# 모듈 (성능 중요)
+            // CPython 3.12 Built-in C 모듈 (성능 중요)
             ["math"] = () => SharpPy.Modules.MathModule.CreateMathModule(),
             ["time"] = () => new TimeModule(),
             ["itertools"] = () => ItertoolsModule.Instance,
-            ["random"] = () => SharpPy.Modules.RandomModule.CreateRandomModule(),
-            ["types"] = () => SharpPy.Modules.TypesModule.CreateTypesModule(),
             ["_collections"] = () => SharpPy.Modules._CollectionsModule.CreateCollectionsModule(),
             ["_functools"] = () => SharpPy.Modules._FunctoolsModule.CreateFunctoolsModule(),
 
-            // 시스템 인터페이스 모듈
+            // CPython 3.12 C 확장 모듈 (Python 모듈의 백엔드)
+            ["_random"] = () => SharpPy.Modules.RandomModule.CreateRandomModule(),  // random.py가 사용
+
+            // 시스템 인터페이스 Built-in 모듈
             ["sys"] = () => SharpPy.Modules.SysModule.CreateSysModule(),
+
+            // CPython 3.12: 다음 모듈들은 순수 Python으로 stdlib/에서 로드됨:
+            // - types (stdlib/types.py)
+            // - random (stdlib/random.py + _random C# 모듈)
+
+            // TODO: CPython 호환을 위해 Python으로 전환 필요:
+            // - os → Lib/os.py + nt/posix C# 모듈 추가
+            // - datetime → Lib/datetime.py + _datetime C# 모듈 추가
+            // - re → Lib/re.py + _sre C# 모듈 추가
             ["os"] = () => SharpPy.Modules.Stdlib.OsModule.CreateOsModule(),
             ["datetime"] = () => SharpPy.Modules.Stdlib.DatetimeModule.CreateDatetimeModule(),
-
-            // 아직 Python으로 전환하지 않은 모듈들 (collections,json,traceback,pathlib → Lib/*.py로 전환 완료)
             ["re"] = () => SharpPy.Modules.Stdlib.RegexModule.CreateRegexModule(),
             ["urllib"] = () => SharpPy.Modules.Stdlib.UrllibModule.CreateUrllibModule(),
             ["asyncio"] = () => CreateAsyncioModule()
 
-            // 주석: 다음 모듈들은 이제 순수 Python 모듈로 Lib/ 디렉토리에서 로드됨:
+            // 주석: 다음 모듈들은 순수 Python 모듈로 Lib/ 디렉토리에서 로드됨:
             // functools, contextlib, typing, abc, collections, json, traceback, pathlib
         };
 

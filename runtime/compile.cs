@@ -5133,9 +5133,8 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.IMPORT_NAME, moduleIndex);
                 
                 // Store the imported module in the correct variable name
-                // CPython 3.12: Always use STORE_NAME for module level imports
-                var nameIndex = AddName(alias);
-                EmitInstruction(ByteCodeOp.STORE_NAME, nameIndex);
+                // CPython 3.12: Use STORE_FAST in functions, STORE_NAME at module level
+                EmitStoreVariable(alias);
             }
         }
         private void CompileImportFrom(ImportFromStatement importFrom)

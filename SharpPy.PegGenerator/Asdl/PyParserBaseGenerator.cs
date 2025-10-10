@@ -239,6 +239,39 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("}");
             WriteLine();
 
+            // ExpectSoftKeyword method - CPython 3.12: _PyPegen_expect_soft_keyword
+            WriteLine("/// <summary>");
+            WriteLine("/// CPython 3.12: _PyPegen_expect_soft_keyword");
+            WriteLine("/// Soft keywords: _, case, match, type");
+            WriteLine("/// These are NAME tokens that are treated as keywords only in specific contexts");
+            WriteLine("/// </summary>");
+            WriteLine("protected GeneratedTokenInfo ExpectSoftKeyword(string keyword)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("var token = CurrentToken;");
+            WriteLine("#if DEBUG_PARSE_LOG");
+            WriteLine("Console.WriteLine($\"[ExpectSoftKeyword] keyword='{keyword}', token={(token != null ? $\\\"{(int)token.Type}:'{token.Value}'\\\" : \\\"null\\\")}, match={token != null && token.Type == GeneratedTokenType.NAME && token.Value == keyword}\");");
+            WriteLine("#endif");
+            WriteLine("// CPython: t->type != NAME → return NULL");
+            WriteLine("if (token == null || token.Type != GeneratedTokenType.NAME)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("return null;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine("// CPython: strcmp(keyword, the_token) == 0");
+            WriteLine("if (token.Value == keyword)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("_position++;");
+            WriteLine("return token;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine("return null;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
             // ExpectForcedToken method - CPython 3.12: _PyPegen_expect_forced_token
             WriteLine("/// <summary>");
             WriteLine("/// CPython 3.12: _PyPegen_expect_forced_token");

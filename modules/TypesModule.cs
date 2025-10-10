@@ -12,12 +12,15 @@ namespace SharpPy.Modules
         {
             var module = new PyModule("types", "C:\\Users\\m11\\Desktop\\work\\sharpPy\\modules\\types.py");
 
-            // UnionType class (created by | operator)
+            // PEP 604: UnionType class (created by | operator)
             module.ModuleDict["UnionType"] = PyType.UnionType;
 
-            // Add other types module contents as needed
+            // Other type utilities
             module.ModuleDict["SimpleNamespace"] = new PySimpleNamespaceType();
             module.ModuleDict["GenericAlias"] = PyType.GenericAliasType;
+
+            // CPython 3.12: types module is implemented in Python (stdlib/types.py)
+            // This C# module only provides types that cannot be created in Python
 
             return module;
         }

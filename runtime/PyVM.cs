@@ -412,6 +412,9 @@ namespace SharpPy
         // Current frame for zero-argument super() calls
         public static PyFrame? CurrentFrame => Instance._frameStack.Count > 0 ? Instance._frameStack.Peek() : null;
 
+        // CPython 3.12: Get current frame for sys.exc_info() and other introspection
+        public static PyFrame? GetCurrentFrame() => CurrentFrame;
+
         private PyVM()
         {
             _frameStack = new Stack<PyFrame>();
@@ -1722,18 +1725,23 @@ namespace SharpPy
                         }
                         else if (pyCode.IsCoroutine())
                         {
+                            // CPython 3.12: Capture globals from current frame's GlobalScope
+                            var globalsDict = frame.ScopeChain.GlobalScope?.Variables;
+
                             // Async function: 호출 시 PyCoroutine 객체 반환
                             var asyncImpl = new Func<PyObject[], PyObject>(args =>
                             {
+                                var functionScopeChain = new PyScopeChain(globalsDict, "<async function>");
                                 var asyncFrame = closure != null && closure.Length > 0
-                                    ? new PyFrame(pyCode, args, frame.ScopeChain, closure, frame)
-                                    : new PyFrame(pyCode, args, frame.ScopeChain, null, frame);
+                                    ? new PyFrame(pyCode, args, functionScopeChain, closure, frame)
+                                    : new PyFrame(pyCode, args, functionScopeChain, null, frame);
 
                                 // Native coroutine 생성
                                 return new SharpPy.Core.PyCoroutine(asyncFrame, this, pyCode.Name);
                             });
 
                             var asyncFunction = new PyFunction(pyCode.Name, asyncImpl, null, null, closure, pyCode);
+                            asyncFunction.GlobalsDict = globalsDict;
 
                             // Set CPython 3.12 compatible function attributes
                             if (defaults != null)
@@ -1759,13 +1767,45 @@ namespace SharpPy
                             // Regular function
                             PyFunction functionObject;
 
+                            // CPython 3.12: Capture globals from current frame's GlobalScope
+                            // This is equivalent to CPython's GLOBALS() macro: frame->f_globals
+                            var globalsDict = frame.ScopeChain.GlobalScope?.Variables;
+
+                            Console.WriteLine($"[GLOBALS CAPTURE] MAKE_FUNCTION for {pyCode.Name}:");
+                            Console.WriteLine($"  frame.ScopeChain.GlobalScope.Name: {frame.ScopeChain.GlobalScope?.Name}");
+                            Console.WriteLine($"  globalsDict count: {globalsDict?.Count ?? 0}");
+                            if (globalsDict != null)
+                            {
+                                Console.WriteLine($"  globalsDict keys: {string.Join(", ", globalsDict.Keys.Take(10))}");
+                                Console.WriteLine($"  globalsDict reference hash: {globalsDict.GetHashCode()}");
+                            }
+
                             // Create function implementation with proper parameter binding
                             Func<PyObject[], PyObject> implementation = args =>
                             {
-                            // Create frame with closure support if needed - CPython 3.12: include parent frame
+                            // CPython 3.12: Create new ScopeChain with captured globals
+                            // The function's globals are fixed at function definition time
+                            Console.WriteLine($"[FUNCTION CALL] Function {pyCode.Name} called:");
+                            Console.WriteLine($"  globalsDict count at call time: {globalsDict?.Count ?? 0}");
+                            if (globalsDict != null)
+                            {
+                                Console.WriteLine($"  globalsDict keys at call time: {string.Join(", ", globalsDict.Keys.Take(10))}");
+                                Console.WriteLine($"  globalsDict reference hash at call time: {globalsDict.GetHashCode()}");
+                            }
+
+                            if (globalsDict == null)
+                            {
+                                throw new InvalidOperationException($"Function {pyCode.Name} has null globals!");
+                            }
+
+                            var functionScopeChain = new PyScopeChain(globalsDict, "<function>");
+
+                            Console.WriteLine($"  New ScopeChain GlobalScope count: {functionScopeChain.GlobalScope?.Variables.Count ?? 0}");
+                            Console.WriteLine($"  New ScopeChain GlobalScope hash: {functionScopeChain.GlobalScope?.Variables.GetHashCode()}");
+
                             var functionFrame = closure != null && closure.Length > 0
-                                ? new PyFrame(pyCode, args, frame.ScopeChain, closure, frame)
-                                : new PyFrame(pyCode, args, frame.ScopeChain, null, frame);
+                                ? new PyFrame(pyCode, args, functionScopeChain, closure, frame)
+                                : new PyFrame(pyCode, args, functionScopeChain, null, frame);
                             return ExecuteFrame(functionFrame);
                         };
 
@@ -1776,12 +1816,14 @@ namespace SharpPy
                             // Override implementation to use our parameter binding
                             functionObject = new PyFunction(pyCode.Name, implementation, null, null, closure, pyCode);
                             functionObject.ParentScope = frame.ScopeChain;
+                            functionObject.GlobalsDict = globalsDict;  // CPython 3.12: func.__globals__
                         }
                         else
                         {
                             // Create regular function without closure
                             functionObject = new PyFunction(pyCode.Name, implementation, null, null, closure, pyCode);
                             functionObject.ParentScope = frame.ScopeChain;
+                            functionObject.GlobalsDict = globalsDict;  // CPython 3.12: func.__globals__
                         }
 
                             // Set CPython 3.12 compatible function attributes
@@ -5383,8 +5425,26 @@ namespace SharpPy
             {
                 try
                 {
+                    // CPython 3.12: Use function's captured globals, not caller's scope
+                    PyScopeChain functionScope;
+                    if (pyFunc.GlobalsDict != null)
+                    {
+                        Console.WriteLine($"[FUNCTION SCOPE] Creating ScopeChain for {pyFunc.Name} from globalsDict:");
+                        Console.WriteLine($"  globalsDict count: {pyFunc.GlobalsDict.Count}");
+                        Console.WriteLine($"  globalsDict keys: {string.Join(", ", pyFunc.GlobalsDict.Keys.Take(10))}");
+
+                        // Use the function's captured globals (CPython 3.12 compatible)
+                        functionScope = new PyScopeChain(pyFunc.GlobalsDict, "<function>");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[FUNCTION SCOPE] Using ParentScope for {pyFunc.Name} (GlobalsDict is null)");
+                        // Fallback to ParentScope for backward compatibility
+                        functionScope = pyFunc.ParentScope ?? parentScope;
+                    }
+
                     // Create minimal frame for simple function - CPython 3.12: include parent frame
-                    var frame = new PyFrame(code, argsWithSelf, parentScope, pyFunc.Closure, CurrentFrame);
+                    var frame = new PyFrame(code, argsWithSelf, functionScope, pyFunc.Closure, CurrentFrame);
                     return ExecuteFrame(frame);
                 }
                 catch (PyReturnException retEx)
@@ -5413,8 +5473,27 @@ namespace SharpPy
             {
                 try
                 {
+                    // CPython 3.12: Use function's captured globals, not caller's scope
+                    // func->f_globals is set at function definition time, not call time
+                    PyScopeChain functionScope;
+                    if (pyFunc.GlobalsDict != null)
+                    {
+                        Console.WriteLine($"[FUNCTION SCOPE] Creating ScopeChain for {pyFunc.Name} from globalsDict:");
+                        Console.WriteLine($"  globalsDict count: {pyFunc.GlobalsDict.Count}");
+                        Console.WriteLine($"  globalsDict keys: {string.Join(", ", pyFunc.GlobalsDict.Keys.Take(10))}");
+
+                        // Use the function's captured globals (CPython 3.12 compatible)
+                        functionScope = new PyScopeChain(pyFunc.GlobalsDict, "<function>");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[FUNCTION SCOPE] Using ParentScope for {pyFunc.Name} (GlobalsDict is null)");
+                        // Fallback to ParentScope for backward compatibility
+                        functionScope = pyFunc.ParentScope ?? parentScope;
+                    }
+
                     // Create minimal frame for simple function - CPython 3.12: include parent frame
-                    var frame = new PyFrame(code, args, parentScope, pyFunc.Closure, CurrentFrame);
+                    var frame = new PyFrame(code, args, functionScope, pyFunc.Closure, CurrentFrame);
                     return ExecuteFrame(frame);
                 }
                 catch (PyReturnException retEx)

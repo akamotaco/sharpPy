@@ -106,7 +106,14 @@ namespace SharpPy.PegGenerator.Grammar
     {
         public string Value { get; set; } = "";
 
-        public override string ToString() => $"'{Value}'";
+        /// <summary>
+        /// CPython 3.12: Quote type used in grammar
+        /// ' (single quote) = hard keyword
+        /// " (double quote) = soft keyword
+        /// </summary>
+        public char QuoteChar { get; set; } = '\'';
+
+        public override string ToString() => $"{QuoteChar}{Value}{QuoteChar}";
     }
 
     /// <summary>
