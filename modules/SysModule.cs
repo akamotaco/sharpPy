@@ -54,12 +54,35 @@ namespace SharpPy.Modules
             // 명령줄 인수 (빈 리스트로 초기화)
             module.ModuleDict["argv"] = new PyList();
 
+            // CPython 3.12: sys.builtin_module_names (tuple of builtin C module names)
+            module.ModuleDict["builtin_module_names"] = CreateBuiltinModuleNames();
+
             // 함수들
             module.ModuleDict["getsizeof"] = new PySysFunction("getsizeof");
             module.ModuleDict["getrefcount"] = new PySysFunction("getrefcount");
             module.ModuleDict["exc_info"] = new PySysFunction("exc_info");
 
             return module;
+        }
+
+        private static PyTuple CreateBuiltinModuleNames()
+        {
+            // CPython 3.12: Names of C modules compiled into this interpreter
+            // SharpPy: Names of C# modules in _builtinModules
+            var names = new List<PyObject>
+            {
+                new PyString("sys"),
+                new PyString("builtins"),
+                new PyString("math"),
+                new PyString("time"),
+                new PyString("itertools"),
+                new PyString("_collections"),
+                new PyString("_functools"),
+                new PyString("_random"),
+                new PyString("nt"),       // OS interface (Windows/Linux/Mac)
+                new PyString("posix"),    // Alias for nt in SharpPy
+            };
+            return new PyTuple(names.ToArray());
         }
 
         private static PyList CreateSysPath()

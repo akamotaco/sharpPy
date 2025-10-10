@@ -205,8 +205,9 @@ namespace SharpPy
 
         /// <summary>
         /// 요소 포함 여부 확인 (in 연산자)
+        /// CPython: __contains__ magic method
         /// </summary>
-        public PyBool Contains(PyObject item)
+        public override PyBool Contains(PyObject item)
         {
             return PyBool.FromBool(Items.Any(x => ((PyBool)x.RichCompare(item, CompareOp.EQ)).Value));
         }
