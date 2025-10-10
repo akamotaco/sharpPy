@@ -630,5 +630,37 @@ namespace SharpPy
 
         public override string ToString() => "<object>";
         public override PyString ToRepr() => new PyString("<object>");
+
+        // CPython 3.12: Handle builtin methods for object instances
+        public override PyObject GetAttribute(string name)
+        {
+            // Check if this is a builtin method from object type
+            var objectType = PyType.ObjectType;
+            var typeAttr = SharpPy.PyClass.GetTypeAttribute(objectType, name);
+
+            if (typeAttr != null)
+            {
+                // CPython 3.12: PyBuiltinMethod는 descriptor이므로 Get() 호출
+                if (typeAttr is PyBuiltinMethod builtinMethod)
+                {
+                    return builtinMethod.Get(this, objectType);
+                }
+                // CPython 3.12: PyBuiltinFunction도 bound method로 변환
+                if (typeAttr is PyBuiltinFunction builtinFunction)
+                {
+                    // Convert PyBuiltinFunction to PyBuiltinMethod
+                    var method = new PyBuiltinMethod(builtinFunction.Name, (self, args) => builtinFunction.Call(new[] { self }.Concat(args).ToArray(), null));
+                    return new PyBoundBuiltinMethod(this, method);
+                }
+                if (typeAttr is PyFunction func)
+                {
+                    return new PyMethod(this, func);
+                }
+                return typeAttr;
+            }
+
+            // Fall back to base implementation
+            return base.GetAttribute(name);
+        }
     }
 }

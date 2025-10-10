@@ -363,7 +363,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12 compatible: Safe type attribute lookup without recursion
         /// </summary>
-        private static PyObject? GetTypeAttribute(PyType pyType, string name)
+        public static PyObject? GetTypeAttribute(PyType pyType, string name)
         {
             // CPython 3.12: 내장 타입의 속성을 직접 조회
             // 재귀를 방지하기 위해 PyType의 내부 구조를 직접 사용
@@ -376,11 +376,32 @@ namespace SharpPy
                     return name switch
                     {
                         "__class__" => PyType.TypeType,
-                        "__str__" => new PyBuiltinFunction("__str__", args => new PyString(args[0].AsString())),
-                        "__repr__" => new PyBuiltinFunction("__repr__", args => new PyString(args[0].AsString())),
-                        "__hash__" => new PyBuiltinFunction("__hash__", args => new PyInt(args[0].GetHashCode())),
-                        "__eq__" => new PyBuiltinFunction("__eq__", args => PyBool.FromBool(args[0].Equals(args[1]))),
-                        "__ne__" => new PyBuiltinFunction("__ne__", args => PyBool.FromBool(!args[0].Equals(args[1]))),
+                        "__str__" => new PyBuiltinMethod("__str__", (self, args) => {
+                            if (args.Length != 0)
+                                throw PyTypeError.Create($"__str__() takes no arguments ({args.Length} given)");
+                            return self.ToStr();
+                        }, 1),
+                        "__repr__" => new PyBuiltinMethod("__repr__", (self, args) => {
+                            if (args.Length != 0)
+                                throw PyTypeError.Create($"__repr__() takes no arguments ({args.Length} given)");
+                            return self.ToRepr();
+                        }, 1),
+                        "__init__" => new PyBuiltinMethod("__init__", (self, args) => PyNone.Instance, 1),
+                        "__hash__" => new PyBuiltinMethod("__hash__", (self, args) => {
+                            if (args.Length != 0)
+                                throw PyTypeError.Create($"__hash__() takes no arguments ({args.Length} given)");
+                            return new PyInt(self.GetHashCode());
+                        }, 1),
+                        "__eq__" => new PyBuiltinMethod("__eq__", (self, args) => {
+                            if (args.Length != 1)
+                                throw PyTypeError.Create($"__eq__() takes exactly 1 argument ({args.Length} given)");
+                            return self.RichCompare(args[0], PyObject.CompareOp.EQ);
+                        }, 2),
+                        "__ne__" => new PyBuiltinMethod("__ne__", (self, args) => {
+                            if (args.Length != 1)
+                                throw PyTypeError.Create($"__ne__() takes exactly 1 argument ({args.Length} given)");
+                            return self.RichCompare(args[0], PyObject.CompareOp.NE);
+                        }, 2),
                         _ => null
                     };
                 }
@@ -852,30 +873,39 @@ namespace SharpPy
             #endif
             foreach (var mroType in InstanceType.MRO)
             {
-                try
+                // CPython 3.12: PyType의 경우 PyClass.GetTypeAttribute() 사용 (재귀 방지)
+                if (mroType is PyType pyType && !(mroType is PyClass))
                 {
-                    var builtinAttr = mroType.GetAttribute(name);
-                    if (builtinAttr != null)
+                    var typeAttr = SharpPy.PyClass.GetTypeAttribute(pyType, name);
+                    if (typeAttr != null)
                     {
                         #if DEBUG_LOG
-                        Console.WriteLine($"   ✅ found builtin attribute '{name}' in {mroType.Name}");
+                        Console.WriteLine($"   ✅ found builtin attribute '{name}' in PyType {mroType.Name}: {typeAttr?.GetType().Name}");
                         #endif
-                        if (builtinAttr is PyFunction builtinFunc)
+
+                        // CPython 3.12: PyBuiltinMethod는 descriptor이므로 Get() 호출
+                        if (typeAttr is PyBuiltinMethod builtinMethod)
                         {
-                            return new PyMethod(this, builtinFunc);
+                            #if DEBUG_LOG
+                            Console.WriteLine($"   🔧 calling PyBuiltinMethod.Get() for binding");
+                            #endif
+                            var bound = builtinMethod.Get(this, InstanceType);
+                            #if DEBUG_LOG
+                            Console.WriteLine($"   → Get() returned: {bound?.GetType().Name}");
+                            #endif
+                            return bound;
                         }
                         // CPython 3.12: PyBuiltinFunction도 bound method로 변환
-                        if (builtinAttr is PyBuiltinFunction builtinMethod)
+                        if (typeAttr is PyBuiltinFunction builtinFunction)
                         {
-                            // Create a bound method wrapper that automatically passes self
-                            return new PyBuiltinBoundMethod(this, builtinMethod);
+                            return new PyBuiltinBoundMethod(this, builtinFunction);
                         }
-                        return builtinAttr;
+                        if (typeAttr is PyFunction func)
+                        {
+                            return new PyMethod(this, func);
+                        }
+                        return typeAttr;
                     }
-                }
-                catch (Exception ex) when (ex.GetType().Name.Contains("PyAttributeError"))
-                {
-                    // 속성이 없으면 계속 진행
                 }
             }
 

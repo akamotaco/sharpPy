@@ -57,6 +57,9 @@ namespace SharpPy.Modules
             // CPython 3.12: sys.builtin_module_names (tuple of builtin C module names)
             module.ModuleDict["builtin_module_names"] = CreateBuiltinModuleNames();
 
+            // CPython 3.12: sys.implementation (namespace with interpreter details)
+            module.ModuleDict["implementation"] = CreateImplementation();
+
             // 함수들
             module.ModuleDict["getsizeof"] = new PySysFunction("getsizeof");
             module.ModuleDict["getrefcount"] = new PySysFunction("getrefcount");
@@ -83,6 +86,19 @@ namespace SharpPy.Modules
                 new PyString("posix"),    // Alias for nt in SharpPy
             };
             return new PyTuple(names.ToArray());
+        }
+
+        private static PyObject CreateImplementation()
+        {
+            // CPython 3.12: sys.implementation is a namespace object with interpreter details
+            // We'll use a simple PyDict to simulate namespace
+            var impl = new PyDict();
+            impl.SetItem(new PyString("name"), new PyString("sharppy"));
+            impl.SetItem(new PyString("version"), CreateVersionInfo());
+            impl.SetItem(new PyString("hexversion"), new PyInt(0x030c0000)); // 3.12.0
+            impl.SetItem(new PyString("cache_tag"), new PyString("sharppy-312"));
+
+            return impl;
         }
 
         private static PyList CreateSysPath()

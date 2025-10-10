@@ -158,6 +158,23 @@ namespace SharpPy
                     if (this is PyClassInstance instance)
                         return new PyDict(instance.InstanceDict);
                     return PyNone.Instance;
+                case "__str__":
+                    // CPython 3.12: object.__str__ bound method
+                    return new PyBuiltinMethod("__str__", (self, args) => {
+                        if (args.Length != 0) // self is separate
+                            throw PyTypeError.Create($"__str__() takes no arguments ({args.Length} given)");
+                        return self.ToStr();
+                    }, 1);
+                case "__repr__":
+                    // CPython 3.12: object.__repr__ bound method
+                    return new PyBuiltinMethod("__repr__", (self, args) => {
+                        if (args.Length != 0) // self is separate
+                            throw PyTypeError.Create($"__repr__() takes no arguments ({args.Length} given)");
+                        return self.ToRepr();
+                    }, 1);
+                case "__init__":
+                    // CPython 3.12: object.__init__ bound method
+                    return new PyBuiltinMethod("__init__", (self, args) => PyNone.Instance, 1);
                 default:
                     return PyGetAttribute(name);
             }
@@ -646,6 +663,14 @@ namespace SharpPy
             return PyBool.FromBool(!PyBoolValue());
         }
 
+        /// <summary>
+        /// 행렬 곱셈 연산 (__matmul__) - Python 3.5+
+        /// </summary>
+        public virtual PyObject MatrixMultiply(PyObject other)
+        {
+            throw PyTypeError.Create($"unsupported operand type(s) for @: '{GetTypeName()}' and '{other.GetTypeName()}'");
+        }
+
         #endregion
 
         #region Iterator Protocol
@@ -730,6 +755,14 @@ namespace SharpPy
         public virtual void SetItem(PyObject index, PyObject value)
         {
             throw PyTypeError.Create($"'{GetTypeName()}' object does not support item assignment");
+        }
+
+        /// <summary>
+        /// 인덱스로 요소 삭제하기 (__delitem__)
+        /// </summary>
+        public virtual void DelItem(PyObject index)
+        {
+            throw PyTypeError.Create($"'{GetTypeName()}' object does not support item deletion");
         }
 
         #endregion

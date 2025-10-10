@@ -243,6 +243,12 @@ public class PyModule : PyObject
         // C# 구현 모듈들 (CPython 3.12 C 확장 모듈만)
         private static Dictionary<string, Func<PyModule>> _builtinModules = new Dictionary<string, Func<PyModule>>
         {
+            // CPython 3.12 Built-in 모듈
+            ["builtins"] = () => SharpPy.Modules.BuiltinsModule.CreateBuiltinsModule(),
+
+            // CPython 3.12 C 확장 모듈 (Python 모듈의 백엔드)
+            ["_operator"] = () => SharpPy.Modules._OperatorModule.CreateOperatorModule(),  // operator.py가 사용
+
             // CPython 3.12 Built-in C 모듈 (성능 중요)
             ["math"] = () => SharpPy.Modules.MathModule.CreateMathModule(),
             ["time"] = () => new TimeModule(),
@@ -270,8 +276,9 @@ public class PyModule : PyObject
             // - datetime (stdlib/datetime.py + _datetime C# 모듈)
 
             // TODO: CPython 호환을 위해 Python으로 전환 필요:
-            // - re → Lib/re.py + _sre C# 모듈 추가
-            ["re"] = () => SharpPy.Modules.Stdlib.RegexModule.CreateRegexModule(),
+            // - urllib → Lib/urllib/ Python 모듈로 전환
+            // - asyncio → Lib/asyncio/ Python 모듈로 전환
+            ["_sre"] = () => SharpPy.Modules._SreModule.CreateSreModule(),  // re.py가 사용
             ["urllib"] = () => SharpPy.Modules.Stdlib.UrllibModule.CreateUrllibModule(),
             ["asyncio"] = () => CreateAsyncioModule()
 
