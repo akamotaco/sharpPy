@@ -93,7 +93,7 @@ namespace SharpPy.Core
             }
             else
             {
-                _thrownException = PyException.Create(type.ToString());
+                _thrownException = PyException.Create(type.AsString());
             }
 
             try

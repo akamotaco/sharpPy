@@ -149,7 +149,24 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 // CPython 3.12: This is an operator - use OP token type with value check
                 // CPython tokenizer generates all operators as OP type, parser checks value
                 _parent.WriteLine($"// Expect '{escaped}'");
+
+                // Special debug logging for '!' token (f-string conversion)
+                if (lit.Value == "!")
+                {
+                    _parent.WriteLine("#if DEBUG_FSTRING_LOG");
+                    _parent.WriteLine($"Console.WriteLine($\"[FSTRING-EXPECT-!] pos={{_position}}, CurrentToken={{CurrentToken?.Type}}:'{{CurrentToken?.Value}}'\");");
+                    _parent.WriteLine("#endif");
+                }
+
                 _parent.WriteLine($"var {_varName} = Expect(GeneratedTokenType.OP, \"{escaped}\");");
+
+                // Debug log after Expect
+                if (lit.Value == "!")
+                {
+                    _parent.WriteLine("#if DEBUG_FSTRING_LOG");
+                    _parent.WriteLine($"Console.WriteLine($\"[FSTRING-EXPECT-!] result={{({_varName} != null ? \"SUCCESS\" : \"FAIL\")}}, newPos={{_position}}\");");
+                    _parent.WriteLine("#endif");
+                }
             }
 
             // CPython 3.12: Only add null check if NOT inside a repeater, loop rule, or optional

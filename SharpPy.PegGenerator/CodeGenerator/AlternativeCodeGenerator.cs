@@ -77,6 +77,17 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 _parent.WriteLine($"Console.WriteLine($\"[ARGUMENTS-ALT{_alternativeIndex + 1}] START at pos={{_position}}\");");
                 _parent.WriteLine("#endif");
             }
+            // F-string parsing debug logs
+            if (_rule.Name.Equals("fstring_middle", StringComparison.OrdinalIgnoreCase) ||
+                _rule.Name.Equals("fstring_replacement_field", StringComparison.OrdinalIgnoreCase) ||
+                _rule.Name.Equals("fstring_conversion", StringComparison.OrdinalIgnoreCase) ||
+                _rule.Name.Equals("fstring_full_format_spec", StringComparison.OrdinalIgnoreCase) ||
+                _rule.Name.Equals("fstring", StringComparison.OrdinalIgnoreCase))
+            {
+                _parent.WriteLine("#if DEBUG_FSTRING_LOG");
+                _parent.WriteLine($"Console.WriteLine($\"[{_rule.Name.ToUpper()}-ALT{_alternativeIndex + 1}] START at pos={{_position}}, token={{CurrentToken?.Type}}:'{{CurrentToken?.Value}}'\");");
+                _parent.WriteLine("#endif");
+            }
 
             _parent.WriteLine();
 
@@ -137,6 +148,17 @@ namespace SharpPy.PegGenerator.CodeGenerator
                         _parent.WriteLine($"#if DEBUG_PARSE_LOG");
                         _parent.WriteLine($"Console.WriteLine($\"[ARGUMENTS-ALT{_alternativeIndex + 1}] SUCCESS at pos={{_position}}\");");
                         _parent.WriteLine($"#endif");
+                    }
+                    // F-string success logs
+                    if (_rule.Name.Equals("fstring_middle", StringComparison.OrdinalIgnoreCase) ||
+                        _rule.Name.Equals("fstring_replacement_field", StringComparison.OrdinalIgnoreCase) ||
+                        _rule.Name.Equals("fstring_conversion", StringComparison.OrdinalIgnoreCase) ||
+                        _rule.Name.Equals("fstring_full_format_spec", StringComparison.OrdinalIgnoreCase) ||
+                        _rule.Name.Equals("fstring", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _parent.WriteLine("#if DEBUG_FSTRING_LOG");
+                        _parent.WriteLine($"Console.WriteLine($\"[{_rule.Name.ToUpper()}-ALT{_alternativeIndex + 1}] SUCCESS at pos={{_position}}, _res={{_res?.GetType().Name ?? \"null\"}}\");");
+                        _parent.WriteLine("#endif");
                     }
                     _parent.WriteLine("if (_res != null) goto done;");
                 }

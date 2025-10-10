@@ -324,9 +324,9 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: PyInt를 PyString으로 변환
         /// </summary>
-        public override PyString AsString()
+        public override string AsString()
         {
-            return new PyString(Value.ToString());
+            return Value.ToString();
         }
 
         #endregion

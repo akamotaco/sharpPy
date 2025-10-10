@@ -326,9 +326,9 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: PyTuple을 PyString으로 변환 (str() 호출과 동일)
         /// </summary>
-        public override PyString AsString()
+        public override string AsString()
         {
-            return new PyString(ToRepr().Value); // CPython에서 str(tuple)는 repr(tuple)와 동일
+            return ToRepr().Value; // CPython에서 str(tuple)는 repr(tuple)와 동일
         }
 
         #endregion

@@ -23433,6 +23433,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING_MIDDLE-ALT1] START at pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -23455,6 +23458,9 @@ namespace SharpPy.Generated
                 }
                 // No action specified - using default result
                 _res = (GeneratedExpr?)_tmp0;
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING_MIDDLE-ALT1] SUCCESS at pos={_position}, _res={_res?.GetType().Name ?? "null"}");
+                #endif
                 if (_res != null) goto done;
             } while (false);
 
@@ -23462,6 +23468,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING_MIDDLE-ALT2] START at pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -23487,6 +23496,9 @@ namespace SharpPy.Generated
                 #endif
                 // Action: _PyPegen_constant_from_token(t)
                 _res = _PyPegen_constant_from_token(t);
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING_MIDDLE-ALT2] SUCCESS at pos={_position}, _res={_res?.GetType().Name ?? "null"}");
+                #endif
                 if (_res != null) goto done;
             } while (false);
 
@@ -23520,6 +23532,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING_REPLACEMENT_FIELD-ALT1] START at pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -23678,6 +23693,9 @@ namespace SharpPy.Generated
                 }
                 // Action: _PyPegen_formatted_value(a, debug_expr, conversion, format, rbrace, EXTRA)
                 _res = _PyPegen_formatted_value(a, debug_expr, conversion, format, rbrace, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING_REPLACEMENT_FIELD-ALT1] SUCCESS at pos={_position}, _res={_res?.GetType().Name ?? "null"}");
+                #endif
                 if (_res != null) goto done;
             } while (false);
 
@@ -23685,6 +23703,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING_REPLACEMENT_FIELD-ALT2] START at pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -23737,6 +23758,9 @@ namespace SharpPy.Generated
                 }
                 // No error set - this invalid_* rule didn't match, try next alternative
                 _res = null;
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING_REPLACEMENT_FIELD-ALT2] SUCCESS at pos={_position}, _res={_res?.GetType().Name ?? "null"}");
+                #endif
                 if (_res != null) goto done;
             } while (false);
 
@@ -23770,6 +23794,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING_CONVERSION-ALT1] START at pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -23779,7 +23806,13 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '!'
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING-EXPECT-!] pos={_position}, CurrentToken={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+                #endif
                 var conv_token = Expect(GeneratedTokenType.OP, "!");
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING-EXPECT-!] result={(conv_token != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                #endif
                 if (conv_token == null)
                 {
                     _position = _mark;
@@ -23805,6 +23838,9 @@ namespace SharpPy.Generated
                 #endif
                 // Action: _PyPegen_check_fstring_conversion(conv_token, conv)
                 _res = _PyPegen_check_fstring_conversion(conv_token, conv);
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING_CONVERSION-ALT1] SUCCESS at pos={_position}, _res={_res?.GetType().Name ?? "null"}");
+                #endif
                 if (_res != null) goto done;
             } while (false);
 
@@ -23838,6 +23874,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING_FULL_FORMAT_SPEC-ALT1] START at pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -23859,6 +23898,9 @@ namespace SharpPy.Generated
                 var spec = _Loop0_52();
                 // Action: _PyPegen_setup_full_format_spec(colon, spec.Cast<asdl_expr_seq>(), EXTRA)
                 _res = _PyPegen_setup_full_format_spec(colon, spec.Cast<asdl_expr_seq>(), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset);
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING_FULL_FORMAT_SPEC-ALT1] SUCCESS at pos={_position}, _res={_res?.GetType().Name ?? "null"}");
+                #endif
                 if (_res != null) goto done;
             } while (false);
 
@@ -23979,6 +24021,9 @@ namespace SharpPy.Generated
             do
             {
                 _position = _mark;
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING-ALT1] START at pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+                #endif
 
                 // CPython 3.12: Check error indicator before trying alternative
                 if (_pendingSyntaxError != null)
@@ -24021,6 +24066,9 @@ namespace SharpPy.Generated
                 #endif
                 // Action: _PyPegen_joined_str(a, b, c)
                 _res = _PyPegen_joined_str(a, b, c);
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING-ALT1] SUCCESS at pos={_position}, _res={_res?.GetType().Name ?? "null"}");
+                #endif
                 if (_res != null) goto done;
             } while (false);
 
@@ -39314,7 +39362,13 @@ namespace SharpPy.Generated
                     break;  // Exit this alternative
                 }
                 // Expect '!'
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING-EXPECT-!] pos={_position}, CurrentToken={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+                #endif
                 var a = Expect(GeneratedTokenType.OP, "!");
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING-EXPECT-!] result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                #endif
                 if (a == null)
                 {
                     _position = _mark;
@@ -40206,7 +40260,13 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '!'
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING-EXPECT-!] pos={_position}, CurrentToken={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+                #endif
                 var _tmp0 = Expect(GeneratedTokenType.OP, "!");
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING-EXPECT-!] result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                #endif
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -40251,7 +40311,13 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '!'
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING-EXPECT-!] pos={_position}, CurrentToken={CurrentToken?.Type}:'{CurrentToken?.Value}'");
+                #endif
                 var _tmp0 = Expect(GeneratedTokenType.OP, "!");
+                #if DEBUG_FSTRING_LOG
+                Console.WriteLine($"[FSTRING-EXPECT-!] result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
+                #endif
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -44566,10 +44632,26 @@ public GeneratedMod ParseFuncType()
             if (expr == null)
                 return null;
 
+            #if DEBUG_FSTRING_LOG
+            Console.WriteLine($"[FSTRING-FORMATTED_VALUE] _PyPegen_formatted_value called:");
+            Console.WriteLine($"  conversion is null: {conversion == null}");
+            if (conversion != null)
+            {
+                Console.WriteLine($"  conversion.GetType(): {conversion.GetType().Name}");
+                if (conversion is ResultTokenWithMetadata convDebug)
+                {
+                    Console.WriteLine($"  conversion.Metadata: {convDebug.Metadata}");
+                    if (convDebug.Metadata != null)
+                        Console.WriteLine($"  conversion.Metadata.GetType(): {convDebug.Metadata.GetType().Name}");
+                }
+            }
+            #endif
+
             // Parse conversion character (!s, !r, !a)
             int conversionChar = -1; // -1 = no conversion
-            if (conversion is ResultTokenWithMetadata convMeta && convMeta.Metadata is string convStr)
+            if (conversion is ResultTokenWithMetadata convMeta && convMeta.Metadata is GeneratedIdentifier convId)
             {
+                string convStr = convId.Value;
                 if (convStr.Length > 0)
                     conversionChar = convStr[0]; // 's', 'r', or 'a'
             }

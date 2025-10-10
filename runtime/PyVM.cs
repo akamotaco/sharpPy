@@ -3779,18 +3779,37 @@ namespace SharpPy
 
                     PyString formattedString;
 
-                    if (formatOption == 4) // 포맷 지정자 있음
+                    // CPython 3.12: formatOption encoding
+                    // Bits 0-1: conversion (1=str, 2=repr, 3=ascii)
+                    // Bit 2 (4): has format spec
+                    int conversion = formatOption & 3; // Get bits 0-1
+                    bool hasFormatSpec = (formatOption & 4) != 0; // Check bit 2
+
+                    var formatValue = frame.ValueStack.Pop();
+
+                    if (hasFormatSpec)
                     {
-                        // 스택 순서: [값, 포맷스펙] -> 포맷스펙을 먼저 pop
                         var formatSpec = frame.ValueStack.Pop();
-                        var formatValue = frame.ValueStack.Pop();
-                        formattedString = ApplyFormatting(formatValue, formatSpec.ToStr().Value);
+                        // Apply conversion first
+                        PyObject converted = conversion switch
+                        {
+                            1 => formatValue.ToStr(), // !s
+                            2 => formatValue.ToRepr(), // !r
+                            3 => formatValue.ToRepr(), // !a (simplified as repr)
+                            _ => formatValue.ToStr()
+                        };
+                        formattedString = ApplyFormatting(converted, formatSpec.ToStr().Value);
                     }
                     else
                     {
-                        // 기본 포맷팅
-                        var formatValue = frame.ValueStack.Pop();
-                        formattedString = formatValue.ToStr();
+                        // Apply conversion
+                        formattedString = conversion switch
+                        {
+                            1 => formatValue.ToStr(), // !s
+                            2 => formatValue.ToRepr(), // !r
+                            3 => formatValue.ToRepr(), // !a (simplified as repr)
+                            _ => formatValue.ToStr() // default is str()
+                        };
                     }
 
                     frame.ValueStack.Push(formattedString);
@@ -3975,7 +3994,7 @@ namespace SharpPy
                     if (fromlist is PyTuple pyTupleFromlist)
                     {
                         fromlistArray = pyTupleFromlist.Items
-                            .Select(item => item is PyString s ? s.Value : item.ToString())
+                            .Select(item => item is PyString s ? s.Value : item.AsString())
                             .ToArray();
                     }
 

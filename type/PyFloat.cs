@@ -45,7 +45,7 @@ namespace SharpPy
             {
                 return new PyString(Value.ToString("0.0"));
             }
-            return new PyString(Value.ToString("G17")); // 17자리 정밀도로 표현
+            return new PyString(Value.ToString("G")); // CPython 호환: shortest round-trip representation
         }
 
         public override PyString ToRepr()
@@ -328,17 +328,17 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: PyFloat를 PyString으로 변환
         /// </summary>
-        public override PyString AsString()
+        public override string AsString()
         {
             // CPython의 float.__str__() 동작 모방
             if (double.IsNaN(Value))
-                return new PyString("nan");
+                return "nan";
             if (double.IsPositiveInfinity(Value))
-                return new PyString("inf");
+                return "inf";
             if (double.IsNegativeInfinity(Value))
-                return new PyString("-inf");
-            
-            return new PyString(Value.ToString());
+                return "-inf";
+
+            return Value.ToString();
         }
 
         #endregion

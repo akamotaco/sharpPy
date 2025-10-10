@@ -376,8 +376,8 @@ namespace SharpPy
                     return name switch
                     {
                         "__class__" => PyType.TypeType,
-                        "__str__" => new PyBuiltinFunction("__str__", args => new PyString(args[0].ToString())),
-                        "__repr__" => new PyBuiltinFunction("__repr__", args => new PyString(args[0].ToString())),
+                        "__str__" => new PyBuiltinFunction("__str__", args => new PyString(args[0].AsString())),
+                        "__repr__" => new PyBuiltinFunction("__repr__", args => new PyString(args[0].AsString())),
                         "__hash__" => new PyBuiltinFunction("__hash__", args => new PyInt(args[0].GetHashCode())),
                         "__eq__" => new PyBuiltinFunction("__eq__", args => PyBool.FromBool(args[0].Equals(args[1]))),
                         "__ne__" => new PyBuiltinFunction("__ne__", args => PyBool.FromBool(!args[0].Equals(args[1]))),
@@ -686,8 +686,8 @@ namespace SharpPy
 
         public override string ToString()
         {
-            // CPython 3.12: ToString should call ToStr() which checks for __str__/__repr__
-            return ToStr().Value;
+            // Debugging only: Simple C# representation
+            return $"<{InstanceType.Name} instance at 0x{GetHashCode():x}>";
         }
 
         private bool IsExceptionClass()

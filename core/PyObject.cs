@@ -407,12 +407,9 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython 호환: 현재 PyObject를 PyString으로 변환/캐스팅
+        /// C# 네이티브 타입 변환: PyObject → C# string
         /// </summary>
-        public virtual PyString AsString()
-        {
-            return ToStr();
-        }
+        public virtual string AsString() => ToStr().Value;
 
         /// <summary>
         /// CPython 호환: 현재 PyObject를 PyList로 변환/캐스팅

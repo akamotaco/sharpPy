@@ -69,8 +69,8 @@ namespace SharpPy.Modules.Stdlib
         {
             if (args.Length == 0)
                 throw PyTypeError.Create("urlopen() missing required argument: 'url'");
-            
-            var url = args[0].ToString();
+
+            var url = args[0].AsString();
             
             try
             {
@@ -90,8 +90,8 @@ namespace SharpPy.Modules.Stdlib
         {
             if (args.Length == 0)
                 throw PyTypeError.Create("urlparse() missing required argument: 'urlstring'");
-            
-            var urlstring = args[0].ToString();
+
+            var urlstring = args[0].AsString();
             
             try
             {
@@ -117,9 +117,9 @@ namespace SharpPy.Modules.Stdlib
         {
             if (args.Length < 2)
                 throw PyTypeError.Create("urljoin() missing required arguments");
-            
-            var baseUrl = args[0].ToString();
-            var url = args[1].ToString();
+
+            var baseUrl = args[0].AsString();
+            var url = args[1].AsString();
             
             try
             {
@@ -137,8 +137,8 @@ namespace SharpPy.Modules.Stdlib
         {
             if (args.Length == 0)
                 throw PyTypeError.Create("quote() missing required argument: 'string'");
-            
-            var input = args[0].ToString();
+
+            var input = args[0].AsString();
             return new PyString(Uri.EscapeDataString(input));
         }
 
@@ -146,8 +146,8 @@ namespace SharpPy.Modules.Stdlib
         {
             if (args.Length == 0)
                 throw PyTypeError.Create("unquote() missing required argument: 'string'");
-            
-            var input = args[0].ToString();
+
+            var input = args[0].AsString();
             return new PyString(Uri.UnescapeDataString(input));
         }
     }

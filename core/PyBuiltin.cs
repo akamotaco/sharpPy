@@ -234,14 +234,14 @@ namespace SharpPy
                 try
                 {
                     var sepValue = kwargs.GetItem(new PyString("sep"));
-                    sep = sepValue as PyString ?? new PyString(sepValue.ToString());
+                    sep = sepValue as PyString ?? new PyString(sepValue.AsString());
                 }
                 catch { }
 
                 try
                 {
                     var endValue = kwargs.GetItem(new PyString("end"));
-                    end = endValue as PyString ?? new PyString(endValue.ToString());
+                    end = endValue as PyString ?? new PyString(endValue.AsString());
                 }
                 catch { }
 
@@ -989,7 +989,7 @@ namespace SharpPy
             if (args.Length != 1)
                 throw PyTypeError.Create($"str expected at most 1 argument ({args.Length} given)");
 
-            return args[0].AsString();
+            return new PyString(args[0].AsString());
         }
 
         private PyObject CallInt(PyObject[] args, PyDict kwargs = null)
@@ -1463,9 +1463,9 @@ namespace SharpPy
                     }
                 }
             }
-            
-            var className = name.ToString();
-            
+
+            var className = name.AsString();
+
             // CPython 3.12: First execute class body to build class namespace
             Dictionary<string, PyObject> classNamespace = new Dictionary<string, PyObject>();
             
@@ -2022,7 +2022,7 @@ namespace SharpPy
             if (args.Length < 1 || args.Length > 5)
                 throw PyTypeError.Create($"__import__ expected 1 to 5 arguments ({args.Length} given)");
 
-            var name = args[0].ToString();
+            var name = args[0].AsString();
             // globals, locals, fromlist, level 매개변수는 일단 무시하고 기본 동작만 구현
             
             try

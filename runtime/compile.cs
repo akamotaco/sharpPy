@@ -2449,12 +2449,21 @@ namespace SharpPy
             int formatFlags = 0;
             if (fstringValue.Conversion.HasValue)
             {
-                formatFlags |= (fstringValue.Conversion.Value << 2); // Conversion in bits 2-3
+                // CPython 3.12: conversion mapping
+                // 's' (115) → 1, 'r' (114) → 2, 'a' (97) → 3
+                int conversionFlag = fstringValue.Conversion.Value switch
+                {
+                    115 => 1, // 's' → str()
+                    114 => 2, // 'r' → repr()
+                    97 => 3,  // 'a' → ascii()
+                    _ => 0
+                };
+                formatFlags |= conversionFlag;
             }
             if (fstringValue.FormatSpec != null)
             {
                 CompileExpression(fstringValue.FormatSpec);
-                formatFlags |= 1; // Has format spec
+                formatFlags |= 4; // Has format spec
             }
 
             EmitInstruction(ByteCodeOp.FORMAT_VALUE, formatFlags);
@@ -2493,22 +2502,57 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12 compatible formatted value compilation
         /// Compiles the {expression} parts inside f-strings using FORMAT_VALUE
+        /// CPython 3.12 FORMAT_VALUE encoding (oparg):
+        ///   Bits 0-1: conversion (FVC_NONE=0, FVC_STR=1, FVC_REPR=2, FVC_ASCII=3)
+        ///   Bit 2: format spec present (0=no, 1=yes)
         /// </summary>
         private void CompileFormattedValueExpression(FormattedValueExpression formattedValue)
         {
 #if DEBUG_LOG
             Console.WriteLine($"[DEBUG] Compiler: CompileFormattedValueExpression");
+            Console.WriteLine($"[DEBUG] Compiler: formattedValue.Conversion = {formattedValue.Conversion}");
 #endif
 
             // Compile the inner expression
             CompileExpression(formattedValue.Value);
 
             // Emit FORMAT_VALUE instruction
+            // CPython 3.12: FORMAT_VALUE oparg encoding
+            //   Bits 0-1: conversion type
+            //     - 0 (FVC_NONE): no conversion
+            //     - 1 (FVC_STR): !s conversion (str())
+            //     - 2 (FVC_REPR): !r conversion (repr())
+            //     - 3 (FVC_ASCII): !a conversion (ascii())
+            //   Bit 2: format spec present (4 if present, 0 if not)
             int formatFlags = 0;
+
+            // Map character conversion codes to CPython format flags
+            // 's' (115) -> 1, 'r' (114) -> 2, 'a' (97) -> 3, -1 -> 0
             if (formattedValue.Conversion != -1) // -1 means no conversion
             {
-                formatFlags |= (formattedValue.Conversion << 2); // Conversion in bits 2-3
+                int conversionFlag;
+                if (formattedValue.Conversion == 's' || formattedValue.Conversion == 115)
+                {
+                    conversionFlag = 1; // FVC_STR
+                }
+                else if (formattedValue.Conversion == 'r' || formattedValue.Conversion == 114)
+                {
+                    conversionFlag = 2; // FVC_REPR
+                }
+                else if (formattedValue.Conversion == 'a' || formattedValue.Conversion == 97)
+                {
+                    conversionFlag = 3; // FVC_ASCII
+                }
+                else
+                {
+                    conversionFlag = 0; // Unknown conversion, treat as none
+                }
+                formatFlags |= conversionFlag; // Conversion in bits 0-1 (NO shift)
+#if DEBUG_LOG
+                Console.WriteLine($"[DEBUG] Compiler: Mapped conversion '{(char)formattedValue.Conversion}' ({formattedValue.Conversion}) -> flag {conversionFlag}");
+#endif
             }
+
             if (formattedValue.FormatSpec != null)
             {
                 // CPython 3.12: Format spec handling
@@ -2527,7 +2571,7 @@ namespace SharpPy
                     // Complex format spec (e.g., with embedded expressions) - compile normally
                     CompileExpression(formattedValue.FormatSpec);
                 }
-                formatFlags |= 4; // CPython 3.12: flag 4 = with format spec
+                formatFlags |= 4; // CPython 3.12: Bit 2 = format spec present
             }
 
             EmitInstruction(ByteCodeOp.FORMAT_VALUE, formatFlags);

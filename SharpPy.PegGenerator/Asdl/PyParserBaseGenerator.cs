@@ -280,9 +280,6 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("{");
             _indentLevel++;
             WriteLine("var token = CurrentToken;");
-            WriteLine("#if DEBUG_PARSE_LOG");
-            WriteLine("Console.WriteLine($\"[ExpectSoftKeyword] keyword='{keyword}', token={(token != null ? $\\\"{(int)token.Type}:'{token.Value}'\\\" : \\\"null\\\")}, match={token != null && token.Type == GeneratedTokenType.NAME && token.Value == keyword}\");");
-            WriteLine("#endif");
             WriteLine("// CPython: t->type != NAME → return NULL");
             WriteLine("if (token == null || token.Type != GeneratedTokenType.NAME)");
             WriteLine("{");

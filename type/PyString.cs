@@ -491,12 +491,9 @@ namespace SharpPy
         // === As* Methods: Type Conversion (PyString → PyObject types) ===
         
         /// <summary>
-        /// CPython 호환: PyString을 PyString으로 변환 (자기 자신 반환)
+        /// C# 네이티브 타입 변환: PyString → C# string
         /// </summary>
-        public override PyString AsString()
-        {
-            return this; // 이미 PyString이므로 자기 자신 반환
-        }
+        public override string AsString() => Value;
         
         /// <summary>
         /// CPython 호환: PyString을 PyInt로 변환

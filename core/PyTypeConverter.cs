@@ -178,7 +178,7 @@ namespace SharpPy.Core
             if (targetType == typeof(string))
             {
                 if (pyObj is PyString pyString) return pyString.Value;
-                return pyObj.ToString();
+                return pyObj.AsString();
             }
 
             // 배열 타입 변환

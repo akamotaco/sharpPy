@@ -358,6 +358,20 @@ namespace SharpPy
         {
             int conversion_val = -1;
 
+#if DEBUG_FSTRING_LOG
+            Console.WriteLine($"[FSTRING-FORMATTED_VALUE] _PyPegen_formatted_value called:");
+            Console.WriteLine($"  conversion is null: {conversion == null}");
+            if (conversion != null)
+            {
+                Console.WriteLine($"  conversion.GetType(): {conversion.GetType().Name}");
+                Console.WriteLine($"  conversion.Metadata: {conversion.Metadata}");
+                if (conversion.Metadata != null)
+                {
+                    Console.WriteLine($"  conversion.Metadata.GetType(): {conversion.Metadata.GetType().Name}");
+                }
+            }
+#endif
+
             if (conversion != null)
             {
                 GeneratedExpr conversion_expr = (GeneratedExpr)conversion.Metadata;
@@ -365,12 +379,19 @@ namespace SharpPy
                 if (conversion_expr is GeneratedName name)
                 {
                     string id = name.Id.Value;
+#if DEBUG_FSTRING_LOG
+                    Console.WriteLine($"  conversion NAME id: '{id}'");
+                    Console.WriteLine($"  conversion char code: {(int)id[0]}");
+#endif
                     if (id.Length > 1 || !(id[0] == 's' || id[0] == 'r' || id[0] == 'a'))
                     {
                         // CPython: RAISE_SYNTAX_ERROR
                         throw new SyntaxErrorException($"f-string: invalid conversion character '{id}': expected 's', 'r', or 'a'");
                     }
                     conversion_val = id[0];
+#if DEBUG_FSTRING_LOG
+                    Console.WriteLine($"  conversion_val set to: {conversion_val} ('{(char)conversion_val}')");
+#endif
                 }
             }
             else if (debug != null && format == null)
@@ -378,6 +399,10 @@ namespace SharpPy
                 // CPython: If no conversion is specified, use !r for debug expressions
                 conversion_val = 'r';
             }
+
+#if DEBUG_FSTRING_LOG
+            Console.WriteLine($"  Final conversion_val: {conversion_val}");
+#endif
 
             GeneratedExpr formatted_value = new GeneratedFormattedValue
             {
@@ -461,6 +486,19 @@ namespace SharpPy
         /// </summary>
         public static GeneratedResultTokenWithMetadata _PyPegen_check_fstring_conversion(GeneratedTokenInfo convToken, GeneratedExpr conv)
         {
+#if DEBUG_FSTRING_LOG
+            Console.WriteLine($"[FSTRING-CHECK_CONVERSION] _PyPegen_check_fstring_conversion called:");
+            Console.WriteLine($"  convToken: {convToken?.Type}:'{convToken?.Value}'");
+            Console.WriteLine($"  conv is null: {conv == null}");
+            if (conv != null)
+            {
+                Console.WriteLine($"  conv.GetType(): {conv.GetType().Name}");
+                if (conv is GeneratedName name)
+                {
+                    Console.WriteLine($"  conv NAME id: '{name.Id.Value}'");
+                }
+            }
+#endif
             return new GeneratedResultTokenWithMetadata
             {
                 Token = convToken,

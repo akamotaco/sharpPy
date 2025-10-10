@@ -265,7 +265,7 @@ namespace SharpPy
                 return false;
             
             // Simple class name matching (could be enhanced with proper type checking)
-            if (!pyClass.GetAttribute("__class__").ToString().Contains(className))
+            if (!pyClass.GetAttribute("__class__").AsString().Contains(className))
                 return false;
             
             // Match positional arguments with object attributes
@@ -399,13 +399,13 @@ namespace SharpPy
                 switch (expr.Conversion.Value)
                 {
                     case 115: // 's' - str()
-                        value = new PyString(value.ToString());
+                        value = value.ToStr();
                         break;
                     case 114: // 'r' - repr()
-                        value = new PyString($"\"{value}\"");
+                        value = value.ToRepr();
                         break;
                     case 97: // 'a' - ascii()
-                        value = new PyString(value.ToString()); // Simplified
+                        value = value.ToRepr(); // Simplified: use repr for now
                         break;
                 }
             }
@@ -416,10 +416,10 @@ namespace SharpPy
                 var formatSpecValue = expr.FormatSpec.Evaluate(scope);
                 // Apply formatting based on format spec
                 // For now, simplified implementation
-                return new PyString(value.ToString());
+                return new PyString(value.AsString());
             }
 
-            return new PyString(value.ToString());
+            return new PyString(value.AsString());
         }
 
         /// <summary>

@@ -176,9 +176,6 @@ namespace SharpPy.Generated
         protected GeneratedTokenInfo ExpectSoftKeyword(string keyword)
         {
             var token = CurrentToken;
-            #if DEBUG_PARSE_LOG
-            Console.WriteLine($"[ExpectSoftKeyword] keyword='{keyword}', token={(token != null ? $\"{(int)token.Type}:'{token.Value}'\" : \"null\")}, match={token != null && token.Type == GeneratedTokenType.NAME && token.Value == keyword}");
-            #endif
             // CPython: t->type != NAME → return NULL
             if (token == null || token.Type != GeneratedTokenType.NAME)
             {
