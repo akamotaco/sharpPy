@@ -22,17 +22,52 @@ namespace SharpPy.Modules
             return module;
         }
 
-        // reduce - 단순한 스텁
+        // reduce - CPython 3.12 compatible implementation
         public static PyObject PyReduce(PyObject[] args, PyDict? kwargs)
         {
-            if (args.Length < 2)
-                throw PyTypeError.Create($"reduce expected at least 2 arguments, got {args.Length}");
+            if (args.Length < 2 || args.Length > 3)
+                throw PyTypeError.Create($"reduce expected 2 or 3 arguments, got {args.Length}");
 
-            // 단순한 구현
             var function = args[0];
-            var iterable = args[1];
+            var sequence = args[1];
 
-            return new PyInt(42); // 스텁
+            // Get iterator from sequence
+            var iterator = sequence.GetIterator();
+            PyObject? accumulator = null;
+
+            // If initial value provided, use it
+            if (args.Length == 3)
+            {
+                accumulator = args[2];
+            }
+            else
+            {
+                // Otherwise, use first element of sequence
+                try
+                {
+                    accumulator = iterator.Next();
+                }
+                catch
+                {
+                    throw PyTypeError.Create("reduce() of empty sequence with no initial value");
+                }
+            }
+
+            // Apply function to each element
+            while (true)
+            {
+                try
+                {
+                    var item = iterator.Next();
+                    accumulator = function.Call(new[] { accumulator, item }, null);
+                }
+                catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                {
+                    break;
+                }
+            }
+
+            return accumulator;
         }
 
         // cmp_to_key - 단순한 스텁
@@ -46,7 +81,8 @@ namespace SharpPy.Modules
     }
 
     /// <summary>
-    /// partial 타입 - 스텁 구현
+    /// CPython 3.12: partial type - functools.partial implementation
+    /// Modules/_functoolsmodule.c: partialobject
     /// </summary>
     public class PyPartialType : PyObject
     {
@@ -56,30 +92,67 @@ namespace SharpPy.Modules
 
         public override PyObject Call(PyObject[] args, PyDict? kwargs)
         {
+            // CPython: partial_new - requires at least one argument (the function)
             if (args.Length == 0)
-                throw PyTypeError.Create("partial expected at least 1 argument, got 0");
+                throw PyTypeError.Create("type 'partial' takes at least one argument");
 
-            return new PyPartialStub(args[0]);
+            var func = args[0];
+            var partialArgs = new PyObject[args.Length - 1];
+            Array.Copy(args, 1, partialArgs, 0, args.Length - 1);
+
+            return new PyPartial(func, partialArgs, kwargs);
         }
     }
 
     /// <summary>
-    /// partial 인스턴스 스텁
+    /// CPython 3.12: partial object instance
+    /// Stores a function and pre-filled arguments
     /// </summary>
-    public class PyPartialStub : PyObject
+    public class PyPartial : PyObject
     {
         private readonly PyObject _func;
+        private readonly PyObject[] _args;
+        private readonly PyDict? _kwargs;
 
-        public PyPartialStub(PyObject func)
+        public PyPartial(PyObject func, PyObject[] args, PyDict? kwargs)
         {
             _func = func;
+            _args = args ?? new PyObject[0];
+            _kwargs = kwargs;
         }
 
         public override string GetTypeName() => "partial";
 
         public override PyObject Call(PyObject[] args, PyDict? kwargs)
         {
-            return _func.Call(args, kwargs);
+            // CPython 3.12: partial_call - merge stored args with call-time args
+            // Combine pre-filled args with new args
+            var combinedArgs = new PyObject[_args.Length + args.Length];
+            Array.Copy(_args, 0, combinedArgs, 0, _args.Length);
+            Array.Copy(args, 0, combinedArgs, _args.Length, args.Length);
+
+            // Merge kwargs (call-time kwargs override stored kwargs)
+            PyDict? combinedKwargs = null;
+            if (_kwargs != null || kwargs != null)
+            {
+                combinedKwargs = new PyDict();
+
+                // Add stored kwargs first
+                if (_kwargs != null)
+                {
+                    foreach (var kv in _kwargs.InternalDict)
+                        combinedKwargs.SetItem(kv.Key, kv.Value);
+                }
+
+                // Call-time kwargs override stored kwargs
+                if (kwargs != null)
+                {
+                    foreach (var kv in kwargs.InternalDict)
+                        combinedKwargs.SetItem(kv.Key, kv.Value);
+                }
+            }
+
+            return _func.Call(combinedArgs, combinedKwargs);
         }
 
         public override PyObject GetAttribute(string name)
@@ -89,9 +162,9 @@ namespace SharpPy.Modules
                 case "func":
                     return _func;
                 case "args":
-                    return new PyTuple(new PyObject[0]);
+                    return new PyTuple(_args);
                 case "keywords":
-                    return new PyDict();
+                    return _kwargs ?? new PyDict();
                 default:
                     return base.GetAttribute(name);
             }
