@@ -260,15 +260,17 @@ public class PyModule : PyObject
             // 시스템 인터페이스 Built-in 모듈
             ["sys"] = () => SharpPy.Modules.SysModule.CreateSysModule(),
 
+            // CPython 3.12 C 확장 모듈 (Python 모듈의 백엔드)
+            ["_datetime"] = () => SharpPy.Modules.Stdlib.DatetimeModule.CreateDatetimeModule(),  // datetime.py가 사용
+
             // CPython 3.12: 다음 모듈들은 순수 Python으로 stdlib/에서 로드됨:
             // - types (stdlib/types.py)
             // - random (stdlib/random.py + _random C# 모듈)
             // - os (stdlib/os.py + nt C# 모듈)
+            // - datetime (stdlib/datetime.py + _datetime C# 모듈)
 
             // TODO: CPython 호환을 위해 Python으로 전환 필요:
-            // - datetime → Lib/datetime.py + _datetime C# 모듈 추가
             // - re → Lib/re.py + _sre C# 모듈 추가
-            ["datetime"] = () => SharpPy.Modules.Stdlib.DatetimeModule.CreateDatetimeModule(),
             ["re"] = () => SharpPy.Modules.Stdlib.RegexModule.CreateRegexModule(),
             ["urllib"] = () => SharpPy.Modules.Stdlib.UrllibModule.CreateUrllibModule(),
             ["asyncio"] = () => CreateAsyncioModule()

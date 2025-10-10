@@ -99,13 +99,16 @@ namespace SharpPy.Modules
             var projectRoot = Path.GetFullPath(Path.Combine(exeDir, "..", "..", ".."));
 
             // 3. 표준 라이브러리 경로들 (CPython 호환 순서)
-            // 1순위: Lib 디렉토리 (CPython 호환 표준 라이브러리) - 프로젝트 루트에서
+            // 1순위: stdlib 디렉토리 (SharpPy Python 표준 라이브러리) - 프로젝트 루트에서
+            pathList.Add(new PyString(Path.Combine(projectRoot, "stdlib")));
+
+            // 2순위: Lib 디렉토리 (CPython 호환 표준 라이브러리) - 프로젝트 루트에서
             pathList.Add(new PyString(Path.Combine(projectRoot, "Lib")));
 
-            // 2순위: modules 디렉토리 (SharpPy 전용 C# 구현 모듈) - 프로젝트 루트에서
+            // 3순위: modules 디렉토리 (SharpPy 전용 C# 구현 모듈) - 프로젝트 루트에서
             pathList.Add(new PyString(Path.Combine(projectRoot, "modules")));
 
-            // 3순위: 실행 파일 디렉토리
+            // 4순위: 실행 파일 디렉토리
             pathList.Add(new PyString(exeDir));
 
             // 4. 환경 변수 PYTHONPATH

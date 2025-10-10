@@ -3946,8 +3946,97 @@ namespace SharpPy
                         throw new Exception($"IMPORT_FROM: Stack empty when trying to import '{itemName}'. This may be caused by incorrect bytecode generation.");
                     }
                     var module = frame.ValueStack.Peek(); // Don't pop yet, needed for multiple imports
-                    var importedItem = module.GetAttribute(itemName);
-                    frame.ValueStack.Push(importedItem);
+
+                    // CPython 3.12: Handle "from module import *"
+                    // When itemName is "*", import all public names from module
+                    if (itemName == "*")
+                    {
+                        // Get __all__ attribute if it exists, otherwise use all non-private attributes
+                        PyObject allAttr = null;
+                        try
+                        {
+                            allAttr = module.GetAttribute("__all__");
+                        }
+                        catch
+                        {
+                            // __all__ doesn't exist, will use dir() instead
+                        }
+
+                        List<string> namesToImport = new List<string>();
+
+                        if (allAttr != null)
+                        {
+                            // Use __all__ to determine what to import
+                            if (allAttr is PyList allList)
+                            {
+                                foreach (var item in allList.Items)
+                                {
+                                    if (item is PyString nameStr)
+                                    {
+                                        namesToImport.Add(nameStr.Value);
+                                    }
+                                }
+                            }
+                            else if (allAttr is PyTuple allTuple)
+                            {
+                                foreach (var item in allTuple.Items)
+                                {
+                                    if (item is PyString nameStr)
+                                    {
+                                        namesToImport.Add(nameStr.Value);
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // No __all__, import all non-private names
+                            if (module is PyModule pyModule)
+                            {
+                                foreach (var key in pyModule.ModuleDict.Keys)
+                                {
+                                    if (!key.StartsWith("_"))
+                                    {
+                                        namesToImport.Add(key);
+                                    }
+                                }
+                            }
+                        }
+
+                        // Import each name into the current scope
+                        // CPython: This is handled by IMPORT_STAR bytecode, but we handle it here
+                        foreach (var importName in namesToImport)
+                        {
+                            try
+                            {
+                                var importValue = module.GetAttribute(importName);
+                                // Store in current frame's local scope
+                                if (frame.LocalScope != null)
+                                {
+                                    frame.LocalScope.Variables[importName] = importValue;
+                                }
+                                else
+                                {
+                                    // Fallback: use global scope
+                                    frame.ScopeChain.GlobalScope.Variables[importName] = importValue;
+                                }
+                            }
+                            catch
+                            {
+                                // Skip attributes that can't be imported
+                            }
+                        }
+
+                        // Push a dummy value to satisfy stack expectations
+                        // This will be handled by subsequent IMPORT_STAR or POP_TOP
+                        frame.ValueStack.Push(PyNone.Instance);
+                    }
+                    else
+                    {
+                        // Normal case: import specific name
+                        var importedItem = module.GetAttribute(itemName);
+                        frame.ValueStack.Push(importedItem);
+                    }
                     break;
 
                 // PEP 709 Comprehension Optimization - VM 구현

@@ -6,14 +6,17 @@ using System.Linq;
 namespace SharpPy.Modules.Stdlib
 {
     /// <summary>
-    /// Python datetime 모듈 구현 - 날짜/시간 처리
+    /// CPython 3.12 '_datetime' C extension module
     /// System.DateTime과 System.TimeSpan을 활용한 고성능 구현
+    ///
+    /// CPython: Modules/_datetimemodule.c
+    /// SharpPy: C# implementation as _datetime builtin module
     /// </summary>
     public static class DatetimeModule
     {
         public static PyModule CreateDatetimeModule()
         {
-            var module = new PyModule("datetime", "C:\\Users\\m11\\Desktop\\work\\sharpPy\\modules\\datetime.py");
+            var module = new PyModule("_datetime", "<builtin _datetime module>");
 
             // 핵심 클래스들
             module.ModuleDict["datetime"] = new PyDateTimeType("datetime");
