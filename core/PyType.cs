@@ -559,8 +559,8 @@ namespace SharpPy
 
         #region String Representation
 
-        public override string ToRepr() => !string.IsNullOrEmpty(Module) ? $"<class '{Module}.{Name}'>" : $"<class '{Name}'>";
-        public override string ToStr() => !string.IsNullOrEmpty(Module) ? $"<class '{Module}.{Name}'>" : $"<class '{Name}'>";
+        public override PyString ToRepr() => new PyString(!string.IsNullOrEmpty(Module) ? $"<class '{Module}.{Name}'>" : $"<class '{Name}'>");
+        public override PyString ToStr() => new PyString(!string.IsNullOrEmpty(Module) ? $"<class '{Module}.{Name}'>" : $"<class '{Name}'>");
 
         #endregion
 
@@ -629,6 +629,6 @@ namespace SharpPy
         public override string GetTypeName() => "object";
 
         public override string ToString() => "<object>";
-        public override string ToRepr() => "<object>";
+        public override PyString ToRepr() => new PyString("<object>");
     }
 }

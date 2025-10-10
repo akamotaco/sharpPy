@@ -21,16 +21,16 @@ namespace SharpPy
 
         #region String Representation
 
-        public override string ToStr() => ToString();
-        
-        public override string ToRepr()
+        public override PyString ToStr() => ToRepr();
+
+        public override PyString ToRepr()
         {
-            if (Items.Length == 0) return "()";
-            if (Items.Length == 1) return $"({Items[0].ToRepr()},)";
-            return $"({string.Join(", ", Items.Select(i => i.ToRepr()))})";
+            if (Items.Length == 0) return new PyString("()");
+            if (Items.Length == 1) return new PyString($"({Items[0].ToRepr().Value},)");
+            return new PyString($"({string.Join(", ", Items.Select(i => i.ToRepr().Value))})");
         }
 
-        public override string ToString() => ToRepr();
+        public override string ToString() => ToRepr().Value;
 
         #endregion
 
@@ -328,7 +328,7 @@ namespace SharpPy
         /// </summary>
         public override PyString AsString()
         {
-            return new PyString(ToRepr()); // CPython에서 str(tuple)는 repr(tuple)와 동일
+            return new PyString(ToRepr().Value); // CPython에서 str(tuple)는 repr(tuple)와 동일
         }
 
         #endregion

@@ -687,7 +687,7 @@ namespace SharpPy
         public override string ToString()
         {
             // CPython 3.12: ToString should call ToStr() which checks for __str__/__repr__
-            return ToStr();
+            return ToStr().Value;
         }
 
         private bool IsExceptionClass()
@@ -947,7 +947,7 @@ namespace SharpPy
             #endif
         }
 
-        public override string ToRepr()
+        public override PyString ToRepr()
         {
             // CPython 3.12: Try to call __repr__ method if user defined it
             // Check instance dict and class hierarchy (not object's default)
@@ -960,7 +960,7 @@ namespace SharpPy
                     var result = reprMethod.Call(new PyObject[0], null);
                     if (result is PyString pyStr)
                     {
-                        return pyStr.Value;
+                        return pyStr;
                     }
                 }
 
@@ -977,7 +977,7 @@ namespace SharpPy
                             var result = boundMethod.Call(new PyObject[0], null);
                             if (result is PyString pyStr)
                             {
-                                return pyStr.Value;
+                                return pyStr;
                             }
                         }
                         break;
@@ -995,10 +995,10 @@ namespace SharpPy
             }
 
             // Default representation
-            return $"<{GetTypeName()} object at 0x{GetHashCode():x}>";
+            return new PyString($"<{GetTypeName()} object at 0x{GetHashCode():x}>");
         }
 
-        public override string ToStr()
+        public override PyString ToStr()
         {
             // CPython 3.12: Try to call __str__ method if user defined it
             try
@@ -1010,7 +1010,7 @@ namespace SharpPy
                     var result = strMethod.Call(new PyObject[0], null);
                     if (result is PyString pyStr)
                     {
-                        return pyStr.Value;
+                        return pyStr;
                     }
                 }
 
@@ -1027,7 +1027,7 @@ namespace SharpPy
                             var result = boundMethod.Call(new PyObject[0], null);
                             if (result is PyString pyStr)
                             {
-                                return pyStr.Value;
+                                return pyStr;
                             }
                         }
                         break;
@@ -1080,7 +1080,7 @@ namespace SharpPy
         }
 
         public override string GetTypeName() => "super";
-        public override string ToRepr() => $"<super: {Type.Name}, {Instance}>";
+        public override PyString ToRepr() => new PyString($"<super: {Type.Name}, {Instance}>");
 
         public override PyObject GetAttribute(string name)
         {

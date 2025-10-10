@@ -20,7 +20,8 @@ namespace SharpPy
 
         #region String Representation
 
-        public virtual string ToRepr()
+        // Python repr() - returns PyString
+        public virtual PyString ToRepr()
         {
             // CPython 3.12: Try to call __repr__ method if it exists
             try
@@ -28,11 +29,10 @@ namespace SharpPy
                 var reprAttr = PyGetAttribute("__repr__");
                 if (reprAttr != null && reprAttr != PyNone.Instance)
                 {
-                    // Call __repr__() method
                     var result = reprAttr.Call(new PyObject[0], null);
                     if (result is PyString pyStr)
                     {
-                        return pyStr.Value;
+                        return pyStr;
                     }
                 }
             }
@@ -42,10 +42,11 @@ namespace SharpPy
             }
 
             // Default representation
-            return $"<{GetTypeName()} object at 0x{GetHashCode():x}>";
+            return new PyString($"<{GetTypeName()} object at 0x{GetHashCode():x}>");
         }
 
-        public virtual string ToStr()
+        // Python str() - returns PyString
+        public virtual PyString ToStr()
         {
             // CPython 3.12: Try to call __str__ method if it exists
             try
@@ -53,11 +54,10 @@ namespace SharpPy
                 var strAttr = PyGetAttribute("__str__");
                 if (strAttr != null && strAttr != PyNone.Instance)
                 {
-                    // Call __str__() method
                     var result = strAttr.Call(new PyObject[0], null);
                     if (result is PyString pyStr)
                     {
-                        return pyStr.Value;
+                        return pyStr;
                     }
                 }
             }
@@ -69,7 +69,9 @@ namespace SharpPy
             return ToRepr();
         }
 
-        public override string ToString() => ToStr();
+        // ❌ 절대 금지: ToString() → ToStr() 위임
+        // ToString()은 디버깅 전용입니다
+        public override string ToString() => $"<{GetTypeName()} object at 0x{GetHashCode():x}>";
 
         #endregion
 
@@ -409,7 +411,7 @@ namespace SharpPy
         /// </summary>
         public virtual PyString AsString()
         {
-            return new PyString(ToStr());
+            return ToStr();
         }
 
         /// <summary>
@@ -787,8 +789,8 @@ namespace SharpPy
         private PyNotImplemented() { }
 
         public override string GetTypeName() => "NotImplementedType";
-        public override string ToStr() => "NotImplemented";
-        public override string ToRepr() => "NotImplemented";
+        public override PyString ToStr() => new PyString("NotImplemented");
+        public override PyString ToRepr() => new PyString("NotImplemented");
     }
 
     /// <summary>
@@ -907,7 +909,7 @@ namespace SharpPy
                     // object.__str__() delegates to __repr__
                     if (args.Length > 0)
                     {
-                        return new PyString(args[0].ToStr());
+                        return new PyString(args[0].ToStr().Value);
                     }
                     throw PyTypeError.Create("__str__() missing 1 required positional argument: 'self'");
                 }),
@@ -915,7 +917,7 @@ namespace SharpPy
                     // object.__repr__() returns default representation
                     if (args.Length > 0)
                     {
-                        return new PyString(args[0].ToRepr());
+                        return new PyString(args[0].ToRepr().Value);
                     }
                     throw PyTypeError.Create("__repr__() missing 1 required positional argument: 'self'");
                 }),

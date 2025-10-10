@@ -73,7 +73,7 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"chdir() takes exactly 1 argument ({args.Length} given)");
 
-            string path = args[0].ToStr();
+            string path = args[0].ToStr().Value;
             try
             {
                 Directory.SetCurrentDirectory(path);
@@ -93,7 +93,7 @@ namespace SharpPy.Modules
         // CPython: posixmodule.c os_listdir_impl
         private static PyObject Listdir(PyObject[] args)
         {
-            string path = args.Length > 0 ? args[0].ToStr() : ".";
+            string path = args.Length > 0 ? args[0].ToStr().Value : ".";
 
             try
             {
@@ -122,7 +122,7 @@ namespace SharpPy.Modules
             if (args.Length < 1)
                 throw PyTypeError.Create("mkdir() missing required argument: 'path' (pos 1)");
 
-            string path = args[0].ToStr();
+            string path = args[0].ToStr().Value;
             // Note: .NET doesn't support Unix-style mode parameter
 
             try
@@ -147,7 +147,7 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"rmdir() takes exactly 1 argument ({args.Length} given)");
 
-            string path = args[0].ToStr();
+            string path = args[0].ToStr().Value;
             try
             {
                 Directory.Delete(path, false);
@@ -174,7 +174,7 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"remove() takes exactly 1 argument ({args.Length} given)");
 
-            string path = args[0].ToStr();
+            string path = args[0].ToStr().Value;
             try
             {
                 File.Delete(path);
@@ -197,8 +197,8 @@ namespace SharpPy.Modules
             if (args.Length != 2)
                 throw PyTypeError.Create($"rename() takes exactly 2 arguments ({args.Length} given)");
 
-            string src = args[0].ToStr();
-            string dst = args[1].ToStr();
+            string src = args[0].ToStr().Value;
+            string dst = args[1].ToStr().Value;
             try
             {
                 if (File.Exists(src))
@@ -226,7 +226,7 @@ namespace SharpPy.Modules
             if (args.Length < 1)
                 throw PyTypeError.Create("stat() missing required argument: 'path' (pos 1)");
 
-            string path = args[0].ToStr();
+            string path = args[0].ToStr().Value;
             try
             {
                 FileSystemInfo info;
@@ -265,7 +265,7 @@ namespace SharpPy.Modules
             if (args.Length != 2)
                 throw PyTypeError.Create($"access() takes exactly 2 arguments ({args.Length} given)");
 
-            string path = args[0].ToStr();
+            string path = args[0].ToStr().Value;
             int mode = args[1].ToInt();
 
             try
@@ -303,7 +303,7 @@ namespace SharpPy.Modules
             if (args.Length < 1)
                 throw PyTypeError.Create("getenv() missing required argument: 'key' (pos 1)");
 
-            string key = args[0].ToStr();
+            string key = args[0].ToStr().Value;
             string value = Environment.GetEnvironmentVariable(key);
 
             if (value == null)
@@ -319,8 +319,8 @@ namespace SharpPy.Modules
             if (args.Length != 2)
                 throw PyTypeError.Create($"putenv() takes exactly 2 arguments ({args.Length} given)");
 
-            string key = args[0].ToStr();
-            string value = args[1].ToStr();
+            string key = args[0].ToStr().Value;
+            string value = args[1].ToStr().Value;
 
             Environment.SetEnvironmentVariable(key, value);
             return PyNone.Instance;
@@ -334,7 +334,7 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create($"fspath() takes exactly 1 argument ({args.Length} given)");
 
             // For now, just convert to string (proper implementation would check __fspath__)
-            return new PyString(args[0].ToStr());
+            return new PyString(args[0].ToStr().Value);
         }
 
         #endregion

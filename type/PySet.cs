@@ -29,12 +29,12 @@ namespace SharpPy
 
         #region String Representation
 
-        public override string ToStr() => ToRepr();
-        
-        public override string ToRepr()
+        public override PyString ToStr() => ToRepr();
+
+        public override PyString ToRepr()
         {
-            if (_items.Count == 0) return "set()";
-            return $"{{{string.Join(", ", _items.Select(item => item.ToRepr()))}}}";
+            if (_items.Count == 0) return new PyString("set()");
+            return new PyString($"{{{string.Join(", ", _items.Select(item => item.ToRepr().Value))}}}");
         }
 
         #endregion
@@ -406,12 +406,12 @@ namespace SharpPy
 
         #region String Representation
 
-        public override string ToStr() => ToRepr();
-        
-        public override string ToRepr()
+        public override PyString ToStr() => ToRepr();
+
+        public override PyString ToRepr()
         {
-            if (_items.Count == 0) return "frozenset()";
-            return $"frozenset({{{string.Join(", ", _items.Select(item => item.ToRepr()))}}})";
+            if (_items.Count == 0) return new PyString("frozenset()");
+            return new PyString($"frozenset({{{string.Join(", ", _items.Select(item => item.ToRepr().Value))}}})");
         }
 
         #endregion

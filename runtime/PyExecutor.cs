@@ -367,18 +367,18 @@ namespace SharpPy
                 {
                     // FormattedValue는 자체적으로 포맷팅을 처리함
                     var evaluated = formattedValue.Evaluate(scope);
-                    parts.Add(evaluated.ToStr());
+                    parts.Add(evaluated.ToStr().Value);
                 }
                 else if (value is FormatExpression formatExpr)
                 {
                     // FormatExpression는 포맷 지정자를 적용함
                     var evaluated = ExecuteFormattedValue(formatExpr, scope);
-                    parts.Add(evaluated.ToStr());
+                    parts.Add(evaluated.ToStr().Value);
                 }
                 else
                 {
                     var evaluated = value.Evaluate(scope);
-                    parts.Add(evaluated.ToStr());
+                    parts.Add(evaluated.ToStr().Value);
                 }
             }
             
@@ -451,7 +451,7 @@ namespace SharpPy
             }
 
             // 기본적으로 ToString() 사용
-            return new PyString(value.ToStr());
+            return value.ToStr();
         }
 
         #endregion

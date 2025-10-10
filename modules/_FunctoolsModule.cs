@@ -170,9 +170,9 @@ namespace SharpPy.Modules
             }
         }
 
-        public override string ToRepr()
+        public override PyString ToRepr()
         {
-            return $"functools.partial({_func.ToRepr()})";
+            return new PyString($"functools.partial({_func.ToRepr().Value})");
         }
     }
 
@@ -199,9 +199,9 @@ namespace SharpPy.Modules
     {
         public override string GetTypeName() => "KeyWrapper";
 
-        public override string ToRepr()
+        public override PyString ToRepr()
         {
-            return $"<functools.KeyWrapper object at 0x{GetHashCode():x}>";
+            return new PyString($"<functools.KeyWrapper object at 0x{GetHashCode():x}>");
         }
     }
 }

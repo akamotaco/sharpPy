@@ -31,7 +31,7 @@ namespace SharpPy.Core
 
         #region String Representation
 
-        public override string ToRepr() => $"<async_generator object {Name}>";
+        public override PyString ToRepr() => new PyString($"<async_generator object {Name}>");
 
         #endregion
 
@@ -143,7 +143,7 @@ namespace SharpPy.Core
 
         public override string ToString()
         {
-            return ToRepr();
+            return ToRepr().Value;
         }
 
         public override bool Equals(object obj)

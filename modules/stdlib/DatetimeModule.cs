@@ -156,7 +156,7 @@ namespace SharpPy.Modules.Stdlib
             try
             {
                 // Python strftime format을 .NET format으로 변환
-                var dotnetFormat = ConvertPythonFormatToDotNet(format);
+                var dotnetFormat = ConvertPythonFormatToDotNet(format.Value);
                 var result = _dateTime.ToString(dotnetFormat, CultureInfo.InvariantCulture);
                 return new PyString(result);
             }
@@ -176,8 +176,8 @@ namespace SharpPy.Modules.Stdlib
 
             try
             {
-                var dotnetFormat = ConvertPythonFormatToDotNet(format);
-                var parsed = DateTime.ParseExact(dateString, dotnetFormat, CultureInfo.InvariantCulture);
+                var dotnetFormat = ConvertPythonFormatToDotNet(format.Value);
+                var parsed = DateTime.ParseExact(dateString.Value.AsSpan(), dotnetFormat, CultureInfo.InvariantCulture);
                 return new PyDateTime(parsed);
             }
             catch (Exception ex)
@@ -188,7 +188,7 @@ namespace SharpPy.Modules.Stdlib
 
         private PyObject IsoFormat(PyObject[] args)
         {
-            var sep = args.Length > 0 ? args[0].ToStr() : "T";
+            var sep = args.Length > 0 ? args[0].ToStr()?.Value ?? "T" : "T";
             var result = _dateTime.ToString($"yyyy-MM-dd{sep}HH:mm:ss.ffffff");
             return new PyString(result);
         }
@@ -395,7 +395,7 @@ namespace SharpPy.Modules.Stdlib
                 throw PyTypeError.Create("strftime() missing 1 required positional argument: 'fmt'");
 
             var format = args[0].ToStr();
-            var dotnetFormat = ConvertPythonFormatToDotNet(format);
+            var dotnetFormat = ConvertPythonFormatToDotNet(format.Value);
             var result = _date.ToString(dotnetFormat, CultureInfo.InvariantCulture);
             return new PyString(result);
         }
@@ -509,7 +509,7 @@ namespace SharpPy.Modules.Stdlib
 
             var format = args[0].ToStr();
             var baseDate = new DateTime(1900, 1, 1).Add(_time);
-            var dotnetFormat = ConvertPythonFormatToDotNet(format);
+            var dotnetFormat = ConvertPythonFormatToDotNet(format.Value);
             var result = baseDate.ToString(dotnetFormat, CultureInfo.InvariantCulture);
             return new PyString(result);
         }

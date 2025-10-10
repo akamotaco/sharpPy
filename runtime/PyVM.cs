@@ -2181,7 +2181,7 @@ namespace SharpPy
                                 var attrs = new List<PyObject>();
                                 for (int i = 0; i < classKwNamesTuple.Items.Length; i++)
                                 {
-                                    var classAttrName = classKwNamesTuple.Items[i].ToStr();
+                                    var classAttrName = classKwNamesTuple.Items[i].ToStr().Value;
                                     var classAttrValue = classSubjectInstance.GetAttribute(classAttrName);
                                     attrs.Add(classAttrValue ?? PyNone.Instance);
                                     #if DEBUG_LOG
@@ -2199,7 +2199,7 @@ namespace SharpPy
 
                                 for (int i = 0; i < Math.Min(positionalCount, matchArgs.Items.Length); i++)
                                 {
-                                    var matchArgName = matchArgs.Items[i].ToStr();
+                                    var matchArgName = matchArgs.Items[i].ToStr().Value;
 
                                     if (classSubject is PyClassInstance matchSubjectInstance)
                                     {
@@ -3784,13 +3784,13 @@ namespace SharpPy
                         // 스택 순서: [값, 포맷스펙] -> 포맷스펙을 먼저 pop
                         var formatSpec = frame.ValueStack.Pop();
                         var formatValue = frame.ValueStack.Pop();
-                        formattedString = ApplyFormatting(formatValue, formatSpec.ToStr());
+                        formattedString = ApplyFormatting(formatValue, formatSpec.ToStr().Value);
                     }
                     else
                     {
                         // 기본 포맷팅
                         var formatValue = frame.ValueStack.Pop();
-                        formattedString = new PyString(formatValue.ToStr());
+                        formattedString = formatValue.ToStr();
                     }
 
                     frame.ValueStack.Push(formattedString);
@@ -3802,7 +3802,16 @@ namespace SharpPy
                     for (int i = 0; i < stringCount; i++)
                     {
                         var part = frame.ValueStack.Pop();
-                        stringParts.Insert(0, part.ToString()); // Reverse order
+                        // CPython 3.12: BUILD_STRING joins already-formatted PyString values
+                        // Use the string value directly, not ToString() which adds quotes
+                        if (part is PyString pyStr)
+                        {
+                            stringParts.Insert(0, pyStr.Value);
+                        }
+                        else
+                        {
+                            stringParts.Insert(0, part.ToStr().Value);
+                        }
                     }
                     var concatenatedString = new PyString(string.Join("", stringParts));
                     frame.ValueStack.Push(concatenatedString);
@@ -4751,7 +4760,7 @@ namespace SharpPy
 
                     if ((align == '<' || align == '>' || align == '^') && int.TryParse(remaining, out int width))
                     {
-                        var str = obj.ToStr();
+                        var str = obj.ToStr().Value;
                         switch (align)
                         {
                             case '<': return new PyString(str.PadRight(width));
@@ -4783,7 +4792,7 @@ namespace SharpPy
                 // 포매팅 실패 시 원본 값 반환
             }
 
-            return new PyString(obj.ToStr());
+            return obj.ToStr();
         }
 
         private PyObject CompareOperation(PyObject left, PyObject right, int compareOp)

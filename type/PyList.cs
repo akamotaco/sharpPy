@@ -62,8 +62,8 @@ namespace SharpPy
 
         public override string GetTypeName() => "list";
         public override PyType GetPyType() => PyType.ListType;
-        public override string ToString() => $"[{string.Join(", ", _items.Select(i => i.ToRepr()))}]";
-        public override string ToRepr() => $"[{string.Join(", ", _items.Select(i => i.ToRepr()))}]";
+        public override string ToString() => $"[{string.Join(", ", _items.Select(i => i.ToRepr().Value))}]";
+        public override PyString ToRepr() => new PyString($"[{string.Join(", ", _items.Select(i => i.ToRepr().Value))}]");
         public override int Length() => _items.Count;
         public override bool PyBoolValue() => _items.Count > 0;
 
@@ -500,7 +500,7 @@ namespace SharpPy
         /// </summary>
         public override PyString AsString()
         {
-            return new PyString(ToRepr()); // CPython에서 str(list)는 repr(list)와 동일
+            return ToRepr(); // CPython에서 str(list)는 repr(list)와 동일
         }
 
         #endregion

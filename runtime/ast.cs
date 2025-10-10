@@ -2552,7 +2552,7 @@ namespace SharpPy
             var testResult = Test.Evaluate(scope);
             if (!testResult.ToBool())
             {
-                var message = Msg?.Evaluate(scope)?.ToStr() ?? "Assertion failed";
+                var message = Msg?.Evaluate(scope)?.ToStr()?.Value ?? "Assertion failed";
                 throw new Exception($"AssertionError: {message}");
             }
             return PyNone.Instance;
@@ -2597,7 +2597,7 @@ namespace SharpPy
                 else
                 {
                     // Try to create a RuntimeError with the object as message
-                    throw new PythonException(new PyRuntimeError(exception.ToStr()));
+                    throw new PythonException(new PyRuntimeError(exception.ToStr().Value));
                 }
             }
             
@@ -3595,7 +3595,7 @@ namespace SharpPy
             var formatSpecObj = FormatSpec.Evaluate(scope);
 
             // 포맷 지시자를 문자열로 변환
-            var formatStr = formatSpecObj.ToStr();
+            var formatStr = formatSpecObj.ToStr().Value;
 
             // 간단한 포맷팅 적용
             return ApplySimpleFormatting(valueObj, formatStr);
@@ -3635,12 +3635,12 @@ namespace SharpPy
                 }
 
                 // 기본 문자열 변환
-                return new PyString(obj.ToStr());
+                return obj.ToStr();
             }
             catch
             {
                 // 포맷팅 실패 시 기본 문자열 반환
-                return new PyString(obj.ToStr());
+                return obj.ToStr();
             }
         }
 
@@ -3743,12 +3743,12 @@ namespace SharpPy
                     
                     if ((align == '<' || align == '>' || align == '^') && int.TryParse(remaining, out int width))
                     {
-                        var str = obj.ToStr();
+                        var str = obj.ToStr().Value;
                         switch (align)
                         {
                             case '<': return new PyString(str.PadRight(width));
                             case '>': return new PyString(str.PadLeft(width));
-                            case '^': 
+                            case '^':
                                 var totalPadding = width - str.Length;
                                 var leftPadding = totalPadding / 2;
                                 var rightPadding = totalPadding - leftPadding;

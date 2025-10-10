@@ -23,8 +23,8 @@ namespace SharpPy
 
         #region String Representation
 
-        public override string ToStr() => Value.ToString();
-        public override string ToRepr() => Value.ToString();
+        public override PyString ToStr() => new PyString(Value.ToString());
+        public override PyString ToRepr() => new PyString(Value.ToString());
 
         #endregion
 

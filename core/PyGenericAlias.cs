@@ -20,21 +20,21 @@ namespace SharpPy
         /// <summary>
         /// String representation: list[int], tuple[str, int], etc.
         /// </summary>
-        public override string ToStr()
+        public override PyString ToStr()
         {
             if (Args is PyTuple tuple)
             {
                 var argStrs = new string[tuple.Items.Length];
                 for (int i = 0; i < tuple.Items.Length; i++)
                 {
-                    argStrs[i] = tuple.Items[i].ToStr();
+                    argStrs[i] = tuple.Items[i].ToStr().Value;
                 }
-                return $"{Origin.Name}[{string.Join(", ", argStrs)}]";
+                return new PyString($"{Origin.Name}[{string.Join(", ", argStrs)}]");
             }
-            return $"{Origin.Name}[{Args.ToStr()}]";
+            return new PyString($"{Origin.Name}[{Args.ToStr().Value}]");
         }
 
-        public override string ToRepr()
+        public override PyString ToRepr()
         {
             return ToStr();
         }

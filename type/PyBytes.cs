@@ -14,10 +14,10 @@ namespace SharpPy
 
         public override string GetTypeName() => "bytes";
         public override PyType GetPyType() => PyType.BytesType;
+
+        public override string ToString() => ToRepr().Value;
         
-        public override string ToString() => ToRepr();
-        
-        public override string ToRepr()
+        public override PyString ToRepr()
         {
             var sb = new System.Text.StringBuilder("b'");
             foreach (byte b in Value)
@@ -40,7 +40,7 @@ namespace SharpPy
                 }
             }
             sb.Append('\'');
-            return sb.ToString();
+            return new PyString(sb.ToString());
         }
         
         public override int Length() => Value.Length;

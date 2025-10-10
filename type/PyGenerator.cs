@@ -39,7 +39,7 @@ namespace SharpPy
 
         #region String Representation
 
-        public override string ToRepr() => $"<generator object {Name}>";
+        public override PyString ToRepr() => new PyString($"<generator object {Name}>");
 
         #endregion
 
@@ -200,7 +200,7 @@ namespace SharpPy
 
         private System.Exception CreateExceptionFromType(PyType excType, PyObject? value)
         {
-            var message = value?.ToStr() ?? "generator exception";
+            var message = value?.ToStr()?.Value ?? "generator exception";
             
             // 기본적인 예외 타입들만 처리
             if (excType == PyType.StopIterationType)
@@ -217,7 +217,7 @@ namespace SharpPy
 
         private System.Exception CreateExceptionFromBuiltinType(PyBuiltinType builtinType, PyObject? value)
         {
-            var message = value?.ToStr() ?? "generator exception";
+            var message = value?.ToStr()?.Value ?? "generator exception";
             
             // PyBuiltinType의 Name 속성 사용 (예: "ValueError")
             var typeName = builtinType.Name;

@@ -28,26 +28,26 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.BaseExceptionType;
         public override string GetTypeName() => "BaseException";
 
-        public override string ToStr()
+        public override PyString ToStr()
         {
             if (Args.Length == 0)
-                return "";
+                return new PyString("");
             if (Args.Length == 1 && Args[0] is PyString str)
-                return str.Value;
-            return $"({string.Join(", ", Args.Select(a => a.ToRepr()))})";
+                return new PyString(str.Value);
+            return new PyString($"({string.Join(", ", Args.Select(a => a.ToRepr().Value))})");
         }
 
-        public override string ToRepr()
+        public override PyString ToRepr()
         {
             if (Args.Length == 1)
-                return $"{GetTypeName()}({Args[0].ToRepr()})";
-            return $"{GetTypeName()}({string.Join(", ", Args.Select(a => a.ToRepr()))})";
+                return new PyString($"{GetTypeName()}({Args[0].ToRepr().Value})");
+            return new PyString($"{GetTypeName()}({string.Join(", ", Args.Select(a => a.ToRepr().Value))})");
         }
 
         public override string ToString()
         {
             // CPython behavior: str(exception) returns the message
-            return ToStr();
+            return ToStr().Value;
         }
 
         public override PyObject GetAttribute(string name)
@@ -431,9 +431,9 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.SyntaxErrorType;
         public override string GetTypeName() => "SyntaxError";
 
-        public override string ToStr()
+        public override PyString ToStr()
         {
-            return LineNumber > 0 ? $"{Message} ({FileName}, line {LineNumber})" : Message;
+            return new PyString(LineNumber > 0 ? $"{Message} ({FileName}, line {LineNumber})" : Message);
         }
 
         public override PyObject GetAttribute(string name)
@@ -534,14 +534,14 @@ namespace SharpPy
         public int ColumnOffset { get; set; } = -1;
         public List<string>? SourceLines { get; set; } // Source code lines for context display
 
-        public PythonException(PyBaseException pyException) 
-            : base(pyException.ToStr())
+        public PythonException(PyBaseException pyException)
+            : base(pyException.ToStr().Value)
         {
             PyException = pyException;
         }
         
         public PythonException(PyBaseException pyException, string? fileName, int lineNumber, int columnOffset = -1)
-            : base(pyException.ToStr())
+            : base(pyException.ToStr().Value)
         {
             PyException = pyException;
             FileName = fileName;
@@ -551,24 +551,24 @@ namespace SharpPy
 
         public override string ToString()
         {
-            var baseStr = PyException.ToRepr();
-            
+            var baseStr = PyException.ToRepr().Value;
+
             // CPython-style location information with source context
             if (!string.IsNullOrEmpty(FileName) && LineNumber > 0)
             {
                 var result = new System.Text.StringBuilder();
                 result.AppendLine("Traceback (most recent call last):");
-                
+
                 // File location info
                 var locationStr = $"  File \"{FileName}\", line {LineNumber}, in <module>";
                 result.AppendLine(locationStr);
-                
+
                 // Source code context (if available)
                 if (SourceLines != null && LineNumber > 0 && LineNumber <= SourceLines.Count)
                 {
                     var sourceLine = SourceLines[LineNumber - 1]; // Convert to 0-based index
                     result.AppendLine($"    {sourceLine}");
-                    
+
                     // Add position marker if column offset is available
                     if (ColumnOffset >= 0 && ColumnOffset < sourceLine.Length)
                     {
@@ -576,13 +576,13 @@ namespace SharpPy
                         result.AppendLine($"{spaces}^");
                     }
                 }
-                
+
                 // Exception type and message
-                result.Append($"{PyException.GetTypeName()}: {PyException.ToStr()}");
-                
+                result.Append($"{PyException.GetTypeName()}: {PyException.ToStr().Value}");
+
                 return result.ToString();
             }
-            
+
             return baseStr;
         }
     }
@@ -899,12 +899,12 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.ObjectType;
         public override string GetTypeName() => "ExceptionInfo";
 
-        public override string ToStr()
+        public override PyString ToStr()
         {
-            return $"ExceptionInfo(type={ExcType}, value={ExcValue}, traceback={ExcTraceback}, lasti={Lasti})";
+            return new PyString($"ExceptionInfo(type={ExcType}, value={ExcValue}, traceback={ExcTraceback}, lasti={Lasti})");
         }
 
-        public override string ToRepr() => ToStr();
+        public override PyString ToRepr() => ToStr();
     }
 
     #endregion

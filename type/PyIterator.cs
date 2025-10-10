@@ -101,7 +101,7 @@ namespace SharpPy
             return item;
         }
 
-        public override string ToRepr() => $"<list_iterator object>";
+        public override PyString ToRepr() => new PyString($"<list_iterator object>");
     }
 
     /// <summary>
@@ -140,7 +140,7 @@ namespace SharpPy
             return result;
         }
 
-        public override string ToRepr() => $"<tuple_iterator object>";
+        public override PyString ToRepr() => new PyString($"<tuple_iterator object>");
     }
 
     /// <summary>
@@ -165,7 +165,7 @@ namespace SharpPy
             return new PyString(_string[_index++].ToString());
         }
 
-        public override string ToRepr() => $"<str_iterator object>";
+        public override PyString ToRepr() => new PyString($"<str_iterator object>");
     }
 
     /// <summary>
@@ -196,7 +196,7 @@ namespace SharpPy
             return result;
         }
 
-        public override string ToRepr() => $"<range_iterator object>";
+        public override PyString ToRepr() => new PyString($"<range_iterator object>");
     }
 
     /// <summary>
@@ -226,7 +226,7 @@ namespace SharpPy
             return _enumerator.Current;
         }
 
-        public override string ToRepr() => $"<set_iterator object>";
+        public override PyString ToRepr() => new PyString($"<set_iterator object>");
 
         protected override void Dispose(bool disposing)
         {
@@ -259,7 +259,7 @@ namespace SharpPy
             return _enumerator.Current;
         }
 
-        public override string ToRepr() => $"<dict_keyiterator object>";
+        public override PyString ToRepr() => new PyString($"<dict_keyiterator object>");
 
         protected override void Dispose(bool disposing)
         {
@@ -292,7 +292,7 @@ namespace SharpPy
             return _enumerator.Current;
         }
 
-        public override string ToRepr() => $"<dict_valueiterator object>";
+        public override PyString ToRepr() => new PyString($"<dict_valueiterator object>");
 
         protected override void Dispose(bool disposing)
         {
@@ -325,7 +325,7 @@ namespace SharpPy
             return _enumerator.Current;
         }
 
-        public override string ToRepr() => $"<dict_itemiterator object>";
+        public override PyString ToRepr() => new PyString($"<dict_itemiterator object>");
 
         protected override void Dispose(bool disposing)
         {
@@ -369,7 +369,7 @@ namespace SharpPy
             }
         }
 
-        public override string ToRepr() => $"<iterator object>";
+        public override PyString ToRepr() => new PyString($"<iterator object>");
     }
 
     /// <summary>
@@ -386,6 +386,6 @@ namespace SharpPy
             throw PyStopIteration.Create();
         }
 
-        public override string ToRepr() => $"<empty_iterator object>";
+        public override PyString ToRepr() => new PyString($"<empty_iterator object>");
     }
 }

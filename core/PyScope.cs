@@ -232,49 +232,49 @@ public class PyBuiltinType : PyObject
                 }
                 return new PyInstance(); // Create basic object instance
             case "ValueError":
-                string message = args.Length > 0 ? args[0].ToStr() : "";
+                string message = args.Length > 0 ? args[0].ToStr().Value : "";
                 return new PyValueError(message);
             case "TypeError":
-                message = args.Length > 0 ? args[0].ToStr() : "";
+                message = args.Length > 0 ? args[0].ToStr().Value : "";
                 return new PyTypeError(message);
             case "AttributeError":
-                message = args.Length > 0 ? args[0].ToStr() : "";
+                message = args.Length > 0 ? args[0].ToStr().Value : "";
                 return new PyAttributeError(message);
             case "KeyError":
-                message = args.Length > 0 ? args[0].ToStr() : "";
+                message = args.Length > 0 ? args[0].ToStr().Value : "";
                 return new PyKeyError(message);
             case "IndexError":
-                message = args.Length > 0 ? args[0].ToStr() : "";
+                message = args.Length > 0 ? args[0].ToStr().Value : "";
                 return new PyIndexError(message);
             case "RuntimeError":
-                message = args.Length > 0 ? args[0].ToStr() : "";
+                message = args.Length > 0 ? args[0].ToStr().Value : "";
                 return new PyRuntimeError(message);
             case "ZeroDivisionError":
-                message = args.Length > 0 ? args[0].ToStr() : "";
+                message = args.Length > 0 ? args[0].ToStr().Value : "";
                 return new PyZeroDivisionError(message);
             case "NameError":
-                message = args.Length > 0 ? args[0].ToStr() : "";
+                message = args.Length > 0 ? args[0].ToStr().Value : "";
                 return new PyNameError(message);
             case "AssertionError":
-                message = args.Length > 0 ? args[0].ToStr() : "";
+                message = args.Length > 0 ? args[0].ToStr().Value : "";
                 return new PyAssertionError(message);
             case "SyntaxError":
-                message = args.Length > 0 ? args[0].ToStr() : "";
+                message = args.Length > 0 ? args[0].ToStr().Value : "";
                 return new PySyntaxError(message);
             case "StopIteration":
                 return args.Length > 0 ? new PyStopIteration(args[0]) : new PyStopIteration();
             case "BaseException":
-                message = args.Length > 0 ? args[0].ToStr() : "";
+                message = args.Length > 0 ? args[0].ToStr().Value : "";
                 return new PyBaseException(message);
             case "Exception":
-                message = args.Length > 0 ? args[0].ToStr() : "";
+                message = args.Length > 0 ? args[0].ToStr().Value : "";
                 return new PyException(message);
             
             // Handle Exception Groups (PEP 654)
             case "ExceptionGroup":
                 if (args.Length < 2)
                     throw PyTypeError.Create("ExceptionGroup() missing required arguments");
-                string groupMessage = args[0].ToStr();
+                string groupMessage = args[0].ToStr().Value;
                 var exceptions = new List<PyException>();
                 if (args[1] is PyList list)
                 {
@@ -287,11 +287,11 @@ public class PyBuiltinType : PyObject
                     }
                 }
                 return new PyExceptionGroup(groupMessage, exceptions);
-                
+
             case "BaseExceptionGroup":
                 if (args.Length < 2)
                     throw PyTypeError.Create("BaseExceptionGroup() missing required arguments");
-                groupMessage = args[0].ToStr();
+                groupMessage = args[0].ToStr().Value;
                 exceptions = new List<PyException>();
                 if (args[1] is PyList list2)
                 {

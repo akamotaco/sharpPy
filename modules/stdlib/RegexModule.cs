@@ -54,7 +54,7 @@ namespace SharpPy.Modules.Stdlib
 
             try
             {
-                return new PyPattern(pattern, flags);
+                return new PyPattern(pattern.Value, flags);
             }
             catch (ArgumentException ex)
             {
@@ -73,10 +73,10 @@ namespace SharpPy.Modules.Stdlib
 
             try
             {
-                var regex = new Regex(pattern, flags);
-                var match = regex.Match(text);
-                
-                return match.Success ? new PyMatch(match, text) : PyNone.Instance;
+                var regex = new Regex(pattern.Value, flags);
+                var match = regex.Match(text.Value);
+
+                return match.Success ? new PyMatch(match, text.Value) : PyNone.Instance;
             }
             catch (ArgumentException ex)
             {
@@ -95,10 +95,10 @@ namespace SharpPy.Modules.Stdlib
 
             try
             {
-                var regex = new Regex(pattern, flags);
-                var match = regex.Match(text);
-                
-                return match.Success ? new PyMatch(match, text) : PyNone.Instance;
+                var regex = new Regex(pattern.Value, flags);
+                var match = regex.Match(text.Value);
+
+                return match.Success ? new PyMatch(match, text.Value) : PyNone.Instance;
             }
             catch (ArgumentException ex)
             {
@@ -117,8 +117,8 @@ namespace SharpPy.Modules.Stdlib
 
             try
             {
-                var regex = new Regex(pattern, flags);
-                var matches = regex.Matches(text);
+                var regex = new Regex(pattern.Value, flags);
+                var matches = regex.Matches(text.Value);
                 var result = new List<PyObject>();
 
                 foreach (Match match in matches)
@@ -159,13 +159,13 @@ namespace SharpPy.Modules.Stdlib
 
             try
             {
-                var regex = new Regex(pattern, flags);
-                var matches = regex.Matches(text);
+                var regex = new Regex(pattern.Value, flags);
+                var matches = regex.Matches(text.Value);
                 var matchObjects = new List<PyObject>();
 
                 foreach (Match match in matches)
                 {
-                    matchObjects.Add(new PyMatch(match, text));
+                    matchObjects.Add(new PyMatch(match, text.Value));
                 }
 
                 return new PyMatchIterator(matchObjects);
@@ -189,10 +189,10 @@ namespace SharpPy.Modules.Stdlib
 
             try
             {
-                var regex = new Regex(pattern, flags);
+                var regex = new Regex(pattern.Value, flags);
                 var result = count == int.MaxValue ?
-                    regex.Replace(text, repl) :
-                    regex.Replace(text, repl, count);
+                    regex.Replace(text.Value, repl.Value) :
+                    regex.Replace(text.Value, repl.Value, count);
 
                 return new PyString(result);
             }
@@ -215,11 +215,11 @@ namespace SharpPy.Modules.Stdlib
 
             try
             {
-                var regex = new Regex(pattern, flags);
-                var matches = regex.Matches(text).Count;
+                var regex = new Regex(pattern.Value, flags);
+                var matches = regex.Matches(text.Value).Count;
                 var result = count == int.MaxValue ?
-                    regex.Replace(text, repl) :
-                    regex.Replace(text, repl, count);
+                    regex.Replace(text.Value, repl.Value) :
+                    regex.Replace(text.Value, repl.Value, count);
 
                 var actualSubstitutions = Math.Min(matches, count == int.MaxValue ? matches : count);
                 return new PyTuple(new PyString(result), new PyInt(actualSubstitutions));
@@ -242,10 +242,10 @@ namespace SharpPy.Modules.Stdlib
 
             try
             {
-                var regex = new Regex(pattern, flags);
+                var regex = new Regex(pattern.Value, flags);
                 var parts = maxsplit > 0 ?
-                    regex.Split(text, maxsplit) :
-                    regex.Split(text);
+                    regex.Split(text.Value, maxsplit) :
+                    regex.Split(text.Value);
 
                 var result = new List<PyObject>();
                 foreach (var part in parts)
@@ -267,7 +267,7 @@ namespace SharpPy.Modules.Stdlib
                 throw PyTypeError.Create("escape() missing 1 required positional argument: 'pattern'");
 
             var pattern = args[0].ToStr();
-            var escaped = Regex.Escape(pattern);
+            var escaped = Regex.Escape(pattern.Value);
             return new PyString(escaped);
         }
 
@@ -339,8 +339,8 @@ namespace SharpPy.Modules.Stdlib
                 throw PyTypeError.Create("match() missing 1 required positional argument: 'string'");
 
             var text = args[0].ToStr();
-            var match = _regex.Match(text);
-            return match.Success ? new PyMatch(match, text) : PyNone.Instance;
+            var match = _regex.Match(text.Value);
+            return match.Success ? new PyMatch(match, text.Value) : PyNone.Instance;
         }
 
         private PyObject Search(PyObject[] args)
@@ -349,8 +349,8 @@ namespace SharpPy.Modules.Stdlib
                 throw PyTypeError.Create("search() missing 1 required positional argument: 'string'");
 
             var text = args[0].ToStr();
-            var match = _regex.Match(text);
-            return match.Success ? new PyMatch(match, text) : PyNone.Instance;
+            var match = _regex.Match(text.Value);
+            return match.Success ? new PyMatch(match, text.Value) : PyNone.Instance;
         }
 
         private PyObject FindAll(PyObject[] args)
@@ -359,7 +359,7 @@ namespace SharpPy.Modules.Stdlib
                 throw PyTypeError.Create("findall() missing 1 required positional argument: 'string'");
 
             var text = args[0].ToStr();
-            var matches = _regex.Matches(text);
+            var matches = _regex.Matches(text.Value);
             var result = new List<PyObject>();
 
             foreach (Match match in matches)
@@ -388,12 +388,12 @@ namespace SharpPy.Modules.Stdlib
                 throw PyTypeError.Create("finditer() missing 1 required positional argument: 'string'");
 
             var text = args[0].ToStr();
-            var matches = _regex.Matches(text);
+            var matches = _regex.Matches(text.Value);
             var matchObjects = new List<PyObject>();
 
             foreach (Match match in matches)
             {
-                matchObjects.Add(new PyMatch(match, text));
+                matchObjects.Add(new PyMatch(match, text.Value));
             }
 
             return new PyMatchIterator(matchObjects);
@@ -409,8 +409,8 @@ namespace SharpPy.Modules.Stdlib
             var count = args.Length > 2 && args[2] is PyInt countInt ? (int)countInt.Value : int.MaxValue;
 
             var result = count == int.MaxValue ?
-                _regex.Replace(text, repl) :
-                _regex.Replace(text, repl, count);
+                _regex.Replace(text.Value, repl.Value) :
+                _regex.Replace(text.Value, repl.Value, count);
 
             return new PyString(result);
         }
@@ -424,10 +424,10 @@ namespace SharpPy.Modules.Stdlib
             var text = args[1].ToStr();
             var count = args.Length > 2 && args[2] is PyInt countInt ? (int)countInt.Value : int.MaxValue;
 
-            var matches = _regex.Matches(text).Count;
+            var matches = _regex.Matches(text.Value).Count;
             var result = count == int.MaxValue ?
-                _regex.Replace(text, repl) :
-                _regex.Replace(text, repl, count);
+                _regex.Replace(text.Value, repl.Value) :
+                _regex.Replace(text.Value, repl.Value, count);
 
             var actualSubstitutions = Math.Min(matches, count == int.MaxValue ? matches : count);
             return new PyTuple(new PyString(result), new PyInt(actualSubstitutions));
@@ -442,8 +442,8 @@ namespace SharpPy.Modules.Stdlib
             var maxsplit = args.Length > 1 && args[1] is PyInt maxInt ? (int)maxInt.Value + 1 : 0;
 
             var parts = maxsplit > 0 ?
-                _regex.Split(text, maxsplit) :
-                _regex.Split(text);
+                _regex.Split(text.Value, maxsplit) :
+                _regex.Split(text.Value);
 
             var result = new List<PyObject>();
             foreach (var part in parts)
@@ -703,7 +703,7 @@ namespace SharpPy.Modules.Stdlib
 
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
-            string message = args.Length > 0 ? args[0].ToStr() : "regex error";
+            string message = args.Length > 0 ? args[0].ToStr().Value : "regex error";
             return new PyRegexError(message);
         }
     }

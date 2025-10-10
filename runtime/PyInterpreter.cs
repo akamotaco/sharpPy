@@ -253,7 +253,7 @@ namespace SharpPy
             {
                 // PythonException인 경우: 내부 PyException의 GetTypeName() 사용
                 pythonExceptionType = pyEx.PyException.GetTypeName();
-                exceptionMessage = pyEx.PyException.ToStr();
+                exceptionMessage = pyEx.PyException.ToStr().Value;
             }
             else
             {

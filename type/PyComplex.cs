@@ -25,22 +25,22 @@ namespace SharpPy
 
         #region String Representation
 
-        public override string ToStr() => ToRepr();
-        
-        public override string ToRepr()
+        public override PyString ToStr() => ToRepr();
+
+        public override PyString ToRepr()
         {
             if (Imag == 0.0)
             {
-                return $"({FormatNumber(Real)}+0j)";
+                return new PyString($"({FormatNumber(Real)}+0j)");
             }
             else if (Real == 0.0)
             {
-                return $"{FormatImaginary(Imag)}j";
+                return new PyString($"{FormatImaginary(Imag)}j");
             }
             else
             {
                 var imagPart = Imag >= 0 ? $"+{FormatImaginary(Imag)}j" : $"{FormatImaginary(Imag)}j";
-                return $"({FormatNumber(Real)}{imagPart})";
+                return new PyString($"({FormatNumber(Real)}{imagPart})");
             }
         }
 

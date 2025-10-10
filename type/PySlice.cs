@@ -32,15 +32,15 @@ namespace SharpPy
 
         #region String Representation
 
-        public override string ToStr() => ToRepr();
-        
-        public override string ToRepr()
+        public override PyString ToStr() => ToRepr();
+
+        public override PyString ToRepr()
         {
-            var startStr = Start == PyNone.Instance ? "None" : Start.ToRepr();
-            var stopStr = Stop == PyNone.Instance ? "None" : Stop.ToRepr();
-            var stepStr = Step == PyNone.Instance ? "None" : Step.ToRepr();
-            
-            return $"slice({startStr}, {stopStr}, {stepStr})";
+            var startStr = Start == PyNone.Instance ? "None" : Start.ToRepr().Value;
+            var stopStr = Stop == PyNone.Instance ? "None" : Stop.ToRepr().Value;
+            var stepStr = Step == PyNone.Instance ? "None" : Step.ToRepr().Value;
+
+            return new PyString($"slice({startStr}, {stopStr}, {stepStr})");
         }
 
         #endregion

@@ -261,7 +261,7 @@ namespace SharpPy
             }
 
             // 출력 생성 - CPython 3.12: print는 str()을 사용, repr()이 아님
-            var output = string.Join(sep.Value, args.Select(arg => arg.ToStr()));
+            var output = string.Join(sep.Value, args.Select(arg => arg.ToStr().Value));
 
             // file이 지정되지 않았으면 Console에 출력 (기본값)
             if (file == null)
@@ -298,7 +298,7 @@ namespace SharpPy
             // prompt가 주어지면 출력 (줄바꿈 없이)
             if (args.Length == 1)
             {
-                var prompt = args[0].ToStr();
+                var prompt = args[0].ToStr().Value;
                 Console.Write(prompt);
             }
 
@@ -2091,7 +2091,7 @@ namespace SharpPy
                 throw PyTypeError.Create("open() missing required argument: 'file'");
 
             // Extract file argument
-            var filename = args[0].ToStr();
+            var filename = args[0].ToStr().Value;
             var mode = "r";
             var buffering = -1;
             string encoding = null;
@@ -2101,11 +2101,11 @@ namespace SharpPy
             PyObject opener = null;
 
             // Process positional arguments
-            if (args.Length > 1) mode = args[1].ToStr();
+            if (args.Length > 1) mode = args[1].ToStr().Value;
             if (args.Length > 2) buffering = (int)((PyInt)args[2]).Value;
-            if (args.Length > 3) encoding = args[3] != PyNone.Instance ? args[3].ToStr() : null;
-            if (args.Length > 4) errors = args[4] != PyNone.Instance ? args[4].ToStr() : null;
-            if (args.Length > 5) newline = args[5] != PyNone.Instance ? args[5].ToStr() : null;
+            if (args.Length > 3) encoding = args[3] != PyNone.Instance ? args[3].ToStr().Value : null;
+            if (args.Length > 4) errors = args[4] != PyNone.Instance ? args[4].ToStr().Value : null;
+            if (args.Length > 5) newline = args[5] != PyNone.Instance ? args[5].ToStr().Value : null;
             if (args.Length > 6) closefd = args[6].PyBoolValue();
             if (args.Length > 7) opener = args[7] != PyNone.Instance ? args[7] : null;
 
@@ -2115,7 +2115,7 @@ namespace SharpPy
                 try
                 {
                     var modeValue = kwargs.GetItem(new PyString("mode"));
-                    mode = modeValue.ToStr();
+                    mode = modeValue.ToStr().Value;
                 }
                 catch { }
 
@@ -2129,21 +2129,21 @@ namespace SharpPy
                 try
                 {
                     var encodingValue = kwargs.GetItem(new PyString("encoding"));
-                    encoding = encodingValue != PyNone.Instance ? encodingValue.ToStr() : null;
+                    encoding = encodingValue != PyNone.Instance ? encodingValue.ToStr().Value : null;
                 }
                 catch { }
 
                 try
                 {
                     var errorsValue = kwargs.GetItem(new PyString("errors"));
-                    errors = errorsValue != PyNone.Instance ? errorsValue.ToStr() : null;
+                    errors = errorsValue != PyNone.Instance ? errorsValue.ToStr().Value : null;
                 }
                 catch { }
 
                 try
                 {
                     var newlineValue = kwargs.GetItem(new PyString("newline"));
-                    newline = newlineValue != PyNone.Instance ? newlineValue.ToStr() : null;
+                    newline = newlineValue != PyNone.Instance ? newlineValue.ToStr().Value : null;
                 }
                 catch { }
 
@@ -2777,9 +2777,9 @@ namespace SharpPy
                 throw PyTypeError.Create($"repr() takes exactly one argument ({args.Length} given)");
 
             var obj = args[0];
-            
+
             // Use the object's ToRepr() method, which should provide the canonical string representation
-            return new PyString(obj.ToRepr());
+            return new PyString(obj.ToRepr().Value);
         }
 
         #endregion

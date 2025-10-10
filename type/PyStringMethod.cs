@@ -22,7 +22,7 @@ namespace SharpPy
 
         public override string ToString() => $"<built-in method {_methodName} of str object at {GetHashCode():x8}>";
 
-        public override string ToRepr() => ToString();
+        public override PyString ToRepr() => new PyString(ToString());
 
         /// <summary>
         /// 메서드 호출 구현

@@ -53,14 +53,14 @@ namespace SharpPy
 
         #region String Representation
 
-        public override string ToStr() => ToRepr();
-        
-        public override string ToRepr()
-        {
-            if (_dict.Count == 0) return "{}";
+        public override PyString ToStr() => ToRepr();
 
-            var pairs = _dict.Select(kv => $"{kv.Key.ToRepr()}: {kv.Value.ToRepr()}");
-            return $"{{{string.Join(", ", pairs)}}}";
+        public override PyString ToRepr()
+        {
+            if (_dict.Count == 0) return new PyString("{}");
+
+            var pairs = _dict.Select(kv => $"{kv.Key.ToRepr().Value}: {kv.Value.ToRepr().Value}");
+            return new PyString($"{{{string.Join(", ", pairs)}}}");
         }
 
         #endregion
@@ -457,7 +457,7 @@ namespace SharpPy
         /// </summary>
         public override PyString AsString()
         {
-            return new PyString(ToRepr()); // CPython에서 str(dict)는 repr(dict)와 동일
+            return ToRepr(); // CPython에서 str(dict)는 repr(dict)와 동일
         }
 
         /// <summary>

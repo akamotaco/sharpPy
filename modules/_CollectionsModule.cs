@@ -121,15 +121,15 @@ namespace SharpPy.Modules
             base.SetAttribute(name, value);
         }
 
-        public override string ToRepr()
+        public override PyString ToRepr()
         {
-            var factoryRepr = DefaultFactory?.ToRepr() ?? "None";
+            var factoryRepr = DefaultFactory?.ToRepr().Value ?? "None";
 
             if (_dict.Count == 0)
-                return $"defaultdict({factoryRepr}, {{}})";
+                return new PyString($"defaultdict({factoryRepr}, {{}})");
 
-            var pairs = _dict.Select(kv => $"{kv.Key.ToRepr()}: {kv.Value.ToRepr()}");
-            return $"defaultdict({factoryRepr}, {{{string.Join(", ", pairs)}}})";
+            var pairs = _dict.Select(kv => $"{kv.Key.ToRepr().Value}: {kv.Value.ToRepr().Value}");
+            return new PyString($"defaultdict({factoryRepr}, {{{string.Join(", ", pairs)}}})");
         }
     }
 
@@ -347,19 +347,19 @@ namespace SharpPy.Modules
             return new PyDequeIterator(_items.ToList());
         }
 
-        public override string ToRepr()
+        public override PyString ToRepr()
         {
             if (_items.Count == 0)
             {
                 if (_maxlen.HasValue)
-                    return $"deque([], maxlen={_maxlen.Value})";
-                return "deque([])";
+                    return new PyString($"deque([], maxlen={_maxlen.Value})");
+                return new PyString("deque([])");
             }
 
-            var items = string.Join(", ", _items.Select(x => x.ToRepr()));
+            var items = string.Join(", ", _items.Select(x => x.ToRepr().Value));
             if (_maxlen.HasValue)
-                return $"deque([{items}], maxlen={_maxlen.Value})";
-            return $"deque([{items}])";
+                return new PyString($"deque([{items}], maxlen={_maxlen.Value})");
+            return new PyString($"deque([{items}])");
         }
     }
 

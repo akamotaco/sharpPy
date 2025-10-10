@@ -36,16 +36,16 @@ namespace SharpPy
 
         #region String Representation
 
-        public override string ToStr() => ToRepr();
-        
-        public override string ToRepr()
+        public override PyString ToStr() => ToRepr();
+
+        public override PyString ToRepr()
         {
             if (Start == 0 && Step == 1)
-                return $"range({Stop})";
+                return new PyString($"range({Stop})");
             else if (Step == 1)
-                return $"range({Start}, {Stop})";
+                return new PyString($"range({Start}, {Stop})");
             else
-                return $"range({Start}, {Stop}, {Step})";
+                return new PyString($"range({Start}, {Stop}, {Step})");
         }
 
         #endregion

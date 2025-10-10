@@ -280,8 +280,8 @@ namespace SharpPy.Modules
     public class PySysModules : PyObject
     {
         public override string GetTypeName() => "dict";
-        public override string ToRepr() => "<sys.modules dict>";
-        public override string ToString() => ToRepr();
+        public override PyString ToRepr() => new PyString("<sys.modules dict>");
+        public override string ToString() => "<sys.modules dict>";
         
         public override int Length()
         {
@@ -318,7 +318,7 @@ namespace SharpPy.Modules
         {
             if (key is PyString keyStr && PyImportSystem.SysModules.TryGetValue(keyStr.Value, out var module))
                 return module;
-            throw PyKeyError.Create(key.ToRepr());
+            throw PyKeyError.Create(key.ToRepr().Value);
         }
 
         public void SetItem(PyObject key, PyObject value)
@@ -412,7 +412,7 @@ namespace SharpPy.Modules
         }
 
         public override string GetTypeName() => "TextIOWrapper";
-        public override string ToRepr() => $"<_io.{GetTypeName()} name='{Name}' mode='w' encoding='utf-8'>";
-        public override string ToString() => ToRepr();
+        public override PyString ToRepr() => new PyString($"<_io.{GetTypeName()} name='{Name}' mode='w' encoding='utf-8'>");
+        public override string ToString() => $"<_io.{GetTypeName()} name='{Name}' mode='w' encoding='utf-8'>";
     }
 }

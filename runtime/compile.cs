@@ -9697,7 +9697,6 @@ namespace SharpPy
             for (int i = genExp.Generators.Count - 1; i >= 0; i--)
             {
                 var generator = genExp.Generators[i];
-                var targetName = generator.Target is NameExpression ne ? ne.Name : $"var{i}";
 
                 // for문의 바디는 현재까지 구성된 innerMostStatement
                 var forBody = new List<Statement> { innerMostStatement };
@@ -9705,7 +9704,8 @@ namespace SharpPy
                 // 첫 번째 generator는 .0을 사용, 나머지는 각자의 iterable 사용
                 Expression iterableExpr = (i == 0) ? iteratorExpr : generator.Iter;
 
-                innerMostStatement = new ForStatement(targetName, iterableExpr, forBody);
+                // CPython 3.12: Target expression을 그대로 사용 (tuple unpacking 지원)
+                innerMostStatement = new ForStatement(generator.Target, iterableExpr, forBody);
             }
 
             // CPython 3.12: 최종 generator statement

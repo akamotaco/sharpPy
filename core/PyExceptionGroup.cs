@@ -35,9 +35,9 @@ namespace SharpPy
         /// <summary>
         /// Python의 str() 함수에서 호출되는 메서드 - CPython 호환 형태
         /// </summary>
-        public override string ToStr()
+        public override PyString ToStr()
         {
-            return $"{Message} ({Exceptions.Count} sub-exception{(Exceptions.Count != 1 ? "s" : "")})";
+            return new PyString($"{Message} ({Exceptions.Count} sub-exception{(Exceptions.Count != 1 ? "s" : "")})");
         }
 
         /// <summary>

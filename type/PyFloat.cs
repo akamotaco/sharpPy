@@ -28,7 +28,7 @@ namespace SharpPy
 
         #region String Representation
 
-        public override string ToStr()
+        public override PyString ToStr()
         {
             // CPython 호환: 원본 문자열이 있으면 우선 사용
             if (!string.IsNullOrEmpty(OriginalString))
@@ -36,23 +36,23 @@ namespace SharpPy
                 // 원본 문자열이 유효한 표현인지 확인
                 if (double.TryParse(OriginalString, out double parsed) && Math.Abs(parsed - Value) < 1e-15)
                 {
-                    return OriginalString;
+                    return new PyString(OriginalString);
                 }
             }
 
             // Python처럼 필요시에만 소수점 표시
             if (Value == Math.Floor(Value) && !double.IsInfinity(Value) && !double.IsNaN(Value))
             {
-                return Value.ToString("0.0");
+                return new PyString(Value.ToString("0.0"));
             }
-            return Value.ToString("G17"); // 17자리 정밀도로 표현
+            return new PyString(Value.ToString("G17")); // 17자리 정밀도로 표현
         }
 
-        public override string ToRepr()
+        public override PyString ToRepr()
         {
-            if (double.IsPositiveInfinity(Value)) return "inf";
-            if (double.IsNegativeInfinity(Value)) return "-inf";
-            if (double.IsNaN(Value)) return "nan";
+            if (double.IsPositiveInfinity(Value)) return new PyString("inf");
+            if (double.IsNegativeInfinity(Value)) return new PyString("-inf");
+            if (double.IsNaN(Value)) return new PyString("nan");
             return ToStr();
         }
 

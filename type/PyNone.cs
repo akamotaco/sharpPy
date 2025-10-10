@@ -19,8 +19,8 @@ namespace SharpPy
 
         #region String Representation
 
-        public override string ToStr() => "None";
-        public override string ToRepr() => "None";
+        public override PyString ToStr() => new PyString("None");
+        public override PyString ToRepr() => new PyString("None");
         public override string ToString() => "None";
 
         #endregion

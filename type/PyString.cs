@@ -23,9 +23,10 @@ namespace SharpPy
 
         #region String Representation
 
-        public override string ToStr() => Value;
-        
-        public override string ToRepr()
+        // Python str() - PyString은 이미 문자열이므로 자신을 반환
+        public override PyString ToStr() => this;
+
+        public override PyString ToRepr()
         {
             // CPython-compatible repr() implementation
             bool hasSingleQuote = Value.Contains('\'');
@@ -87,7 +88,7 @@ namespace SharpPy
             }
 
             result.Append(quoteChar);
-            return result.ToString();
+            return new PyString(result.ToString());
         }
 
         /// <summary>
@@ -453,7 +454,7 @@ namespace SharpPy
             
             // 다른 타입은 문자열로 변환하여 검사
             var itemStr = item.ToStr();
-            return PyBool.FromBool(Value.Contains(itemStr));
+            return PyBool.FromBool(Value.Contains(itemStr.Value));
         }
 
         #endregion
@@ -748,11 +749,11 @@ namespace SharpPy
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"join() takes exactly one argument ({args.Length} given)");
-            
+
             var iterable = args[0];
             var items = new System.Collections.Generic.List<string>();
-            
-            // Simple implementation for lists
+
+            // CPython 3.12: Support all iterables (list, tuple, generator, etc.)
             if (iterable is PyList list)
             {
                 foreach (var item in list.Items)
@@ -763,11 +764,77 @@ namespace SharpPy
                         throw PyTypeError.Create($"sequence item: expected str instance, {item.GetTypeName()} found");
                 }
             }
+            else if (iterable is PyTuple tuple)
+            {
+                foreach (var item in tuple.Items)
+                {
+                    if (item is PyString str)
+                        items.Add(str.Value);
+                    else
+                        throw PyTypeError.Create($"sequence item: expected str instance, {item.GetTypeName()} found");
+                }
+            }
+            else if (iterable is PyGenerator generator)
+            {
+                // CPython 3.12: Consume generator expression
+                while (true)
+                {
+                    try
+                    {
+                        var item = generator.Next();
+                        if (item is PyString str)
+                            items.Add(str.Value);
+                        else
+                            throw PyTypeError.Create($"sequence item: expected str instance, {item.GetTypeName()} found");
+                    }
+                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                    {
+                        break;
+                    }
+                }
+            }
             else
             {
-                throw PyTypeError.Create("can only join an iterable");
+                // CPython 3.12: Try to iterate using __iter__
+                try
+                {
+                    var iterMethod = iterable.GetAttribute("__iter__");
+                    if (iterMethod != null && iterMethod != PyNone.Instance)
+                    {
+                        var iterator = iterMethod.Call(new PyObject[0], null);
+                        var nextMethod = iterator.GetAttribute("__next__");
+
+                        while (true)
+                        {
+                            try
+                            {
+                                var item = nextMethod.Call(new PyObject[0], null);
+                                if (item is PyString str)
+                                    items.Add(str.Value);
+                                else
+                                    throw PyTypeError.Create($"sequence item: expected str instance, {item.GetTypeName()} found");
+                            }
+                            catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                            {
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create("can only join an iterable");
+                    }
+                }
+                catch (PythonException ex) when (ex.PyException is not PyStopIteration)
+                {
+                    throw PyTypeError.Create("can only join an iterable");
+                }
+                catch (Exception)
+                {
+                    throw PyTypeError.Create("can only join an iterable");
+                }
             }
-            
+
             return new PyString(string.Join(Value, items));
         }
 
