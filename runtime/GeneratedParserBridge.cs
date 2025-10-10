@@ -41,11 +41,11 @@ namespace SharpPy
             Console.WriteLine("[DEBUG] Creating parser...");
 #endif
             // Use generated parser
-            var parser = new GeneratedPyParser(generatedTokens, filename);
+            var parser = new GeneratedPyParser(generatedTokens, filename, source);
 #if DEBUG_AST_LOG
             Console.WriteLine("[DEBUG] Calling parser.ParseFile()...");
 #endif
-            var parseResult = parser.ParseFile();
+            GeneratedMod parseResult = parser.ParseFile();
 #if DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] ParseFile returned: {parseResult?.GetType()?.Name ?? "null"}");
             Console.WriteLine($"[DEBUG] Parse result type: {parseResult?.GetType()?.Name ?? "null"}");

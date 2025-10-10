@@ -182,33 +182,65 @@ namespace SharpPy
             }
             else
             {
-                // Try to get line number from PythonException
-                var lineNumber = -1;
-                if (e is PythonException pythonEx && pythonEx.LineNumber > 0)
+                // CPython 3.12: Handle PySyntaxErrorException with detailed location info
+                if (e is PySyntaxErrorException syntaxEx && syntaxEx.LineNumber > 0)
                 {
-                    lineNumber = pythonEx.LineNumber;
-                }
+                    var fileName = syntaxEx.FileName ?? _currentFileName ?? "<stdin>";
+                    Console.WriteLine($"  File \"{fileName}\", line {syntaxEx.LineNumber}");
 
-                var fileName = _currentFileName ?? "<stdin>";
-                if (lineNumber > 0)
-                {
-                    Console.WriteLine($"  File \"{fileName}\", line {lineNumber}, in <module>");
-                    
-                    // Show actual source line if available
-                    if (_sourceLines != null && lineNumber > 0 && lineNumber <= _sourceLines.Length)
+                    // Show source line from exception if available, otherwise from _sourceLines
+                    var sourceLine = syntaxEx.SourceLine;
+                    if (string.IsNullOrEmpty(sourceLine) && _sourceLines != null && syntaxEx.LineNumber <= _sourceLines.Length)
                     {
-                        var sourceLine = _sourceLines[lineNumber - 1].Trim();
-                        Console.WriteLine($"    {sourceLine}");
+                        sourceLine = _sourceLines[syntaxEx.LineNumber - 1];
                     }
-                    else
+
+                    if (!string.IsNullOrEmpty(sourceLine))
                     {
-                        Console.WriteLine($"    # Source line not available (line {lineNumber})");
+                        Console.WriteLine($"    {sourceLine}");
+
+                        // Show error marker (^^^)
+                        if (syntaxEx.ColumnOffset >= 0)
+                        {
+                            var markerStart = Math.Max(0, syntaxEx.ColumnOffset);
+                            var markerLength = syntaxEx.EndColumnOffset > syntaxEx.ColumnOffset
+                                ? syntaxEx.EndColumnOffset - syntaxEx.ColumnOffset
+                                : 3;
+                            var marker = new string(' ', markerStart) + new string('^', markerLength);
+                            Console.WriteLine($"    {marker}");
+                        }
                     }
                 }
                 else
                 {
-                    Console.WriteLine($"  File \"{fileName}\", line ?, in <module>");
-                    Console.WriteLine($"    # Line information not available");
+                    // Try to get line number from PythonException
+                    var lineNumber = -1;
+                    if (e is PythonException pythonEx && pythonEx.LineNumber > 0)
+                    {
+                        lineNumber = pythonEx.LineNumber;
+                    }
+
+                    var fileName = _currentFileName ?? "<stdin>";
+                    if (lineNumber > 0)
+                    {
+                        Console.WriteLine($"  File \"{fileName}\", line {lineNumber}, in <module>");
+
+                        // Show actual source line if available
+                        if (_sourceLines != null && lineNumber > 0 && lineNumber <= _sourceLines.Length)
+                        {
+                            var sourceLine = _sourceLines[lineNumber - 1].Trim();
+                            Console.WriteLine($"    {sourceLine}");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"    # Source line not available (line {lineNumber})");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"  File \"{fileName}\", line ?, in <module>");
+                        Console.WriteLine($"    # Line information not available");
+                    }
                 }
             }
             
@@ -238,6 +270,7 @@ namespace SharpPy
                     "PyRuntimeError" => "RuntimeError",
                     "PyNotImplementedError" => "NotImplementedError",
                     "PySyntaxError" => "SyntaxError",
+                    "PySyntaxErrorException" => "SyntaxError",  // CPython 3.12: Parser syntax error
                     "PyIndentationError" => "IndentationError",
                     "PyTabError" => "TabError",
                     "PySystemError" => "SystemError",

@@ -8,7 +8,31 @@ namespace SharpPy
     // CPython 3.12 스타일 SyntaxError 예외 클래스
     public class PySyntaxErrorException : Exception
     {
+        public string? FileName { get; set; }
+        public int LineNumber { get; set; } = -1;
+        public int ColumnOffset { get; set; } = -1;
+        public int EndColumnOffset { get; set; } = -1;
+        public string? SourceLine { get; set; }
+
         public PySyntaxErrorException(string message) : base(message) { }
+
+        public PySyntaxErrorException(string message, string fileName, int lineNumber, int columnOffset)
+            : base(message)
+        {
+            FileName = fileName;
+            LineNumber = lineNumber;
+            ColumnOffset = columnOffset;
+        }
+
+        public PySyntaxErrorException(string message, string fileName, int lineNumber, int columnOffset, int endColumnOffset, string sourceLine)
+            : base(message)
+        {
+            FileName = fileName;
+            LineNumber = lineNumber;
+            ColumnOffset = columnOffset;
+            EndColumnOffset = endColumnOffset;
+            SourceLine = sourceLine;
+        }
     }
 
     /// <summary>

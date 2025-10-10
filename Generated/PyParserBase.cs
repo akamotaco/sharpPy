@@ -39,6 +39,8 @@ namespace SharpPy.Generated
         protected List<GeneratedTokenInfo> _tokens;
         protected int _position = 0;  // CPython: mark
         protected string _filename;
+        protected string? _source = null;  // CPython 3.12: Source code for error reporting
+        protected string[]? _sourceLines = null;  // CPython 3.12: Source lines for error reporting
         protected string? _pendingSyntaxError = null;
         protected int _pendingErrorPosition = -1;
         protected bool _callInvalidRules = true;
@@ -82,6 +84,15 @@ namespace SharpPy.Generated
             _filename = filename;
         }
 
+        // CPython 3.12: Constructor with source code for error reporting
+        protected PyParserBase(List<GeneratedTokenInfo> tokens, string filename, string source)
+            : this(tokens, filename)
+        {
+            _source = source;
+            // CPython 3.12: Use universal newlines (like Python's str.splitlines)
+            _sourceLines = source.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+        }
+
         protected GeneratedTokenInfo CurrentToken
         {
             get => _position < _tokens.Count ? _tokens[_position] : null;
@@ -91,6 +102,16 @@ namespace SharpPy.Generated
 
         // CPython 3.12: _get_keyword_or_name_type - Must be implemented by generated parser
         protected abstract int GetKeywordOrNameType(string name, int nameLen);
+
+        // CPython 3.12: Get source line for error reporting (like CPython's _PyPegen_get_source_line)
+        protected string? GetSourceLine(int lineNumber)
+        {
+            if (_sourceLines == null || lineNumber <= 0 || lineNumber > _sourceLines.Length)
+            {
+                return null;
+            }
+            return _sourceLines[lineNumber - 1];  // Convert 1-based to 0-based index
+        }
 
         protected virtual GeneratedModule ParseFile()
         {

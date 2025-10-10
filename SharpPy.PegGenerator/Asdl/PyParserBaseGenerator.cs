@@ -89,6 +89,8 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("protected List<GeneratedTokenInfo> _tokens;");
             WriteLine("protected int _position = 0;  // CPython: mark");
             WriteLine("protected string _filename;");
+            WriteLine("protected string? _source = null;  // CPython 3.12: Source code for error reporting");
+            WriteLine("protected string[]? _sourceLines = null;  // CPython 3.12: Source lines for error reporting");
             WriteLine("protected string? _pendingSyntaxError = null;");
             WriteLine("protected int _pendingErrorPosition = -1;");
             WriteLine("protected bool _callInvalidRules = true;");
@@ -141,6 +143,19 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("}");
             WriteLine();
 
+            // Constructor with source code (CPython 3.12)
+            WriteLine("// CPython 3.12: Constructor with source code for error reporting");
+            WriteLine("protected PyParserBase(List<GeneratedTokenInfo> tokens, string filename, string source)");
+            WriteLine("    : this(tokens, filename)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("_source = source;");
+            WriteLine("// CPython 3.12: Use universal newlines (like Python's str.splitlines)");
+            WriteLine("_sourceLines = source.Replace(\"\\r\\n\", \"\\n\").Replace(\"\\r\", \"\\n\").Split('\\n');");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+
             // Current token property
             WriteLine("protected GeneratedTokenInfo CurrentToken");
             WriteLine("{");
@@ -157,6 +172,22 @@ namespace SharpPy.PegGenerator.Asdl
             // CPython 3.12: Abstract keyword checker (implemented in generated parser)
             WriteLine("// CPython 3.12: _get_keyword_or_name_type - Must be implemented by generated parser");
             WriteLine("protected abstract int GetKeywordOrNameType(string name, int nameLen);");
+            WriteLine();
+
+            // CPython 3.12: Get source line for error reporting
+            WriteLine("// CPython 3.12: Get source line for error reporting (like CPython's _PyPegen_get_source_line)");
+            WriteLine("protected string? GetSourceLine(int lineNumber)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("if (_sourceLines == null || lineNumber <= 0 || lineNumber > _sourceLines.Length)");
+            WriteLine("{");
+            _indentLevel++;
+            WriteLine("return null;");
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine("return _sourceLines[lineNumber - 1];  // Convert 1-based to 0-based index");
+            _indentLevel--;
+            WriteLine("}");
             WriteLine();
 
             // ParseFile method (default implementation)

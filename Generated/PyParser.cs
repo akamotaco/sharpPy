@@ -179,6 +179,13 @@ namespace SharpPy.Generated
             // CPython 3.12: Compiled parser - no runtime interpreter
         }
 
+        // CPython 3.12: Constructor with source code for error reporting
+        public GeneratedPyParser(List<GeneratedTokenInfo> tokens, string filename, string source)
+            : base(tokens, filename, source)
+        {
+            // CPython 3.12: Source code available for detailed error messages
+        }
+
         // Override abstract Parse method
         public override GeneratedMod Parse()
         {
@@ -44134,7 +44141,19 @@ public GeneratedMod ParseFile()
     var result = File();
     if (result == null || _pendingSyntaxError != null)
     {
-        var errorMsg = _pendingSyntaxError ?? "Parsing failed";
+        var errorMsg = _pendingSyntaxError ?? "invalid syntax";
+
+        // CPython 3.12: Get error location from current or known error token
+        GeneratedTokenInfo errorToken = _knownErrToken ?? CurrentToken;
+        if (errorToken != null)
+        {
+            var ex = new PySyntaxErrorException(errorMsg, _filename,
+                errorToken.Line, errorToken.Column,
+                errorToken.EndColumn,
+                GetSourceLine(errorToken.Line));
+            throw ex;
+        }
+
         throw new PySyntaxErrorException(errorMsg);
     }
     return result;
@@ -44146,7 +44165,19 @@ public GeneratedMod ParseInteractive()
     var result = Interactive();
     if (result == null || _pendingSyntaxError != null)
     {
-        var errorMsg = _pendingSyntaxError ?? "Parsing failed";
+        var errorMsg = _pendingSyntaxError ?? "invalid syntax";
+
+        // CPython 3.12: Get error location from current or known error token
+        GeneratedTokenInfo errorToken = _knownErrToken ?? CurrentToken;
+        if (errorToken != null)
+        {
+            var ex = new PySyntaxErrorException(errorMsg, _filename,
+                errorToken.Line, errorToken.Column,
+                errorToken.EndColumn,
+                GetSourceLine(errorToken.Line));
+            throw ex;
+        }
+
         throw new PySyntaxErrorException(errorMsg);
     }
     return result;
@@ -44158,7 +44189,19 @@ public GeneratedMod ParseEval()
     var result = Eval();
     if (result == null || _pendingSyntaxError != null)
     {
-        var errorMsg = _pendingSyntaxError ?? "Parsing failed";
+        var errorMsg = _pendingSyntaxError ?? "invalid syntax";
+
+        // CPython 3.12: Get error location from current or known error token
+        GeneratedTokenInfo errorToken = _knownErrToken ?? CurrentToken;
+        if (errorToken != null)
+        {
+            var ex = new PySyntaxErrorException(errorMsg, _filename,
+                errorToken.Line, errorToken.Column,
+                errorToken.EndColumn,
+                GetSourceLine(errorToken.Line));
+            throw ex;
+        }
+
         throw new PySyntaxErrorException(errorMsg);
     }
     return result;
@@ -44170,7 +44213,19 @@ public GeneratedMod ParseFuncType()
     var result = FuncType();
     if (result == null || _pendingSyntaxError != null)
     {
-        var errorMsg = _pendingSyntaxError ?? "Parsing failed";
+        var errorMsg = _pendingSyntaxError ?? "invalid syntax";
+
+        // CPython 3.12: Get error location from current or known error token
+        GeneratedTokenInfo errorToken = _knownErrToken ?? CurrentToken;
+        if (errorToken != null)
+        {
+            var ex = new PySyntaxErrorException(errorMsg, _filename,
+                errorToken.Line, errorToken.Column,
+                errorToken.EndColumn,
+                GetSourceLine(errorToken.Line));
+            throw ex;
+        }
+
         throw new PySyntaxErrorException(errorMsg);
     }
     return result;

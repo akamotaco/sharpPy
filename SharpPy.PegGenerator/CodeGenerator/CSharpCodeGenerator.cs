@@ -707,6 +707,15 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
 
+            // CPython 3.12: Constructor with source code for error reporting
+            WriteLine("// CPython 3.12: Constructor with source code for error reporting");
+            WriteLine("public GeneratedPyParser(List<GeneratedTokenInfo> tokens, string filename, string source)");
+            WriteLine("    : base(tokens, filename, source)");
+            WriteLine("{");
+            WriteLine("    // CPython 3.12: Source code available for detailed error messages");
+            WriteLine("}");
+            WriteLine();
+
             WriteLine("// Override abstract Parse method");
             WriteLine("public override GeneratedMod Parse()");
             WriteLine("{");
