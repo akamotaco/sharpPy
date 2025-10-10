@@ -355,6 +355,53 @@ public partial class PyFunction : PyObject, IDescriptor
         public override string ToString() => $"<bound method {Function.Name} of {Instance}>";
     }
 
+    /// <summary>
+    /// CPython 3.12: Bound builtin method wrapper
+    /// PyBuiltinFunction을 인스턴스에 바인딩하여 self를 자동으로 전달
+    /// </summary>
+    public class PyBuiltinBoundMethod : PyObject
+    {
+        public PyObject Instance { get; }
+        public PyBuiltinFunction BuiltinFunction { get; }
+
+        public PyBuiltinBoundMethod(PyObject instance, PyBuiltinFunction builtinFunction)
+        {
+            Instance = instance;
+            BuiltinFunction = builtinFunction;
+        }
+
+        public override PyType GetPyType() => PyType.FunctionType;
+        public override string GetTypeName() => "builtin_function_or_method";
+
+        // CPython 3.12 호환: kwargs 지원 버전
+        public override PyObject Call(PyObject[] args, PyDict kwargs)
+        {
+            // self를 첫 번째 인수로 자동 추가
+            var newArgs = new PyObject[args.Length + 1];
+            newArgs[0] = Instance;
+            Array.Copy(args, 0, newArgs, 1, args.Length);
+            return BuiltinFunction.Call(newArgs, kwargs);
+        }
+
+        // Method는 항상 호출 가능
+        public override bool IsCallable() => true;
+
+        // Method attributes (__self__, __func__ 등)
+        public override PyObject GetAttribute(string name)
+        {
+            return name switch
+            {
+                "__self__" => Instance,
+                "__func__" => BuiltinFunction,
+                "__name__" => new PyString(BuiltinFunction.Name),
+                "__call__" => this,
+                _ => base.GetAttribute(name)
+            };
+        }
+
+        public override string ToString() => $"<built-in method {BuiltinFunction.Name} of {Instance.GetTypeName()} object>";
+    }
+
 #endregion
 
 #region PEP 692: Function Signature Support

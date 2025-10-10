@@ -5,524 +5,386 @@ using System.Linq;
 namespace SharpPy.Modules
 {
     /// <summary>
-    /// Python _collections 모듈 구현 - CPython 3.12 호환
-    /// C 확장 모듈을 C#으로 구현하여 고성능 컬렉션 제공
+    /// CPython _collections C 확장 모듈
+    /// CPython 3.12 호환 구현
     /// </summary>
     public static class _CollectionsModule
     {
         public static PyModule CreateCollectionsModule()
         {
-            var module = new PyModule("_collections", "C:\\Users\\m11\\Desktop\\work\\sharpPy\\modules\\_collections.py");
+            var module = new PyModule("_collections", "High performance container datatypes");
 
-            // CPython 3.12 _collections 모듈의 C 확장 타입들
-            module.ModuleDict["deque"] = new PyDequeType();
+            // CPython 3.12: Core C extension types
             module.ModuleDict["defaultdict"] = new PyDefaultDictType();
-            module.ModuleDict["OrderedDict"] = new PyOrderedDictType();
+            module.ModuleDict["deque"] = new PyDequeType();
 
             return module;
         }
     }
 
     /// <summary>
-    /// deque 타입 팩토리
-    /// </summary>
-    public class PyDequeType : PyObject
-    {
-        public override PyType GetPyType() => PyType.TypeType;
-        public override string GetTypeName() => "type";
-
-        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
-        {
-            // deque([iterable[, maxlen]])
-            PyObject iterable = null;
-            PyObject maxlen = null;
-
-            if (args.Length > 0) iterable = args[0];
-            if (args.Length > 1) maxlen = args[1];
-
-            return new PyDeque(iterable, maxlen);
-        }
-
-        public override bool IsCallable() => true;
-    }
-
-    /// <summary>
-    /// defaultdict 타입 팩토리
+    /// CPython 3.12: defaultdict type
+    /// Modules/_collectionsmodule.c: defdict_type
     /// </summary>
     public class PyDefaultDictType : PyObject
     {
-        public override PyType GetPyType() => PyType.TypeType;
-        public override string GetTypeName() => "type";
+        public PyDefaultDictType() { }
 
-        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
+        public override string GetTypeName() => "defaultdict";
+
+        public override PyObject Call(PyObject[] args, PyDict? kwargs)
         {
-            // defaultdict([default_factory[, ...]])
-            PyObject defaultFactory = null;
-            if (args.Length > 0) defaultFactory = args[0];
+            // CPython: defdict_new
+            PyObject? defaultFactory = null;
 
-            return new PyDefaultDict(defaultFactory);
+            if (args.Length > 0)
+            {
+                defaultFactory = args[0];
+                if (defaultFactory is PyNone)
+                    defaultFactory = null;
+            }
+
+            var dd = new PyDefaultDict(defaultFactory);
+
+            // If there are more args, treat as dict initialization
+            if (args.Length > 1)
+            {
+                // Second argument should be a dict or iterable of pairs
+                var initDict = args[1];
+                if (initDict is PyDict dict)
+                {
+                    foreach (var kv in dict.InternalDict)
+                        dd.SetItem(kv.Key, kv.Value);
+                }
+            }
+
+            // Handle keyword arguments
+            if (kwargs != null)
+            {
+                foreach (var kv in kwargs.InternalDict)
+                    dd.SetItem(kv.Key, kv.Value);
+            }
+
+            return dd;
         }
-
-        public override bool IsCallable() => true;
     }
 
     /// <summary>
-    /// OrderedDict 타입 팩토리
+    /// CPython 3.12: defaultdict instance
+    /// dict subclass with default_factory
     /// </summary>
-    public class PyOrderedDictType : PyObject
+    public class PyDefaultDict : PyDict
     {
-        public override PyType GetPyType() => PyType.TypeType;
-        public override string GetTypeName() => "type";
+        public PyObject? DefaultFactory { get; set; }
 
-        public override PyObject Call(PyObject[] args, PyDict kwargs = null)
+        public PyDefaultDict(PyObject? defaultFactory = null)
         {
-            return new PyOrderedDict();
+            DefaultFactory = defaultFactory;
         }
 
-        public override bool IsCallable() => true;
+        public override string GetTypeName() => "defaultdict";
+
+        public override PyObject GetItem(PyObject key)
+        {
+            // Try to get existing value
+            if (_dict.TryGetValue(key, out PyObject? value))
+                return value;
+
+            // CPython: defdict_missing - call default_factory if available
+            if (DefaultFactory == null)
+                throw PyKeyError.Create(key.ToRepr());
+
+            // Call default_factory() to create default value
+            var defaultValue = DefaultFactory.Call(new PyObject[0], null);
+
+            // Store and return
+            _dict[key] = defaultValue;
+            return defaultValue;
+        }
+
+        public override PyObject GetAttribute(string name)
+        {
+            if (name == "default_factory")
+                return DefaultFactory ?? PyNone.Instance;
+
+            return base.GetAttribute(name);
+        }
+
+        public override void SetAttribute(string name, PyObject value)
+        {
+            if (name == "default_factory")
+            {
+                DefaultFactory = value is PyNone ? null : value;
+                return;
+            }
+
+            base.SetAttribute(name, value);
+        }
+
+        public override string ToRepr()
+        {
+            var factoryRepr = DefaultFactory?.ToRepr() ?? "None";
+
+            if (_dict.Count == 0)
+                return $"defaultdict({factoryRepr}, {{}})";
+
+            var pairs = _dict.Select(kv => $"{kv.Key.ToRepr()}: {kv.Value.ToRepr()}");
+            return $"defaultdict({factoryRepr}, {{{string.Join(", ", pairs)}}})";
+        }
     }
 
     /// <summary>
-    /// Python deque 클래스의 C# 구현
-    /// CPython의 _collectionsmodule.c 호환
+    /// CPython 3.12: deque type - 양방향 큐
+    /// Modules/_collectionsmodule.c: deque_type
+    /// </summary>
+    public class PyDequeType : PyObject
+    {
+        public PyDequeType() { }
+
+        public override string GetTypeName() => "deque";
+
+        public override PyObject Call(PyObject[] args, PyDict? kwargs)
+        {
+            // CPython: deque_new
+            PyObject? iterable = null;
+            int? maxlen = null;
+
+            if (args.Length > 0)
+                iterable = args[0];
+
+            // Check for maxlen keyword argument
+            if (kwargs != null && kwargs.InternalDict.TryGetValue(new PyString("maxlen"), out var maxlenObj))
+            {
+                if (maxlenObj is PyInt maxlenInt)
+                    maxlen = (int)maxlenInt.Value;
+                else if (!(maxlenObj is PyNone))
+                    throw PyTypeError.Create("maxlen must be an integer or None");
+            }
+
+            var deque = new PyDeque(maxlen);
+
+            // Initialize from iterable if provided
+            if (iterable != null && !(iterable is PyNone))
+            {
+                var iterator = iterable.GetIterator();
+                while (true)
+                {
+                    try
+                    {
+                        var item = iterator.Next();
+                        deque.Append(item);
+                    }
+                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            return deque;
+        }
+    }
+
+    /// <summary>
+    /// CPython 3.12: deque instance
+    /// Double-ended queue with O(1) append/pop on both ends
     /// </summary>
     public class PyDeque : PyObject
     {
         private readonly LinkedList<PyObject> _items;
         private readonly int? _maxlen;
 
-        public PyDeque(PyObject iterable = null, PyObject maxlen = null)
+        public PyDeque(int? maxlen = null)
         {
             _items = new LinkedList<PyObject>();
-
-            // maxlen 처리
-            if (maxlen != null && maxlen != PyNone.Instance)
-            {
-                if (maxlen is PyInt maxInt && maxInt.Value >= 0)
-                {
-                    _maxlen = (int)maxInt.Value;
-                }
-                else
-                {
-                    throw new PythonException(new PyTypeError("an integer is required"));
-                }
-            }
-
-            // iterable 처리
-            if (iterable != null && iterable != PyNone.Instance)
-            {
-                var iterator = iterable.GetIterator();
-                try
-                {
-                    while (true)
-                    {
-                        var item = iterator.Next();
-                        Append(item);
-                    }
-                }
-                catch (PythonException ex) when (ex.PyException is PyStopIteration)
-                {
-                    // 정상적인 반복 종료
-                }
-                catch (Exception)
-                {
-                    throw new PythonException(new PyTypeError($"'{iterable.GetTypeName()}' object is not iterable"));
-                }
-            }
+            _maxlen = maxlen;
         }
 
-        /// <summary>
-        /// deque.append(x) - Add x to the right side of the deque
-        /// </summary>
-        public PyObject Append(PyObject item)
+        public override string GetTypeName() => "deque";
+
+        // CPython: deque_append
+        public void Append(PyObject item)
         {
             _items.AddLast(item);
 
-            // maxlen 제한 적용
+            // Enforce maxlen
             if (_maxlen.HasValue && _items.Count > _maxlen.Value)
-            {
                 _items.RemoveFirst();
-            }
-
-            return PyNone.Instance;
         }
 
-        /// <summary>
-        /// deque.appendleft(x) - Add x to the left side of the deque
-        /// </summary>
-        public PyObject AppendLeft(PyObject item)
+        // CPython: deque_appendleft
+        public void AppendLeft(PyObject item)
         {
             _items.AddFirst(item);
 
-            // maxlen 제한 적용
+            // Enforce maxlen
             if (_maxlen.HasValue && _items.Count > _maxlen.Value)
-            {
                 _items.RemoveLast();
-            }
-
-            return PyNone.Instance;
         }
 
-        /// <summary>
-        /// deque.pop() - Remove and return an element from the right side
-        /// </summary>
+        // CPython: deque_pop
         public PyObject Pop()
         {
             if (_items.Count == 0)
-            {
-                throw new PythonException(new PyIndexError("pop from empty deque"));
-            }
+                throw PyIndexError.Create("pop from an empty deque");
 
-            var item = _items.Last.Value;
+            var item = _items.Last!.Value;
             _items.RemoveLast();
             return item;
         }
 
-        /// <summary>
-        /// deque.popleft() - Remove and return an element from the left side
-        /// </summary>
+        // CPython: deque_popleft
         public PyObject PopLeft()
         {
             if (_items.Count == 0)
-            {
-                throw new PythonException(new PyIndexError("pop from empty deque"));
-            }
+                throw PyIndexError.Create("pop from an empty deque");
 
-            var item = _items.First.Value;
+            var item = _items.First!.Value;
             _items.RemoveFirst();
             return item;
         }
 
-        /// <summary>
-        /// deque.clear() - Remove all elements from the deque
-        /// </summary>
-        public PyObject Clear()
+        // CPython: deque_len
+        public int Length => _items.Count;
+
+        // CPython: deque_rotate
+        public void Rotate(int n = 1)
+        {
+            if (_items.Count == 0)
+                return;
+
+            n = n % _items.Count;
+            if (n < 0)
+                n += _items.Count;
+
+            for (int i = 0; i < n; i++)
+            {
+                var item = _items.Last!.Value;
+                _items.RemoveLast();
+                _items.AddFirst(item);
+            }
+        }
+
+        // CPython: deque_clear
+        public void Clear()
         {
             _items.Clear();
-            return PyNone.Instance;
         }
 
-        /// <summary>
-        /// deque.extend(iterable) - Extend the right side by appending elements
-        /// </summary>
-        public PyObject Extend(PyObject iterable)
-        {
-            var iterator = iterable.GetIterator();
-            try
-            {
-                while (true)
-                {
-                    var item = iterator.Next();
-                    Append(item);
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 정상적인 반복 종료
-            }
-            catch (Exception)
-            {
-                throw new PythonException(new PyTypeError($"'{iterable.GetTypeName()}' object is not iterable"));
-            }
-
-            return PyNone.Instance;
-        }
-
-        /// <summary>
-        /// deque.extendleft(iterable) - Extend the left side by appending elements
-        /// </summary>
-        public PyObject ExtendLeft(PyObject iterable)
-        {
-            var iterator = iterable.GetIterator();
-            try
-            {
-                while (true)
-                {
-                    var item = iterator.Next();
-                    AppendLeft(item);
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 정상적인 반복 종료
-            }
-            catch (Exception)
-            {
-                throw new PythonException(new PyTypeError($"'{iterable.GetTypeName()}' object is not iterable"));
-            }
-
-            return PyNone.Instance;
-        }
-
-        /// <summary>
-        /// deque.rotate(n=1) - Rotate the deque n steps to the right
-        /// </summary>
-        public PyObject Rotate(PyObject n = null)
-        {
-            if (_items.Count == 0) return PyNone.Instance;
-
-            int steps = 1;
-            if (n != null && n != PyNone.Instance)
-            {
-                if (n is PyInt stepInt)
-                {
-                    steps = (int)stepInt.Value;
-                }
-                else
-                {
-                    throw new PythonException(new PyTypeError("an integer is required"));
-                }
-            }
-
-            // 정규화 (음수 처리)
-            steps = steps % _items.Count;
-            if (steps < 0) steps += _items.Count;
-
-            // 회전 수행
-            for (int i = 0; i < steps; i++)
-            {
-                var last = _items.Last.Value;
-                _items.RemoveLast();
-                _items.AddFirst(last);
-            }
-
-            return PyNone.Instance;
-        }
-
-        // Python 특수 메서드들
-        public override int Length()
-        {
-            return _items.Count;
-        }
-
-        public override PyObject GetIterator()
-        {
-            return new PyListIterator(new PyList(_items.ToArray()));
-        }
-
-        public override string ToString()
-        {
-            var items = string.Join(", ", _items.Select(item => item.ToString()));
-            if (_maxlen.HasValue)
-            {
-                return $"deque([{items}], maxlen={_maxlen})";
-            }
-            return $"deque([{items}])";
-        }
-
-        public override string GetTypeName()
-        {
-            return "deque";
-        }
-
-        // 동적 메서드 호출 지원
         public override PyObject GetAttribute(string name)
         {
             switch (name)
             {
                 case "append":
-                    return new PyFunction("append", (args) => {
-                        if (args.Length != 1) throw new PythonException(new PyTypeError("append() takes exactly one argument"));
-                        return Append(args[0]);
+                    return new PyBuiltinFunction("append", (args, kwargs) => {
+                        if (args.Length != 1)
+                            throw PyTypeError.Create($"append() takes exactly one argument ({args.Length} given)");
+                        Append(args[0]);
+                        return PyNone.Instance;
                     });
+
                 case "appendleft":
-                    return new PyFunction("appendleft", (args) => {
-                        if (args.Length != 1) throw new PythonException(new PyTypeError("appendleft() takes exactly one argument"));
-                        return AppendLeft(args[0]);
+                    return new PyBuiltinFunction("appendleft", (args, kwargs) => {
+                        if (args.Length != 1)
+                            throw PyTypeError.Create($"appendleft() takes exactly one argument ({args.Length} given)");
+                        AppendLeft(args[0]);
+                        return PyNone.Instance;
                     });
+
                 case "pop":
-                    return new PyFunction("pop", (args) => {
-                        if (args.Length != 0) throw new PythonException(new PyTypeError("pop() takes no arguments"));
+                    return new PyBuiltinFunction("pop", (args, kwargs) => {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create($"pop() takes no arguments ({args.Length} given)");
                         return Pop();
                     });
+
                 case "popleft":
-                    return new PyFunction("popleft", (args) => {
-                        if (args.Length != 0) throw new PythonException(new PyTypeError("popleft() takes no arguments"));
+                    return new PyBuiltinFunction("popleft", (args, kwargs) => {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create($"popleft() takes no arguments ({args.Length} given)");
                         return PopLeft();
                     });
-                case "clear":
-                    return new PyFunction("clear", (args) => {
-                        if (args.Length != 0) throw new PythonException(new PyTypeError("clear() takes no arguments"));
-                        return Clear();
-                    });
-                case "extend":
-                    return new PyFunction("extend", (args) => {
-                        if (args.Length != 1) throw new PythonException(new PyTypeError("extend() takes exactly one argument"));
-                        return Extend(args[0]);
-                    });
-                case "extendleft":
-                    return new PyFunction("extendleft", (args) => {
-                        if (args.Length != 1) throw new PythonException(new PyTypeError("extendleft() takes exactly one argument"));
-                        return ExtendLeft(args[0]);
-                    });
+
                 case "rotate":
-                    return new PyFunction("rotate", (args) => {
-                        if (args.Length > 1) throw new PythonException(new PyTypeError("rotate() takes at most 1 argument"));
-                        var nParam = args.Length == 1 ? args[0] : null;
-                        return Rotate(nParam);
+                    return new PyBuiltinFunction("rotate", (args, kwargs) => {
+                        int n = 1;
+                        if (args.Length > 0)
+                        {
+                            if (args[0] is PyInt nInt)
+                                n = (int)nInt.Value;
+                            else
+                                throw PyTypeError.Create("rotate() argument must be an integer");
+                        }
+                        Rotate(n);
+                        return PyNone.Instance;
                     });
+
+                case "clear":
+                    return new PyBuiltinFunction("clear", (args, kwargs) => {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create($"clear() takes no arguments ({args.Length} given)");
+                        Clear();
+                        return PyNone.Instance;
+                    });
+
+                case "maxlen":
+                    return _maxlen.HasValue ? new PyInt(_maxlen.Value) : PyNone.Instance;
+
+                case "__len__":
+                    return new PyBuiltinFunction("__len__", (args, kwargs) => {
+                        if (args.Length != 0)
+                            throw PyTypeError.Create($"__len__() takes no arguments ({args.Length} given)");
+                        return new PyInt(Length);
+                    });
+
                 default:
                     return base.GetAttribute(name);
             }
-        }
-    }
-
-    /// <summary>
-    /// Python defaultdict 클래스의 C# 구현
-    /// CPython의 _collectionsmodule.c 호환
-    /// </summary>
-    public class PyDefaultDict : PyDict
-    {
-        private readonly PyObject _defaultFactory;
-
-        public PyDefaultDict(PyObject defaultFactory = null)
-        {
-            _defaultFactory = defaultFactory;
-        }
-
-        public override PyObject GetItem(PyObject key)
-        {
-            try
-            {
-                return base.GetItem(key);
-            }
-            catch (PythonException ex) when (ex.PyException is PyKeyError)
-            {
-                if (_defaultFactory == null)
-                {
-                    throw PyKeyError.Create($"'{key}'");
-                }
-
-                // Call default_factory() to get default value
-                var defaultValue = _defaultFactory.IsCallable()
-                    ? _defaultFactory.Call(new PyObject[0], null)
-                    : throw new PythonException(new PyTypeError("default_factory must be callable"));
-
-                SetItem(key, defaultValue);
-                return defaultValue;
-            }
-        }
-
-        public override PyObject GetAttribute(string name)
-        {
-            switch (name)
-            {
-                case "default_factory":
-                    return _defaultFactory ?? PyNone.Instance;
-                default:
-                    return base.GetAttribute(name);
-            }
-        }
-
-        public override string GetTypeName()
-        {
-            return "defaultdict";
-        }
-
-        public override string ToString()
-        {
-            var items = string.Join(", ", _dict.Select(kvp => $"{kvp.Key}: {kvp.Value}"));
-            return $"defaultdict({_defaultFactory}, {{{items}}})";
-        }
-    }
-
-    /// <summary>
-    /// Python OrderedDict 클래스의 C# 구현
-    /// CPython의 _collectionsmodule.c 호환
-    /// </summary>
-    public class PyOrderedDict : PyDict
-    {
-        private readonly LinkedList<PyObject> _insertionOrder;
-
-        public PyOrderedDict()
-        {
-            _insertionOrder = new LinkedList<PyObject>();
-        }
-
-        public override void SetItem(PyObject key, PyObject value)
-        {
-            bool isNewKey = !_dict.ContainsKey(key);
-            base.SetItem(key, value);
-
-            if (isNewKey)
-            {
-                _insertionOrder.AddLast(key);
-            }
-        }
-
-        public override PyObject DelItem(PyObject key)
-        {
-            if (_dict.ContainsKey(key))
-            {
-                var result = base.DelItem(key);
-                _insertionOrder.Remove(key);
-                return result;
-            }
-            else
-            {
-                throw PyKeyError.Create($"'{key}'");
-            }
-        }
-
-        /// <summary>
-        /// od.move_to_end(key, last=True) - Move key to end (or beginning if last=False)
-        /// </summary>
-        public PyObject MoveToEnd(PyObject key, PyObject last = null)
-        {
-            if (!_dict.ContainsKey(key))
-            {
-                throw PyKeyError.Create($"'{key}'");
-            }
-
-            bool moveToLast = true;
-            if (last != null && last != PyNone.Instance)
-            {
-                moveToLast = last.PyBoolValue();
-            }
-
-            _insertionOrder.Remove(key);
-            if (moveToLast)
-            {
-                _insertionOrder.AddLast(key);
-            }
-            else
-            {
-                _insertionOrder.AddFirst(key);
-            }
-
-            return PyNone.Instance;
         }
 
         public override PyObject GetIterator()
         {
-            var keyArray = _insertionOrder.ToArray();
-            return new PyListIterator(new PyList(keyArray));
+            return new PyDequeIterator(_items.ToList());
         }
 
-        public override PyObject GetAttribute(string name)
+        public override string ToRepr()
         {
-            switch (name)
+            if (_items.Count == 0)
             {
-                case "move_to_end":
-                    return new PyFunction("move_to_end", (args) => {
-                        if (args.Length < 1 || args.Length > 2)
-                            throw new PythonException(new PyTypeError("move_to_end() takes 1 or 2 arguments"));
-                        var last = args.Length == 2 ? args[1] : null;
-                        return MoveToEnd(args[0], last);
-                    });
-                default:
-                    return base.GetAttribute(name);
+                if (_maxlen.HasValue)
+                    return $"deque([], maxlen={_maxlen.Value})";
+                return "deque([])";
             }
+
+            var items = string.Join(", ", _items.Select(x => x.ToRepr()));
+            if (_maxlen.HasValue)
+                return $"deque([{items}], maxlen={_maxlen.Value})";
+            return $"deque([{items}])";
+        }
+    }
+
+    /// <summary>
+    /// Iterator for deque
+    /// </summary>
+    public class PyDequeIterator : PyObject
+    {
+        private readonly List<PyObject> _items;
+        private int _index;
+
+        public PyDequeIterator(List<PyObject> items)
+        {
+            _items = items;
+            _index = 0;
         }
 
-        public override string GetTypeName()
-        {
-            return "OrderedDict";
-        }
+        public override string GetTypeName() => "deque_iterator";
 
-        protected virtual PyObject[] GetKeys()
+        public override PyObject Next()
         {
-            return _insertionOrder.ToArray();
+            if (_index >= _items.Count)
+                throw PyStopIteration.Create();
+
+            return _items[_index++];
         }
     }
 }

@@ -1480,6 +1480,8 @@ namespace SharpPy
                     }
 
                     // Call function with unpacked arguments
+                    PyObject unpackedResult;
+
                     if (functionToCall is PyFunction function)
                     {
                         var kwDict = new Dictionary<string, PyObject>();
@@ -1487,18 +1489,52 @@ namespace SharpPy
                         {
                             kwDict[kw.name] = kw.value;
                         }
-                        var unpackedResult = ExecuteFunctionCallWithKeywords(function, argsList.ToArray(), kwDict, frame.ScopeChain);
-                        frame.ValueStack.Push(unpackedResult);
+                        unpackedResult = ExecuteFunctionCallWithKeywords(function, argsList.ToArray(), kwDict, frame.ScopeChain);
                     }
                     else if (functionToCall is PyBuiltinFunction builtinFunc)
                     {
-                        var unpackedResult = builtinFunc.Call(argsList.ToArray(), null);
-                        frame.ValueStack.Push(unpackedResult);
+                        // Convert keyword arguments to PyDict
+                        PyDict? kwDict = null;
+                        if (keywordArgs.Count > 0)
+                        {
+                            kwDict = new PyDict();
+                            foreach (var kw in keywordArgs)
+                            {
+                                kwDict.SetItem(new PyString(kw.name), kw.value);
+                            }
+                        }
+                        unpackedResult = builtinFunc.Call(argsList.ToArray(), kwDict);
+                    }
+                    else if (functionToCall is PyMethod method)
+                    {
+                        // Convert keyword arguments to PyDict
+                        PyDict? kwDict = null;
+                        if (keywordArgs.Count > 0)
+                        {
+                            kwDict = new PyDict();
+                            foreach (var kw in keywordArgs)
+                            {
+                                kwDict.SetItem(new PyString(kw.name), kw.value);
+                            }
+                        }
+                        unpackedResult = method.Call(argsList.ToArray(), kwDict);
                     }
                     else
                     {
-                        throw PyTypeError.Create($"'{functionToCall.GetTypeName()}' object is not callable");
+                        // Generic callable with kwargs
+                        PyDict? kwDict = null;
+                        if (keywordArgs.Count > 0)
+                        {
+                            kwDict = new PyDict();
+                            foreach (var kw in keywordArgs)
+                            {
+                                kwDict.SetItem(new PyString(kw.name), kw.value);
+                            }
+                        }
+                        unpackedResult = functionToCall.Call(argsList.ToArray(), kwDict);
                     }
+
+                    frame.ValueStack.Push(unpackedResult);
                     break;
 
                 case ByteCodeOp.DICT_MERGE:
@@ -5683,8 +5719,17 @@ namespace SharpPy
             }
             else
             {
-                // Fallback: combine all arguments and call normally
-                return callable.Call(args, null);
+                // Fallback: convert keyword arguments to PyDict and call
+                PyDict? kwargs = null;
+                if (keywordArgs != null && keywordArgs.Count > 0)
+                {
+                    kwargs = new PyDict();
+                    foreach (var kv in keywordArgs)
+                    {
+                        kwargs.SetItem(new PyString(kv.Key), kv.Value);
+                    }
+                }
+                return callable.Call(positionalArgs, kwargs);
             }
         }
 
@@ -5703,8 +5748,19 @@ namespace SharpPy
                 return CreateDateTimeWithKeywords(positionalArgs, keywordArgs);
             }
 
-            // Default: call with positional arguments only (ignore keywords for now)
-            return pyType.Call(positionalArgs, null);
+            // CPython 3.12: Convert keyword arguments to PyDict
+            PyDict? kwargs = null;
+            if (keywordArgs != null && keywordArgs.Count > 0)
+            {
+                kwargs = new PyDict();
+                foreach (var kv in keywordArgs)
+                {
+                    kwargs.SetItem(new PyString(kv.Key), kv.Value);
+                }
+            }
+
+            // Call with both positional and keyword arguments
+            return pyType.Call(positionalArgs, kwargs);
         }
 
         /// <summary>

@@ -397,6 +397,143 @@ namespace SharpPy
                     };
                 }
 
+                // dict 타입의 메서드들 - CPython 3.12 compatible
+                if (pyType == PyType.DictType)
+                {
+                    // Helper to get PyDict from self (works for both PyDict and dict subclasses)
+                    static PyDict GetDictStorage(PyObject self)
+                    {
+                        if (self is PyDict dict)
+                            return dict;
+
+                        if (self is PyClassInstance instance && instance.InstanceType.BaseTypes.Any(bt => bt == PyType.DictType))
+                        {
+                            // Access the _dictStorage field via reflection or provide public accessor
+                            var field = typeof(PyClassInstance).GetField("_dictStorage", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                            return (PyDict)field?.GetValue(instance);
+                        }
+
+                        throw PyTypeError.Create($"descriptor requires a 'dict' object but received a '{self.GetTypeName()}'");
+                    }
+
+                    return name switch
+                    {
+                        "get" => new PyBuiltinFunction("get", (args, kwargs) =>
+                        {
+                            if (args.Length < 2 || args.Length > 3)
+                                throw PyTypeError.Create($"get() takes from 2 to 3 positional arguments but {args.Length} were given");
+
+                            var self = args[0];
+                            var key = args[1];
+                            var defaultValue = args.Length > 2 ? args[2] : PyNone.Instance;
+
+                            // CPython 3.12: Use GetItem with exception handling (works for both PyDict and dict subclasses)
+                            try
+                            {
+                                return self.GetItem(key);
+                            }
+                            catch (PythonException ex) when (ex.PyException is PyKeyError)
+                            {
+                                return defaultValue;
+                            }
+                        }),
+
+                        "keys" => new PyBuiltinFunction("keys", (args, kwargs) =>
+                        {
+                            if (args.Length != 1)
+                                throw PyTypeError.Create($"keys() takes exactly 1 argument ({args.Length} given)");
+
+                            var dict = GetDictStorage(args[0]);
+                            return dict.Keys();
+                        }),
+
+                        "values" => new PyBuiltinFunction("values", (args, kwargs) =>
+                        {
+                            if (args.Length != 1)
+                                throw PyTypeError.Create($"values() takes exactly 1 argument ({args.Length} given)");
+
+                            var dict = GetDictStorage(args[0]);
+                            return dict.Values();
+                        }),
+
+                        "items" => new PyBuiltinFunction("items", (args, kwargs) =>
+                        {
+                            if (args.Length != 1)
+                                throw PyTypeError.Create($"items() takes exactly 1 argument ({args.Length} given)");
+
+                            var dict = GetDictStorage(args[0]);
+                            return dict.Items();
+                        }),
+
+                        "pop" => new PyBuiltinFunction("pop", (args, kwargs) =>
+                        {
+                            if (args.Length < 2 || args.Length > 3)
+                                throw PyTypeError.Create($"pop() takes from 2 to 3 positional arguments but {args.Length} were given");
+
+                            var dict = GetDictStorage(args[0]);
+                            var key = args[1];
+                            var defaultValue = args.Length > 2 ? args[2] : null;
+                            return dict.Pop(key, defaultValue);
+                        }),
+
+                        "clear" => new PyBuiltinFunction("clear", (args, kwargs) =>
+                        {
+                            if (args.Length != 1)
+                                throw PyTypeError.Create($"clear() takes exactly 1 argument ({args.Length} given)");
+
+                            var dict = GetDictStorage(args[0]);
+                            dict.Clear();
+                            return PyNone.Instance;
+                        }),
+
+                        "update" => new PyBuiltinFunction("update", (args, kwargs) =>
+                        {
+                            if (args.Length != 2)
+                                throw PyTypeError.Create($"update() takes exactly 2 arguments ({args.Length} given)");
+
+                            var dict = GetDictStorage(args[0]);
+
+                            if (args[1] is PyDict otherDict)
+                            {
+                                dict.Update(otherDict);
+                            }
+                            else if (args[1] is PyClassInstance otherInstance && otherInstance.InstanceType.BaseTypes.Any(bt => bt == PyType.DictType))
+                            {
+                                // Dict subclass - get its storage
+                                var otherStorage = GetDictStorage(args[1]);
+                                dict.Update(otherStorage);
+                            }
+                            else
+                            {
+                                throw PyTypeError.Create($"update() argument must be dict, not '{args[1].GetTypeName()}'");
+                            }
+                            return PyNone.Instance;
+                        }),
+
+                        "setdefault" => new PyBuiltinFunction("setdefault", (args, kwargs) =>
+                        {
+                            if (args.Length < 2 || args.Length > 3)
+                                throw PyTypeError.Create($"setdefault() takes from 2 to 3 positional arguments but {args.Length} were given");
+
+                            var dict = GetDictStorage(args[0]);
+                            var key = args[1];
+                            var defaultValue = args.Length > 2 ? args[2] : PyNone.Instance;
+                            return dict.SetDefault(key, defaultValue);
+                        }),
+
+                        "copy" => new PyBuiltinFunction("copy", (args, kwargs) =>
+                        {
+                            if (args.Length != 1)
+                                throw PyTypeError.Create($"copy() takes exactly 1 argument ({args.Length} given)");
+
+                            var dict = GetDictStorage(args[0]);
+                            return dict.Copy();
+                        }),
+
+                        _ => null
+                    };
+                }
+
                 // 다른 내장 타입들은 기본적으로 object의 속성을 상속
                 if (pyType.Name == "object")
                     return null;
@@ -519,6 +656,9 @@ namespace SharpPy
         public PyObject[] ConstructorArgs { get; set; } // Store constructor arguments
         private PyFunction _customGetAttr;
 
+        // CPython 3.12: Dict subclasses have internal dict storage
+        private PyDict _dictStorage;
+
         public PyClassInstance(PyClass instanceType)
         {
             InstanceType = instanceType;
@@ -530,6 +670,18 @@ namespace SharpPy
             {
                 _customGetAttr = instanceType.ClassDict["__getattr__"] as PyFunction;
             }
+
+            // CPython 3.12: If this is a dict subclass, create internal dict storage
+            if (IsDictSubclass())
+            {
+                _dictStorage = new PyDict();
+            }
+        }
+
+        private bool IsDictSubclass()
+        {
+            // Check if any base type is dict
+            return InstanceType.BaseTypes.Any(bt => bt == PyType.DictType);
         }
 
         public override string ToString()
@@ -554,6 +706,26 @@ namespace SharpPy
 
         public override PyType GetPyType() => InstanceType;
         public override string GetTypeName() => InstanceType.Name;
+
+        // CPython 3.12: Dict subclasses use internal dict storage
+        public override PyObject GetItem(PyObject key)
+        {
+            if (_dictStorage != null)
+            {
+                return _dictStorage.GetItem(key);
+            }
+            return base.GetItem(key);
+        }
+
+        public override void SetItem(PyObject key, PyObject value)
+        {
+            if (_dictStorage != null)
+            {
+                _dictStorage.SetItem(key, value);
+                return;
+            }
+            base.SetItem(key, value);
+        }
 
         protected override bool HasCustomGetAttr() => _customGetAttr != null;
 
@@ -697,6 +869,12 @@ namespace SharpPy
                         if (builtinAttr is PyFunction builtinFunc)
                         {
                             return new PyMethod(this, builtinFunc);
+                        }
+                        // CPython 3.12: PyBuiltinFunction도 bound method로 변환
+                        if (builtinAttr is PyBuiltinFunction builtinMethod)
+                        {
+                            // Create a bound method wrapper that automatically passes self
+                            return new PyBuiltinBoundMethod(this, builtinMethod);
                         }
                         return builtinAttr;
                     }

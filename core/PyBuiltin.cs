@@ -982,24 +982,37 @@ namespace SharpPy
 
         private PyObject CallStr(PyObject[] args, PyDict kwargs = null)
         {
+            // CPython 3.12: str() with no args returns empty string
+            if (args.Length == 0)
+                return new PyString("");
+
             if (args.Length != 1)
-                throw PyTypeError.Create($"str expected exactly 1 arguments ({args.Length} given)");
+                throw PyTypeError.Create($"str expected at most 1 argument ({args.Length} given)");
 
             return args[0].AsString();
         }
 
         private PyObject CallInt(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length != 1)
-                throw PyTypeError.Create($"int expected exactly 1 arguments ({args.Length} given)");
+            // CPython 3.12: int() with no args returns 0
+            if (args.Length == 0)
+                return new PyInt(0);
 
+            if (args.Length > 2)
+                throw PyTypeError.Create($"int() takes at most 2 arguments ({args.Length} given)");
+
+            // int(x, base=10) - base parameter not fully implemented yet
             return args[0].AsInt();
         }
 
         private PyObject CallFloat(PyObject[] args, PyDict kwargs = null)
         {
+            // CPython 3.12: float() with no args returns 0.0
+            if (args.Length == 0)
+                return new PyFloat(0.0);
+
             if (args.Length != 1)
-                throw PyTypeError.Create($"float expected exactly 1 arguments ({args.Length} given)");
+                throw PyTypeError.Create($"float expected at most 1 argument ({args.Length} given)");
 
             return args[0].AsFloat();
         }
