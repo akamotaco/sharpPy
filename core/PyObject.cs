@@ -22,11 +22,50 @@ namespace SharpPy
 
         public virtual string ToRepr()
         {
+            // CPython 3.12: Try to call __repr__ method if it exists
+            try
+            {
+                var reprAttr = PyGetAttribute("__repr__");
+                if (reprAttr != null && reprAttr != PyNone.Instance)
+                {
+                    // Call __repr__() method
+                    var result = reprAttr.Call(new PyObject[0], null);
+                    if (result is PyString pyStr)
+                    {
+                        return pyStr.Value;
+                    }
+                }
+            }
+            catch
+            {
+                // If __repr__ fails, fall back to default
+            }
+
+            // Default representation
             return $"<{GetTypeName()} object at 0x{GetHashCode():x}>";
         }
 
         public virtual string ToStr()
         {
+            // CPython 3.12: Try to call __str__ method if it exists
+            try
+            {
+                var strAttr = PyGetAttribute("__str__");
+                if (strAttr != null && strAttr != PyNone.Instance)
+                {
+                    // Call __str__() method
+                    var result = strAttr.Call(new PyObject[0], null);
+                    if (result is PyString pyStr)
+                    {
+                        return pyStr.Value;
+                    }
+                }
+            }
+            catch
+            {
+                // If __str__ fails, fall back to __repr__
+            }
+
             return ToRepr();
         }
 

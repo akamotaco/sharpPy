@@ -44143,8 +44143,22 @@ public GeneratedMod ParseFile()
     {
         var errorMsg = _pendingSyntaxError ?? "invalid syntax";
 
-        // CPython 3.12: Get error location from current or known error token
-        GeneratedTokenInfo errorToken = _knownErrToken ?? CurrentToken;
+        // CPython 3.12: Get error location from known error token or current position
+        // _knownErrToken is set by RaiseSyntaxError, but for parse failures we use _position
+        GeneratedTokenInfo errorToken = _knownErrToken;
+
+        // If no known error token, use the token at current parse position
+        if (errorToken == null && _position < _tokens.Count)
+        {
+            errorToken = _tokens[_position];
+        }
+        // Fallback: use first token if no error token found
+        else if (errorToken == null && _tokens.Count > 0)
+        {
+            errorToken = _tokens[0];
+        }
+
+        // CPython 3.12: If we're at a valid position, the error token should be here
         if (errorToken != null)
         {
             var ex = new PySyntaxErrorException(errorMsg, _filename,
@@ -44167,8 +44181,16 @@ public GeneratedMod ParseInteractive()
     {
         var errorMsg = _pendingSyntaxError ?? "invalid syntax";
 
-        // CPython 3.12: Get error location from current or known error token
-        GeneratedTokenInfo errorToken = _knownErrToken ?? CurrentToken;
+        GeneratedTokenInfo errorToken = _knownErrToken;
+        if (errorToken == null && _position < _tokens.Count)
+        {
+            errorToken = _tokens[_position];
+        }
+        else if (errorToken == null && _tokens.Count > 0)
+        {
+            errorToken = _tokens[0];
+        }
+
         if (errorToken != null)
         {
             var ex = new PySyntaxErrorException(errorMsg, _filename,
@@ -44191,8 +44213,16 @@ public GeneratedMod ParseEval()
     {
         var errorMsg = _pendingSyntaxError ?? "invalid syntax";
 
-        // CPython 3.12: Get error location from current or known error token
-        GeneratedTokenInfo errorToken = _knownErrToken ?? CurrentToken;
+        GeneratedTokenInfo errorToken = _knownErrToken;
+        if (errorToken == null && _position < _tokens.Count)
+        {
+            errorToken = _tokens[_position];
+        }
+        else if (errorToken == null && _tokens.Count > 0)
+        {
+            errorToken = _tokens[0];
+        }
+
         if (errorToken != null)
         {
             var ex = new PySyntaxErrorException(errorMsg, _filename,
@@ -44215,8 +44245,16 @@ public GeneratedMod ParseFuncType()
     {
         var errorMsg = _pendingSyntaxError ?? "invalid syntax";
 
-        // CPython 3.12: Get error location from current or known error token
-        GeneratedTokenInfo errorToken = _knownErrToken ?? CurrentToken;
+        GeneratedTokenInfo errorToken = _knownErrToken;
+        if (errorToken == null && _position < _tokens.Count)
+        {
+            errorToken = _tokens[_position];
+        }
+        else if (errorToken == null && _tokens.Count > 0)
+        {
+            errorToken = _tokens[0];
+        }
+
         if (errorToken != null)
         {
             var ex = new PySyntaxErrorException(errorMsg, _filename,

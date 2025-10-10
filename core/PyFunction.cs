@@ -90,6 +90,14 @@ public partial class PyFunction : PyObject, IDescriptor
             return CreateGenerator(args);
         }
 
+        // CPython 3.12: CodeObject가 있으면 VM을 통해 실행
+        if (CodeObject != null)
+        {
+            var frame = new PyFrame(CodeObject, args, ParentScope, Closure);
+            var vm = PyVM.Instance;
+            return vm.ExecuteFrame(frame);
+        }
+
         // TODO: kwargs 처리 로직 추가 필요 (현재는 무시)
         return Implementation(args);
     }

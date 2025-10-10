@@ -686,14 +686,8 @@ namespace SharpPy
 
         public override string ToString()
         {
-            // For exception classes, return the first argument (message)
-            if (IsExceptionClass() && ConstructorArgs.Length > 0)
-            {
-                return ConstructorArgs[0].ToString();
-            }
-
-            // Default object representation
-            return $"<{InstanceType.Name} object at 0x{GetHashCode():x}>";
+            // CPython 3.12: ToString should call ToStr() which checks for __str__/__repr__
+            return ToStr();
         }
 
         private bool IsExceptionClass()
@@ -955,7 +949,102 @@ namespace SharpPy
 
         public override string ToRepr()
         {
+            // CPython 3.12: Try to call __repr__ method if user defined it
+            // Check instance dict and class hierarchy (not object's default)
+            try
+            {
+                // First check instance dict
+                if (InstanceDict.ContainsKey("__repr__"))
+                {
+                    var reprMethod = InstanceDict["__repr__"];
+                    var result = reprMethod.Call(new PyObject[0], null);
+                    if (result is PyString pyStr)
+                    {
+                        return pyStr.Value;
+                    }
+                }
+
+                // Then check class hierarchy (but not object's __repr__)
+                foreach (var mroType in InstanceType.MRO)
+                {
+                    if (mroType is PyClass customClass && customClass.ClassDict.ContainsKey("__repr__"))
+                    {
+                        var method = customClass.ClassDict["__repr__"];
+                        if (method is PyFunction func)
+                        {
+                            // Bind to instance
+                            var boundMethod = new PyMethod(this, func);
+                            var result = boundMethod.Call(new PyObject[0], null);
+                            if (result is PyString pyStr)
+                            {
+                                return pyStr.Value;
+                            }
+                        }
+                        break;
+                    }
+                    // Stop before reaching object type to avoid default __repr__
+                    if (mroType.Name == "object")
+                    {
+                        break;
+                    }
+                }
+            }
+            catch
+            {
+                // If __repr__ fails, fall back to default
+            }
+
+            // Default representation
             return $"<{GetTypeName()} object at 0x{GetHashCode():x}>";
+        }
+
+        public override string ToStr()
+        {
+            // CPython 3.12: Try to call __str__ method if user defined it
+            try
+            {
+                // First check instance dict
+                if (InstanceDict.ContainsKey("__str__"))
+                {
+                    var strMethod = InstanceDict["__str__"];
+                    var result = strMethod.Call(new PyObject[0], null);
+                    if (result is PyString pyStr)
+                    {
+                        return pyStr.Value;
+                    }
+                }
+
+                // Then check class hierarchy (but not object's __str__)
+                foreach (var mroType in InstanceType.MRO)
+                {
+                    if (mroType is PyClass customClass && customClass.ClassDict.ContainsKey("__str__"))
+                    {
+                        var method = customClass.ClassDict["__str__"];
+                        if (method is PyFunction func)
+                        {
+                            // Bind to instance
+                            var boundMethod = new PyMethod(this, func);
+                            var result = boundMethod.Call(new PyObject[0], null);
+                            if (result is PyString pyStr)
+                            {
+                                return pyStr.Value;
+                            }
+                        }
+                        break;
+                    }
+                    // Stop before reaching object type
+                    if (mroType.Name == "object")
+                    {
+                        break;
+                    }
+                }
+            }
+            catch
+            {
+                // If __str__ fails, fall back to __repr__
+            }
+
+            return ToRepr();
         }
     }
 

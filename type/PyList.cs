@@ -4,6 +4,47 @@ using System.Linq;
 
 namespace SharpPy
 {
+    // CPython 3.12: list.sort() keyword-only arguments helper
+    internal class PySortFunction : PyObject
+    {
+        private readonly PyList _list;
+
+        public PySortFunction(PyList list)
+        {
+            _list = list;
+        }
+
+        public override PyObject Call(PyObject[] args, PyDict kwargs)
+        {
+            // CPython 3.12: list.sort(*, key=None, reverse=False)
+            PyObject? key = null;
+            bool reverse = false;
+
+            if (args.Length > 0)
+                throw PyTypeError.Create($"sort() takes no positional arguments ({args.Length} given)");
+
+            if (kwargs != null)
+            {
+                var keyStr = new PyString("key");
+                var reverseStr = new PyString("reverse");
+
+                if (kwargs.Contains(keyStr).Value)
+                    key = kwargs.GetItem(keyStr);
+
+                if (kwargs.Contains(reverseStr).Value)
+                {
+                    var reverseObj = kwargs.GetItem(reverseStr);
+                    reverse = reverseObj.PyBoolValue();
+                }
+            }
+
+            _list.Sort(key, reverse);
+            return PyNone.Instance;
+        }
+
+        public override string GetTypeName() => "builtin_function_or_method";
+    }
+
     public class PyList : PyObject
     {
         private List<PyObject> _items;
@@ -209,10 +250,73 @@ namespace SharpPy
             _items.Reverse();
         }
 
-        public void Sort()
+        public void Sort(PyObject? key = null, bool reverse = false)
         {
-            // 간단한 정렬 구현 (나중에 개선)
-            _items.Sort((a, b) => string.Compare(a.ToString(), b.ToString()));
+            // CPython 3.12: list.sort(*, key=None, reverse=False)
+            if (key == null || key == PyNone.Instance)
+            {
+                // No key function: direct comparison
+                _items.Sort((a, b) =>
+                {
+                    try
+                    {
+                        var result = a.RichCompare(b, CompareOp.LT);
+                        if (result is PyBool boolResult)
+                        {
+                            return boolResult.Value ? -1 :
+                                   (a.RichCompare(b, CompareOp.GT) is PyBool gt && gt.Value ? 1 : 0);
+                        }
+                        return 0;
+                    }
+                    catch
+                    {
+                        return 0;
+                    }
+                });
+            }
+            else
+            {
+                // CPython 3.12: Apply key function to all elements
+                var keysAndValues = new List<(PyObject key, PyObject value)>();
+
+                for (int i = 0; i < _items.Count; i++)
+                {
+                    var keyResult = key.Call(new[] { _items[i] }, null);
+                    keysAndValues.Add((keyResult, _items[i]));
+                }
+
+                // Sort by keys
+                keysAndValues.Sort((a, b) =>
+                {
+                    try
+                    {
+                        var result = a.key.RichCompare(b.key, CompareOp.LT);
+                        if (result is PyBool boolResult)
+                        {
+                            return boolResult.Value ? -1 :
+                                   (a.key.RichCompare(b.key, CompareOp.GT) is PyBool gt && gt.Value ? 1 : 0);
+                        }
+                        return 0;
+                    }
+                    catch
+                    {
+                        return 0;
+                    }
+                });
+
+                // Extract sorted values
+                _items.Clear();
+                foreach (var (_, value) in keysAndValues)
+                {
+                    _items.Add(value);
+                }
+            }
+
+            // CPython 3.12: Apply reverse if requested
+            if (reverse)
+            {
+                _items.Reverse();
+            }
         }
 
         // 동등성 비교
@@ -320,13 +424,7 @@ namespace SharpPy
                     });
 
                 case "sort":
-                    return new PyFunction("sort", args =>
-                    {
-                        if (args.Length != 0)
-                            throw PyTypeError.Create($"sort() takes no arguments ({args.Length} given)");
-                        Sort();
-                        return PyNone.Instance;
-                    });
+                    return new PySortFunction(this);
 
                 case "copy":
                     return new PyFunction("copy", args =>

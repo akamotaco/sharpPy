@@ -8,7 +8,33 @@ public GeneratedMod ParseFile()
     var result = File();
     if (result == null || _pendingSyntaxError != null)
     {
-        var errorMsg = _pendingSyntaxError ?? "Parsing failed";
+        var errorMsg = _pendingSyntaxError ?? "invalid syntax";
+
+        // CPython 3.12: Get error location from known error token or current position
+        // _knownErrToken is set by RaiseSyntaxError, but for parse failures we use _position
+        GeneratedTokenInfo errorToken = _knownErrToken;
+
+        // If no known error token, use the token at current parse position
+        if (errorToken == null && _position < _tokens.Count)
+        {
+            errorToken = _tokens[_position];
+        }
+        // Fallback: use first token if no error token found
+        else if (errorToken == null && _tokens.Count > 0)
+        {
+            errorToken = _tokens[0];
+        }
+
+        // CPython 3.12: If we're at a valid position, the error token should be here
+        if (errorToken != null)
+        {
+            var ex = new PySyntaxErrorException(errorMsg, _filename,
+                errorToken.Line, errorToken.Column,
+                errorToken.EndColumn,
+                GetSourceLine(errorToken.Line));
+            throw ex;
+        }
+
         throw new PySyntaxErrorException(errorMsg);
     }
     return result;
@@ -20,7 +46,27 @@ public GeneratedMod ParseInteractive()
     var result = Interactive();
     if (result == null || _pendingSyntaxError != null)
     {
-        var errorMsg = _pendingSyntaxError ?? "Parsing failed";
+        var errorMsg = _pendingSyntaxError ?? "invalid syntax";
+
+        GeneratedTokenInfo errorToken = _knownErrToken;
+        if (errorToken == null && _position < _tokens.Count)
+        {
+            errorToken = _tokens[_position];
+        }
+        else if (errorToken == null && _tokens.Count > 0)
+        {
+            errorToken = _tokens[0];
+        }
+
+        if (errorToken != null)
+        {
+            var ex = new PySyntaxErrorException(errorMsg, _filename,
+                errorToken.Line, errorToken.Column,
+                errorToken.EndColumn,
+                GetSourceLine(errorToken.Line));
+            throw ex;
+        }
+
         throw new PySyntaxErrorException(errorMsg);
     }
     return result;
@@ -32,7 +78,27 @@ public GeneratedMod ParseEval()
     var result = Eval();
     if (result == null || _pendingSyntaxError != null)
     {
-        var errorMsg = _pendingSyntaxError ?? "Parsing failed";
+        var errorMsg = _pendingSyntaxError ?? "invalid syntax";
+
+        GeneratedTokenInfo errorToken = _knownErrToken;
+        if (errorToken == null && _position < _tokens.Count)
+        {
+            errorToken = _tokens[_position];
+        }
+        else if (errorToken == null && _tokens.Count > 0)
+        {
+            errorToken = _tokens[0];
+        }
+
+        if (errorToken != null)
+        {
+            var ex = new PySyntaxErrorException(errorMsg, _filename,
+                errorToken.Line, errorToken.Column,
+                errorToken.EndColumn,
+                GetSourceLine(errorToken.Line));
+            throw ex;
+        }
+
         throw new PySyntaxErrorException(errorMsg);
     }
     return result;
@@ -44,7 +110,27 @@ public GeneratedMod ParseFuncType()
     var result = FuncType();
     if (result == null || _pendingSyntaxError != null)
     {
-        var errorMsg = _pendingSyntaxError ?? "Parsing failed";
+        var errorMsg = _pendingSyntaxError ?? "invalid syntax";
+
+        GeneratedTokenInfo errorToken = _knownErrToken;
+        if (errorToken == null && _position < _tokens.Count)
+        {
+            errorToken = _tokens[_position];
+        }
+        else if (errorToken == null && _tokens.Count > 0)
+        {
+            errorToken = _tokens[0];
+        }
+
+        if (errorToken != null)
+        {
+            var ex = new PySyntaxErrorException(errorMsg, _filename,
+                errorToken.Line, errorToken.Column,
+                errorToken.EndColumn,
+                GetSourceLine(errorToken.Line));
+            throw ex;
+        }
+
         throw new PySyntaxErrorException(errorMsg);
     }
     return result;
