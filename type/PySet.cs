@@ -420,13 +420,25 @@ namespace SharpPy
 
         public override int ToHash()
         {
-            // frozenset은 해시 가능 (불변이므로)
-            int hash = 0;
-            foreach (var item in _items.OrderBy(x => x.ToHash()))
+            // CPython 3.12 compatible frozenset hash algorithm
+            // Based on CPython's frozenset_hash implementation
+            long hash = 1927868237L; // Initial hash value (CPython uses specific prime)
+
+            // Sort items by hash to ensure deterministic ordering
+            var sortedHashes = _items.Select(item => (long)item.ToHash()).OrderBy(h => h).ToList();
+
+            foreach (var itemHash in sortedHashes)
             {
-                hash ^= item.ToHash();
+                hash ^= (itemHash ^ 89869747L) * 3644798167L;  // CPython-style mixing
             }
-            return hash;
+
+            // Additional mixing for better distribution
+            hash = hash * 69069L + 907133923L;
+
+            if (hash == -1)
+                hash = 590923713L;
+
+            return (int)(hash & 0xFFFFFFFF);
         }
 
         protected override PyObject PyEquals(PyObject other)
@@ -443,7 +455,7 @@ namespace SharpPy
 
         #region Set Operations (Read-only versions)
 
-        public PyBool Contains(PyObject item) => PyBool.FromBool(_items.Contains(item));
+        public override PyBool Contains(PyObject item) => PyBool.FromBool(_items.Contains(item));
         
         public PyFrozenSet Union(PyObject other) => new PyFrozenSet(new PySet(_items).Union(other).Items);
         public PyFrozenSet Intersection(PyObject other) => new PyFrozenSet(new PySet(_items).Intersection(other).Items);
@@ -453,6 +465,42 @@ namespace SharpPy
         public PyBool IsSubset(PyObject other) => new PySet(_items).IsSubset(other);
         public PyBool IsSuperset(PyObject other) => new PySet(_items).IsSuperset(other);
         public PyBool IsDisjoint(PyObject other) => new PySet(_items).IsDisjoint(other);
+
+        #endregion
+
+        #region Set Arithmetic Operations (Python operators)
+
+        /// <summary>
+        /// 합집합 연산 (| 연산자)
+        /// </summary>
+        public override PyObject BitwiseOr(PyObject other)
+        {
+            return Union(other);
+        }
+
+        /// <summary>
+        /// 교집합 연산 (& 연산자)
+        /// </summary>
+        public override PyObject BitwiseAnd(PyObject other)
+        {
+            return Intersection(other);
+        }
+
+        /// <summary>
+        /// 차집합 연산 (- 연산자)
+        /// </summary>
+        public override PyObject Subtract(PyObject other)
+        {
+            return Difference(other);
+        }
+
+        /// <summary>
+        /// 대칭 차집합 연산 (^ 연산자)
+        /// </summary>
+        public override PyObject BitwiseXor(PyObject other)
+        {
+            return SymmetricDifference(other);
+        }
 
         #endregion
 

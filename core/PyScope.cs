@@ -88,6 +88,7 @@ public class PyBuiltinsModule : PyObject
         BuiltinDict["tuple"] = PyType.TupleType;
         BuiltinDict["dict"] = PyType.DictType;
         BuiltinDict["set"] = PyType.SetType;
+        BuiltinDict["frozenset"] = PyType.FrozenSetType;
         
         // 수학 및 기타 함수들
         BuiltinDict["round"] = new PyBuiltinFunction("round");

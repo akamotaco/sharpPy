@@ -1063,13 +1063,14 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12: FunctionArguments에서 매개변수와 기본값 추출
         /// Returns default expressions, NOT evaluated PyObjects
+        /// Annotations are Expression objects, not strings (for complex types like List[str])
         /// </summary>
-        private (List<string> paramNames, List<Expression> defaultExprs, List<Expression?> kwDefaultExprs, int flags, int argCount, int posonlyArgCount, int kwonlyArgCount, Dictionary<string, string> annotations) ParseFunctionArguments(FunctionArguments arguments)
+        private (List<string> paramNames, List<Expression> defaultExprs, List<Expression?> kwDefaultExprs, int flags, int argCount, int posonlyArgCount, int kwonlyArgCount, Dictionary<string, Expression> annotations) ParseFunctionArguments(FunctionArguments arguments)
         {
             var paramNames = new List<string>();
             var defaultExprs = new List<Expression>();
             var kwDefaultExprs = new List<Expression?>();
-            var annotations = new Dictionary<string, string>();
+            var annotations = new Dictionary<string, Expression>();
             int flags = PyCodeObject.CO_OPTIMIZED | PyCodeObject.CO_NEWLOCALS;
             int posonlyArgCount = arguments.PosOnlyArgs.Count;
             int kwonlyArgCount = arguments.KwOnlyArgs.Count;
@@ -1089,11 +1090,10 @@ namespace SharpPy
                 #endif
                 if (arg.Annotation != null)
                 {
-                    // CPython 3.12: Extract type name from annotation expression
-                    string annotationName = ExtractAnnotationName(arg.Annotation);
-                    annotations[arg.Name] = annotationName;
+                    // CPython 3.12: Store annotation Expression (not string) for compilation
+                    annotations[arg.Name] = arg.Annotation;
                     #if DEBUG_LOG
-                    Console.WriteLine($"    → Extracted annotation name: {annotationName}");
+                    Console.WriteLine($"    → Stored annotation Expression: {arg.Annotation.GetType().Name}");
                     #endif
                 }
             }
@@ -1107,11 +1107,10 @@ namespace SharpPy
                 #endif
                 if (arg.Annotation != null)
                 {
-                    // CPython 3.12: Extract type name from annotation expression
-                    string annotationName = ExtractAnnotationName(arg.Annotation);
-                    annotations[arg.Name] = annotationName;
+                    // CPython 3.12: Store annotation Expression (not string) for compilation
+                    annotations[arg.Name] = arg.Annotation;
                     #if DEBUG_LOG
-                    Console.WriteLine($"    → Extracted annotation name: {annotationName}");
+                    Console.WriteLine($"    → Stored annotation Expression: {arg.Annotation.GetType().Name}");
                     #endif
                 }
             }
@@ -1123,11 +1122,10 @@ namespace SharpPy
                 flags |= PyCodeObject.CO_VARARGS;
                 if (arguments.VarArg.Annotation != null)
                 {
-                    // CPython 3.12: Extract type name from annotation expression
-                    string annotationName = ExtractAnnotationName(arguments.VarArg.Annotation);
-                    annotations[arguments.VarArg.Name] = annotationName;
+                    // CPython 3.12: Store annotation Expression (not string) for compilation
+                    annotations[arguments.VarArg.Name] = arguments.VarArg.Annotation;
                     #if DEBUG_LOG
-                    Console.WriteLine($"    → Extracted vararg annotation name: {annotationName}");
+                    Console.WriteLine($"    → Stored vararg annotation Expression: {arguments.VarArg.Annotation.GetType().Name}");
                     #endif
                 }
             }
@@ -1138,11 +1136,10 @@ namespace SharpPy
                 paramNames.Add(arg.Name);
                 if (arg.Annotation != null)
                 {
-                    // CPython 3.12: Extract type name from annotation expression
-                    string annotationName = ExtractAnnotationName(arg.Annotation);
-                    annotations[arg.Name] = annotationName;
+                    // CPython 3.12: Store annotation Expression (not string) for compilation
+                    annotations[arg.Name] = arg.Annotation;
                     #if DEBUG_LOG
-                    Console.WriteLine($"  KwOnlyArg: {arg.Name}, Annotation: {annotationName}");
+                    Console.WriteLine($"  KwOnlyArg: {arg.Name}, Annotation Expression: {arg.Annotation.GetType().Name}");
                     #endif
                 }
             }
@@ -1154,11 +1151,10 @@ namespace SharpPy
                 flags |= PyCodeObject.CO_VARKEYWORDS;
                 if (arguments.KwArg.Annotation != null)
                 {
-                    // CPython 3.12: Extract type name from annotation expression
-                    string annotationName = ExtractAnnotationName(arguments.KwArg.Annotation);
-                    annotations[arguments.KwArg.Name] = annotationName;
+                    // CPython 3.12: Store annotation Expression (not string) for compilation
+                    annotations[arguments.KwArg.Name] = arguments.KwArg.Annotation;
                     #if DEBUG_LOG
-                    Console.WriteLine($"    → Extracted kwarg annotation name: {annotationName}");
+                    Console.WriteLine($"    → Stored kwarg annotation Expression: {arguments.KwArg.Annotation.GetType().Name}");
                     #endif
                 }
             }
@@ -3009,18 +3005,17 @@ namespace SharpPy
             #endif
             if (func.ReturnTypeAnnotation != null)
             {
-                // CPython 3.12: Extract type name from return annotation expression
-                string returnAnnotationName = ExtractAnnotationName(func.ReturnTypeAnnotation);
-                annotations["return"] = returnAnnotationName;
+                // CPython 3.12: Store annotation Expression (not string) for compilation
+                annotations["return"] = func.ReturnTypeAnnotation;
                 #if DEBUG_LOG
-                Console.WriteLine($"  → Added return annotation: {returnAnnotationName}");
+                Console.WriteLine($"  → Added return annotation Expression: {func.ReturnTypeAnnotation.GetType().Name}");
                 #endif
             }
             #if DEBUG_LOG
             Console.WriteLine($"  → Total annotations: {annotations.Count}");
             foreach (var kv in annotations)
             {
-                Console.WriteLine($"      {kv.Key}: {kv.Value}");
+                Console.WriteLine($"      {kv.Key}: {kv.Value.GetType().Name}");
             }
             #endif
             
@@ -3216,11 +3211,13 @@ namespace SharpPy
             if (annotations.Count > 0)
             {
                 // CPython 3.12 pattern: ('key', type_obj, 'key2', type_obj2, ...)
-                // All annotation values must be loaded as type objects via LOAD_NAME
+                // Compile annotation expressions (supports complex types like List[str])
                 foreach (var annotation in annotations)
                 {
                     EmitLoadConst(new PyString(annotation.Key));    // key (예: 'name', 'return')
-                    EmitLoadName(annotation.Value);                  // CPython 3.12: Load type object (int, str, etc.)
+                    CompileExpression(annotation.Value);             // CPython 3.12: Compile annotation expression
+                                                                     // Simple: LOAD_NAME(int)
+                                                                     // Complex: LOAD_NAME(List) + LOAD_NAME(str) + BINARY_SUBSCR
                 }
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, annotations.Count * 2);
                 makeFunctionFlags |= MakeFunctionFlags.ANNOTATIONS;
@@ -4341,7 +4338,7 @@ namespace SharpPy
                 foreach (var annotation in annotations)
                 {
                     EmitLoadConst(new PyString(annotation.Key));   // parameter name
-                    EmitLoadConst(new PyString(annotation.Value)); // annotation type
+                    CompileExpression(annotation.Value);            // CPython 3.12: Compile annotation expression
                 }
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, annotations.Count * 2);
             }

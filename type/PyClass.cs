@@ -877,10 +877,41 @@ namespace SharpPy
         // CPython 3.12: Dict subclasses use internal dict storage
         public override PyObject GetItem(PyObject key)
         {
+            // CPython 3.12: First check if __getitem__ method is defined
+            // This allows user-defined classes to implement subscript operator
+            try
+            {
+                // Look for __getitem__ in class MRO
+                foreach (var mroType in InstanceType.MRO)
+                {
+                    if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue("__getitem__", out PyObject getItemMethod))
+                    {
+                        // Found __getitem__, call it with self and key
+                        if (getItemMethod is PyFunction func)
+                        {
+                            var boundMethod = new PyMethod(this, func);
+                            return boundMethod.Call(new PyObject[] { key }, null);
+                        }
+                        else if (getItemMethod.IsCallable())
+                        {
+                            return getItemMethod.Call(new PyObject[] { this, key }, null);
+                        }
+                        break;
+                    }
+                }
+            }
+            catch (PythonException)
+            {
+                throw; // Re-throw Python exceptions
+            }
+
+            // Fall back to dict storage for dict subclasses
             if (_dictStorage != null)
             {
                 return _dictStorage.GetItem(key);
             }
+
+            // No __getitem__ and not a dict subclass
             return base.GetItem(key);
         }
 
@@ -1247,6 +1278,73 @@ namespace SharpPy
             }
 
             return ToRepr();
+        }
+
+        public override PyObject RichCompare(PyObject other, CompareOp op)
+        {
+            // CPython 3.12: Try to call __eq__, __ne__, __lt__, __le__, __gt__, __ge__ methods
+            string methodName = op switch
+            {
+                CompareOp.EQ => "__eq__",
+                CompareOp.NE => "__ne__",
+                CompareOp.LT => "__lt__",
+                CompareOp.LE => "__le__",
+                CompareOp.GT => "__gt__",
+                CompareOp.GE => "__ge__",
+                _ => null
+            };
+
+            if (methodName != null)
+            {
+                try
+                {
+                    // Look for comparison method in class MRO
+                    foreach (var mroType in InstanceType.MRO)
+                    {
+                        if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(methodName, out PyObject compareMethod))
+                        {
+                            // Found comparison method, call it with self and other
+                            if (compareMethod is PyFunction func)
+                            {
+                                var boundMethod = new PyMethod(this, func);
+                                var result = boundMethod.Call(new PyObject[] { other }, null);
+
+                                // CPython 3.12: If result is NotImplemented, fall back to default
+                                if (result == PyNotImplemented.Instance)
+                                {
+                                    break;
+                                }
+
+                                return result;
+                            }
+                            else if (compareMethod.IsCallable())
+                            {
+                                var result = compareMethod.Call(new PyObject[] { this, other }, null);
+
+                                if (result == PyNotImplemented.Instance)
+                                {
+                                    break;
+                                }
+
+                                return result;
+                            }
+                            break;
+                        }
+                        // Stop before reaching object type to avoid default comparison
+                        if (mroType.Name == "object")
+                        {
+                            break;
+                        }
+                    }
+                }
+                catch (PythonException)
+                {
+                    throw; // Re-throw Python exceptions
+                }
+            }
+
+            // Fall back to base comparison (identity-based for EQ/NE)
+            return base.RichCompare(other, op);
         }
     }
 

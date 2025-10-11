@@ -4865,52 +4865,36 @@ namespace SharpPy
         {
             try
             {
-                // Handle boolean operations (for match statements)
-                if (binaryOp == BinaryOpType.AND || binaryOp == BinaryOpType.OR)
-            {
-                // Convert operands to boolean values
-                var leftBool = left.ToBool();
-                var rightBool = right.ToBool();
+                // CPython 3.12: BINARY_OP is for bitwise operations only
+                // Logical 'and'/'or' use BoolOp in AST and POP_JUMP_IF_TRUE/FALSE in bytecode (short-circuit)
+                // BINARY_OP with AND/OR/XOR are bitwise operators (&, |, ^)
 
-                var result = binaryOp switch
+                // Use PyObject's built-in binary operation methods (CPython compatible)
+                try
                 {
-                    BinaryOpType.AND => leftBool && rightBool ? PyBool.True : PyBool.False,
-                    BinaryOpType.OR => leftBool || rightBool ? PyBool.True : PyBool.False,
-                    _ => throw PyTypeError.Create($"unsupported operation: {binaryOp}")
-                };
-
-                #if DEBUG_LOG
-                Console.WriteLine($"    → {left} {binaryOp} {right} = {result}");
-                #endif
-                return result;
-            }
-
-            // Use PyObject's built-in binary operation methods (CPython compatible)
-            try
-            {
-                return binaryOp switch
+                    return binaryOp switch
+                    {
+                        BinaryOpType.ADD => left.Add(right),
+                        BinaryOpType.SUBTRACT => left.Subtract(right),
+                        BinaryOpType.MULTIPLY => left.Multiply(right),
+                        BinaryOpType.TRUE_DIVIDE => left.Divide(right),
+                        BinaryOpType.FLOOR_DIVIDE => left.FloorDivide(right),
+                        BinaryOpType.MODULO => left.Modulo(right),
+                        BinaryOpType.POWER => left.Power(right),
+                        BinaryOpType.LSHIFT => left.LeftShift(right),
+                        BinaryOpType.RSHIFT => left.RightShift(right),
+                        BinaryOpType.AND => left.BitwiseAnd(right),
+                        BinaryOpType.OR => left.BitwiseOr(right),
+                        BinaryOpType.XOR => left.BitwiseXor(right),
+                        BinaryOpType.MATRIX_MULTIPLY => throw PyNotImplementedError.Create("Matrix multiplication not yet implemented"),
+                        _ => throw PyTypeError.Create($"unsupported binary operation: {binaryOp}")
+                    };
+                }
+                catch (Exception ex) when (!(ex is PythonException))
                 {
-                    BinaryOpType.ADD => left.Add(right),
-                    BinaryOpType.SUBTRACT => left.Subtract(right),
-                    BinaryOpType.MULTIPLY => left.Multiply(right),
-                    BinaryOpType.TRUE_DIVIDE => left.Divide(right),
-                    BinaryOpType.FLOOR_DIVIDE => left.FloorDivide(right),
-                    BinaryOpType.MODULO => left.Modulo(right),
-                    BinaryOpType.POWER => left.Power(right),
-                    BinaryOpType.LSHIFT => left.LeftShift(right),
-                    BinaryOpType.RSHIFT => left.RightShift(right),
-                    BinaryOpType.AND => left.BitwiseAnd(right),
-                    BinaryOpType.OR => left.BitwiseOr(right),
-                    BinaryOpType.XOR => left.BitwiseXor(right),
-                    BinaryOpType.MATRIX_MULTIPLY => throw PyNotImplementedError.Create("Matrix multiplication not yet implemented"),
-                    _ => throw PyTypeError.Create($"unsupported binary operation: {binaryOp}")
-                };
-            }
-            catch (Exception ex) when (!(ex is PythonException))
-            {
-                // Convert C# exceptions to Python exceptions
-                throw PyTypeError.Create($"unsupported operand type(s) for {binaryOp}: '{left.GetTypeName()}' and '{right.GetTypeName()}'");
-            }
+                    // Convert C# exceptions to Python exceptions
+                    throw PyTypeError.Create($"unsupported operand type(s) for {binaryOp}: '{left.GetTypeName()}' and '{right.GetTypeName()}'");
+                }
             }
             catch (Exception ex)
             {

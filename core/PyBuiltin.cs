@@ -197,6 +197,7 @@ namespace SharpPy
             _builtinImplementations["tuple"] = (args, kwargs) => CallTuple(args, kwargs);
             _builtinImplementations["dict"] = (args, kwargs) => CallDict(args, kwargs);
             _builtinImplementations["set"] = (args, kwargs) => CallSet(args, kwargs);
+            _builtinImplementations["frozenset"] = (args, kwargs) => CallFrozenSet(args, kwargs);
             _builtinImplementations["iter"] = (args, kwargs) => CallIter(args, kwargs);
             _builtinImplementations["next"] = (args, kwargs) => CallNext(args, kwargs);
             _builtinImplementations["round"] = (args, kwargs) => CallRound(args, kwargs);
@@ -1111,6 +1112,33 @@ namespace SharpPy
             }
 
             return new PySet(items);
+        }
+
+        private static PyObject CallFrozenSet(PyObject[] args, PyDict kwargs = null)
+        {
+            if (args.Length > 1)
+                throw PyTypeError.Create($"frozenset expected at most 1 arguments ({args.Length} given)");
+
+            if (args.Length == 0)
+                return new PyFrozenSet();
+
+            var iterable = args[0];
+            var items = new System.Collections.Generic.List<PyObject>();
+            var iterator = iterable.GetIterator();
+
+            try
+            {
+                while (true)
+                {
+                    items.Add(iterator.Next());
+                }
+            }
+            catch (PythonException ex) when (ex.PyException is PyStopIteration)
+            {
+                // 정상 종료
+            }
+
+            return new PyFrozenSet(items);
         }
 
         // === 이터레이터 함수들 ===
