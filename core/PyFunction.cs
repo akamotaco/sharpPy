@@ -407,7 +407,7 @@ public partial class PyFunction : PyObject, IDescriptor
             Function = function;
         }
 
-        public override PyType GetPyType() => PyType.FunctionType; // 단순화
+        public override PyType GetPyType() => PyType.MethodType; // CPython 3.12: bound method type
         public override string GetTypeName() => "method";
 
         // CPython 3.12 호환: kwargs 지원 버전

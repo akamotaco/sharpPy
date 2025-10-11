@@ -2144,11 +2144,52 @@ namespace SharpPy
                         #endif
                         if (call.Function is NameExpression funcName)
                         {
-                            // Direct function call by name: use optimized LOAD_GLOBAL(pushNull=true)
+                            // CPython 3.12: Check scope and use appropriate load instruction
                             #if DEBUG_LOG
-                            Console.WriteLine($"   → Using EmitLoadGlobal('{funcName.Name}', pushNull: true)");
+                            Console.WriteLine($"   → Checking scope for function name: '{funcName.Name}'");
                             #endif
-                            EmitLoadGlobal(funcName.Name, pushNull: true);
+
+                            // Check if it's a local variable (LOAD_FAST) in function scope
+                            bool isLocal = false;
+                            if (_currentSymbolTable != null && _isInFunction)
+                            {
+                                var symbol = _currentSymbolTable.Lookup(funcName.Name);
+                                if (symbol != null && symbol.Scope == SymbolScope.Local)
+                                {
+                                    var localIndex = _varNames.IndexOf(funcName.Name);
+                                    if (localIndex >= 0)
+                                    {
+                                        isLocal = true;
+                                        #if DEBUG_LOG
+                                        Console.WriteLine($"   → Found as local variable, using PUSH_NULL + LOAD_FAST");
+                                        #endif
+                                        EmitInstruction(ByteCodeOp.PUSH_NULL);
+                                        EmitInstruction(ByteCodeOp.LOAD_FAST, localIndex);
+                                    }
+                                }
+                            }
+
+                            if (!isLocal)
+                            {
+                                if (_isInFunction)
+                                {
+                                    // Function scope: use optimized LOAD_GLOBAL(pushNull=true)
+                                    #if DEBUG_LOG
+                                    Console.WriteLine($"   → Using EmitLoadGlobal('{funcName.Name}', pushNull: true)");
+                                    #endif
+                                    EmitLoadGlobal(funcName.Name, pushNull: true);
+                                }
+                                else
+                                {
+                                    // Module scope: CPython 3.12 uses PUSH_NULL + LOAD_NAME
+                                    #if DEBUG_LOG
+                                    Console.WriteLine($"   → Module scope, using PUSH_NULL + LOAD_NAME");
+                                    #endif
+                                    EmitInstruction(ByteCodeOp.PUSH_NULL);
+                                    var nameIndex = AddName(funcName.Name);
+                                    EmitInstruction(ByteCodeOp.LOAD_NAME, nameIndex);
+                                }
+                            }
                         }
                         else if (call.Function is AttributeExpression attrExpr)
                         {

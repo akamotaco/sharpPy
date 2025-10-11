@@ -1995,15 +1995,25 @@ namespace SharpPy
                         if (pushNullForMethod)
                         {
                             // CPython 3.12: Method call optimization
-                            // Check if attr is a bound method or regular attribute
-                            if (attr is PyFunction || attr is PyBuiltinFunction || attr is PyMethod)
+                            // Check if attr is a bound method or unbound function
+                            if (attr is PyMethod)
                             {
-                                // It's a method: push [self, unbound_method]
+                                // It's already a bound method: push [NULL, bound_method]
+                                // The method already has self bound, so we don't add it again
+                                frame.ValueStack.Push(PyNone.Instance); // NULL marker
+                                frame.ValueStack.Push(attr); // bound method
+                                #if DEBUG_LOG
+                                Console.WriteLine($"   → Bound method: pushed [NULL, bound_method]");
+                                #endif
+                            }
+                            else if (attr is PyFunction || attr is PyBuiltinFunction)
+                            {
+                                // It's an unbound function: push [self, unbound_method]
                                 // This allows CALL to optimize by passing self directly
                                 frame.ValueStack.Push(obj);  // self
-                                frame.ValueStack.Push(attr); // method
+                                frame.ValueStack.Push(attr); // unbound method
                                 #if DEBUG_LOG
-                                Console.WriteLine($"   → Method optimization: pushed [self, method]");
+                                Console.WriteLine($"   → Unbound method: pushed [self, unbound_method]");
                                 #endif
                             }
                             else
