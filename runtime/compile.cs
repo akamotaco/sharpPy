@@ -4542,18 +4542,26 @@ namespace SharpPy
                 #endif
                 CompileExpression(baseExpr);
             }
-            
-            // Load metaclass if specified
+
+            // CPython 3.12: Load metaclass if specified, using KW_NAMES for keyword arguments
             int totalArgs = 2 + cls.Bases.Count;
             if (cls.Metaclass != null)
             {
-                // Push explicit metaclass marker to distinguish from base classes
-                EmitLoadConst(new PyString("__metaclass__"));  // Special marker
+                #if DEBUG_LOG
+                Console.WriteLine($"   → Metaclass specified: {cls.Metaclass}");
+                #endif
+                // CPython 3.12: Push metaclass value as positional argument
                 CompileExpression(cls.Metaclass);
-                totalArgs += 2;  // marker + metaclass
+                totalArgs += 1;  // metaclass value
+
+                // CPython 3.12: Use KW_NAMES to specify 'metaclass' keyword argument
+                var kwNamesTuple = new PyTuple(new PyObject[] { new PyString("metaclass") });
+                var kwNamesIndex = GetOrAddConstant(kwNamesTuple);
+                EmitInstruction(ByteCodeOp.KW_NAMES, kwNamesIndex);
             }
-            
-            // Call __build_class__(class_body_function, name, *bases [, "__metaclass__", metaclass])
+
+            // Call __build_class__(class_body_function, name, *bases, metaclass=Meta)
+            // Note: CALL argument count includes only positional args (keyword args handled by KW_NAMES)
             EmitInstruction(ByteCodeOp.CALL, totalArgs);
             
             // Store the created class
@@ -5005,13 +5013,16 @@ namespace SharpPy
                 #endif
                 EmitInstruction(ByteCodeOp.MAKE_CELL, cellVarIndex);
             }
-            
-            // For now, disable free variable analysis for class bodies  
+
+            // CPython 3.12: RESUME instruction after MAKE_CELL (or at start of class body)
+            EmitInstruction(ByteCodeOp.RESUME, 0);
+
+            // For now, disable free variable analysis for class bodies
             // Class bodies will use normal name lookup instead of closure mechanism
             // var freeVariableAnalyzer = new ClassBodyFreeVariableAnalyzer();
             // var classFreeVars = freeVariableAnalyzer.AnalyzeClassBody(body, savedNames);
             // _freeVars.AddRange(classFreeVars);
-            
+
             try
             {
                 // CPython 3.12: Class bodies do NOT emit COPY_FREE_VARS

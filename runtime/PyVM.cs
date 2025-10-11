@@ -6050,8 +6050,17 @@ namespace SharpPy
         /// </summary>
         private PyObject CallBuiltinWithKeywords(PyBuiltinFunction builtin, PyObject[] positionalArgs, Dictionary<string, PyObject> keywordArgs)
         {
-            // For now, ignore keyword arguments and call with positional only
-            return builtin.Call(positionalArgs, null);
+            // CPython 3.12: Convert keyword arguments to PyDict and call builtin function
+            PyDict? kwargs = null;
+            if (keywordArgs != null && keywordArgs.Count > 0)
+            {
+                kwargs = new PyDict();
+                foreach (var kv in keywordArgs)
+                {
+                    kwargs.SetItem(new PyString(kv.Key), kv.Value);
+                }
+            }
+            return builtin.Call(positionalArgs, kwargs);
         }
 
         /// <summary>

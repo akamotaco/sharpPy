@@ -1417,15 +1417,24 @@ namespace SharpPy
             // Parse args to separate bases and metaclass
             var bases = new List<PyType>();
             bool hasMetaclass = false;
-            
-            // CPython 3.12: Handle metaclass and base classes
-            // SharpPy compiler pattern: 
-            // - Inheritance: __build_class__(func, name, *bases)
-            // - Explicit metaclass: __build_class__(func, name, *bases, "__metaclass__", metaclass)
-            
-            // Check for explicit metaclass marker
+
+            // CPython 3.12: Handle metaclass from kwargs (new way) or marker (old way)
+            // - New way: __build_class__(func, name, *bases, metaclass=Meta) with KW_NAMES
+            // - Old way: __build_class__(func, name, *bases, "__metaclass__", metaclass)
+
+            // CPython 3.12: Check kwargs for 'metaclass' keyword argument first
+            if (kwargs != null && kwargs.InternalDict.ContainsKey(new PyString("metaclass")))
+            {
+                metaclass = kwargs.InternalDict[new PyString("metaclass")];
+                hasMetaclass = true;
+                #if DEBUG_LOG
+                Console.WriteLine($"   ✅ Metaclass from kwargs: {metaclass}");
+                #endif
+            }
+
+            // Check for explicit metaclass marker (old way, for backward compatibility)
             bool hasExplicitMetaclass = false;
-            if (args.Length >= 4)
+            if (!hasMetaclass && args.Length >= 4)
             {
                 // Look for "__metaclass__" marker in second-to-last position
                 var markerIndex = args.Length - 2;
@@ -1456,7 +1465,8 @@ namespace SharpPy
             
             if (!hasExplicitMetaclass)
             {
-                // Traditional logic: all args from index 2 onwards are bases
+                // CPython 3.12 / Traditional logic: all args from index 2 onwards are bases
+                // This handles both: kwargs metaclass (all args are bases) and no metaclass cases
                 for (int i = 2; i < args.Length; i++)
                 {
                     #if DEBUG_LOG
