@@ -242,33 +242,16 @@ namespace SharpPy
             Console.WriteLine($"🔍 PyClass.GetAttribute: {Name}.{name}");
             #endif
             
+            // CPython 3.12: All type attributes (__name__, __bases__, __mro__, __dict__, __module__, etc.)
+            // are now handled by descriptors in the metaclass, no need for hardcoded switch cases
             switch (name)
             {
-                case "__name__":
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   → returning __name__ = {Name}");
-                    #endif
-                    return new PyString(Name);
-                case "__bases__":
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   → returning __bases__ (count: {BaseTypes.Length})");
-                    #endif
-                    return new PyTuple(BaseTypes);
-                case "__mro__":
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   → returning __mro__ (count: {MRO.Count})");
-                    #endif
-                    return new PyTuple(MRO.Cast<PyObject>().ToArray());
                 case "__call__":
+                    // CPython 3.12: __call__ is special - class itself is callable
                     #if DEBUG_LOG
                     Console.WriteLine($"   → returning self for __call__");
                     #endif
-                    return this; // 클래스 자체가 __call__
-                case "__module__":
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   → returning __module__ = __main__");
-                    #endif
-                    return new PyString("__main__"); // CPython 호환성을 위해 __main__ 반환
+                    return this;
                 default:
                     #if DEBUG_LOG
                     Console.WriteLine($"   → searching for '{name}' in ClassDict ({ClassDict.Count} items)");
@@ -420,6 +403,17 @@ namespace SharpPy
         public override void SetAttribute(string name, PyObject value)
         {
             ClassDict[name] = value;
+        }
+
+        // CPython 3.12: Override DelAttribute for type objects
+        protected override void PyDelAttribute(string name)
+        {
+            if (ClassDict.ContainsKey(name))
+            {
+                ClassDict.Remove(name);
+                return;
+            }
+            throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
         }
 
         /// <summary>

@@ -14,7 +14,14 @@ namespace SharpPy.Modules
 
             // Built-in types (as type objects, not constructors)
             module.ModuleDict["object"] = PyType.ObjectType;
-            module.ModuleDict["type"] = PyType.TypeType;
+
+            // CPython 3.12: Use actual type metaclass with methods
+            var typeMetaclass = PyTypeMetaclass.Instance;
+            Console.WriteLine($"[BUILTINS] PyTypeMetaclass.Instance: {typeMetaclass.GetType().Name}");
+            Console.WriteLine($"[BUILTINS] PyTypeMetaclass.ClassDict count: {typeMetaclass.ClassDict.Count}");
+            Console.WriteLine($"[BUILTINS] PyTypeMetaclass.ClassDict keys: {string.Join(", ", typeMetaclass.ClassDict.Keys)}");
+            Console.WriteLine($"[BUILTINS] Has __repr__: {typeMetaclass.ClassDict.ContainsKey("__repr__")}");
+            module.ModuleDict["type"] = typeMetaclass;
             module.ModuleDict["int"] = PyType.IntType;
             module.ModuleDict["float"] = PyType.FloatType;
             module.ModuleDict["str"] = PyType.StrType;
@@ -101,6 +108,9 @@ namespace SharpPy.Modules
             module.ModuleDict["open"] = new PyBuiltinFunction("open");
             module.ModuleDict["globals"] = new PyBuiltinFunction("globals");
             module.ModuleDict["locals"] = new PyBuiltinFunction("locals");
+
+            // CPython 3.12: __build_class__ is a builtin function for class creation
+            module.ModuleDict["__build_class__"] = new PyBuiltinFunction("__build_class__");
 
             // Python 3.12 special attributes
             module.ModuleDict["__name__"] = new PyString("builtins");

@@ -13,198 +13,59 @@ public enum ScopeType
     Class       // C - Class body (for annotations)
 }
 
-// 특별한 Builtin 모듈 (전역 싱글톤)
-public class PyBuiltinsModule : PyObject
+// CPython 3.12 compatible: Builtin module (singleton)
+// This wraps the PyModule created by BuiltinsModule.CreateBuiltinsModule()
+public class PyBuiltinsModule : PyModule
 {
-    public Dictionary<string, PyObject> BuiltinDict { get; }
     public static PyBuiltinsModule Instance { get; private set; }
-    
+
+    // CPython 3.12: BuiltinDict is alias for ModuleDict
+    public Dictionary<string, PyObject> BuiltinDict => ModuleDict;
+
     static PyBuiltinsModule()
     {
-        Instance = new PyBuiltinsModule();
+        // CPython 3.12 방식: 단 하나의 builtins 모듈만 생성
+        // BuiltinsModule.CreateBuiltinsModule()이 유일한 초기화 지점
+        Instance = CreateInstance();
     }
-    
-    private PyBuiltinsModule()
-    {
-        BuiltinDict = new Dictionary<string, PyObject>();
-        InitializeBuiltins();
-    }
-    
-    private void InitializeBuiltins()
-    {
-        // 기본 내장 함수들
-        BuiltinDict["print"] = new PyBuiltinFunction("print");
-        BuiltinDict["input"] = new PyBuiltinFunction("input");
-        BuiltinDict["len"] = new PyBuiltinFunction("len");
-        BuiltinDict["repr"] = new PyBuiltinFunction("repr");
-        BuiltinDict["abs"] = new PyBuiltinFunction("abs");
-        BuiltinDict["callable"] = new PyBuiltinFunction("callable");
-        
-        // 컬렉션 및 이터레이터 함수들
-        BuiltinDict["range"] = new PyBuiltinFunction("range");
-        BuiltinDict["enumerate"] = new PyBuiltinFunction("enumerate");
-        BuiltinDict["zip"] = new PyBuiltinFunction("zip");
-        BuiltinDict["map"] = new PyBuiltinFunction("map");
-        BuiltinDict["filter"] = new PyBuiltinFunction("filter");
-        BuiltinDict["sorted"] = new PyBuiltinFunction("sorted");
-        BuiltinDict["reversed"] = new PyBuiltinFunction("reversed");
-        BuiltinDict["iter"] = new PyBuiltinFunction("iter");
-        BuiltinDict["next"] = new PyBuiltinFunction("next");
-        
-        // 집계 함수들
-        BuiltinDict["sum"] = new PyBuiltinFunction("sum");
-        BuiltinDict["min"] = new PyBuiltinFunction("min");
-        BuiltinDict["max"] = new PyBuiltinFunction("max");
-        BuiltinDict["any"] = new PyBuiltinFunction("any");
-        BuiltinDict["all"] = new PyBuiltinFunction("all");
-        
-        // 타입 및 리플렉션 함수들
-        BuiltinDict["isinstance"] = new PyBuiltinFunction("isinstance");
-        BuiltinDict["issubclass"] = new PyBuiltinFunction("issubclass");
-        BuiltinDict["hasattr"] = new PyBuiltinFunction("hasattr");
-        BuiltinDict["getattr"] = new PyBuiltinFunction("getattr");
-        BuiltinDict["setattr"] = new PyBuiltinFunction("setattr");
-        BuiltinDict["delattr"] = new PyBuiltinFunction("delattr");
-        BuiltinDict["dir"] = new PyBuiltinFunction("dir");
-        BuiltinDict["type"] = PyType.TypeType;  // Use PyType.TypeType instead of PyTypeMetaclass.Instance
-        BuiltinDict["id"] = new PyBuiltinFunction("id");
-        BuiltinDict["hash"] = new PyBuiltinFunction("hash");
-        BuiltinDict["super"] = new PyBuiltinFunction("super");
-        // CPython 3.12: Register descriptor types (property, classmethod, staticmethod)
-        // These are both types and callable (via PyType.Call)
-        BuiltinDict["property"] = PyType.PropertyType;
-        BuiltinDict["classmethod"] = PyType.ClassMethodType;
-        BuiltinDict["staticmethod"] = PyType.StaticMethodType;
-        
-        // CPython 3.12 호환성: 타입들을 PyType으로 등록 (isinstance 지원)
-        BuiltinDict["str"] = PyType.StrType;
-        BuiltinDict["bytes"] = PyType.BytesType;
-        BuiltinDict["bytearray"] = PyType.BytearrayType;
-        BuiltinDict["memoryview"] = PyType.MemoryViewType;
-        BuiltinDict["int"] = PyType.IntType;
-        BuiltinDict["float"] = PyType.FloatType;
-        BuiltinDict["bool"] = PyType.BoolType;
-        BuiltinDict["list"] = PyType.ListType;
-        BuiltinDict["tuple"] = PyType.TupleType;
-        BuiltinDict["dict"] = PyType.DictType;
-        BuiltinDict["set"] = PyType.SetType;
-        BuiltinDict["frozenset"] = PyType.FrozenSetType;
-        
-        // 수학 및 기타 함수들
-        BuiltinDict["round"] = new PyBuiltinFunction("round");
-        BuiltinDict["pow"] = new PyBuiltinFunction("pow");
-        BuiltinDict["divmod"] = new PyBuiltinFunction("divmod");
-        BuiltinDict["ord"] = new PyBuiltinFunction("ord");
-        BuiltinDict["chr"] = new PyBuiltinFunction("chr");
-        BuiltinDict["open"] = new PyBuiltinFunction("open");
-        
-        // 내장 상수들
-        BuiltinDict["True"] = PyBool.True;
-        BuiltinDict["False"] = PyBool.False;
-        BuiltinDict["None"] = PyNone.Instance;
-        
-        // 클래스 생성 함수
-        BuiltinDict["__build_class__"] = new PyBuiltinFunction("__build_class__");
-        
-        // 스코프 및 네임스페이스 함수들
-        BuiltinDict["globals"] = new PyBuiltinFunction("globals");
-        BuiltinDict["locals"] = new PyBuiltinFunction("locals");
-        
-        // 내장 타입들 (타입 객체, 변환 함수와 별개)
-        // CPython 3.12: Use PyType.ObjectType instead of PyBuiltinType for proper attribute access
-        BuiltinDict["object"] = PyType.ObjectType;
-        
-        // Exception Groups (PEP 654)
-        BuiltinDict["BaseExceptionGroup"] = new PyBuiltinType("BaseExceptionGroup");
-        BuiltinDict["ExceptionGroup"] = new PyBuiltinType("ExceptionGroup");
-        
-        // Exception Types - Use actual PyType objects for isinstance() compatibility
-        BuiltinDict["BaseException"] = PyType.BaseExceptionType;
-        BuiltinDict["Exception"] = PyType.ExceptionType;
-        BuiltinDict["ValueError"] = PyType.ValueErrorType;
-        BuiltinDict["TypeError"] = PyType.TypeErrorType;
-        BuiltinDict["AttributeError"] = PyType.AttributeErrorType;
-        BuiltinDict["KeyError"] = PyType.KeyErrorType;
-        BuiltinDict["IndexError"] = PyType.IndexErrorType;
-        BuiltinDict["RuntimeError"] = PyType.RuntimeErrorType;
-        BuiltinDict["OSError"] = PyType.OSErrorType;
-        BuiltinDict["ZeroDivisionError"] = PyType.ZeroDivisionErrorType;
-        BuiltinDict["NameError"] = PyType.NameErrorType;
-        BuiltinDict["StopIteration"] = PyType.StopIterationType;
-        BuiltinDict["AssertionError"] = PyType.AssertionErrorType;
-        BuiltinDict["SyntaxError"] = new PyBuiltinType("SyntaxError");
-        BuiltinDict["ImportError"] = PyType.ImportErrorType;
-        BuiltinDict["ModuleNotFoundError"] = PyType.ModuleNotFoundErrorType;
 
-        // Warning Types (CPython 3.12)
-        BuiltinDict["Warning"] = PyType.WarningType;
-        BuiltinDict["UserWarning"] = PyType.UserWarningType;
-        BuiltinDict["DeprecationWarning"] = PyType.DeprecationWarningType;
-        BuiltinDict["PendingDeprecationWarning"] = PyType.PendingDeprecationWarningType;
-        BuiltinDict["SyntaxWarning"] = PyType.SyntaxWarningType;
-        BuiltinDict["RuntimeWarning"] = PyType.RuntimeWarningType;
-        BuiltinDict["FutureWarning"] = PyType.FutureWarningType;
-        BuiltinDict["ImportWarning"] = PyType.ImportWarningType;
-        BuiltinDict["UnicodeWarning"] = PyType.UnicodeWarningType;
-        BuiltinDict["BytesWarning"] = PyType.BytesWarningType;
-        BuiltinDict["ResourceWarning"] = PyType.ResourceWarningType;
+    private static PyBuiltinsModule CreateInstance()
+    {
+        // BuiltinsModule에서 생성한 모듈을 기반으로 초기화
+        var builtinsModule = SharpPy.Modules.BuiltinsModule.CreateBuiltinsModule();
+        var pyBuiltinsModule = new PyBuiltinsModule(builtinsModule);
 
-        // Buffer Protocol (PEP 688) - Functions
-        BuiltinDict["bytes"] = new PyBuiltinFunction("bytes");
-        BuiltinDict["bytearray"] = new PyBuiltinFunction("bytearray");
-        BuiltinDict["memoryview"] = new PyBuiltinFunction("memoryview");
-        BuiltinDict["buffer"] = new PyBuiltinType("buffer");
-        
-        SharpPyConfig.DebugWriteInternal($"🏗️ Builtin 모듈 초기화: {BuiltinDict.Count}개 내장 객체");
+        Console.WriteLine($"[PYBUILTINS] Created from BuiltinsModule");
+        Console.WriteLine($"[PYBUILTINS] ModuleDict count: {pyBuiltinsModule.ModuleDict.Count}");
+        Console.WriteLine($"[PYBUILTINS] Has 'type': {pyBuiltinsModule.ModuleDict.ContainsKey("type")}");
+        if (pyBuiltinsModule.ModuleDict.ContainsKey("type"))
+        {
+            var typeObj = pyBuiltinsModule.ModuleDict["type"];
+            Console.WriteLine($"[PYBUILTINS] type = {typeObj.GetType().Name}");
+        }
+
+        return pyBuiltinsModule;
     }
-    
-    public override string GetTypeName() => "module";
-    
-    public override PyObject GetAttribute(string name)
+
+    private PyBuiltinsModule(PyModule sourceModule)
+        : base("builtins", "<builtins module>")
     {
-        if (name == "__name__") return new PyString("builtins");
-        if (name == "__dict__") return new PyDict(BuiltinDict);
-        
-        if (BuiltinDict.TryGetValue(name, out PyObject value))
-            return value;
-            
-        throw PyAttributeError.Create($"module 'builtins' has no attribute '{name}'");
+        // BuiltinsModule에서 생성한 ModuleDict를 직접 사용 (복사 아님!)
+        // CPython 방식: 하나의 dict, 모든 곳에서 같은 객체 사용
+        ModuleDict.Clear();  // 기본 초기화된 __name__, __file__ 등 제거
+
+        // BuiltinsModule의 dict를 그대로 사용
+        foreach (var kvp in sourceModule.ModuleDict)
+        {
+            ModuleDict[kvp.Key] = kvp.Value;
+        }
+
+        SharpPyConfig.DebugWriteInternal($"🏗️ PyBuiltinsModule 초기화: {ModuleDict.Count}개 내장 객체 (from BuiltinsModule)");
     }
-    
-    public override void SetAttribute(string name, PyObject value)
-    {
-#if DEBUG_LOG
-        Console.WriteLine($"⚠️ WARNING: builtin '{name}' 수정됨!");
-#endif
-        BuiltinDict[name] = value;
-    }
-    
+
     public PyObject GetBuiltin(string name)
     {
-        return BuiltinDict.TryGetValue(name, out PyObject value) ? value : null;
-    }
-
-    /// <summary>
-    /// CPython 3.12 호환: __builtins__['name'] 형태의 subscript access 지원
-    /// </summary>
-    public override PyObject GetItem(PyObject key)
-    {
-        if (key is PyString keyStr)
-        {
-            string name = keyStr.Value;
-            if (BuiltinDict.TryGetValue(name, out PyObject value))
-            {
-                return value;
-            }
-            else
-            {
-                throw PyKeyError.Create($"'{name}'");
-            }
-        }
-        else
-        {
-            throw PyTypeError.Create($"string indices must be strings, not {key.GetTypeName()}");
-        }
+        return ModuleDict.TryGetValue(name, out PyObject value) ? value : null;
     }
 
     public override string ToString() => "<module 'builtins' (built-in)>";

@@ -756,12 +756,64 @@ namespace SharpPy
                 "__new__",
                 typeType,
                 (self, args, kwargs) => {
-                    // This is a simplified version - actual CPython implementation is much more complex
-                    // For now, return a placeholder that indicates this is the type.__new__ method
-                    throw PyNotImplementedError.Create("type.__new__ descriptor call not yet fully implemented");
+                    // CPython 3.12: type.__new__(metacls, name, bases, namespace)
+                    // args[0] = metacls (the class to create, usually type or a subclass)
+                    // args[1] = name (str)
+                    // args[2] = bases (tuple)
+                    // args[3] = namespace (dict)
+
+                    if (args.Length < 4)
+                        throw PyTypeError.Create($"type.__new__() takes exactly 4 arguments ({args.Length} given)");
+
+                    var metacls = args[0];
+                    var nameArg = args[1];
+                    var basesArg = args[2];
+                    var namespaceArg = args[3];
+
+                    // Validate arguments
+                    if (nameArg is not PyString name)
+                        throw PyTypeError.Create($"type.__new__() argument 2 must be str, not {nameArg.GetTypeName()}");
+
+                    if (basesArg is not PyTuple bases)
+                        throw PyTypeError.Create($"type.__new__() argument 3 must be tuple, not {basesArg.GetTypeName()}");
+
+                    if (namespaceArg is not PyDict classDict)
+                        throw PyTypeError.Create($"type.__new__() argument 4 must be dict, not {namespaceArg.GetTypeName()}");
+
+                    // Convert bases tuple to PyType array
+                    var baseTypes = new List<PyType>();
+                    foreach (var baseItem in bases.Items)
+                    {
+                        if (baseItem is PyType baseType)
+                            baseTypes.Add(baseType);
+                        else
+                            throw PyTypeError.Create($"bases must be types, not {baseItem.GetTypeName()}");
+                    }
+
+                    // If no bases specified, default to object
+                    if (baseTypes.Count == 0)
+                        baseTypes.Add(ObjectType);
+
+                    // Convert namespace dict to string dictionary
+                    var stringDict = new Dictionary<string, PyObject>();
+                    foreach (var kv in classDict.InternalDict)
+                    {
+                        if (kv.Key is PyString keyStr)
+                        {
+                            stringDict[keyStr.Value] = kv.Value;
+                        }
+                        // Non-string keys are ignored (same as CPython)
+                    }
+
+                    // Create new class (CPython equivalent: type_new in typeobject.c)
+                    var newClass = new PyClass(name.Value, baseTypes.ToArray(), stringDict);
+
+                    // If metacls is not type, we might need to set a custom metaclass
+                    // For now, PyClass always uses type as metaclass (standard behavior)
+                    return newClass;
                 },
-                minArgs: 1,
-                maxArgs: int.MaxValue
+                minArgs: 4,
+                maxArgs: 4
             ));
         }
 

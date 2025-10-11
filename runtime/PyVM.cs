@@ -1184,6 +1184,23 @@ namespace SharpPy
                     int globalNameIndex = globalOparg >> 1;
 
                     var globalName = frame.Code.Names[globalNameIndex];
+
+                    // Special debugging for ReprEnum, Enum, Flag lookup
+                    bool isEnumRelated = globalName == "ReprEnum" || globalName == "Enum" || globalName == "Flag";
+
+                    if (isEnumRelated)
+                    {
+                        Console.WriteLine($"\n[LOAD_GLOBAL] Looking for: {globalName}");
+                        Console.WriteLine($"  Current function: {frame.Code.Name}");
+                        Console.WriteLine($"  GlobalScope: {frame.ScopeChain.GlobalScope?.Name ?? "null"}");
+                        if (frame.ScopeChain.GlobalScope != null)
+                        {
+                            Console.WriteLine($"  GlobalScope variable count: {frame.ScopeChain.GlobalScope.Variables.Count}");
+                            Console.WriteLine($"  GlobalScope keys: {string.Join(", ", frame.ScopeChain.GlobalScope.Variables.Keys.Take(20))}");
+                            Console.WriteLine($"  Has '{globalName}': {frame.ScopeChain.GlobalScope.Variables.ContainsKey(globalName)}");
+                        }
+                    }
+
                     #if DEBUG_LOG
                     Console.WriteLine($"🔍 LOAD_GLOBAL({globalName}): pushNull={pushNull}, nameIndex={globalNameIndex}");
                     #endif
@@ -1212,7 +1229,19 @@ namespace SharpPy
                     var globalValue = frame.ScopeChain.GlobalScope?.GetVariable(globalName) ??
                                     frame.ScopeChain.BuiltinModule.GetBuiltin(globalName);
                     if (globalValue == null)
+                    {
+                        if (isEnumRelated)
+                        {
+                            Console.WriteLine($"[LOAD_GLOBAL] ❌ Failed to find '{globalName}'!");
+                        }
                         throw PyNameError.Create($"name '{globalName}' is not defined");
+                    }
+
+                    if (isEnumRelated)
+                    {
+                        Console.WriteLine($"[LOAD_GLOBAL] ✅ Found '{globalName}': {globalValue?.GetType().Name}");
+                    }
+
                     #if DEBUG_LOG
                     Console.WriteLine($"🔍 LOAD_GLOBAL({globalName}): loaded {globalValue?.GetType().Name ?? "null"} value = {globalValue}");
                     #endif

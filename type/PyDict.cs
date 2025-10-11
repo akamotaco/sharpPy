@@ -169,13 +169,31 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// 다른 딕셔너리의 키-값으로 업데이트
+        /// 다른 딕셔너리나 매핑의 키-값으로 업데이트 (CPython dict.update 호환)
         /// </summary>
-        public PyNone Update(PyDict other)
+        public PyNone Update(PyObject other)
         {
-            foreach (var kv in other._dict)
+            // CPython 3.12: dict.update() can accept dict, mappingproxy, or any mapping-like object
+            if (other is PyDict otherDict)
             {
-                _dict[kv.Key] = kv.Value;
+                foreach (var kv in otherDict._dict)
+                {
+                    _dict[kv.Key] = kv.Value;
+                }
+            }
+            else if (other is PyMappingProxy mappingProxy)
+            {
+                // PyMappingProxy uses string keys, convert to PyString
+                foreach (var key in mappingProxy.Keys)
+                {
+                    var pyKey = new PyString(key);
+                    var value = mappingProxy.GetItem(pyKey);
+                    _dict[pyKey] = value;
+                }
+            }
+            else
+            {
+                throw PyTypeError.Create($"update() argument must be dict or mapping, not '{other.GetTypeName()}'");
             }
             return PyNone.Instance;
         }
@@ -304,97 +322,138 @@ namespace SharpPy
         
         /// <summary>
         /// CPython 호환: 딕셔너리 메서드들을 속성으로 접근
+        /// CPython 3.12: 모든 메서드는 bound method로 반환 (builtin_function_or_method)
         /// </summary>
         protected override PyObject PyGetAttribute(string name)
         {
             switch (name)
             {
                 case "keys":
-                    return new PyFunction("keys", args =>
                     {
-                        if (args.Length != 0)
-                            throw PyTypeError.Create($"keys() takes no arguments ({args.Length} given)");
-                        return Keys();
-                    });
+                        var func = new PyFunction("keys", args =>
+                        {
+                            // args[0] = self (dict instance)
+                            if (args.Length != 1)
+                                throw PyTypeError.Create($"keys() takes no arguments ({args.Length - 1} given)");
+                            var dictSelf = (PyDict)args[0];
+                            return dictSelf.Keys();
+                        });
+                        return new PyMethod(this, func);
+                    }
 
                 case "values":
-                    return new PyFunction("values", args =>
                     {
-                        if (args.Length != 0)
-                            throw PyTypeError.Create($"values() takes no arguments ({args.Length} given)");
-                        return Values();
-                    });
+                        var func = new PyFunction("values", args =>
+                        {
+                            // args[0] = self (dict instance)
+                            if (args.Length != 1)
+                                throw PyTypeError.Create($"values() takes no arguments ({args.Length - 1} given)");
+                            var dictSelf = (PyDict)args[0];
+                            return dictSelf.Values();
+                        });
+                        return new PyMethod(this, func);
+                    }
 
                 case "items":
-                    return new PyFunction("items", args =>
                     {
-                        if (args.Length != 0)
-                            throw PyTypeError.Create($"items() takes no arguments ({args.Length} given)");
-                        return Items();
-                    });
+                        var func = new PyFunction("items", args =>
+                        {
+                            // args[0] = self (dict instance)
+                            if (args.Length != 1)
+                                throw PyTypeError.Create($"items() takes no arguments ({args.Length - 1} given)");
+                            var dictSelf = (PyDict)args[0];
+                            return dictSelf.Items();
+                        });
+                        return new PyMethod(this, func);
+                    }
 
                 case "get":
-                    return new PyFunction("get", args =>
                     {
-                        if (args.Length < 1 || args.Length > 2)
-                            throw PyTypeError.Create($"get() takes from 1 to 2 positional arguments but {args.Length} were given");
-                        var key = args[0];
-                        var defaultValue = args.Length > 1 ? args[1] : PyNone.Instance;
-                        return Get(key, defaultValue);
-                    });
+                        // CPython 3.12: bound method는 self를 첫 번째 인수로 받음
+                        var func = new PyFunction("get", args =>
+                        {
+                            // args[0] = self (dict instance)
+                            // args[1] = key
+                            // args[2] = default (optional)
+                            if (args.Length < 2 || args.Length > 3)
+                                throw PyTypeError.Create($"get() takes from 1 to 2 positional arguments but {args.Length - 1} were given");
+                            var dictSelf = (PyDict)args[0];
+                            var key = args[1];
+                            var defaultValue = args.Length > 2 ? args[2] : PyNone.Instance;
+                            return dictSelf.Get(key, defaultValue);
+                        });
+                        return new PyMethod(this, func);
+                    }
 
                 case "pop":
-                    return new PyFunction("pop", args =>
                     {
-                        if (args.Length < 1 || args.Length > 2)
-                            throw PyTypeError.Create($"pop() takes from 1 to 2 positional arguments but {args.Length} were given");
-                        var key = args[0];
-                        var defaultValue = args.Length > 1 ? args[1] : null;
-                        return Pop(key, defaultValue);
-                    });
+                        var func = new PyFunction("pop", args =>
+                        {
+                            // args[0] = self, args[1] = key, args[2] = default (optional)
+                            if (args.Length < 2 || args.Length > 3)
+                                throw PyTypeError.Create($"pop() takes from 1 to 2 positional arguments but {args.Length - 1} were given");
+                            var dictSelf = (PyDict)args[0];
+                            var key = args[1];
+                            var defaultValue = args.Length > 2 ? args[2] : null;
+                            return dictSelf.Pop(key, defaultValue);
+                        });
+                        return new PyMethod(this, func);
+                    }
 
                 case "clear":
-                    return new PyFunction("clear", args =>
                     {
-                        if (args.Length != 0)
-                            throw PyTypeError.Create($"clear() takes no arguments ({args.Length} given)");
-                        Clear();
-                        return PyNone.Instance;
-                    });
+                        var func = new PyFunction("clear", args =>
+                        {
+                            // args[0] = self (dict instance)
+                            if (args.Length != 1)
+                                throw PyTypeError.Create($"clear() takes no arguments ({args.Length - 1} given)");
+                            var dictSelf = (PyDict)args[0];
+                            dictSelf.Clear();
+                            return PyNone.Instance;
+                        });
+                        return new PyMethod(this, func);
+                    }
 
                 case "copy":
-                    return new PyFunction("copy", args =>
                     {
-                        if (args.Length != 0)
-                            throw PyTypeError.Create($"copy() takes no arguments ({args.Length} given)");
-                        return Copy();
-                    });
+                        var func = new PyFunction("copy", args =>
+                        {
+                            // args[0] = self (dict instance)
+                            if (args.Length != 1)
+                                throw PyTypeError.Create($"copy() takes no arguments ({args.Length - 1} given)");
+                            var dictSelf = (PyDict)args[0];
+                            return dictSelf.Copy();
+                        });
+                        return new PyMethod(this, func);
+                    }
 
                 case "update":
-                    return new PyFunction("update", args =>
                     {
-                        if (args.Length != 1)
-                            throw PyTypeError.Create($"update() takes exactly one argument ({args.Length} given)");
-                        if (args[0] is PyDict otherDict)
+                        var func = new PyFunction("update", args =>
                         {
-                            Update(otherDict);
-                        }
-                        else
-                        {
-                            throw PyTypeError.Create($"'update() argument must be dict, not '{args[0].GetTypeName()}'");
-                        }
-                        return PyNone.Instance;
-                    });
+                            // args[0] = self, args[1] = other (dict or mapping)
+                            if (args.Length != 2)
+                                throw PyTypeError.Create($"update() takes exactly one argument ({args.Length - 1} given)");
+                            var dictSelf = (PyDict)args[0];
+                            return dictSelf.Update(args[1]);
+                        });
+                        return new PyMethod(this, func);
+                    }
 
                 case "setdefault":
-                    return new PyFunction("setdefault", args =>
                     {
-                        if (args.Length < 1 || args.Length > 2)
-                            throw PyTypeError.Create($"setdefault() takes from 1 to 2 positional arguments but {args.Length} were given");
-                        var key = args[0];
-                        var defaultValue = args.Length > 1 ? args[1] : PyNone.Instance;
-                        return SetDefault(key, defaultValue);
-                    });
+                        var func = new PyFunction("setdefault", args =>
+                        {
+                            // args[0] = self, args[1] = key, args[2] = default (optional)
+                            if (args.Length < 2 || args.Length > 3)
+                                throw PyTypeError.Create($"setdefault() takes from 1 to 2 positional arguments but {args.Length - 1} were given");
+                            var dictSelf = (PyDict)args[0];
+                            var key = args[1];
+                            var defaultValue = args.Length > 2 ? args[2] : PyNone.Instance;
+                            return dictSelf.SetDefault(key, defaultValue);
+                        });
+                        return new PyMethod(this, func);
+                    }
 
                 default:
                     // 기본 속성 접근은 부모 클래스에 위임

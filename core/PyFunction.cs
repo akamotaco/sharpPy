@@ -126,6 +126,17 @@ public partial class PyFunction : PyObject, IDescriptor
             }
         ));
 
+        // __globals__ getset descriptor - CPython 3.12
+        funcType.Descriptors.AddGetSet("__globals__", new PyGetSetDescriptor(
+            "__globals__",
+            funcType,
+            getter: self => {
+                if (self is PyFunction func)
+                    return func.GlobalsDict != null ? new PyDict(func.GlobalsDict) : PyNone.Instance;
+                throw PyTypeError.Create("descriptor '__globals__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+            }
+        ));
+
         // __dict__ getset descriptor
         funcType.Descriptors.AddGetSet("__dict__", new PyGetSetDescriptor(
             "__dict__",
@@ -181,7 +192,42 @@ public partial class PyFunction : PyObject, IDescriptor
         // CPython 3.12: CodeObject가 있으면 VM을 통해 실행
         if (CodeObject != null)
         {
-            var frame = new PyFrame(CodeObject, args, ParentScope, Closure);
+            // CPython 3.12: Use captured globals (func.__globals__)
+            // Functions must use the globals from the module where they were defined,
+            // not the caller's globals. This is essential for closures and nested functions.
+            PyScopeChain functionScopeChain;
+            if (GlobalsDict != null)
+            {
+                // Use the globals captured at function definition time (CPython equivalent: frame->f_globals)
+                functionScopeChain = new PyScopeChain(GlobalsDict, CodeObject.Name);
+
+                #if DEBUG_LOG
+                // Log for enum-related functions
+                if (Name == "__new__" || Name.Contains("Enum"))
+                {
+                    Console.WriteLine($"\n[PyFunction.Call] Using GlobalsDict for function '{Name}'");
+                    Console.WriteLine($"  GlobalsDict: {GlobalsDict.Count} items");
+                    Console.WriteLine($"  Has ReprEnum: {GlobalsDict.ContainsKey("ReprEnum")}");
+                    Console.WriteLine($"  Created scope: {functionScopeChain.GlobalScope?.Name}");
+                }
+                #endif
+            }
+            else
+            {
+                // Fallback to ParentScope for backwards compatibility (e.g., built-in functions)
+                functionScopeChain = ParentScope ?? new PyScopeChain();
+
+                #if DEBUG_LOG
+                // Log for enum-related functions
+                if (Name == "__new__" || Name.Contains("Enum"))
+                {
+                    Console.WriteLine($"\n[PyFunction.Call] GlobalsDict is NULL for function '{Name}' - using ParentScope");
+                    Console.WriteLine($"  ParentScope: {(ParentScope == null ? "null" : ParentScope.GlobalScope?.Name ?? "no global")}");
+                }
+                #endif
+            }
+
+            var frame = new PyFrame(CodeObject, args, functionScopeChain, Closure);
             var vm = PyVM.Instance;
             return vm.ExecuteFrame(frame);
         }
@@ -270,6 +316,8 @@ public partial class PyFunction : PyObject, IDescriptor
         Console.WriteLine($"   Instance: {instance?.GetType().Name} = {instance}");
         Console.WriteLine($"   Owner: {owner?.Name}");
         Console.WriteLine($"   Has CodeObject: {CodeObject != null}");
+        Console.WriteLine($"   GlobalsDict: {(GlobalsDict == null ? "null" : $"{GlobalsDict.Count} items")}");
+        Console.WriteLine($"   ParentScope: {(ParentScope == null ? "null" : ParentScope.GlobalScope?.Name ?? "no global")}");
         #endif
         if (CodeObject != null)
         {
@@ -322,6 +370,16 @@ public partial class PyFunction : PyObject, IDescriptor
                     
                     // Create a new function with the adjusted closure
                     var adjustedFunction = new PyFunction(Name, Implementation, DefiningModule, TypeParams, adjustedClosure, CodeObject);
+                    // CPython 3.12: Preserve GlobalsDict and ParentScope
+                    adjustedFunction.GlobalsDict = this.GlobalsDict;
+                    adjustedFunction.ParentScope = this.ParentScope;
+
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   🔧 Preserved GlobalsDict and ParentScope:");
+                    Console.WriteLine($"      GlobalsDict: {(this.GlobalsDict == null ? "null" : $"{this.GlobalsDict.Count} items")}");
+                    Console.WriteLine($"      ParentScope: {(this.ParentScope == null ? "null" : this.ParentScope.GlobalScope?.Name ?? "no global")}");
+                    #endif
+
                     var boundMethod = new PyMethod(instance, adjustedFunction);
                     #if DEBUG_LOG
                     Console.WriteLine($"   → returning bound method with adjusted __class__ cell");

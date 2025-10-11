@@ -1084,7 +1084,53 @@ namespace SharpPy
             if (args.Length == 0)
                 return new PyDict();
 
-            return args[0].AsDict();
+            // CPython 3.12: dict(obj) supports mapping protocol
+            var obj = args[0];
+
+            // Fast path: if obj is already a dict, copy it
+            if (obj is PyDict existingDict)
+            {
+                return existingDict.Copy();
+            }
+
+            // CPython 3.12: Mapping protocol - check if obj has keys() method
+            // This allows custom mapping types like _EnumDict to be converted to dict
+            try
+            {
+                var keysMethod = obj.GetAttribute("keys");
+                if (keysMethod != null && keysMethod.IsCallable())
+                {
+                    // Call keys() to get all keys
+                    var keysResult = keysMethod.Call(new PyObject[0], null);
+                    var keysIterator = keysResult.GetIterator();
+
+                    // Create new dict and populate it
+                    var newDict = new PyDict();
+                    try
+                    {
+                        while (true)
+                        {
+                            var key = keysIterator.Next();
+                            // Get value using obj[key]
+                            var value = obj.GetItem(key);
+                            newDict.SetItem(key, value);
+                        }
+                    }
+                    catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                    {
+                        // Normal termination of iteration
+                    }
+
+                    return newDict;
+                }
+            }
+            catch (PythonException)
+            {
+                // obj doesn't have keys() method or not callable, fall through
+            }
+
+            // Fallback: try AsDict() conversion
+            return obj.AsDict();
         }
 
         private static PyObject CallSet(PyObject[] args, PyDict kwargs = null)
@@ -1928,8 +1974,11 @@ namespace SharpPy
                                     #endif
                                     
                                     // Create a new function with the adjusted closure
-                                    newMethod = new PyFunction(pyFunc.Name, pyFunc.Implementation, 
+                                    newMethod = new PyFunction(pyFunc.Name, pyFunc.Implementation,
                                         pyFunc.DefiningModule, pyFunc.TypeParams, adjustedClosure, pyFunc.CodeObject);
+                                    // CPython 3.12: Preserve GlobalsDict and ParentScope
+                                    ((PyFunction)newMethod).GlobalsDict = pyFunc.GlobalsDict;
+                                    ((PyFunction)newMethod).ParentScope = pyFunc.ParentScope;
                                 }
                             }
                         }
@@ -2680,9 +2729,18 @@ namespace SharpPy
             }
 
             var func = args[0];
+            Console.WriteLine($"[STATICMETHOD] Received: {func?.GetType().Name} / IsCallable={func?.IsCallable()} / value={func}");
+
+            // CPython 3.12: If already a staticmethod, return as-is (idempotent)
+            if (func is PyStaticmethod pyStaticmethod)
+            {
+                Console.WriteLine($"[STATICMETHOD] Already a staticmethod, returning as-is");
+                return pyStaticmethod;
+            }
+
             if (func == null || !func.IsCallable())
             {
-                throw PyTypeError.Create("staticmethod() argument must be callable");
+                throw PyTypeError.Create($"staticmethod() argument must be callable (got {func?.GetTypeName()})");
             }
 
             // CPython 3.12: Accept any callable, but PyStaticmethod only stores PyFunction

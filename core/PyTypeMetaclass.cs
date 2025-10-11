@@ -162,7 +162,7 @@ namespace SharpPy
             classDict["__repr__"] = classDict["__str__"];
 
             // Add other essential type methods...
-            classDict["mro"] = new PyBuiltinMethod("mro", (self, args) => 
+            classDict["mro"] = new PyBuiltinMethod("mro", (self, args) =>
             {
                 if (self is PyClass pyClass)
                 {
@@ -170,6 +170,17 @@ namespace SharpPy
                 }
                 return new PyList();
             }, 1);
+
+            // CPython 3.12: Add all getset_descriptors (matches CPython's type_getsets[])
+            // These descriptors provide attribute access for type objects
+            // Equivalent to CPython's getsetdef array in Objects/typeobject.c:1578-1591
+            classDict["__dict__"] = new PyDictDescriptor();
+            classDict["__name__"] = new PyNameDescriptor();
+            classDict["__module__"] = new PyModuleDescriptor();
+            classDict["__bases__"] = new PyBasesDescriptor();
+            classDict["__mro__"] = new PyMroDescriptor();
+            classDict["__doc__"] = new PyDocDescriptor();
+            classDict["__qualname__"] = new PyQualnameDescriptor();
 
             // type inherits from object
             var baseTypes = new PyType[] { PyType.ObjectType };
@@ -634,10 +645,10 @@ namespace SharpPy
                 Console.WriteLine($"   arg[{i}]: {args[i]?.GetType().Name} = {args[i]}");
                 #endif
             }
-            
+
             if (args.Length == 1)
             {
-                // type(obj) - return type of object  
+                // type(obj) - return type of object
                 return args[0].GetPyType();
             }
             else if (args.Length == 3)
@@ -658,6 +669,10 @@ namespace SharpPy
                 throw PyTypeError.Create($"type() takes 1, 3 or 4 arguments ({args.Length} given)");
             }
         }
+
+        // CPython 3.12: No need to override GetAttribute anymore
+        // All type attributes (__dict__, __name__, __module__, etc.) are now handled
+        // by descriptors in ClassDict, just like CPython does via getsetdef array
     }
 
     /// <summary>
@@ -839,5 +854,396 @@ namespace SharpPy
         {
             return true;
         }
+    }
+
+    /// <summary>
+    /// CPython 3.12: getset_descriptor for __dict__ attribute
+    /// Equivalent to CPython's type_dict getter in Objects/typeobject.c
+    ///
+    /// CPython implementation:
+    /// static PyObject *
+    /// type_dict(PyTypeObject *type, void *context)
+    /// {
+    ///     PyObject *dict = lookup_tp_dict(type);
+    ///     if (dict == NULL) {
+    ///         Py_RETURN_NONE;
+    ///     }
+    ///     return PyDictProxy_New(dict);
+    /// }
+    ///
+    /// getsetdef: {"__dict__",  (getter)type_dict,  NULL, NULL}
+    /// - getter: type_dict
+    /// - setter: NULL (read-only)
+    /// </summary>
+    public class PyDictDescriptor : PyObject, IDescriptor
+    {
+        public PyDictDescriptor()
+        {
+        }
+
+        public override string ToString()
+        {
+            return "<attribute '__dict__' of 'type' objects>";
+        }
+
+        public override PyType GetPyType()
+        {
+            // CPython 3.12: getset_descriptor has its own type
+            return PyType.ObjectType; // TODO: Create PyType.GetSetDescriptorType
+        }
+
+        public override string GetTypeName()
+        {
+            return "getset_descriptor";
+        }
+
+        /// <summary>
+        /// CPython 3.12: __get__(self, obj, type=None)
+        /// Equivalent to type_dict(PyTypeObject *type, void *context)
+        /// </summary>
+        public PyObject Get(PyObject instance, PyType owner)
+        {
+            #if DEBUG_LOG
+            Console.WriteLine($"[PyDictDescriptor.__get__] instance={instance?.GetType().Name}, owner={owner?.Name}");
+            #endif
+
+            // CPython 3.12: If accessed from class (not instance), return self
+            // Example: type.__dict__ (not SomeClass.__dict__)
+            if (instance == null || instance == PyNone.Instance)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"  → Accessed from class, returning descriptor itself");
+                #endif
+                return this;
+            }
+
+            // CPython 3.12: instance should be a type/class object
+            if (instance is PyClass pyClass)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"  → Returning mappingproxy of {pyClass.Name}.__dict__ (count: {pyClass.ClassDict.Count})");
+                #endif
+                // Return PyDictProxy_New(dict)
+                return new PyMappingProxy(pyClass.ClassDict);
+            }
+
+            // CPython 3.12: If dict is NULL, return None
+            #if DEBUG_LOG
+            Console.WriteLine($"  → instance is not a class, returning None");
+            #endif
+            return PyNone.Instance;
+        }
+
+        /// <summary>
+        /// CPython 3.12: setter=NULL in getsetdef
+        /// Attempting to set __dict__ should raise AttributeError
+        /// </summary>
+        public void Set(PyObject instance, PyObject value)
+        {
+            throw PyAttributeError.Create("attribute '__dict__' of 'type' objects is not writable");
+        }
+
+        /// <summary>
+        /// CPython 3.12: deleter not supported
+        /// </summary>
+        public void Delete(PyObject instance)
+        {
+            throw PyAttributeError.Create("can't delete attribute '__dict__'");
+        }
+
+        /// <summary>
+        /// CPython 3.12: getset_descriptor is a data descriptor (has both __get__ and __set__)
+        /// Even though setter raises error, it's still considered a data descriptor
+        /// </summary>
+        public bool IsDataDescriptor()
+        {
+            return true; // CPython getset_descriptor is always data descriptor
+        }
+    }
+
+    /// <summary>
+    /// CPython 3.12: getset_descriptor for __name__ attribute
+    /// Equivalent to CPython's type_name getter/type_set_name setter
+    /// getsetdef: {"__name__", (getter)type_name, (setter)type_set_name, NULL}
+    /// </summary>
+    public class PyNameDescriptor : PyObject, IDescriptor
+    {
+        public override string ToString() => "<attribute '__name__' of 'type' objects>";
+        public override PyType GetPyType() => PyType.ObjectType;
+        public override string GetTypeName() => "getset_descriptor";
+
+        public PyObject Get(PyObject instance, PyType owner)
+        {
+            if (instance == null || instance == PyNone.Instance)
+                return this;
+
+            if (instance is PyClass pyClass)
+            {
+                // CPython: Check ClassDict first, then fallback to tp_name
+                if (pyClass.ClassDict.TryGetValue("__name__", out var name))
+                    return name;
+
+                // Fallback to Name property
+                return new PyString(pyClass.Name);
+            }
+
+            return PyNone.Instance;
+        }
+
+        public void Set(PyObject instance, PyObject value)
+        {
+            if (instance is PyClass pyClass)
+            {
+                if (!(value is PyString nameStr))
+                    throw PyTypeError.Create($"can only assign string to {pyClass.Name}.__name__, not '{value.GetTypeName()}'");
+
+                // CPython: Update tp_name (in SharpPy, store in ClassDict)
+                // This is similar to CPython's heap type behavior
+                pyClass.ClassDict["__name__"] = value;
+            }
+            else
+            {
+                throw PyAttributeError.Create("attribute '__name__' of 'type' objects is not writable");
+            }
+        }
+
+        public void Delete(PyObject instance)
+        {
+            throw PyAttributeError.Create("can't delete attribute '__name__'");
+        }
+
+        public bool IsDataDescriptor() => true;
+    }
+
+    /// <summary>
+    /// CPython 3.12: getset_descriptor for __module__ attribute
+    /// Equivalent to CPython's type_module getter/type_set_module setter
+    /// getsetdef: {"__module__", (getter)type_module, (setter)type_set_module, NULL}
+    /// </summary>
+    public class PyModuleDescriptor : PyObject, IDescriptor
+    {
+        public override string ToString() => "<attribute '__module__' of 'type' objects>";
+        public override PyType GetPyType() => PyType.ObjectType;
+        public override string GetTypeName() => "getset_descriptor";
+
+        public PyObject Get(PyObject instance, PyType owner)
+        {
+            if (instance == null || instance == PyNone.Instance)
+                return this;
+
+            if (instance is PyClass pyClass)
+            {
+                // CPython: Look up __module__ in ClassDict
+                if (pyClass.ClassDict.TryGetValue("__module__", out var module))
+                    return module;
+
+                // Default to "builtins" if not found
+                return new PyString("builtins");
+            }
+
+            return PyNone.Instance;
+        }
+
+        public void Set(PyObject instance, PyObject value)
+        {
+            if (instance is PyClass pyClass)
+            {
+                // CPython: PyDict_SetItem(dict, &_Py_ID(__module__), value)
+                pyClass.ClassDict["__module__"] = value;
+            }
+            else
+            {
+                throw PyAttributeError.Create("attribute '__module__' of 'type' objects is not writable");
+            }
+        }
+
+        public void Delete(PyObject instance)
+        {
+            throw PyAttributeError.Create("can't delete attribute '__module__'");
+        }
+
+        public bool IsDataDescriptor() => true;
+    }
+
+    /// <summary>
+    /// CPython 3.12: getset_descriptor for __bases__ attribute
+    /// Equivalent to CPython's type_get_bases getter/type_set_bases setter
+    /// getsetdef: {"__bases__", (getter)type_get_bases, (setter)type_set_bases, NULL}
+    /// </summary>
+    public class PyBasesDescriptor : PyObject, IDescriptor
+    {
+        public override string ToString() => "<attribute '__bases__' of 'type' objects>";
+        public override PyType GetPyType() => PyType.ObjectType;
+        public override string GetTypeName() => "getset_descriptor";
+
+        public PyObject Get(PyObject instance, PyType owner)
+        {
+            if (instance == null || instance == PyNone.Instance)
+                return this;
+
+            if (instance is PyClass pyClass)
+            {
+                // CPython: Return lookup_tp_bases(type)
+                return new PyTuple(pyClass.BaseTypes);
+            }
+
+            return PyNone.Instance;
+        }
+
+        public void Set(PyObject instance, PyObject value)
+        {
+            // CPython: type_set_bases is complex - modifies MRO, checks compatibility, etc.
+            // For now, make it read-only to match most common use case
+            throw PyAttributeError.Create("attribute '__bases__' of 'type' objects is not writable");
+        }
+
+        public void Delete(PyObject instance)
+        {
+            throw PyAttributeError.Create("can't delete attribute '__bases__'");
+        }
+
+        public bool IsDataDescriptor() => true;
+    }
+
+    /// <summary>
+    /// CPython 3.12: getset_descriptor for __mro__ attribute
+    /// Equivalent to CPython's type_get_mro getter (setter=NULL, read-only)
+    /// getsetdef: {"__mro__", (getter)type_get_mro, NULL, NULL}
+    /// </summary>
+    public class PyMroDescriptor : PyObject, IDescriptor
+    {
+        public override string ToString() => "<attribute '__mro__' of 'type' objects>";
+        public override PyType GetPyType() => PyType.ObjectType;
+        public override string GetTypeName() => "getset_descriptor";
+
+        public PyObject Get(PyObject instance, PyType owner)
+        {
+            if (instance == null || instance == PyNone.Instance)
+                return this;
+
+            if (instance is PyClass pyClass)
+            {
+                // CPython: Return lookup_tp_mro(type)
+                return new PyTuple(pyClass.MRO.Cast<PyObject>().ToArray());
+            }
+
+            return PyNone.Instance;
+        }
+
+        public void Set(PyObject instance, PyObject value)
+        {
+            // CPython: setter=NULL (read-only)
+            throw PyAttributeError.Create("attribute '__mro__' of 'type' objects is not writable");
+        }
+
+        public void Delete(PyObject instance)
+        {
+            throw PyAttributeError.Create("can't delete attribute '__mro__'");
+        }
+
+        public bool IsDataDescriptor() => true;
+    }
+
+    /// <summary>
+    /// CPython 3.12: getset_descriptor for __doc__ attribute
+    /// Equivalent to CPython's type_get_doc getter/type_set_doc setter
+    /// getsetdef: {"__doc__", (getter)type_get_doc, (setter)type_set_doc, NULL}
+    /// </summary>
+    public class PyDocDescriptor : PyObject, IDescriptor
+    {
+        public override string ToString() => "<attribute '__doc__' of 'type' objects>";
+        public override PyType GetPyType() => PyType.ObjectType;
+        public override string GetTypeName() => "getset_descriptor";
+
+        public PyObject Get(PyObject instance, PyType owner)
+        {
+            if (instance == null || instance == PyNone.Instance)
+                return this;
+
+            if (instance is PyClass pyClass)
+            {
+                // CPython: PyDict_GetItemWithError(dict, &_Py_ID(__doc__))
+                if (pyClass.ClassDict.TryGetValue("__doc__", out var doc))
+                    return doc;
+
+                // Return None if not found
+                return PyNone.Instance;
+            }
+
+            return PyNone.Instance;
+        }
+
+        public void Set(PyObject instance, PyObject value)
+        {
+            if (instance is PyClass pyClass)
+            {
+                // CPython: PyDict_SetItem(dict, &_Py_ID(__doc__), value)
+                pyClass.ClassDict["__doc__"] = value;
+            }
+            else
+            {
+                throw PyAttributeError.Create("attribute '__doc__' of 'type' objects is not writable");
+            }
+        }
+
+        public void Delete(PyObject instance)
+        {
+            throw PyAttributeError.Create("can't delete attribute '__doc__'");
+        }
+
+        public bool IsDataDescriptor() => true;
+    }
+
+    /// <summary>
+    /// CPython 3.12: getset_descriptor for __qualname__ attribute
+    /// Equivalent to CPython's type_qualname getter/type_set_qualname setter
+    /// getsetdef: {"__qualname__", (getter)type_qualname, (setter)type_set_qualname, NULL}
+    /// </summary>
+    public class PyQualnameDescriptor : PyObject, IDescriptor
+    {
+        public override string ToString() => "<attribute '__qualname__' of 'type' objects>";
+        public override PyType GetPyType() => PyType.ObjectType;
+        public override string GetTypeName() => "getset_descriptor";
+
+        public PyObject Get(PyObject instance, PyType owner)
+        {
+            if (instance == null || instance == PyNone.Instance)
+                return this;
+
+            if (instance is PyClass pyClass)
+            {
+                // CPython: Return ht_qualname if available, else tp_name
+                if (pyClass.ClassDict.TryGetValue("__qualname__", out var qualname))
+                    return qualname;
+
+                // Default to __name__
+                return new PyString(pyClass.Name);
+            }
+
+            return PyNone.Instance;
+        }
+
+        public void Set(PyObject instance, PyObject value)
+        {
+            if (instance is PyClass pyClass)
+            {
+                if (!(value is PyString))
+                    throw PyTypeError.Create($"can only assign string to {pyClass.Name}.__qualname__, not '{value.GetTypeName()}'");
+
+                // CPython: Py_SETREF(et->ht_qualname, Py_NewRef(value))
+                pyClass.ClassDict["__qualname__"] = value;
+            }
+            else
+            {
+                throw PyAttributeError.Create("attribute '__qualname__' of 'type' objects is not writable");
+            }
+        }
+
+        public void Delete(PyObject instance)
+        {
+            throw PyAttributeError.Create("can't delete attribute '__qualname__'");
+        }
+
+        public bool IsDataDescriptor() => true;
     }
 }
