@@ -8,6 +8,64 @@ namespace SharpPy
     /// </summary>
     public class PyGenerator : PyIterator
     {
+        static PyGenerator()
+        {
+            InitializeGeneratorDescriptors();
+        }
+
+        private static void InitializeGeneratorDescriptors()
+        {
+            if (PyType.GeneratorType.Descriptors.Methods.Count > 0) return;
+
+            var genType = PyType.GeneratorType;
+
+            // send method descriptor
+            genType.Descriptors.AddMethod("send", new PyMethodDescriptor(
+                "send", genType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create("send() takes exactly one argument");
+                    if (self is not PyGenerator generator)
+                        throw PyTypeError.Create($"descriptor 'send' requires a 'generator' object but received a '{self.GetTypeName()}'");
+                    return generator.Send(args[0]);
+                },
+                minArgs: 1, maxArgs: 1
+            ));
+
+            // throw method descriptor
+            genType.Descriptors.AddMethod("throw", new PyMethodDescriptor(
+                "throw", genType,
+                (self, args, kwargs) => {
+                    if (args.Length < 1 || args.Length > 3)
+                        throw PyTypeError.Create("throw() takes 1 to 3 arguments");
+                    if (self is not PyGenerator generator)
+                        throw PyTypeError.Create($"descriptor 'throw' requires a 'generator' object but received a '{self.GetTypeName()}'");
+
+                    var excType = args[0];
+                    var value = args.Length > 1 ? args[1] : null;
+                    var traceback = args.Length > 2 ? args[2] : null;
+
+                    return generator.Throw(excType, value, traceback);
+                },
+                minArgs: 1, maxArgs: 3
+            ));
+
+            // close method descriptor
+            genType.Descriptors.AddMethod("close", new PyMethodDescriptor(
+                "close", genType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create("close() takes no arguments");
+                    if (self is not PyGenerator generator)
+                        throw PyTypeError.Create($"descriptor 'close' requires a 'generator' object but received a '{self.GetTypeName()}'");
+                    return generator.Close();
+                },
+                minArgs: 0, maxArgs: 0
+            ));
+
+            // __iter__ and __next__ are inherited from PyIterator
+        }
+
         #region Core Properties
 
         private readonly PyFrame _frame;
@@ -290,68 +348,7 @@ namespace SharpPy
 
         #endregion
 
-        #region Python Attribute Access
-
-        /// <summary>
-        /// Generator 메소드들을 Python에서 접근 가능하도록 노출
-        /// </summary>
-        protected override PyObject PyGetAttribute(string name)
-        {
-            switch (name)
-            {
-                case "__iter__":
-                    // Python __iter__ 메서드: 자기 자신을 반환
-                    return new PyFunction("__iter__", args =>
-                    {
-                        if (args.Length != 0)
-                            throw PyTypeError.Create("__iter__() takes no arguments");
-                        return this;
-                    });
-
-                case "__next__":
-                    // Python __next__ 메서드: Next() 호출
-                    return new PyFunction("__next__", args =>
-                    {
-                        if (args.Length != 0)
-                            throw PyTypeError.Create("__next__() takes no arguments");
-                        return Next();
-                    });
-
-                case "send":
-                    return new PyFunction("send", args =>
-                    {
-                        if (args.Length != 1)
-                            throw PyTypeError.Create("send() takes exactly one argument");
-                        return Send(args[0]);
-                    });
-
-                case "throw":
-                    return new PyFunction("throw", args =>
-                    {
-                        if (args.Length < 1 || args.Length > 3)
-                            throw PyTypeError.Create("throw() takes 1 to 3 arguments");
-                        
-                        var excType = args[0];
-                        var value = args.Length > 1 ? args[1] : null;
-                        var traceback = args.Length > 2 ? args[2] : null;
-                        
-                        return Throw(excType, value, traceback);
-                    });
-
-                case "close":
-                    return new PyFunction("close", args =>
-                    {
-                        if (args.Length != 0)
-                            throw PyTypeError.Create("close() takes no arguments");
-                        return Close();
-                    });
-
-                default:
-                    return base.PyGetAttribute(name);
-            }
-        }
-
-        #endregion
+        // Note: GetAttribute is inherited from PyIterator, which uses GenericGetAttribute
 
         #region Resource Management
 

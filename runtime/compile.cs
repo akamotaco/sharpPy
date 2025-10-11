@@ -892,7 +892,7 @@ namespace SharpPy
             // This replaces manual exception table entries with automatic generation
             BuildExceptionTableFromInstructions();
 
-            var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, parameters.Count, 0, null, null, null, 0, _currentFileName, _sourceLines, false, _lineNumberTable);
+            var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, parameters.Count, 0, 0, null, null, null, null, 0, _currentFileName, _sourceLines, false, _lineNumberTable);
 
             // Resolve Exception Table labels to offsets (CPython 3.12 compatible)
             ResolveExceptionTable();
@@ -1000,7 +1000,7 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.RETURN_CONST, noneConstIndex);
             
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames,
-                                            parameters.Count, 0, freeVars, cellVars, null, 0, _currentFileName, _sourceLines);
+                                            parameters.Count, 0, 0, freeVars, cellVars, null, null, 0, _currentFileName, _sourceLines);
             
             // Add Exception Table entries (CPython 3.12)
             codeObject.ExceptionTable.AddRange(_exceptionTable);
@@ -1022,13 +1022,15 @@ namespace SharpPy
         /// CPython 3.12: FunctionArguments에서 매개변수와 기본값 추출
         /// Returns default expressions, NOT evaluated PyObjects
         /// </summary>
-        private (List<string> paramNames, List<Expression> defaultExprs, int flags, int argCount, int posonlyArgCount, Dictionary<string, string> annotations) ParseFunctionArguments(FunctionArguments arguments)
+        private (List<string> paramNames, List<Expression> defaultExprs, List<Expression?> kwDefaultExprs, int flags, int argCount, int posonlyArgCount, int kwonlyArgCount, Dictionary<string, string> annotations) ParseFunctionArguments(FunctionArguments arguments)
         {
             var paramNames = new List<string>();
             var defaultExprs = new List<Expression>();
+            var kwDefaultExprs = new List<Expression?>();
             var annotations = new Dictionary<string, string>();
             int flags = PyCodeObject.CO_OPTIMIZED | PyCodeObject.CO_NEWLOCALS;
             int posonlyArgCount = arguments.PosOnlyArgs.Count;
+            int kwonlyArgCount = arguments.KwOnlyArgs.Count;
 
             #if DEBUG_LOG
             Console.WriteLine($"🔍 ParseFunctionArguments: Processing FunctionArguments");
@@ -1092,16 +1094,20 @@ namespace SharpPy
             // Store expressions, they will be compiled at MAKE_FUNCTION time
             defaultExprs.AddRange(arguments.Defaults);
 
+            // CPython 3.12: Keyword-only defaults
+            kwDefaultExprs.AddRange(arguments.KwDefaults);
+
             // Calculate argCount: total non-variadic parameters
             int argCount = posonlyArgCount + arguments.Args.Count + arguments.KwOnlyArgs.Count;
 
             #if DEBUG_LOG
-            Console.WriteLine($"🔍 ParseFunctionArguments: Final flags = {flags}, argCount = {argCount}, posonlyArgCount = {posonlyArgCount}");
+            Console.WriteLine($"🔍 ParseFunctionArguments: Final flags = {flags}, argCount = {argCount}, posonlyArgCount = {posonlyArgCount}, kwonlyArgCount = {kwonlyArgCount}");
             Console.WriteLine($"  paramNames = [{string.Join(", ", paramNames)}]");
             Console.WriteLine($"  default expressions = [{string.Join(", ", defaultExprs.Select(d => d.ToString()))}]");
+            Console.WriteLine($"  kwdefault expressions = [{string.Join(", ", kwDefaultExprs.Select(d => d?.ToString() ?? "None"))}]");
             #endif
 
-            return (paramNames, defaultExprs, flags, argCount, posonlyArgCount, annotations);
+            return (paramNames, defaultExprs, kwDefaultExprs, flags, argCount, posonlyArgCount, kwonlyArgCount, annotations);
         }
 
         /// <summary>
@@ -1239,7 +1245,7 @@ namespace SharpPy
         /// </summary>
         private PyCodeObject CompileAsyncFunctionBody(AsyncFunctionDefStatement asyncFunc, List<string> freeVars, List<string> cellVars)
         {
-            var (paramNames, defaultExprs, flags, argCount, posonlyArgCount, annotations) = ParseFunctionArguments(asyncFunc.Arguments);
+            var (paramNames, defaultExprs, kwDefaultExprs, flags, argCount, posonlyArgCount, kwonlyArgCount, annotations) = ParseFunctionArguments(asyncFunc.Arguments);
 
             // Convert default expressions to PyObjects
             var defaults = new List<PyObject>();
@@ -1255,12 +1261,30 @@ namespace SharpPy
                 }
             }
 
+            // Convert keyword-only default expressions
+            var kwDefaults = new List<PyObject>();
+            foreach (var kwDefaultExpr in kwDefaultExprs)
+            {
+                if (kwDefaultExpr == null)
+                {
+                    kwDefaults.Add(PyNone.Instance);
+                }
+                else if (kwDefaultExpr is ConstantExpression constExpr)
+                {
+                    kwDefaults.Add(constExpr.Value);
+                }
+                else
+                {
+                    kwDefaults.Add(PyNone.Instance);
+                }
+            }
+
             // CO_COROUTINE 플래그 추가
             flags |= PyCodeObject.CO_COROUTINE;
 
             var compiler = new PythonCompiler();
             compiler.SetupClosureCompilation(cellVars, freeVars);
-            var codeObject = compiler.CompileWithClosureAndDefaults(asyncFunc.Body, asyncFunc.Name, paramNames, defaults, freeVars, cellVars, flags, argCount, posonlyArgCount);
+            var codeObject = compiler.CompileWithClosureAndDefaults(asyncFunc.Body, asyncFunc.Name, paramNames, defaults, kwDefaults, freeVars, cellVars, flags, argCount, posonlyArgCount, kwonlyArgCount);
             
             // yield가 있는 async 함수는 async generator
             if (codeObject.IsGenerator())
@@ -1278,9 +1302,11 @@ namespace SharpPy
                     codeObject.VarNames,
                     codeObject.ArgCount,
                     codeObject.PosonlyArgCount,
+                    0,
                     codeObject.FreeVars,
                     codeObject.CellVars,
                     codeObject.DefaultValues,
+                    null,
                     newFlags,
                     codeObject.FileName,
                     codeObject.SourceLines
@@ -1353,7 +1379,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 호환: 클로저와 기본값을 모두 지원하는 컴파일
         /// </summary>
-        public PyCodeObject CompileWithClosureAndDefaults(List<Statement> statements, string name, List<string> paramNames, List<PyObject> defaults, List<string> freeVars, List<string> cellVars, int flags = 0, int argCount = -1, int posonlyArgCount = 0)
+        public PyCodeObject CompileWithClosureAndDefaults(List<Statement> statements, string name, List<string> paramNames, List<PyObject> defaults, List<PyObject> kwDefaults, List<string> freeVars, List<string> cellVars, int flags = 0, int argCount = -1, int posonlyArgCount = 0, int kwonlyArgCount = 0)
         {
             // Clear all compilation state for new compilation
             _instructions.Clear();
@@ -1482,7 +1508,7 @@ namespace SharpPy
 #endif
             
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames,
-                                            finalArgCount, posonlyArgCount, freeVars, cellVars, defaults, flags, _currentFileName, _sourceLines);
+                                            finalArgCount, posonlyArgCount, kwonlyArgCount, freeVars, cellVars, defaults, kwDefaults, flags, _currentFileName, _sourceLines);
             
             // Resolve Exception Table labels to offsets (CPython 3.12 compatible)
             ResolveExceptionTable();
@@ -1663,7 +1689,7 @@ namespace SharpPy
             
             // CPython 3.12: Generator 함수 감지 - 임시 객체로 체크
             var tempCodeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames,
-                                                finalArgCount, posonlyArgCount, null, null, defaults, flags, _currentFileName, _sourceLines);
+                                                finalArgCount, posonlyArgCount, 0, null, null, defaults, null, flags, _currentFileName, _sourceLines);
             
             // Generator 함수 감지 및 수정
             if (tempCodeObject.IsGenerator())
@@ -1686,7 +1712,7 @@ namespace SharpPy
             
             // 최종 PyCodeObject 생성 (수정된 flags 포함)
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames,
-                                            finalArgCount, posonlyArgCount, null, null, defaults, flags, _currentFileName, _sourceLines);
+                                            finalArgCount, posonlyArgCount, 0, null, null, defaults, null, flags, _currentFileName, _sourceLines);
             
             // Add Exception Table entries (CPython 3.12)
             codeObject.ExceptionTable.AddRange(_exceptionTable);
@@ -2108,8 +2134,41 @@ namespace SharpPy
                     else
                     {
                         // Regular call without unpacking
-                        EmitInstruction(ByteCodeOp.PUSH_NULL);
-                        CompileExpression(call.Function);
+                        // CPython 3.12: Use LOAD_GLOBAL with NULL push for global function calls
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔍 CallExpression: function type = {call.Function.GetType().Name}");
+                        if (call.Function is NameExpression ne)
+                        {
+                            Console.WriteLine($"   NameExpression: {ne.Name}");
+                        }
+                        #endif
+                        if (call.Function is NameExpression funcName)
+                        {
+                            // Direct function call by name: use optimized LOAD_GLOBAL(pushNull=true)
+                            #if DEBUG_LOG
+                            Console.WriteLine($"   → Using EmitLoadGlobal('{funcName.Name}', pushNull: true)");
+                            #endif
+                            EmitLoadGlobal(funcName.Name, pushNull: true);
+                        }
+                        else if (call.Function is AttributeExpression attrExpr)
+                        {
+                            // CPython 3.12: Method call optimization with LOAD_ATTR(pushNull=true)
+                            // This will push [self/NULL, method] for efficient method calls
+                            #if DEBUG_LOG
+                            Console.WriteLine($"   → Using LOAD_ATTR(pushNull=true) for method call");
+                            #endif
+                            CompileExpression(attrExpr.Value); // Load the object
+                            EmitLoadAttr(attrExpr.Attr, pushNull: true); // Load attribute with method optimization
+                        }
+                        else
+                        {
+                            // Other expressions: use PUSH_NULL + expression
+                            #if DEBUG_LOG
+                            Console.WriteLine($"   → Using PUSH_NULL + CompileExpression");
+                            #endif
+                            EmitInstruction(ByteCodeOp.PUSH_NULL);
+                            CompileExpression(call.Function);
+                        }
 
                         // 위치 인수 컴파일
                         foreach (var arg in call.Arguments)
@@ -2164,16 +2223,37 @@ namespace SharpPy
                         if (classIndex >= 0)
                         {
                             // Load super() (null + self)
-                            var superNameIndex = GetOrAddName("super");
-                            EmitInstruction(ByteCodeOp.LOAD_GLOBAL, superNameIndex);
-                            EmitInstruction(ByteCodeOp.LOAD_DEREF, classIndex);
-                            
-                            // Load self - assume this is in first parameter (cls/self)
-                            EmitInstruction(ByteCodeOp.LOAD_FAST, 0);
-                            
-                            // Call super with __class__ and self
-                            var attrNameIndex = GetOrAddName(attr.Attr);
-                            EmitInstruction(ByteCodeOp.LOAD_SUPER_ATTR, attrNameIndex);
+                            // CPython 3.12: Check if we have 'self' or 'cls' in local scope
+                            // In nested functions, this check will fail and we fallback to regular super()
+                            bool hasSelfParameter = _varNames.Count > 0 &&
+                                                   (_varNames[0] == "self" || _varNames[0] == "cls");
+
+                            if (hasSelfParameter)
+                            {
+                                // CPython 3.12: LOAD_GLOBAL with NULL for super()
+                                EmitLoadGlobal("super", pushNull: true);
+                                EmitInstruction(ByteCodeOp.LOAD_DEREF, classIndex);
+
+                                // Load self - first parameter (cls/self)
+                                EmitInstruction(ByteCodeOp.LOAD_FAST, 0);
+
+                                // Call super with __class__ and self
+                                var attrNameIndex = GetOrAddName(attr.Attr);
+                                EmitInstruction(ByteCodeOp.LOAD_SUPER_ATTR, attrNameIndex);
+                            }
+                            else
+                            {
+                                // No self parameter (e.g., nested function)
+                                // CPython 3.12: This will fail at runtime with proper error message
+                                #if DEBUG_LOG
+                                Console.WriteLine("⚠️  No self/cls parameter in current scope, zero-arg super() will fail");
+                                #endif
+
+                                // Generate code that will call super() without arguments
+                                // This will properly trigger "super(): no arguments" error at runtime
+                                CompileExpression(attr.Value);
+                                EmitLoadAttr(attr.Attr);
+                            }
                         }
                         else
                         {
@@ -2693,6 +2773,16 @@ namespace SharpPy
                         }
                     }
 
+                    // CPython 3.12: If function or its nested functions contain super() calls, ensure __class__ is in freeVars
+                    // This handles cases like: def method(self): def inner(): return super().__repr__()
+                    if (ContainsSuperCalls(func.Body) && !freeVars.Contains("__class__"))
+                    {
+                        freeVars.Add("__class__");
+                        #if DEBUG_LOG
+                        Console.WriteLine($"  ✅ Added __class__ to freeVars due to super() calls in function or nested functions (symbol table path)");
+                        #endif
+                    }
+
                     // CPython 3.12: Update symbol table context for nested function compilation
                     savedSymbolTable = _currentSymbolTable;
                     _currentSymbolTable = funcSymbolTable;
@@ -2713,9 +2803,18 @@ namespace SharpPy
                     var (oldFreeVars, oldCellVars) = analyzer.AnalyzeNestedFunction(func, _varNames);
                     freeVars.AddRange(oldFreeVars);
                     cellVars.AddRange(oldCellVars);
+
+                    // CPython 3.12: If function contains super() calls, ensure __class__ is in freeVars
+                    if (ContainsSuperCalls(func.Body) && !freeVars.Contains("__class__"))
+                    {
+                        freeVars.Add("__class__");
+                        #if DEBUG_LOG
+                        Console.WriteLine($"  ✅ Added __class__ to freeVars due to super() calls");
+                        #endif
+                    }
                 }
             }
-            
+
             #if DEBUG_LOG
             Console.WriteLine($"  Free variables: [{string.Join(", ", freeVars)}]");
             #endif
@@ -2745,7 +2844,7 @@ namespace SharpPy
             #endif
             
             // 2. 매개변수와 기본값 파싱 (CPython 3.12: use Arguments instead of Parameters)
-            var (paramNames, defaultExprs, flags, argCount, posonlyArgCount, annotations) = ParseFunctionArguments(func.Arguments);
+            var (paramNames, defaultExprs, kwDefaultExprs, flags, argCount, posonlyArgCount, kwonlyArgCount, annotations) = ParseFunctionArguments(func.Arguments);
 
             // Evaluate default expressions to PyObjects (defaults are evaluated at function definition time)
             var defaults = new List<PyObject>();
@@ -2760,6 +2859,24 @@ namespace SharpPy
                     // For complex expressions, we need to compile and evaluate them
                     // But for now, this will be handled by compiling them as bytecode below
                     defaults.Add(PyNone.Instance); // Placeholder, will be replaced below
+                }
+            }
+
+            // Evaluate keyword-only default expressions
+            var kwDefaults = new List<PyObject>();
+            foreach (var kwDefaultExpr in kwDefaultExprs)
+            {
+                if (kwDefaultExpr == null)
+                {
+                    kwDefaults.Add(PyNone.Instance); // No default for this kwonly arg
+                }
+                else if (kwDefaultExpr is ConstantExpression constExpr)
+                {
+                    kwDefaults.Add(constExpr.Value);
+                }
+                else
+                {
+                    kwDefaults.Add(PyNone.Instance); // Placeholder
                 }
             }
 
@@ -2821,12 +2938,16 @@ namespace SharpPy
                 #endif
 
                 // CPython 3.12: Check for zero-argument super() calls and add __class__ as referenced variable
-                if (ContainsSuperCalls(func.Body) && availableOuterVars.Contains("__class__"))
+                // NOTE: We check ContainsSuperCalls() first, then add __class__ even if not in availableOuterVars
+                // This handles the case where we're compiling a method inside a class body that has __class__ cell
+                if (ContainsSuperCalls(func.Body))
                 {
                     #if DEBUG_LOG
                     Console.WriteLine($"   Function contains super() calls - adding __class__ as referenced variable");
                     #endif
                     referencedVars.Add("__class__");
+                    // Also add __class__ to availableOuterVars so it can be resolved as a free variable
+                    availableOuterVars.Add("__class__");
                 }
 
                 // Variables that are referenced but not defined locally become free variables
@@ -2869,7 +2990,7 @@ namespace SharpPy
                 Console.WriteLine($"  📤 Passed root symbol table to nested compiler: {_symbolTable.Name}");
                 #endif
             }
-            var funcCode = compiler.CompileWithClosureAndDefaults(func.Body, func.Name, paramNames, defaults, freeVars, cellVars, flags, argCount, posonlyArgCount);
+            var funcCode = compiler.CompileWithClosureAndDefaults(func.Body, func.Name, paramNames, defaults, kwDefaults, freeVars, cellVars, flags, argCount, posonlyArgCount, kwonlyArgCount);
             
             // 3. CPython 3.12 exact pattern: Load decorators in REVERSE order (bottom to top in source)
             if (func.Decorators != null && func.Decorators.Count > 0)
@@ -3372,19 +3493,20 @@ namespace SharpPy
 
                         case SymbolScope.Global:
                             // CPython 3.12: 모듈 레벨에서는 LOAD_NAME, 함수 내에서는 LOAD_GLOBAL
-                            var globalIndex = AddName(name);
                             if (!_isInFunction)
                             {
-                                EmitInstruction(ByteCodeOp.LOAD_NAME, globalIndex);
+                                var nameIndex = AddName(name);
+                                EmitInstruction(ByteCodeOp.LOAD_NAME, nameIndex);
                                 #if DEBUG_LOG
-                                Console.WriteLine($"    → Module level LOAD_NAME for global var: {name} (global index {globalIndex})");
+                                Console.WriteLine($"    → Module level LOAD_NAME for global var: {name} (name index {nameIndex})");
                                 #endif
                             }
                             else
                             {
-                                EmitInstruction(ByteCodeOp.LOAD_GLOBAL, globalIndex);
+                                // CPython 3.12: Use new-style LOAD_GLOBAL with flag encoding
+                                EmitLoadGlobal(name, pushNull: false);
                                 #if DEBUG_LOG
-                                Console.WriteLine($"    → Function level LOAD_GLOBAL for global var: {name} (global index {globalIndex})");
+                                Console.WriteLine($"    → Function level LOAD_GLOBAL for global var: {name}");
                                 #endif
                             }
                             return;
@@ -3412,10 +3534,10 @@ namespace SharpPy
             // 1. CPython 3.12: global 변수를 먼저 체크 (fallback)
             if (_globalVars.Contains(name))
             {
-                var globalIndex = AddName(name);
-                EmitInstruction(ByteCodeOp.LOAD_GLOBAL, globalIndex);
+                // CPython 3.12: Use new-style LOAD_GLOBAL with flag encoding
+                EmitLoadGlobal(name, pushNull: false);
                 #if DEBUG_LOG
-                Console.WriteLine($"    → LOAD_GLOBAL for global var: {name} (global index {globalIndex})");
+                Console.WriteLine($"    → LOAD_GLOBAL for global var: {name}");
                 #endif
                 return;
             }
@@ -3497,20 +3619,28 @@ namespace SharpPy
             }
             
             // 4. 함수 내부에서의 전역 변수/내장 함수 참조 - CPython 3.12 호환성
-            // 내장 함수 우선 처리
-            if (IsBuiltinFunction(name))
-            {
-                var builtinIndex = AddName(name);
-                EmitInstruction(ByteCodeOp.LOAD_GLOBAL, builtinIndex);
-            }
-            else
-            {
-                // 일반 전역 변수
-                var globalIndex = AddName(name);
-                EmitInstruction(ByteCodeOp.LOAD_GLOBAL, globalIndex);
-            }
+            // CPython 3.12: Use new-style LOAD_GLOBAL with flag encoding
+            EmitLoadGlobal(name, pushNull: false);
+            #if DEBUG_LOG
+            Console.WriteLine($"    → LOAD_GLOBAL for {(IsBuiltinFunction(name) ? "builtin" : "global")}: {name}");
+            #endif
         }
         
+        /// <summary>
+        /// CPython 3.12: LOAD_GLOBAL with optional NULL push
+        /// oparg encoding: (nameIndex << 1) | pushNull
+        /// </summary>
+        private void EmitLoadGlobal(string name, bool pushNull = false)
+        {
+            var nameIndex = AddName(name);
+            // CPython 3.12: low bit indicates whether to push NULL
+            int oparg = pushNull ? (nameIndex << 1) | 1 : (nameIndex << 1);
+            #if DEBUG_LOG
+            Console.WriteLine($"   EmitLoadGlobal('{name}', pushNull={pushNull}): nameIndex={nameIndex}, oparg={oparg}");
+            #endif
+            EmitInstruction(ByteCodeOp.LOAD_GLOBAL, oparg);
+        }
+
         private void EmitStoreName(string name)
         {
             // 함수 내부에서는 지역변수로 등록하고 STORE_FAST 사용
@@ -3873,10 +4003,19 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.COMPARE_OP, compareOp);
         }
         
-        private void EmitLoadAttr(string attrName)
+        /// <summary>
+        /// CPython 3.12: LOAD_ATTR with optional NULL push for method call optimization
+        /// oparg encoding: (nameIndex << 1) | pushNull
+        /// </summary>
+        private void EmitLoadAttr(string attrName, bool pushNull = false)
         {
-            var index = AddName(attrName);
-            EmitInstruction(ByteCodeOp.LOAD_ATTR, index);
+            var nameIndex = AddName(attrName);
+            // CPython 3.12: low bit indicates whether to push NULL for method calls
+            int oparg = pushNull ? (nameIndex << 1) | 1 : (nameIndex << 1);
+            #if DEBUG_LOG
+            Console.WriteLine($"   EmitLoadAttr('{attrName}', pushNull={pushNull}): nameIndex={nameIndex}, oparg={oparg}");
+            #endif
+            EmitInstruction(ByteCodeOp.LOAD_ATTR, oparg);
         }
         
         private void CompileAugAssign(AugAssignStatement augAssign)
@@ -4015,7 +4154,7 @@ namespace SharpPy
             #endif
             
             // 2. 매개변수와 기본값 파싱 (CPython 3.12: use Arguments)
-            var (paramNames, defaultExprs, flags, argCount, posonlyArgCount, annotations) = ParseFunctionArguments(asyncFunc.Arguments);
+            var (paramNames, defaultExprs, kwDefaultExprs, flags, argCount, posonlyArgCount, kwonlyArgCount, annotations) = ParseFunctionArguments(asyncFunc.Arguments);
 
             // Evaluate default expressions to PyObjects (defaults are evaluated at function definition time)
             var defaults = new List<PyObject>();
@@ -4028,6 +4167,24 @@ namespace SharpPy
                 else
                 {
                     defaults.Add(PyNone.Instance); // Placeholder
+                }
+            }
+
+            // Evaluate keyword-only defaults
+            var kwDefaults = new List<PyObject>();
+            foreach (var kwDefaultExpr in kwDefaultExprs)
+            {
+                if (kwDefaultExpr == null)
+                {
+                    kwDefaults.Add(PyNone.Instance);
+                }
+                else if (kwDefaultExpr is ConstantExpression constExpr)
+                {
+                    kwDefaults.Add(constExpr.Value);
+                }
+                else
+                {
+                    kwDefaults.Add(PyNone.Instance);
                 }
             }
 
@@ -4202,7 +4359,7 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, typeParams.Count);
                 
                 // Create annotations tuple: complex parameter annotations
-                var (paramNames, defaultExprs, flags, argCount, posonlyArgCount, annotations) = ParseFunctionArguments(func.Arguments);
+                var (paramNames, defaultExprs, kwDefaultExprs, flags, argCount, posonlyArgCount, kwonlyArgCount, annotations) = ParseFunctionArguments(func.Arguments);
 
                 // Convert defaults for internal use
                 var defaults = new List<PyObject>();
@@ -4215,6 +4372,24 @@ namespace SharpPy
                     else
                     {
                         defaults.Add(PyNone.Instance);
+                    }
+                }
+
+                // Convert keyword-only defaults
+                var kwDefaults = new List<PyObject>();
+                foreach (var kwDefaultExpr in kwDefaultExprs)
+                {
+                    if (kwDefaultExpr == null)
+                    {
+                        kwDefaults.Add(PyNone.Instance);
+                    }
+                    else if (kwDefaultExpr is ConstantExpression constExpr)
+                    {
+                        kwDefaults.Add(constExpr.Value);
+                    }
+                    else
+                    {
+                        kwDefaults.Add(PyNone.Instance);
                     }
                 }
                 
@@ -4268,9 +4443,11 @@ namespace SharpPy
                     _varNames,
                     0, // argCount
                     0, // posonlyArgCount
+                    0, // kwonlyArgCount
                     _freeVars,
                     _cellVars,
                     new List<PyObject>(), // defaultValues
+                    null, // kwDefaults
                     0, // flags
                     "", // fileName
                     new List<string>() // sourceLines
@@ -4682,6 +4859,7 @@ namespace SharpPy
                     _varNames,
                     0,  // argCount
                     0,  // posonlyArgCount
+                    0,  // kwonlyArgCount
                     _freeVars,    // freeVars
                     _cellVars     // cellVars
                 );
@@ -4849,9 +5027,12 @@ namespace SharpPy
                     _names.ToList(),
                     _varNames.ToList(),
                     argCount: 0,  // Class body has no arguments
+                    posonlyArgCount: 0,
+                    kwonlyArgCount: 0,
                     freeVars: _freeVars.ToList(),  // Include free variables
                     cellVars: _cellVars.ToList(),
                     defaultValues: null,
+                    kwDefaults: null,
                     flags: 0,
                     fileName: _currentFileName,
                     sourceLines: _sourceLines
@@ -4910,7 +5091,8 @@ namespace SharpPy
             switch (stmt)
             {
                 case FunctionDefStatement func:
-                    // Check method bodies for super() calls
+                    // For nested functions, recursively check their bodies
+                    // This ensures class bodies correctly detect super() in methods
                     return ContainsSuperCalls(func.Body);
 
                 case IfStatement ifStmt:
@@ -7897,9 +8079,11 @@ namespace SharpPy
                 lambdaVarNames, // VarNames with parameters first
                 cleanParamNames.Count, // Use clean parameter count
                 0, // posonlyArgCount
+                0, // kwonlyArgCount
                 freeVars, // Set FreeVars for closure support
                 cellVars, // Set CellVars for closure support
                 defaultValues: defaultValues, // CPython 3.12: Pass default values
+                kwDefaults: null,
                 flags: 0,
                 fileName: _currentFileName,
                 sourceLines: _sourceLines

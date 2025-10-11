@@ -7,6 +7,32 @@ namespace SharpPy
     /// </summary>
     public class PyClass : PyType
     {
+        static PyClass()
+        {
+            InitializeTypeTypeDescriptors();
+        }
+
+        private static void InitializeTypeTypeDescriptors()
+        {
+            // PyType.TypeType의 descriptor가 이미 초기화되었는지 확인
+            if (PyType.TypeType.Descriptors.Methods.ContainsKey("mro")) return;
+
+            var typeType = PyType.TypeType;
+
+            // mro() method descriptor - CPython 3.12 호환
+            typeType.Descriptors.AddMethod("mro", new PyMethodDescriptor(
+                "mro", typeType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create("mro() takes no arguments");
+                    if (self is not PyType type)
+                        throw PyTypeError.Create($"descriptor 'mro' requires a 'type' object but received a '{self.GetTypeName()}'");
+                    return new PyList(type.MRO.Cast<PyObject>().ToList());
+                },
+                minArgs: 0, maxArgs: 0
+            ));
+        }
+
         public Dictionary<string, PyObject> ClassDict { get; }
         public List<PyObject>? TypeParams { get; set; } // PEP 695 __type_params__
         public PyClass? Metaclass { get; set; } // Metaclass information for type() calls
@@ -113,7 +139,7 @@ namespace SharpPy
             Console.WriteLine($"   Metaclass: {Metaclass}");
             Console.WriteLine($"   Metaclass != null: {Metaclass != null}");
             #endif
-            
+
             // If this class was created with a metaclass, return the metaclass
             if (Metaclass != null)
             {
@@ -131,6 +157,82 @@ namespace SharpPy
             Console.WriteLine($"   → base.GetPyType() returned: {baseType}");
             #endif
             return baseType;
+        }
+
+        // CPython 3.12: Override GetIterator to check metaclass __iter__
+        public override PyObject GetIterator()
+        {
+            #if DEBUG_LOG
+            Console.WriteLine($"🔍 PyClass.GetIterator() called for {Name}");
+            Console.WriteLine($"   Metaclass: {Metaclass?.Name}");
+            Console.WriteLine($"   Metaclass type: {Metaclass?.GetType().Name}");
+            Console.WriteLine($"   Metaclass is PyClass: {Metaclass is PyClass}");
+            #endif
+
+            // Check if metaclass has __iter__ method
+            if (Metaclass != null)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"   → checking metaclass ClassDict for __iter__");
+                if (Metaclass is PyClass metaPyClassDebug)
+                {
+                    Console.WriteLine($"   → metaclass ClassDict count: {metaPyClassDebug.ClassDict.Count}");
+                    Console.WriteLine($"   → metaclass ClassDict keys: {string.Join(", ", metaPyClassDebug.ClassDict.Keys.Take(10))}");
+                }
+                #endif
+
+                // Check metaclass's ClassDict directly
+                if (Metaclass is PyClass metaClass && metaClass.ClassDict.TryGetValue("__iter__", out PyObject iterMethod))
+                {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   ✅ found __iter__ in metaclass ClassDict");
+                    #endif
+
+                    if (iterMethod.IsCallable())
+                    {
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   → calling __iter__ with this class as argument");
+                        #endif
+                        // Call metaclass's __iter__ with this class as argument
+                        var iterResult = iterMethod.Call(new PyObject[] { this }, null);
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   → __iter__ returned: {iterResult?.GetTypeName()}");
+                        #endif
+                        return iterResult;
+                    }
+                }
+
+                // Also check metaclass MRO (e.g., if EnumType inherits from type)
+                for (int i = 1; i < Metaclass.MRO.Count; i++)
+                {
+                    var metaBase = Metaclass.MRO[i];
+                    if (metaBase is PyClass metaPyClass && metaPyClass.ClassDict.TryGetValue("__iter__", out PyObject metaIterMethod))
+                    {
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   ✅ found __iter__ in metaclass MRO ({metaBase.Name})");
+                        #endif
+
+                        if (metaIterMethod.IsCallable())
+                        {
+                            #if DEBUG_LOG
+                            Console.WriteLine($"   → calling metaclass MRO __iter__ with this class as argument");
+                            #endif
+                            var iterResult = metaIterMethod.Call(new PyObject[] { this }, null);
+                            #if DEBUG_LOG
+                            Console.WriteLine($"   → __iter__ returned: {iterResult?.GetTypeName()}");
+                            #endif
+                            return iterResult;
+                        }
+                    }
+                }
+
+                #if DEBUG_LOG
+                Console.WriteLine($"   ❌ No __iter__ found in metaclass or its MRO");
+                #endif
+            }
+
+            // Fall back to base behavior (which throws "not iterable" error)
+            return base.GetIterator();
         }
 
         // 클래스 attribute 접근
@@ -172,13 +274,6 @@ namespace SharpPy
                     Console.WriteLine($"   → returning __module__ = __main__");
                     #endif
                     return new PyString("__main__"); // CPython 호환성을 위해 __main__ 반환
-                case "mro":
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   → returning mro method");
-                    #endif
-                    return new PyBuiltinFunction("mro", (args) => {
-                        return new PyList(MRO.Cast<PyObject>().ToList());
-                    });
                 default:
                     #if DEBUG_LOG
                     Console.WriteLine($"   → searching for '{name}' in ClassDict ({ClassDict.Count} items)");
@@ -258,9 +353,66 @@ namespace SharpPy
                             }
                         }
                     }
-                    
+
+                    // CPython 3.12: Check metaclass (type of this class) for attributes
                     #if DEBUG_LOG
-                    Console.WriteLine($"   ❌ '{name}' not found in MRO, calling PyObject.GetAttribute");
+                    Console.WriteLine($"   ❌ '{name}' not found in MRO, checking metaclass");
+                    #endif
+                    if (Metaclass != null)
+                    {
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   → checking metaclass '{Metaclass.Name}' for '{name}'");
+                        #endif
+
+                        // Check metaclass's ClassDict and MRO
+                        if (Metaclass.ClassDict.TryGetValue(name, out PyObject metaclassValue))
+                        {
+                            #if DEBUG_LOG
+                            Console.WriteLine($"   ✅ found '{name}' in metaclass: {metaclassValue?.GetType().Name}");
+                            #endif
+
+                            // Descriptor 처리 - metaclass descriptor는 class 객체에 바인딩
+                            if (metaclassValue is IDescriptor metaDesc)
+                            {
+                                #if DEBUG_LOG
+                                Console.WriteLine($"   🔧 calling metaclass descriptor.Get({Name}, {Metaclass.Name})");
+                                #endif
+                                var result = metaDesc.Get(this, Metaclass);
+                                #if DEBUG_LOG
+                                Console.WriteLine($"   → metaclass descriptor returned: {result?.GetType().Name}");
+                                #endif
+                                return result;
+                            }
+
+                            return metaclassValue;
+                        }
+
+                        // Check metaclass MRO (e.g., type's __iter__)
+                        for (int i = 1; i < Metaclass.MRO.Count; i++)
+                        {
+                            var metaBase = Metaclass.MRO[i];
+                            if (metaBase is PyClass metaPyClass && metaPyClass.ClassDict.TryGetValue(name, out PyObject metaBaseValue))
+                            {
+                                #if DEBUG_LOG
+                                Console.WriteLine($"   ✅ found '{name}' in metaclass MRO ({metaBase.Name}): {metaBaseValue?.GetType().Name}");
+                                #endif
+
+                                // Descriptor 처리
+                                if (metaBaseValue is IDescriptor metaBaseDesc)
+                                {
+                                    #if DEBUG_LOG
+                                    Console.WriteLine($"   🔧 calling metaclass MRO descriptor.Get({Name}, {Metaclass.Name})");
+                                    #endif
+                                    return metaBaseDesc.Get(this, Metaclass);
+                                }
+
+                                return metaBaseValue;
+                            }
+                        }
+                    }
+
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   ❌ '{name}' not found in metaclass, calling PyObject.GetAttribute");
                     #endif
                     var baseResult = base.GetAttribute(name);
                     #if DEBUG_LOG
@@ -742,6 +894,26 @@ namespace SharpPy
             base.SetItem(key, value);
         }
 
+        // CPython 3.12: Dict subclasses support 'in' operator
+        public override PyBool Contains(PyObject item)
+        {
+            if (_dictStorage != null)
+            {
+                return _dictStorage.Contains(item);
+            }
+            return base.Contains(item);
+        }
+
+        // CPython 3.12: Dict subclasses support iteration
+        public override PyObject GetIterator()
+        {
+            if (_dictStorage != null)
+            {
+                return _dictStorage.GetIterator();
+            }
+            return base.GetIterator();
+        }
+
         protected override bool HasCustomGetAttr() => _customGetAttr != null;
 
         protected override PyObject CallGetAttr(string name)
@@ -1085,52 +1257,7 @@ namespace SharpPy
     /// <summary>
     /// Python의 super() 구현
     /// </summary>
-    public class PySuper : PyObject
-    {
-        public PyType Type { get; }
-        public PyObject Instance { get; }
-        public List<PyType> SuperMRO { get; }
-
-        public PySuper(PyType type, PyObject instance)
-        {
-            Type = type;
-            Instance = instance;
-
-            // super()는 현재 클래스 다음부터의 MRO를 사용
-            var instanceMRO = instance.GetPyType().MRO;
-            var typeIndex = instanceMRO.IndexOf(type);
-            if (typeIndex >= 0 && typeIndex < instanceMRO.Count - 1)
-            {
-                SuperMRO = instanceMRO.Skip(typeIndex + 1).ToList();
-            }
-            else
-            {
-                SuperMRO = new List<PyType>();
-            }
-        }
-
-        public override string GetTypeName() => "super";
-        public override PyString ToRepr() => new PyString($"<super: {Type.Name}, {Instance}>");
-
-        public override PyObject GetAttribute(string name)
-        {
-            // super()의 MRO에서 메서드 찾기
-            foreach (var mroType in SuperMRO)
-            {
-                if (mroType is PyClass customType && customType.ClassDict.ContainsKey(name))
-                {
-                    var attr = customType.ClassDict[name];
-                    if (attr is PyFunction func)
-                    {
-                        return new PyMethod(Instance, func);
-                    }
-                    return attr;
-                }
-            }
-
-            throw PyAttributeError.Create($"'super' object has no attribute '{name}'");
-        }
-    }
+    // PySuper moved to PyBuiltin.cs to follow CPython 3.12 structure
 
     #endregion
 }

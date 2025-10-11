@@ -196,50 +196,81 @@ namespace SharpPy
         // 내부 attribute 처리 메서드들 (MRO 기반)
         protected virtual PyObject PyGetAttribute(string name)
         {
+            // CPython 3.12 호환: GenericGetAttribute 사용
+            return GenericGetAttribute(name);
+        }
+
+        /// <summary>
+        /// CPython PyObject_GenericGetAttr 호환: 제네릭 속성 접근
+        /// MRO 기반 descriptor 프로토콜 구현
+        /// </summary>
+        protected virtual PyObject GenericGetAttribute(string name)
+        {
             var type = GetPyType();
-            Console.WriteLine($"🔍 PyObject.PyGetAttribute: looking for '{name}' on {type.Name}");
+            #if DEBUG_LOG
+            Console.WriteLine($"🔍 PyObject.GenericGetAttribute: looking for '{name}' on {type.Name}");
+            #endif
 
             // 1. 타입의 MRO에서 descriptor 찾기
             IDescriptor descriptor = null;
             PyObject attr = null;
 
+            #if DEBUG_LOG
             Console.WriteLine($"   → checking MRO ({type.MRO.Count} types):");
+            #endif
             foreach (var mroType in type.MRO)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"     - checking {mroType.Name}");
+                #endif
+
+                // CPython 호환: 먼저 descriptor 테이블 확인
+                if (mroType.Descriptors != null)
+                {
+                    var desc = mroType.Descriptors.Lookup(name);
+                    if (desc != null)
+                    {
+                        descriptor = desc;
+                        attr = (PyObject)desc;
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   ✅ found '{name}' in {mroType.Name} descriptor table: {desc.GetType().Name}");
+                        #endif
+                        break;
+                    }
+                }
+
+                // 사용자 정의 클래스의 ClassDict 확인
                 if (mroType is PyClass customType && customType.ClassDict.ContainsKey(name))
                 {
                     attr = customType.ClassDict[name];
+                    #if DEBUG_LOG
                     Console.WriteLine($"   ✅ found '{name}' in {mroType.Name}: {attr?.GetType().Name}");
+                    #endif
                     if (attr is IDescriptor desc)
                     {
                         descriptor = desc;
+                        #if DEBUG_LOG
                         Console.WriteLine($"   🔧 '{name}' is a descriptor: {desc.GetType().Name}");
+                        #endif
                     }
                     // CPython 호환: __get__, __set__, __delete__ 메서드가 있는 객체는 디스크립터로 취급
                     else if (IsPythonDescriptor(attr))
                     {
                         descriptor = new PyDescriptorWrapper(attr);
+                        #if DEBUG_LOG
                         Console.WriteLine($"   🔧 '{name}' is a Python descriptor: {attr.GetType().Name}");
+                        #endif
                     }
                     break;
                 }
-                // Check for builtin object methods when checking 'object' type
-                // else if (mroType.Name == "object")
-                // {
-                //     attr = this.GetBuiltinObjectMethod(name);
-                //     if (attr != null)
-                //     {
-                //         Console.WriteLine($"   ✅ found builtin '{name}' in object: {attr.GetType().Name}");
-                //         break;
-                //     }
-                // }
             }
 
             // 2. data descriptor라면 우선권
             if (descriptor != null && descriptor.IsDataDescriptor())
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"   → calling data descriptor.Get({this}, {type}) for '{name}'");
+                #endif
                 return descriptor.Get(this, type);
             }
 

@@ -7,6 +7,15 @@ namespace SharpPy
     /// </summary>
     public class PyType : PyObject
     {
+        #region Descriptor Tables (CPython tp_methods, tp_getset, tp_members)
+
+        /// <summary>
+        /// CPython 호환: 타입의 descriptor 테이블
+        /// </summary>
+        public PyTypeDescriptors Descriptors { get; private set; }
+
+        #endregion
+
         #region Built-in Type Constants
 
         // 핵심 기본 타입들 (실제 구현된 것들만)
@@ -42,6 +51,8 @@ namespace SharpPy
         
         // Descriptor 타입들 (데모에서 필요)
         public static readonly PyType PropertyType = new PyType("property", new[] { ObjectType });
+        public static readonly PyType StaticMethodType = new PyType("staticmethod", new[] { ObjectType });
+        public static readonly PyType ClassMethodType = new PyType("classmethod", new[] { ObjectType });
         
         // 기타 핵심 타입들
         public static readonly PyType ModuleType = new PyType("module", new[] { ObjectType });
@@ -142,6 +153,10 @@ namespace SharpPy
             BaseTypes = baseTypes ?? new PyType[0];
             Module = module;
             MRO = CalculateC3MRO();
+            Descriptors = new PyTypeDescriptors();
+
+            // 타입별 descriptor 초기화
+            InitializeDescriptors();
         }
 
         #endregion
@@ -272,7 +287,7 @@ namespace SharpPy
             {
                 return args[0].GetPyType();
             }
-            
+
             // type(name, bases, dict) - 새로운 타입 생성
             if (this == TypeType && args.Length == 3)
             {
@@ -293,7 +308,40 @@ namespace SharpPy
                 }
                 throw PyTypeError.Create("type() arguments must be (name, bases, dict)");
             }
-            
+
+            // CPython 3.12: Special handling for descriptor types
+            if (this == StaticMethodType)
+            {
+                if (args.Length != 1)
+                    throw PyTypeError.Create($"staticmethod expected 1 argument, got {args.Length}");
+                if (args[0] == null || !args[0].IsCallable())
+                    throw PyTypeError.Create("staticmethod() argument must be callable");
+                if (args[0] is PyFunction func)
+                    return new PyStaticmethod(func);
+                throw PyTypeError.Create("staticmethod() currently only supports PyFunction objects");
+            }
+
+            if (this == ClassMethodType)
+            {
+                if (args.Length != 1)
+                    throw PyTypeError.Create($"classmethod expected 1 argument, got {args.Length}");
+                if (args[0] == null || !args[0].IsCallable())
+                    throw PyTypeError.Create("classmethod() argument must be callable");
+                if (args[0] is PyFunction func)
+                    return new PyClassmethod(func);
+                throw PyTypeError.Create("classmethod() currently only supports PyFunction objects");
+            }
+
+            if (this == PropertyType)
+            {
+                // property([fget[, fset[, fdel[, doc]]]])
+                PyObject getter = args.Length > 0 ? args[0] : null;
+                PyObject setter = args.Length > 1 ? args[1] : null;
+                PyObject deleter = args.Length > 2 ? args[2] : null;
+                PyObject doc = args.Length > 3 ? args[3] : null;
+                return new PyProperty(getter, setter, deleter, doc);
+            }
+
             // 일반 타입 호출 - 인스턴스 생성
             return CreateInstance(args);
         }
@@ -447,64 +495,196 @@ namespace SharpPy
 
         #endregion
 
+        #region Descriptor Initialization
+
+        /// <summary>
+        /// 타입별 descriptor 초기화 (CPython의 타입 객체 초기화와 유사)
+        /// </summary>
+        private void InitializeDescriptors()
+        {
+            // CPython 3.12 호환: 각 타입의 tp_methods, tp_getset 초기화
+
+            // str 타입 메서드 초기화
+            if (this == StrType)
+            {
+                InitializeStrTypeDescriptors();
+            }
+            // object 타입 메서드 초기화
+            else if (this == ObjectType)
+            {
+                InitializeObjectTypeDescriptors();
+            }
+            // type 타입 속성 및 메서드 초기화
+            else if (this == TypeType)
+            {
+                InitializeTypeTypeDescriptors();
+            }
+        }
+
+        /// <summary>
+        /// str 타입의 descriptor 테이블 초기화 (CPython unicodeobject.c 참조)
+        /// </summary>
+        private void InitializeStrTypeDescriptors()
+        {
+            // 이미 초기화되었으면 스킵
+            if (Descriptors.Methods.Count > 0)
+                return;
+
+            var strType = this;
+
+            // str.upper() - CPython unicode_upper
+            Descriptors.AddMethod("upper", new PyMethodDescriptor(
+                "upper",
+                strType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"upper() takes no arguments ({args.Length} given)");
+                    if (self is not PyString str)
+                        throw PyTypeError.Create("descriptor 'upper' for 'str' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return new PyString(str.Value.ToUpperInvariant());
+                },
+                minArgs: 0,
+                maxArgs: 0
+            ));
+
+            // str.lower() - CPython unicode_lower
+            Descriptors.AddMethod("lower", new PyMethodDescriptor(
+                "lower",
+                strType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"lower() takes no arguments ({args.Length} given)");
+                    if (self is not PyString str)
+                        throw PyTypeError.Create("descriptor 'lower' for 'str' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return new PyString(str.Value.ToLowerInvariant());
+                },
+                minArgs: 0,
+                maxArgs: 0
+            ));
+
+            // str.title() - CPython unicode_title
+            Descriptors.AddMethod("title", new PyMethodDescriptor(
+                "title",
+                strType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"title() takes no arguments ({args.Length} given)");
+                    if (self is not PyString str)
+                        throw PyTypeError.Create("descriptor 'title' for 'str' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return str.Title();
+                },
+                minArgs: 0,
+                maxArgs: 0
+            ));
+        }
+
+        /// <summary>
+        /// object 타입의 descriptor 테이블 초기화 (CPython typeobject.c 참조)
+        /// </summary>
+        private void InitializeObjectTypeDescriptors()
+        {
+            // 이미 초기화되었으면 스킵
+            if (Descriptors.Methods.Count > 0)
+                return;
+
+            var objectType = this;
+
+            // object.__init__() - CPython object_init
+            Descriptors.AddMethod("__init__", new PyMethodDescriptor(
+                "__init__",
+                objectType,
+                (self, args, kwargs) => {
+                    // object.__init__() does nothing and returns None
+                    return PyNone.Instance;
+                },
+                minArgs: 0,
+                maxArgs: int.MaxValue
+            ));
+
+            // object.__new__(cls) - CPython object_new
+            Descriptors.AddMethod("__new__", new PyMethodDescriptor(
+                "__new__",
+                objectType,
+                (self, args, kwargs) => {
+                    // __new__ is a static method, first arg is the class
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("__new__() missing 1 required positional argument: 'cls'");
+
+                    // Create a basic PyInstance
+                    return new PyInstance();
+                },
+                minArgs: 1,
+                maxArgs: int.MaxValue
+            ));
+        }
+
+        /// <summary>
+        /// type 타입의 descriptor 테이블 초기화 (CPython typeobject.c 참조)
+        /// </summary>
+        private void InitializeTypeTypeDescriptors()
+        {
+            // 이미 초기화되었으면 스킵
+            if (Descriptors.GetSet.Count > 0 && Descriptors.Methods.Count > 0)
+                return;
+
+            var typeType = this;
+
+            // type.__name__ - CPython type_name / type_set_name
+            Descriptors.AddGetSet("__name__", new PyGetSetDescriptor(
+                "__name__",
+                typeType,
+                getter: self => {
+                    if (self is not PyType type)
+                        throw PyTypeError.Create("descriptor '__name__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return new PyString(type.Name);
+                }
+            ));
+
+            // type.__bases__ - CPython type_get_bases / type_set_bases
+            Descriptors.AddGetSet("__bases__", new PyGetSetDescriptor(
+                "__bases__",
+                typeType,
+                getter: self => {
+                    if (self is not PyType type)
+                        throw PyTypeError.Create("descriptor '__bases__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return new PyTuple(type.BaseTypes.Cast<PyObject>().ToArray());
+                }
+            ));
+
+            // type.__mro__ - CPython type_mro (read-only)
+            Descriptors.AddGetSet("__mro__", new PyGetSetDescriptor(
+                "__mro__",
+                typeType,
+                getter: self => {
+                    if (self is not PyType type)
+                        throw PyTypeError.Create("descriptor '__mro__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return new PyTuple(type.MRO.Cast<PyObject>().ToArray());
+                }
+            ));
+
+            // type.__new__ - CPython type_new
+            Descriptors.AddMethod("__new__", new PyMethodDescriptor(
+                "__new__",
+                typeType,
+                (self, args, kwargs) => {
+                    // This is a simplified version - actual CPython implementation is much more complex
+                    // For now, return a placeholder that indicates this is the type.__new__ method
+                    throw PyNotImplementedError.Create("type.__new__ descriptor call not yet fully implemented");
+                },
+                minArgs: 1,
+                maxArgs: int.MaxValue
+            ));
+        }
+
+        #endregion
+
         #region Type Attributes
 
         public override PyObject GetAttribute(string name)
         {
-            // Special handling for str type methods
-            if (this == StrType)
-            {
-                switch (name)
-                {
-                    case "upper":
-                        return new PyBuiltinFunction("str.upper", args => {
-                            if (args.Length != 1) throw PyTypeError.Create($"upper() takes exactly one argument ({args.Length} given)");
-                            if (args[0] is PyString str) return new PyString(str.Value.ToUpperInvariant());
-                            throw PyTypeError.Create("descriptor 'upper' for 'str' objects doesn't apply to a '" + args[0].GetTypeName() + "' object");
-                        });
-                    case "lower":
-                        return new PyBuiltinFunction("str.lower", args => {
-                            if (args.Length != 1) throw PyTypeError.Create($"lower() takes exactly one argument ({args.Length} given)");
-                            if (args[0] is PyString str) return new PyString(str.Value.ToLowerInvariant());
-                            throw PyTypeError.Create("descriptor 'lower' for 'str' objects doesn't apply to a '" + args[0].GetTypeName() + "' object");
-                        });
-                    case "title":
-                        return new PyBuiltinFunction("str.title", args => {
-                            if (args.Length != 1) throw PyTypeError.Create($"title() takes exactly one argument ({args.Length} given)");
-                            if (args[0] is PyString str) return str.Title();
-                            throw PyTypeError.Create("descriptor 'title' for 'str' objects doesn't apply to a '" + args[0].GetTypeName() + "' object");
-                        });
-                }
-            }
-
-            // CPython 3.12: object type의 기본 메서드들
-            if (this == ObjectType)
-            {
-                switch (name)
-                {
-                    case "__init__":
-                        return new PyBuiltinMethod("__init__", (self, args) =>
-                        {
-                            // object.__init__() does nothing and returns None
-                            return PyNone.Instance;
-                        });
-                }
-            }
-
-            switch (name)
-            {
-                case "__name__":
-                    return new PyString(Name);
-                case "__bases__":
-                    return new PyTuple(BaseTypes.Cast<PyObject>().ToArray());
-                case "__mro__":
-                    return new PyTuple(MRO.Cast<PyObject>().ToArray());
-                case "__new__":
-                    // Return the built-in type.__new__ method
-                    return new PyBuiltinFunction("type.__new__");
-                default:
-                    return base.GetAttribute(name);
-            }
+            // CPython 3.12 호환: descriptor 테이블을 통한 속성 조회
+            // MRO 기반으로 GenericGetAttribute가 자동으로 descriptor를 찾아줌
+            return GenericGetAttribute(name);
         }
 
         /// <summary>

@@ -4,49 +4,193 @@ using System.Linq;
 
 namespace SharpPy
 {
-    // CPython 3.12: list.sort() keyword-only arguments helper
-    internal class PySortFunction : PyObject
-    {
-        private readonly PyList _list;
-
-        public PySortFunction(PyList list)
-        {
-            _list = list;
-        }
-
-        public override PyObject Call(PyObject[] args, PyDict kwargs)
-        {
-            // CPython 3.12: list.sort(*, key=None, reverse=False)
-            PyObject? key = null;
-            bool reverse = false;
-
-            if (args.Length > 0)
-                throw PyTypeError.Create($"sort() takes no positional arguments ({args.Length} given)");
-
-            if (kwargs != null)
-            {
-                var keyStr = new PyString("key");
-                var reverseStr = new PyString("reverse");
-
-                if (kwargs.Contains(keyStr).Value)
-                    key = kwargs.GetItem(keyStr);
-
-                if (kwargs.Contains(reverseStr).Value)
-                {
-                    var reverseObj = kwargs.GetItem(reverseStr);
-                    reverse = reverseObj.PyBoolValue();
-                }
-            }
-
-            _list.Sort(key, reverse);
-            return PyNone.Instance;
-        }
-
-        public override string GetTypeName() => "builtin_function_or_method";
-    }
-
     public class PyList : PyObject
     {
+        static PyList()
+        {
+            InitializeListDescriptors();
+        }
+
+        private static void InitializeListDescriptors()
+        {
+            if (PyType.ListType.Descriptors.Methods.Count > 0) return;
+
+            var listType = PyType.ListType;
+
+            // append method descriptor
+            listType.Descriptors.AddMethod("append", new PyMethodDescriptor(
+                "append", listType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"append() takes exactly one argument ({args.Length} given)");
+                    if (self is not PyList list)
+                        throw PyTypeError.Create($"descriptor 'append' requires a 'list' object but received a '{self.GetTypeName()}'");
+                    list.Append(args[0]);
+                    return PyNone.Instance;
+                },
+                minArgs: 1, maxArgs: 1
+            ));
+
+            // insert method descriptor
+            listType.Descriptors.AddMethod("insert", new PyMethodDescriptor(
+                "insert", listType,
+                (self, args, kwargs) => {
+                    if (args.Length != 2)
+                        throw PyTypeError.Create($"insert() takes exactly two arguments ({args.Length} given)");
+                    if (self is not PyList list)
+                        throw PyTypeError.Create($"descriptor 'insert' requires a 'list' object but received a '{self.GetTypeName()}'");
+                    var index = args[0].ToInt();
+                    list.Insert(index, args[1]);
+                    return PyNone.Instance;
+                },
+                minArgs: 2, maxArgs: 2
+            ));
+
+            // remove method descriptor
+            listType.Descriptors.AddMethod("remove", new PyMethodDescriptor(
+                "remove", listType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"remove() takes exactly one argument ({args.Length} given)");
+                    if (self is not PyList list)
+                        throw PyTypeError.Create($"descriptor 'remove' requires a 'list' object but received a '{self.GetTypeName()}'");
+                    list.Remove(args[0]);
+                    return PyNone.Instance;
+                },
+                minArgs: 1, maxArgs: 1
+            ));
+
+            // pop method descriptor
+            listType.Descriptors.AddMethod("pop", new PyMethodDescriptor(
+                "pop", listType,
+                (self, args, kwargs) => {
+                    if (args.Length > 1)
+                        throw PyTypeError.Create($"pop() takes at most one argument ({args.Length} given)");
+                    if (self is not PyList list)
+                        throw PyTypeError.Create($"descriptor 'pop' requires a 'list' object but received a '{self.GetTypeName()}'");
+                    var index = args.Length == 0 ? -1 : args[0].ToInt();
+                    return list.Pop(index);
+                },
+                minArgs: 0, maxArgs: 1
+            ));
+
+            // clear method descriptor
+            listType.Descriptors.AddMethod("clear", new PyMethodDescriptor(
+                "clear", listType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"clear() takes no arguments ({args.Length} given)");
+                    if (self is not PyList list)
+                        throw PyTypeError.Create($"descriptor 'clear' requires a 'list' object but received a '{self.GetTypeName()}'");
+                    list.Clear();
+                    return PyNone.Instance;
+                },
+                minArgs: 0, maxArgs: 0
+            ));
+
+            // extend method descriptor
+            listType.Descriptors.AddMethod("extend", new PyMethodDescriptor(
+                "extend", listType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"extend() takes exactly one argument ({args.Length} given)");
+                    if (self is not PyList list)
+                        throw PyTypeError.Create($"descriptor 'extend' requires a 'list' object but received a '{self.GetTypeName()}'");
+                    list.Extend(args[0]);
+                    return PyNone.Instance;
+                },
+                minArgs: 1, maxArgs: 1
+            ));
+
+            // index method descriptor
+            listType.Descriptors.AddMethod("index", new PyMethodDescriptor(
+                "index", listType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"index() takes exactly one argument ({args.Length} given)");
+                    if (self is not PyList list)
+                        throw PyTypeError.Create($"descriptor 'index' requires a 'list' object but received a '{self.GetTypeName()}'");
+                    var index = list.Index(args[0]);
+                    return new PyInt(index);
+                },
+                minArgs: 1, maxArgs: 1
+            ));
+
+            // count method descriptor
+            listType.Descriptors.AddMethod("count", new PyMethodDescriptor(
+                "count", listType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"count() takes exactly one argument ({args.Length} given)");
+                    if (self is not PyList list)
+                        throw PyTypeError.Create($"descriptor 'count' requires a 'list' object but received a '{self.GetTypeName()}'");
+                    var count = list.Count(args[0]);
+                    return new PyInt(count);
+                },
+                minArgs: 1, maxArgs: 1
+            ));
+
+            // reverse method descriptor
+            listType.Descriptors.AddMethod("reverse", new PyMethodDescriptor(
+                "reverse", listType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"reverse() takes no arguments ({args.Length} given)");
+                    if (self is not PyList list)
+                        throw PyTypeError.Create($"descriptor 'reverse' requires a 'list' object but received a '{self.GetTypeName()}'");
+                    list.Reverse();
+                    return PyNone.Instance;
+                },
+                minArgs: 0, maxArgs: 0
+            ));
+
+            // sort method descriptor (special handling for keyword-only args)
+            listType.Descriptors.AddMethod("sort", new PyMethodDescriptor(
+                "sort", listType,
+                (self, args, kwargs) => {
+                    if (args.Length > 0)
+                        throw PyTypeError.Create($"sort() takes no positional arguments ({args.Length} given)");
+                    if (self is not PyList list)
+                        throw PyTypeError.Create($"descriptor 'sort' requires a 'list' object but received a '{self.GetTypeName()}'");
+
+                    PyObject? key = null;
+                    bool reverse = false;
+
+                    if (kwargs != null)
+                    {
+                        var keyStr = new PyString("key");
+                        var reverseStr = new PyString("reverse");
+
+                        if (kwargs.Contains(keyStr).Value)
+                            key = kwargs.GetItem(keyStr);
+
+                        if (kwargs.Contains(reverseStr).Value)
+                        {
+                            var reverseObj = kwargs.GetItem(reverseStr);
+                            reverse = reverseObj.PyBoolValue();
+                        }
+                    }
+
+                    list.Sort(key, reverse);
+                    return PyNone.Instance;
+                },
+                minArgs: 0, maxArgs: 0, acceptsKwargs: true
+            ));
+
+            // copy method descriptor
+            listType.Descriptors.AddMethod("copy", new PyMethodDescriptor(
+                "copy", listType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"copy() takes no arguments ({args.Length} given)");
+                    if (self is not PyList list)
+                        throw PyTypeError.Create($"descriptor 'copy' requires a 'list' object but received a '{self.GetTypeName()}'");
+                    return new PyList(list._items.ToArray());
+                },
+                minArgs: 0, maxArgs: 0
+            ));
+        }
+
         private List<PyObject> _items;
         public PyObject[] Items => _items.ToArray();
 
@@ -336,108 +480,10 @@ namespace SharpPy
             }
         }
 
-        // CPython 호환: 속성 접근 지원 (list 메서드들)
-        protected override PyObject PyGetAttribute(string name)
+        // CPython 3.12: Use descriptor protocol for attribute access
+        public override PyObject GetAttribute(string name)
         {
-            switch (name)
-            {
-                case "append":
-                    return new PyFunction("append", args =>
-                    {
-                        if (args.Length != 1)
-                            throw PyTypeError.Create($"append() takes exactly one argument ({args.Length} given)");
-                        Append(args[0]);
-                        return PyNone.Instance;
-                    });
-
-                case "insert":
-                    return new PyFunction("insert", args =>
-                    {
-                        if (args.Length != 2)
-                            throw PyTypeError.Create($"insert() takes exactly two arguments ({args.Length} given)");
-                        var index = args[0].ToInt();
-                        Insert(index, args[1]);
-                        return PyNone.Instance;
-                    });
-
-                case "remove":
-                    return new PyFunction("remove", args =>
-                    {
-                        if (args.Length != 1)
-                            throw PyTypeError.Create($"remove() takes exactly one argument ({args.Length} given)");
-                        Remove(args[0]);
-                        return PyNone.Instance;
-                    });
-
-                case "pop":
-                    return new PyFunction("pop", args =>
-                    {
-                        if (args.Length > 1)
-                            throw PyTypeError.Create($"pop() takes at most one argument ({args.Length} given)");
-                        var index = args.Length == 0 ? -1 : args[0].ToInt();
-                        return Pop(index);
-                    });
-
-                case "clear":
-                    return new PyFunction("clear", args =>
-                    {
-                        if (args.Length != 0)
-                            throw PyTypeError.Create($"clear() takes no arguments ({args.Length} given)");
-                        Clear();
-                        return PyNone.Instance;
-                    });
-
-                case "extend":
-                    return new PyFunction("extend", args =>
-                    {
-                        if (args.Length != 1)
-                            throw PyTypeError.Create($"extend() takes exactly one argument ({args.Length} given)");
-                        Extend(args[0]);
-                        return PyNone.Instance;
-                    });
-
-                case "index":
-                    return new PyFunction("index", args =>
-                    {
-                        if (args.Length != 1)
-                            throw PyTypeError.Create($"index() takes exactly one argument ({args.Length} given)");
-                        var index = Index(args[0]);
-                        return new PyInt(index);
-                    });
-
-                case "count":
-                    return new PyFunction("count", args =>
-                    {
-                        if (args.Length != 1)
-                            throw PyTypeError.Create($"count() takes exactly one argument ({args.Length} given)");
-                        var count = Count(args[0]);
-                        return new PyInt(count);
-                    });
-
-                case "reverse":
-                    return new PyFunction("reverse", args =>
-                    {
-                        if (args.Length != 0)
-                            throw PyTypeError.Create($"reverse() takes no arguments ({args.Length} given)");
-                        Reverse();
-                        return PyNone.Instance;
-                    });
-
-                case "sort":
-                    return new PySortFunction(this);
-
-                case "copy":
-                    return new PyFunction("copy", args =>
-                    {
-                        if (args.Length != 0)
-                            throw PyTypeError.Create($"copy() takes no arguments ({args.Length} given)");
-                        return new PyList(_items.ToArray());
-                    });
-
-                default:
-                    // 기본 속성 접근은 부모 클래스에 위임
-                    return base.PyGetAttribute(name);
-            }
+            return GenericGetAttribute(name);
         }
 
         // 이터레이터 지원

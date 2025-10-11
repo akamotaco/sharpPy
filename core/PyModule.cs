@@ -276,10 +276,10 @@ public class PyModule : PyObject
             // - datetime (stdlib/datetime.py + _datetime C# 모듈)
 
             // TODO: CPython 호환을 위해 Python으로 전환 필요:
-            // - urllib → Lib/urllib/ Python 모듈로 전환
+            // - urllib → Lib/urllib/ Python 모듈로 전환 (완료)
             // - asyncio → Lib/asyncio/ Python 모듈로 전환
             ["_sre"] = () => SharpPy.Modules._SreModule.CreateSreModule(),  // re.py가 사용
-            ["urllib"] = () => SharpPy.Modules.Stdlib.UrllibModule.CreateUrllibModule(),
+            // urllib는 Lib/urllib/ 디렉토리의 Python 모듈로 전환됨 (CPython 3.12 호환)
             ["asyncio"] = () => CreateAsyncioModule()
 
             // 주석: 다음 모듈들은 순수 Python 모듈로 Lib/ 디렉토리에서 로드됨:

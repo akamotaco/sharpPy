@@ -526,6 +526,21 @@ namespace SharpPy
                 AnalyzeStatement(stmt);
             }
 
+            // CPython 3.12: If function or nested functions contain super() calls, add __class__ as free variable
+            // This is critical for proper closure propagation in cases like:
+            //   def outer(self): def inner(): return super().__repr__()
+            if (PythonCompiler.ContainsSuperCalls(func.Body))
+            {
+                if (!_currentTable.HasSymbol("__class__"))
+                {
+                    // Add __class__ as a used (free) variable
+                    _currentTable.DefineSymbol("__class__", SymbolFlags.Used);
+#if DEBUG_LOG
+                    Console.WriteLine($"  ✅ Added __class__ to {_currentTable.GetName()} due to super() in function or nested functions");
+#endif
+                }
+            }
+
             // After analyzing body, resolve free variables
             ResolveFreeVariables(_currentTable);
 

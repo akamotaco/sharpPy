@@ -386,6 +386,16 @@ namespace SharpPy
                         return PyNone.Instance;
                     });
 
+                case "setdefault":
+                    return new PyFunction("setdefault", args =>
+                    {
+                        if (args.Length < 1 || args.Length > 2)
+                            throw PyTypeError.Create($"setdefault() takes from 1 to 2 positional arguments but {args.Length} were given");
+                        var key = args[0];
+                        var defaultValue = args.Length > 1 ? args[1] : PyNone.Instance;
+                        return SetDefault(key, defaultValue);
+                    });
+
                 default:
                     // 기본 속성 접근은 부모 클래스에 위임
                     return base.PyGetAttribute(name);

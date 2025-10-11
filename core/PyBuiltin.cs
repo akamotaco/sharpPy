@@ -108,6 +108,17 @@ namespace SharpPy
         private readonly Func<PyObject[], PyDict, PyObject>? _kwargsImplementation;
         private readonly BuiltinSignature? _signature;
 
+        /// <summary>
+        /// CPython 호환: 내장 함수 구현 테이블 (이름으로 직접 lookup하는 fallback용)
+        /// </summary>
+        private static readonly Dictionary<string, Func<PyObject[], PyDict, PyObject>> _builtinImplementations
+            = new Dictionary<string, Func<PyObject[], PyDict, PyObject>>();
+
+        static PyBuiltinFunction()
+        {
+            InitializeBuiltinImplementations();
+        }
+
         public PyBuiltinFunction(string name)
         {
             Name = name;
@@ -134,6 +145,74 @@ namespace SharpPy
 
         public override string GetTypeName() => "builtin_function_or_method";
 
+        /// <summary>
+        /// CPython 호환: 내장 함수 구현 테이블 초기화
+        /// </summary>
+        private static void InitializeBuiltinImplementations()
+        {
+            // 이미 초기화되었으면 스킵
+            if (_builtinImplementations.Count > 0)
+                return;
+
+            // 각 builtin 함수를 테이블에 등록
+            _builtinImplementations["print"] = (args, kwargs) => CallPrint(args, kwargs);
+            _builtinImplementations["input"] = (args, kwargs) => CallInput(args, kwargs);
+            _builtinImplementations["len"] = (args, kwargs) => CallLen(args, kwargs);
+            _builtinImplementations["abs"] = (args, kwargs) => CallAbs(args, kwargs);
+            _builtinImplementations["callable"] = (args, kwargs) => CallCallable(args, kwargs);
+            _builtinImplementations["range"] = (args, kwargs) => CallRange(args, kwargs);
+            _builtinImplementations["enumerate"] = (args, kwargs) => CallEnumerate(args, kwargs);
+            _builtinImplementations["zip"] = (args, kwargs) => CallZip(args, kwargs);
+            _builtinImplementations["map"] = (args, kwargs) => CallMap(args, kwargs);
+            _builtinImplementations["filter"] = (args, kwargs) => CallFilter(args, kwargs);
+            _builtinImplementations["sorted"] = (args, kwargs) => CallSorted(args, kwargs);
+            _builtinImplementations["reversed"] = (args, kwargs) => CallReversed(args, kwargs);
+            _builtinImplementations["sum"] = (args, kwargs) => CallSum(args, kwargs);
+            _builtinImplementations["min"] = (args, kwargs) => CallMin(args, kwargs);
+            _builtinImplementations["max"] = (args, kwargs) => CallMax(args, kwargs);
+            _builtinImplementations["any"] = (args, kwargs) => CallAny(args, kwargs);
+            _builtinImplementations["all"] = (args, kwargs) => CallAll(args, kwargs);
+            _builtinImplementations["isinstance"] = (args, kwargs) => CallIsInstance(args, kwargs);
+            _builtinImplementations["issubclass"] = (args, kwargs) => CallIsSubclass(args, kwargs);
+            _builtinImplementations["hasattr"] = (args, kwargs) => CallHasAttr(args, kwargs);
+            _builtinImplementations["getattr"] = (args, kwargs) => CallGetAttr(args, kwargs);
+            _builtinImplementations["setattr"] = (args, kwargs) => CallSetAttr(args, kwargs);
+            _builtinImplementations["delattr"] = (args, kwargs) => CallDelAttr(args, kwargs);
+            _builtinImplementations["dir"] = (args, kwargs) => CallDir(args, kwargs);
+            _builtinImplementations["__import__"] = (args, kwargs) => CallImport(args, kwargs);
+            _builtinImplementations["type"] = (args, kwargs) => CallType(args, kwargs);
+            _builtinImplementations["id"] = (args, kwargs) => CallId(args, kwargs);
+            _builtinImplementations["hash"] = (args, kwargs) => CallHash(args, kwargs);
+            _builtinImplementations["super"] = (args, kwargs) => CallSuper(args, kwargs);
+            _builtinImplementations["property"] = (args, kwargs) => CallProperty(args, kwargs);
+            _builtinImplementations["classmethod"] = (args, kwargs) => CallClassmethod(args, kwargs);
+            _builtinImplementations["staticmethod"] = (args, kwargs) => CallStaticmethod(args, kwargs);
+            _builtinImplementations["type.__new__"] = (args, kwargs) => CallTypeNew(args, kwargs);
+            _builtinImplementations["str"] = (args, kwargs) => CallStr(args, kwargs);
+            _builtinImplementations["repr"] = (args, kwargs) => CallRepr(args, kwargs);
+            _builtinImplementations["int"] = (args, kwargs) => CallInt(args, kwargs);
+            _builtinImplementations["float"] = (args, kwargs) => CallFloat(args, kwargs);
+            _builtinImplementations["bool"] = (args, kwargs) => CallBool(args, kwargs);
+            _builtinImplementations["list"] = (args, kwargs) => CallList(args, kwargs);
+            _builtinImplementations["tuple"] = (args, kwargs) => CallTuple(args, kwargs);
+            _builtinImplementations["dict"] = (args, kwargs) => CallDict(args, kwargs);
+            _builtinImplementations["set"] = (args, kwargs) => CallSet(args, kwargs);
+            _builtinImplementations["iter"] = (args, kwargs) => CallIter(args, kwargs);
+            _builtinImplementations["next"] = (args, kwargs) => CallNext(args, kwargs);
+            _builtinImplementations["round"] = (args, kwargs) => CallRound(args, kwargs);
+            _builtinImplementations["pow"] = (args, kwargs) => CallPow(args, kwargs);
+            _builtinImplementations["divmod"] = (args, kwargs) => CallDivmod(args, kwargs);
+            _builtinImplementations["ord"] = (args, kwargs) => CallOrd(args, kwargs);
+            _builtinImplementations["chr"] = (args, kwargs) => CallChr(args, kwargs);
+            _builtinImplementations["open"] = (args, kwargs) => CallOpen(args, kwargs);
+            _builtinImplementations["__build_class__"] = (args, kwargs) => CallBuildClass(args, kwargs);
+            _builtinImplementations["globals"] = (args, kwargs) => CallGlobals(args, kwargs);
+            _builtinImplementations["locals"] = (args, kwargs) => CallLocals(args, kwargs);
+            _builtinImplementations["bytes"] = (args, kwargs) => CallBytes(args, kwargs);
+            _builtinImplementations["bytearray"] = (args, kwargs) => CallBytearray(args, kwargs);
+            _builtinImplementations["memoryview"] = (args, kwargs) => CallMemoryview(args, kwargs);
+        }
+
         // 내장 함수 호출 - CPython 3.12 호환: kwargs 지원
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
@@ -155,72 +234,18 @@ namespace SharpPy
             {
                 return _implementation(args);
             }
-            
-            return Name switch
+
+            // CPython 호환: 딕셔너리 기반 lookup (switch 문 제거)
+            if (_builtinImplementations.TryGetValue(Name, out var implementation))
             {
-                "print" => CallPrint(args, kwargs),
-                "input" => CallInput(args, kwargs),
-                "len" => CallLen(args, kwargs),
-                "abs" => CallAbs(args, kwargs),
-                "callable" => CallCallable(args, kwargs),
-                "range" => CallRange(args, kwargs),
-                "enumerate" => CallEnumerate(args, kwargs),
-                "zip" => CallZip(args, kwargs),
-                "map" => CallMap(args, kwargs),
-                "filter" => CallFilter(args, kwargs),
-                "sorted" => CallSorted(args, kwargs),
-                "reversed" => CallReversed(args, kwargs),
-                "sum" => CallSum(args, kwargs),
-                "min" => CallMin(args, kwargs),
-                "max" => CallMax(args, kwargs),
-                "any" => CallAny(args, kwargs),
-                "all" => CallAll(args, kwargs),
-                "isinstance" => CallIsInstance(args, kwargs),
-                "issubclass" => CallIsSubclass(args, kwargs),
-                "hasattr" => CallHasAttr(args, kwargs),
-                "getattr" => CallGetAttr(args, kwargs),
-                "setattr" => CallSetAttr(args, kwargs),
-                "delattr" => CallDelAttr(args, kwargs),
-                "dir" => CallDir(args, kwargs),
-                "__import__" => CallImport(args, kwargs),
-                "type" => CallType(args, kwargs),
-                "id" => CallId(args, kwargs),
-                "hash" => CallHash(args, kwargs),
-                "super" => CallSuper(args, kwargs),
-                "property" => CallProperty(args, kwargs),
-                "classmethod" => CallClassmethod(args, kwargs),
-                "staticmethod" => CallStaticmethod(args, kwargs),
-                "type.__new__" => CallTypeNew(args, kwargs),
-                "str" => CallStr(args, kwargs),
-                "repr" => CallRepr(args, kwargs),
-                "int" => CallInt(args, kwargs),
-                "float" => CallFloat(args, kwargs),
-                "bool" => CallBool(args, kwargs),
-                "list" => CallList(args, kwargs),
-                "tuple" => CallTuple(args, kwargs),
-                "dict" => CallDict(args, kwargs),
-                "set" => CallSet(args, kwargs),
-                "iter" => CallIter(args, kwargs),
-                "next" => CallNext(args, kwargs),
-                "round" => CallRound(args, kwargs),
-                "pow" => CallPow(args, kwargs),
-                "divmod" => CallDivmod(args, kwargs),
-                "ord" => CallOrd(args, kwargs),
-                "chr" => CallChr(args, kwargs),
-                "open" => CallOpen(args, kwargs),
-                "__build_class__" => CallBuildClass(args, kwargs),
-                "globals" => CallGlobals(args, kwargs),
-                "locals" => CallLocals(args, kwargs),
-                // Buffer Protocol functions
-                "bytes" => CallBytes(args, kwargs),
-                "bytearray" => CallBytearray(args, kwargs),
-                "memoryview" => CallMemoryview(args, kwargs),
-                _ => throw PyNotImplementedError.Create($"Built-in function '{Name}' not implemented")
-            };
+                return implementation(args, kwargs);
+            }
+
+            throw PyNotImplementedError.Create($"Built-in function '{Name}' not implemented");
         }
 
-        // 내장 함수들의 구현
-        private PyObject CallPrint(PyObject[] args, PyDict kwargs = null)
+        // 내장 함수들의 구현 (static으로 변경하여 테이블에서 호출 가능하게)
+        private static PyObject CallPrint(PyObject[] args, PyDict kwargs = null)
         {
             // CPython 3.12 print(*values, sep=' ', end='\n', file=sys.stdout, flush=False)
             var sep = new PyString(" ");
@@ -281,7 +306,7 @@ namespace SharpPy
             return PyNone.Instance;
         }
 
-        private PyObject CallInput(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallInput(PyObject[] args, PyDict kwargs = null)
         {
             // CPython 3.12: input(prompt='', /)
             // Read a string from standard input. The trailing newline is stripped.
@@ -328,7 +353,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject CallLen(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallLen(PyObject[] args, PyDict kwargs = null)
         {
             // len()은 kwargs를 받지 않음
             if (kwargs != null && kwargs.InternalDict.Count > 0)
@@ -347,7 +372,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject CallAbs(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallAbs(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"abs() takes exactly one argument ({args.Length} given)");
@@ -358,7 +383,7 @@ namespace SharpPy
                 throw PyTypeError.Create($"bad operand type for abs(): '{args[0].GetTypeName()}'");
         }
 
-        private PyObject CallCallable(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallCallable(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"callable() takes exactly one argument ({args.Length} given)");
@@ -368,7 +393,7 @@ namespace SharpPy
 
         // === 핵심 내장 함수들 ===
 
-        private PyObject CallRange(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallRange(PyObject[] args, PyDict kwargs = null)
         {
             return args.Length switch
             {
@@ -391,7 +416,7 @@ namespace SharpPy
             };
         }
 
-        private PyObject CallEnumerate(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallEnumerate(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 1 || args.Length > 2)
                 throw PyTypeError.Create($"enumerate expected at most 2 arguments, got {args.Length}");
@@ -421,7 +446,7 @@ namespace SharpPy
             return new PyList(result.ToArray());
         }
 
-        private PyObject CallZip(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallZip(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length == 0)
                 return new PyList(new PyObject[0]);
@@ -449,7 +474,7 @@ namespace SharpPy
             return new PyList(result.ToArray());
         }
 
-        private PyObject CallMap(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallMap(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 2)
                 throw PyTypeError.Create($"map() must have at least two arguments.");
@@ -476,7 +501,7 @@ namespace SharpPy
             return new PyList(result.ToArray());
         }
 
-        private PyObject CallFilter(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallFilter(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"filter expected exactly 2 arguments ({args.Length} given)");
@@ -507,7 +532,7 @@ namespace SharpPy
             return new PyList(result.ToArray());
         }
 
-        private PyObject CallSorted(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallSorted(PyObject[] args, PyDict kwargs = null)
         {
             // CPython 3.12: sorted(iterable, *, key=None, reverse=False)
             if (args.Length != 1)
@@ -606,7 +631,7 @@ namespace SharpPy
             return new PyList(items.ToArray());
         }
 
-        private PyObject CallReversed(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallReversed(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"reversed expected exactly 1 arguments ({args.Length} given)");
@@ -631,7 +656,7 @@ namespace SharpPy
             return new PyList(items.ToArray());
         }
 
-        private PyObject CallSum(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallSum(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 1 || args.Length > 2)
                 throw PyTypeError.Create($"sum expected at most 2 arguments ({args.Length} given)");
@@ -657,7 +682,7 @@ namespace SharpPy
             return result;
         }
 
-        private PyObject CallMin(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallMin(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length == 0)
                 throw PyTypeError.Create("min expected at least 1 argument (0 given)");
@@ -701,7 +726,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject CallMax(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallMax(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length == 0)
                 throw PyTypeError.Create("max expected at least 1 argument (0 given)");
@@ -745,7 +770,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject CallAny(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallAny(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"any expected exactly 1 arguments ({args.Length} given)");
@@ -770,7 +795,7 @@ namespace SharpPy
             return PyBool.False;
         }
 
-        private PyObject CallAll(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallAll(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"all expected exactly 1 arguments ({args.Length} given)");
@@ -797,7 +822,7 @@ namespace SharpPy
 
         // === 타입 및 리플렉션 함수들 ===
 
-        private PyObject CallIsInstance(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallIsInstance(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"isinstance expected exactly 2 arguments ({args.Length} given)");
@@ -828,7 +853,7 @@ namespace SharpPy
         /// <summary>
         /// 제네릭 타입을 지원하는 확장된 isinstance 검사
         /// </summary>
-        private bool IsInstanceExtended(PyObject obj, PyType type)
+        private static bool IsInstanceExtended(PyObject obj, PyType type)
         {
             // 기본 isinstance 검사
             if (obj.IsInstance(type))
@@ -848,7 +873,7 @@ namespace SharpPy
             return false;
         }
 
-        private PyObject CallIsSubclass(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallIsSubclass(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"issubclass expected exactly 2 arguments ({args.Length} given)");
@@ -876,7 +901,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject CallHasAttr(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallHasAttr(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"hasattr expected exactly 2 arguments ({args.Length} given)");
@@ -898,7 +923,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject CallGetAttr(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallGetAttr(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 2 || args.Length > 3)
                 throw PyTypeError.Create($"getattr expected 2 or 3 arguments ({args.Length} given)");
@@ -922,7 +947,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject CallSetAttr(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallSetAttr(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 3)
                 throw PyTypeError.Create($"setattr expected exactly 3 arguments ({args.Length} given)");
@@ -938,7 +963,7 @@ namespace SharpPy
             return PyNone.Instance;
         }
 
-        private PyObject CallDelAttr(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallDelAttr(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"delattr expected exactly 2 arguments ({args.Length} given)");
@@ -953,7 +978,7 @@ namespace SharpPy
             return PyNone.Instance;
         }
 
-        private PyObject CallType(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallType(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"type expected exactly 1 arguments ({args.Length} given)");
@@ -962,7 +987,7 @@ namespace SharpPy
         }
 
 
-        private PyObject CallId(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallId(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"id expected exactly 1 arguments ({args.Length} given)");
@@ -970,7 +995,7 @@ namespace SharpPy
             return new PyInt(args[0].GetHashCode());
         }
 
-        private PyObject CallHash(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallHash(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"hash expected exactly 1 arguments ({args.Length} given)");
@@ -980,7 +1005,7 @@ namespace SharpPy
 
         // === 타입 변환 함수들 ===
 
-        private PyObject CallStr(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallStr(PyObject[] args, PyDict kwargs = null)
         {
             // CPython 3.12: str() with no args returns empty string
             if (args.Length == 0)
@@ -992,7 +1017,7 @@ namespace SharpPy
             return new PyString(args[0].AsString());
         }
 
-        private PyObject CallInt(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallInt(PyObject[] args, PyDict kwargs = null)
         {
             // CPython 3.12: int() with no args returns 0
             if (args.Length == 0)
@@ -1005,7 +1030,7 @@ namespace SharpPy
             return args[0].AsInt();
         }
 
-        private PyObject CallFloat(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallFloat(PyObject[] args, PyDict kwargs = null)
         {
             // CPython 3.12: float() with no args returns 0.0
             if (args.Length == 0)
@@ -1017,7 +1042,7 @@ namespace SharpPy
             return args[0].AsFloat();
         }
 
-        private PyObject CallBool(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallBool(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length > 1)
                 throw PyTypeError.Create($"bool expected at most 1 arguments ({args.Length} given)");
@@ -1028,7 +1053,7 @@ namespace SharpPy
             return args[0].AsBool();
         }
 
-        private PyObject CallList(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallList(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length > 1)
                 throw PyTypeError.Create($"list expected at most 1 arguments ({args.Length} given)");
@@ -1039,7 +1064,7 @@ namespace SharpPy
             return args[0].AsList();
         }
 
-        private PyObject CallTuple(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallTuple(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length > 1)
                 throw PyTypeError.Create($"tuple expected at most 1 arguments ({args.Length} given)");
@@ -1050,7 +1075,7 @@ namespace SharpPy
             return args[0].AsTuple();
         }
 
-        private PyObject CallDict(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallDict(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length > 1)
                 throw PyTypeError.Create($"dict expected at most 1 arguments ({args.Length} given)");
@@ -1061,7 +1086,7 @@ namespace SharpPy
             return args[0].AsDict();
         }
 
-        private PyObject CallSet(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallSet(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length > 1)
                 throw PyTypeError.Create($"set expected at most 1 arguments ({args.Length} given)");
@@ -1090,7 +1115,7 @@ namespace SharpPy
 
         // === 이터레이터 함수들 ===
 
-        private PyObject CallIter(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallIter(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"iter expected exactly 1 arguments ({args.Length} given)");
@@ -1098,7 +1123,7 @@ namespace SharpPy
             return args[0].GetIterator();
         }
 
-        private PyObject CallNext(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallNext(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 1 || args.Length > 2)
                 throw PyTypeError.Create($"next expected 1 or 2 arguments ({args.Length} given)");
@@ -1120,7 +1145,7 @@ namespace SharpPy
 
         // === 수학 함수들 ===
 
-        private PyObject CallRound(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallRound(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 1 || args.Length > 2)
                 throw PyTypeError.Create($"round expected 1 or 2 arguments ({args.Length} given)");
@@ -1143,7 +1168,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject CallPow(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallPow(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 2 || args.Length > 3)
                 throw PyTypeError.Create($"pow expected 2 or 3 arguments ({args.Length} given)");
@@ -1164,7 +1189,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject CallDivmod(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallDivmod(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 2)
                 throw PyTypeError.Create($"divmod expected exactly 2 arguments ({args.Length} given)");
@@ -1192,7 +1217,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject CallOrd(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallOrd(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"ord expected exactly 1 arguments ({args.Length} given)");
@@ -1208,7 +1233,7 @@ namespace SharpPy
             }
         }
 
-        private PyObject CallChr(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallChr(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"chr expected exactly 1 arguments ({args.Length} given)");
@@ -1240,7 +1265,7 @@ namespace SharpPy
             };
         }
 
-        private PyObject CallDir(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallDir(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length > 1)
                 throw PyTypeError.Create($"dir expected at most 1 arguments ({args.Length} given)");
@@ -1359,7 +1384,7 @@ namespace SharpPy
             return false;
         }
 
-        private PyObject CallBuildClass(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallBuildClass(PyObject[] args, PyDict kwargs = null)
         {
             #if DEBUG_LOG
             Console.WriteLine($"🚀 === __build_class__ called with {args.Length} args ===");
@@ -1445,30 +1470,194 @@ namespace SharpPy
                         bases.Add(PyType.ObjectType);
                 }
             }
-            
-            // CPython 3.12: Determine metaclass from base classes if not explicitly provided
-            if (!hasMetaclass && bases.Count > 0)
+
+            // CPython 3.12: Do NOT add object to bases here!
+            // CPython passes bases as-is to __prepare__ and __new__
+            // object is added later by type.__new__ if bases is empty
+
+            // CPython 3.12: Determine metaclass if not explicitly provided
+            if (!hasMetaclass)
             {
-                // Find metaclass from base classes (most derived metaclass)
-                foreach (var baseClass in bases)
+                if (bases.Count == 0)
                 {
-                    if (baseClass is PyClass baseAsClass && baseAsClass.Metaclass != null)
+                    // No bases: use type
+                    metaclass = PyTypeMetaclass.Instance;
+                    #if DEBUG_LOG
+                    Console.WriteLine($"No bases: using type as metaclass");
+                    #endif
+                    hasMetaclass = true;
+                }
+                else
+                {
+                    // Get initial metaclass from first base (like CPython's line 157-158)
+                    var firstBase = bases[0];
+                    if (firstBase is PyClass firstBaseAsClass)
                     {
-                        metaclass = baseAsClass.Metaclass;
+                        metaclass = firstBaseAsClass.Metaclass ?? PyTypeMetaclass.Instance;
                         #if DEBUG_LOG
-                        Console.WriteLine($"Inherited metaclass from base {baseClass.Name}: {metaclass}");
+                        Console.WriteLine($"Initial metaclass from first base {firstBase.Name}: {metaclass}");
                         #endif
                         hasMetaclass = true;
-                        break;
+                    }
+                    else if (firstBase is PyType)
+                    {
+                        // Built-in type (like int, str, dict)
+                        metaclass = PyTypeMetaclass.Instance;
+                        #if DEBUG_LOG
+                        Console.WriteLine($"First base is built-in type: using type as metaclass");
+                        #endif
+                        hasMetaclass = true;
                     }
                 }
             }
 
+            // CPython 3.12: Calculate the winner metaclass using _PyType_CalculateMetaclass logic
+            // This ensures we pick the most derived metaclass among all bases
+            if (hasMetaclass && metaclass != null && bases.Count > 0)
+            {
+                metaclass = PyTypeMetaclass.CallCalculateMetaclass(metaclass, bases.ToArray());
+                #if DEBUG_LOG
+                Console.WriteLine($"Winner metaclass after CalculateMetaclass: {metaclass}");
+                #endif
+            }
+
             var className = name.AsString();
 
-            // CPython 3.12: First execute class body to build class namespace
+            // CPython 3.12: Call __prepare__ if metaclass has it
             Dictionary<string, PyObject> classNamespace = new Dictionary<string, PyObject>();
-            
+            PyDict prepareDict = null;  // Store the original __prepare__ result to preserve special attributes
+            PyObject originalPrepareResult = null;  // Track the original __prepare__ result (PyClassInstance for _EnumDict)
+
+            Console.WriteLine($"🔧 __build_class__ for {className}: hasMetaclass={hasMetaclass}, metaclass={metaclass?.GetType().Name}");
+            if (hasMetaclass && metaclass != null)
+            {
+                try
+                {
+                    Console.WriteLine($"  🔎 Looking for __prepare__ on {metaclass}");
+                    var prepareMethod = metaclass.GetAttribute("__prepare__");
+                    Console.WriteLine($"  🔎 Got prepareMethod: {prepareMethod?.GetType().Name} (callable={prepareMethod?.IsCallable()})");
+                    if (prepareMethod != null && prepareMethod.IsCallable())
+                    {
+                        Console.WriteLine($"🔧 Calling __prepare__ on metaclass {metaclass}");
+                        Console.WriteLine($"   prepareMethod type: {prepareMethod.GetType().Name}");
+                        Console.WriteLine($"   prepareMethod is PyMethod: {prepareMethod is PyMethod}");
+
+                        // __prepare__(metacls, name, bases, **kwds)
+                        // If prepareMethod is a bound method (PyMethod), the first argument is already bound
+                        // So we should NOT pass metaclass again
+                        PyObject[] prepareArgs;
+                        if (prepareMethod is PyMethod)
+                        {
+                            // Bound method - don't pass metaclass
+                            prepareArgs = new PyObject[] {
+                                new PyString(className),
+                                new PyTuple(bases.Cast<PyObject>().ToArray())
+                            };
+                            Console.WriteLine($"   Using bound method call with {prepareArgs.Length} args (cls, bases)");
+                        }
+                        else
+                        {
+                            // Unbound method - pass metaclass
+                            prepareArgs = new PyObject[] {
+                                metaclass,
+                                new PyString(className),
+                                new PyTuple(bases.Cast<PyObject>().ToArray())
+                            };
+                            Console.WriteLine($"   Using unbound method call with {prepareArgs.Length} args (metacls, cls, bases)");
+                        }
+
+                        Console.WriteLine($"  📞 About to call __prepare__ with {prepareArgs.Length} args");
+                        var prepareResult = prepareMethod.Call(prepareArgs, null);
+                        Console.WriteLine($"  ✅ __prepare__ returned: {prepareResult?.GetType().Name} (Type: {prepareResult?.GetTypeName()})");
+                        Console.WriteLine($"     is PyDict: {prepareResult is PyDict}, is PyClassInstance: {prepareResult is PyClassInstance}");
+
+                        // Store the original dict object to preserve special attributes (e.g., _member_names_ for _EnumDict)
+                        // CPython 3.12: __prepare__ can return dict subclasses like _EnumDict (PyClassInstance)
+                        if (prepareResult is PyDict originalPrepareDict)
+                        {
+                            prepareDict = originalPrepareDict;
+
+                            // Convert the dict contents to Dictionary<string, PyObject> for class body execution
+                            var items = originalPrepareDict.Items();
+                            foreach (var item in items.Items)
+                            {
+                                if (item is PyTuple tuple && tuple.Items.Length == 2)
+                                {
+                                    if (tuple.Items[0] is PyString keyStr)
+                                    {
+                                        classNamespace[keyStr.Value] = tuple.Items[1];
+                                        #if DEBUG_LOG
+                                        Console.WriteLine($"  Added from __prepare__: {keyStr.Value} = {tuple.Items[1]?.GetType().Name}");
+                                        #endif
+                                    }
+                                }
+                            }
+                        }
+                        else if (prepareResult != null)
+                        {
+                            // Handle dict-like objects (e.g., _EnumDict instance - PyClassInstance)
+                            // IMPORTANT: Keep the original object and pass it to metaclass.__new__
+                            // This preserves special attributes like _member_names in _EnumDict
+
+                            originalPrepareResult = prepareResult;  // Save the original PyClassInstance
+
+                            #if DEBUG_LOG
+                            Console.WriteLine($"__prepare__ returned PyClassInstance or dict-like object: {prepareResult.GetType().Name}");
+                            Console.WriteLine($"  Preserving original object for metaclass.__new__");
+                            #endif
+
+                            // Try to get initial items from the dict-like object
+                            try
+                            {
+                                var itemsMethod = prepareResult.GetAttribute("items");
+                                if (itemsMethod != null && itemsMethod.IsCallable())
+                                {
+                                    var itemsResult = itemsMethod.Call(new PyObject[0], null);
+                                    if (itemsResult is PyList itemsList)
+                                    {
+                                        foreach (var item in itemsList.Items)
+                                        {
+                                            if (item is PyTuple tuple && tuple.Items.Length == 2)
+                                            {
+                                                if (tuple.Items[0] is PyString keyStr)
+                                                {
+                                                    classNamespace[keyStr.Value] = tuple.Items[1];
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            catch (PythonException)
+                            {
+                                // If items() doesn't work, that's okay - namespace is empty
+                            }
+
+                            // CRITICAL: Use a wrapper PyDict that stores the original object
+                            // This allows us to pass the original _EnumDict instance to metaclass.__new__
+                            prepareDict = new PyDict();
+                            // Use InternalDict to bypass equality comparator issues
+                            prepareDict.InternalDict[new PyString("__prepare_result__")] = prepareResult;
+
+                            Console.WriteLine($"  🔑 Stored original object in __prepare_result__ marker");
+                            Console.WriteLine($"     prepareDict.InternalDict.Count = {prepareDict.InternalDict.Count}");
+                            Console.WriteLine($"     prepareResult type: {prepareResult.GetType().Name}");
+                        }
+                    }
+                }
+                catch (PythonException pex) when (pex.PyException is PyAttributeError)
+                {
+                    // __prepare__ not found, that's okay
+                    Console.WriteLine($"❌ AttributeError during __prepare__: {pex.Message}");
+                    Console.WriteLine("   Using empty namespace");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"❌ Exception while calling __prepare__: {ex.GetType().Name}: {ex.Message}");
+                    Console.WriteLine($"   Stack trace: {ex.StackTrace}");
+                }
+            }
+
             // Execute the class body function to populate the class namespace
             if (func is PyFunction classBodyFunc)
             {
@@ -1495,10 +1684,24 @@ namespace SharpPy
                             Console.WriteLine("Class body function has no closure");
                         }
                         #endif
-                        var vm = PyVM.Instance;
-                        classNamespace = vm.ExecuteClassBody(classBodyFunc.CodeObject, classBodyFunc.Closure);
 
                         #if DEBUG_LOG
+                        Console.WriteLine($"📦 Initial classNamespace before ExecuteClassBody: {classNamespace.Count} items");
+                        foreach (var kvp in classNamespace.Take(10))
+                        {
+                            Console.WriteLine($"   - {kvp.Key}: {kvp.Value?.GetTypeName()}");
+                        }
+                        #endif
+
+                        var vm = PyVM.Instance;
+                        classNamespace = vm.ExecuteClassBody(classBodyFunc.CodeObject, classBodyFunc.Closure, classNamespace);
+
+                        #if DEBUG_LOG
+                        Console.WriteLine($"📦 classNamespace after ExecuteClassBody: {classNamespace.Count} items");
+                        foreach (var kvp in classNamespace.Take(10))
+                        {
+                            Console.WriteLine($"   - {kvp.Key}: {kvp.Value?.GetTypeName()}");
+                        }
                         Console.WriteLine($"Class body executed for {className}, captured {classNamespace.Count} variables");
                         #endif
                     }
@@ -1571,10 +1774,52 @@ namespace SharpPy
                     #endif
                     
                     // Create a PyDict from the class namespace for the metaclass call
-                    var namespaceDict = new PyDict();
-                    foreach (var kvp in classNamespace)
+                    // CPython 3.12: If __prepare__ returned a custom dict, use it to preserve special attributes
+                    PyObject namespaceObj;
+                    if (originalPrepareResult != null)
                     {
-                        namespaceDict.SetItem(new PyString(kvp.Key), kvp.Value);
+                        // Use the original __prepare__ result directly (PyClassInstance for _EnumDict)
+                        Console.WriteLine($"  ✅ Using original __prepare__ result! Type: {originalPrepareResult.GetType().Name}");
+
+                        // Update the original _EnumDict-like object with class body variables
+                        foreach (var kvp in classNamespace)
+                        {
+                            // Use __setitem__ to set values on the dict-like object
+                            try
+                            {
+                                originalPrepareResult.SetItem(new PyString(kvp.Key), kvp.Value);
+                            }
+                            catch (PythonException)
+                            {
+                                // Fallback: try setAttribute
+                                originalPrepareResult.SetAttribute(kvp.Key, kvp.Value);
+                            }
+                        }
+                        namespaceObj = originalPrepareResult;  // Use the original _EnumDict instance
+                        Console.WriteLine($"📦 Using original __prepare__ result (_EnumDict instance)");
+                        Console.WriteLine($"   namespaceObj type after assignment: {namespaceObj?.GetType().Name}, PyType: {namespaceObj?.GetTypeName()}");
+                    }
+                    else if (prepareDict != null)
+                    {
+                        // Use prepareDict (regular PyDict)
+                        namespaceObj = prepareDict;
+                        foreach (var kvp in classNamespace)
+                        {
+                            ((PyDict)namespaceObj).SetItem(new PyString(kvp.Key), kvp.Value);
+                        }
+                        #if DEBUG_LOG
+                        Console.WriteLine($"📦 Using __prepare__ dict (PyDict)");
+                        #endif
+                    }
+                    else
+                    {
+                        // No __prepare__, create a regular PyDict
+                        var namespaceDict = new PyDict();
+                        foreach (var kvp in classNamespace)
+                        {
+                            namespaceDict.SetItem(new PyString(kvp.Key), kvp.Value);
+                        }
+                        namespaceObj = namespaceDict;
                     }
                     
                     // CPython 3.12: Execute metaclass.__new__ which modifies namespace and calls type.__new__ 
@@ -1599,7 +1844,9 @@ namespace SharpPy
                     }
                     
                     // Get the __new__ method from the metaclass
+                    Console.WriteLine($"🔍 Getting __new__ from metaclass: {metaclass}");
                     var newMethod = metaclass.GetAttribute("__new__");
+                    Console.WriteLine($"🔍 Got newMethod: {newMethod?.GetType().Name ?? "null"}");
                     if (newMethod != null && newMethod.IsCallable())
                     {
                         #if DEBUG_LOG
@@ -1649,13 +1896,22 @@ namespace SharpPy
                             }
                         }
                         
+                        Console.WriteLine($"🔍 Before creating newArgs: namespaceObj type={namespaceObj?.GetType().Name}, PyType={namespaceObj?.GetTypeName()}");
+
                         var newArgs = new PyObject[] {
-                            metaclass,                      // cls  
+                            metaclass,                      // cls
                             new PyString(className),        // name
                             new PyTuple(bases.Cast<PyObject>().ToArray()), // bases
-                            namespaceDict                   // namespace - this will be modified by metaclass
+                            namespaceObj                    // namespace - PyDict or dict-like object (e.g., _EnumDict)
                         };
-                        
+
+                        Console.WriteLine($"🔍 After creating newArgs: newArgs[3] type={newArgs[3]?.GetType().Name}, PyType={newArgs[3]?.GetTypeName()}");
+
+                        // CPython 3.12: Pass keyword arguments (like boundary, **kwds) to metaclass.__new__
+                        // Metaclasses may have keyword-only parameters after *
+                        // Note: We pass empty kwargs which should use the default values from the function signature
+                        PyDict newKwargs = new PyDict();
+
                         // CPython 3.12: Make metaclass name available during metaclass.__new__ execution
                         // This enables explicit super(MetaclassName, cls) calls
                         PyObject? previousValue = null;
@@ -1683,7 +1939,10 @@ namespace SharpPy
                         try
                         {
                             // Execute metaclass.__new__ - this should modify namespaceDict and call type.__new__
-                            result = newMethod.Call(newArgs, null);
+                            Console.WriteLine($"🚀 Calling metaclass.__new__ for class: {className}");
+                            Console.WriteLine($"  newArgs[3] type: {newArgs[3]?.GetType().Name}, PyType: {newArgs[3]?.GetTypeName()}");
+                            result = newMethod.Call(newArgs, newKwargs);
+                            Console.WriteLine($"🚀 metaclass.__new__ returned: {result?.GetType().Name ?? "null"}");
                         }
                         finally
                         {
@@ -1727,7 +1986,18 @@ namespace SharpPy
                             #if DEBUG_LOG
                             Console.WriteLine("Ensuring all namespace attributes are set on metaclass-created class");
                             #endif
-                            var items = namespaceDict.Items();
+                            // Get items from namespace (dict or dict-like object)
+                            PyList items;
+                            if (namespaceObj is PyDict pyDictObj)
+                            {
+                                items = pyDictObj.Items();
+                            }
+                            else
+                            {
+                                // Try calling items() method on dict-like object
+                                var itemsMethod = namespaceObj.GetAttribute("items");
+                                items = itemsMethod.Call(new PyObject[0], null) as PyList;
+                            }
                             for (int i = 0; i < items.Items.Length; i++)
                             {
                                 if (items.Items[i] is PyTuple kvp && kvp.Items.Length == 2)
@@ -1782,7 +2052,7 @@ namespace SharpPy
                                         pyClass,                    // cls (the created class)
                                         new PyString(className),    // name
                                         new PyTuple(bases.Cast<PyObject>().ToArray()), // bases
-                                        namespaceDict              // namespace
+                                        namespaceObj                // namespace (dict or dict-like object)
                                     };
                                     initMethod.Call(initArgs, null);
                                     #if DEBUG_LOG
@@ -1810,7 +2080,7 @@ namespace SharpPy
                             #if DEBUG_LOG
                             Console.WriteLine("Metaclass.__new__ didn't return a class, falling back to type.__new__");
                             #endif
-                            var typeResult = CallTypeNew(new PyObject[] { metaclass, new PyString(className), new PyTuple(bases.Cast<PyObject>().ToArray()), namespaceDict });
+                            var typeResult = CallTypeNew(new PyObject[] { metaclass, new PyString(className), new PyTuple(bases.Cast<PyObject>().ToArray()), namespaceObj });
                             // If type.__new__ didn't return a PyClass, create one with module info
                             if (typeResult is PyClass existingClass)
                             {
@@ -1845,7 +2115,7 @@ namespace SharpPy
                         #if DEBUG_LOG
                         Console.WriteLine("No callable __new__ method found on metaclass, using type.__new__ directly");
                         #endif
-                        var typeResult = CallTypeNew(new PyObject[] { metaclass, new PyString(className), new PyTuple(bases.Cast<PyObject>().ToArray()), namespaceDict });
+                        var typeResult = CallTypeNew(new PyObject[] { metaclass, new PyString(className), new PyTuple(bases.Cast<PyObject>().ToArray()), namespaceObj });
                         // If type.__new__ didn't return a PyClass, create one with module info
                         if (typeResult is PyClass existingClass)
                         {
@@ -1877,31 +2147,16 @@ namespace SharpPy
                 }
                 catch (Exception ex)
                 {
+                    // CPython 3.12: __build_class__ does NOT catch exceptions from metaclass call
+                    // Exceptions from metaclass.__new__ should propagate to the caller
                     #if DEBUG_LOG
-                    Console.WriteLine($"Error calling metaclass.__new__: {ex.Message}");
+                    Console.WriteLine($"❌ ERROR calling metaclass.__new__ for {className}: {ex.Message}");
+                    Console.WriteLine($"   Exception type: {ex.GetType().Name}");
+                    Console.WriteLine($"   CPython 3.12: Re-throwing exception to propagate to caller");
                     #endif
 
-                    // Extract __module__ from class namespace
-                    string moduleInfo = null;
-                    if (classNamespace.TryGetValue("__module__", out var moduleObj) && moduleObj is PyString moduleStr)
-                    {
-                        moduleInfo = moduleStr.Value;
-                    }
-
-                    pyClass = new PyClass(className, bases.ToArray(), classNamespace, null, moduleInfo);
-                    pyClass.SetAttribute("__metaclass__", metaclass);
-                    
-                    // CPython 3.12: Update __classcell__ even in exception case
-                    if (classcell != null)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🎯 CPython 3.12: Updating __classcell__ in exception case");
-                        #endif
-                        classcell.Value = pyClass;
-                        #if DEBUG_LOG
-                        Console.WriteLine($"✅ __classcell__ updated in exception case");
-                        #endif
-                    }
+                    // Re-throw to propagate to Python level (for try/except handling)
+                    throw;
                 }
             }
             else
@@ -1914,6 +2169,9 @@ namespace SharpPy
                 }
 
                 pyClass = new PyClass(className, bases.ToArray(), classNamespace, null, moduleInfo);
+
+                // CPython 3.12: Even without explicit metaclass, all classes have 'type' as metaclass
+                pyClass.Metaclass = PyTypeMetaclass.Instance;
 
                 // CPython 3.12: Update __classcell__ for non-metaclass case too
                 if (classcell != null)
@@ -2017,7 +2275,7 @@ namespace SharpPy
         /// __import__(name, globals=None, locals=None, fromlist=(), level=0)
         /// 동적 import 기능
         /// </summary>
-        private PyObject CallImport(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallImport(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 1 || args.Length > 5)
                 throw PyTypeError.Create($"__import__ expected 1 to 5 arguments ({args.Length} given)");
@@ -2084,7 +2342,7 @@ namespace SharpPy
             return new PyGenericType($"set[{key}]", PyType.SetType, typeArgs);
         }
 
-        private PyObject CallOpen(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallOpen(PyObject[] args, PyDict kwargs = null)
         {
             // CPython 3.12: open(file, mode='r', buffering=-1, encoding=None, errors=None, newline=None, closefd=True, opener=None)
             if (args.Length < 1)
@@ -2186,7 +2444,7 @@ namespace SharpPy
         /// super() builtin function implementation
         /// Returns a proxy object that delegates method calls to parent or sibling class
         /// </summary>
-        private PyObject CallSuper(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallSuper(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length == 0)
             {
@@ -2270,17 +2528,26 @@ namespace SharpPy
                                         #endif
                                     }
                                 }
-                                
+
+                                // CPython 3.12: super() with no arguments requires both __class__ and self/cls
+                                if (instance == null)
+                                {
+                                    #if DEBUG_LOG
+                                    Console.WriteLine($"🔍 No self/cls parameter found in current frame");
+                                    #endif
+                                    throw PyRuntimeError.Create("super(): no arguments");
+                                }
+
                                 if (classValue is PyType pyType)
                                 {
                                     // Create a proper super proxy object for PyType
-                                    return new PySuperProxy(pyType, instance);
+                                    return new PySuper(pyType, instance);
                                 }
                                 else if (classValue is PyClass pyClass)
                                 {
-                                    // Create a proper super proxy object for PyClass 
+                                    // Create a proper super proxy object for PyClass
                                     // PyClass inherits from PyType, so we can use it directly
-                                    return new PySuperProxy(pyClass, instance);
+                                    return new PySuper(pyClass, instance);
                                 }
                                 else
                                 {
@@ -2323,7 +2590,7 @@ namespace SharpPy
                 }
                 
                 // Create a super proxy object
-                return new PySuperProxy(pyType, obj);
+                return new PySuper(pyType, obj);
             }
             else
             {
@@ -2335,27 +2602,29 @@ namespace SharpPy
         /// property builtin function implementation
         /// Creates a property descriptor
         /// </summary>
-        private PyObject CallProperty(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallProperty(PyObject[] args, PyDict kwargs = null)
         {
-            if (args.Length < 1 || args.Length > 4)
+            // property([fget[, fset[, fdel[, doc]]]])
+            if (args.Length > 4)
             {
-                throw PyTypeError.Create($"property expected 1 to 4 arguments ({args.Length} given)");
+                throw PyTypeError.Create($"property expected at most 4 arguments ({args.Length} given)");
             }
 
-            PyFunction getter = args[0] as PyFunction;
-            PyFunction setter = args.Length > 1 ? args[1] as PyFunction : null;
-            PyFunction deleter = args.Length > 2 ? args[2] as PyFunction : null;
-            // args[3] would be doc string, but we'll ignore it for now
+            PyObject? fget = args.Length > 0 ? args[0] : null;
+            PyObject? fset = args.Length > 1 ? args[1] : null;
+            PyObject? fdel = args.Length > 2 ? args[2] : null;
+            PyObject? doc = args.Length > 3 ? args[3] : null;
 
-            if (getter == null)
-            {
-                throw PyTypeError.Create("property() argument 1 must be callable");
-            }
+            // Allow None for any argument
+            if (fget == PyNone.Instance) fget = null;
+            if (fset == PyNone.Instance) fset = null;
+            if (fdel == PyNone.Instance) fdel = null;
+            if (doc == PyNone.Instance) doc = null;
 
-            return new PyProperty(getter, setter, deleter);
+            return new PyProperty(fget, fset, fdel, doc);
         }
 
-        private PyObject CallClassmethod(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallClassmethod(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
             {
@@ -2370,26 +2639,35 @@ namespace SharpPy
             return new PyClassmethod(function);
         }
 
-        private PyObject CallStaticmethod(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallStaticmethod(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
             {
                 throw PyTypeError.Create($"staticmethod expected 1 argument ({args.Length} given)");
             }
 
-            if (!(args[0] is PyFunction function))
+            var func = args[0];
+            if (func == null || !func.IsCallable())
             {
                 throw PyTypeError.Create("staticmethod() argument must be callable");
             }
 
-            return new PyStaticmethod(function);
+            // CPython 3.12: Accept any callable, but PyStaticmethod only stores PyFunction
+            if (func is PyFunction pyFunc)
+            {
+                return new PyStaticmethod(pyFunc);
+            }
+
+            // For non-PyFunction callables, we still need to wrap them
+            // Create a wrapper PyFunction
+            throw PyTypeError.Create("staticmethod() currently only supports PyFunction objects");
         }
 
         /// <summary>
         /// type.__new__ builtin method implementation
         /// Creates a new type instance (class creation)
         /// </summary>
-        private PyObject CallTypeNew(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallTypeNew(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length < 4)
             {
@@ -2453,7 +2731,7 @@ namespace SharpPy
         /// <summary>
         /// globals() builtin function - returns a dictionary of the current global symbol table
         /// </summary>
-        private PyObject CallGlobals(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallGlobals(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 0)
             {
@@ -2487,7 +2765,7 @@ namespace SharpPy
         /// <summary>
         /// locals() builtin function - returns a dictionary of the current local symbol table
         /// </summary>
-        private PyObject CallLocals(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallLocals(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 0)
             {
@@ -2523,7 +2801,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12: Each metaclass method should see its own class as __class__
         /// </summary>
-        private PyObject ResolveActualClass(PyObject cellClassValue, PyFrame currentFrame)
+        private static PyObject ResolveActualClass(PyObject cellClassValue, PyFrame currentFrame)
         {
             #if DEBUG_LOG
             Console.WriteLine($"🔍 ResolveActualClass: cellClassValue = {cellClassValue}");
@@ -2600,7 +2878,7 @@ namespace SharpPy
         /// <summary>
         /// bytes() constructor - creates immutable byte sequences
         /// </summary>
-        private PyObject CallBytes(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallBytes(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length == 0)
             {
@@ -2694,7 +2972,7 @@ namespace SharpPy
         /// <summary>
         /// bytearray() constructor - creates mutable byte sequences
         /// </summary>
-        private PyObject CallBytearray(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallBytearray(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length == 0)
             {
@@ -2746,7 +3024,7 @@ namespace SharpPy
         /// <summary>
         /// memoryview() constructor - creates memory view objects
         /// </summary>
-        private PyObject CallMemoryview(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallMemoryview(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"memoryview() takes exactly one argument ({args.Length} given)");
@@ -2771,7 +3049,7 @@ namespace SharpPy
         /// <summary>
         /// repr() built-in function - returns a printable representation of an object
         /// </summary>
-        private PyObject CallRepr(PyObject[] args, PyDict kwargs = null)
+        private static PyObject CallRepr(PyObject[] args, PyDict kwargs = null)
         {
             if (args.Length != 1)
                 throw PyTypeError.Create($"repr() takes exactly one argument ({args.Length} given)");
@@ -2788,26 +3066,66 @@ namespace SharpPy
     }
     
     /// <summary>
-    /// Super proxy object that handles method resolution
+    /// CPython 3.12 compatible super() implementation
+    /// Based on CPython's superobject (Objects/typeobject.c)
     /// </summary>
-    public class PySuperProxy : PyObject
+    public class PySuper : PyObject
     {
-        public PyType Type { get; }
-        public PyObject Object { get; }
-        
-        public PySuperProxy(PyType type, PyObject obj)
+        // CPython 3.12: superobject struct
+        public PyType Type { get; }           // __thisclass__: the class invoking super()
+        public PyObject Object { get; }       // __self__: the instance (or None)
+        public PyType ObjectType { get; }     // obj_type: type of Object (or Object itself if it's a type)
+
+        public PySuper(PyType type, PyObject obj)
         {
             Type = type;
             Object = obj;
+
+            // CPython 3.12: supercheck() logic
+            // Determine obj_type based on obj
+            if (obj != null)
+            {
+                // If obj is a type itself, obj_type = obj
+                if (obj is PyType objAsType)
+                {
+                    ObjectType = objAsType;
+                }
+                // Otherwise, obj_type = type(obj)
+                else
+                {
+                    ObjectType = obj.GetPyType() as PyType;
+                }
+            }
         }
-        
+
+        /// <summary>
+        /// CPython 3.12: super_getattro() -> do_super_lookup()
+        /// </summary>
         public override PyObject GetAttribute(string name)
         {
-            Console.WriteLine($"🔍 PySuperProxy.GetAttribute: Looking for '{name}' in super({Type.Name})");
-            #if DEBUG_LOG
-            Console.WriteLine($"   Type.BaseTypes: {(Type.BaseTypes != null ? $"[{string.Join(", ", Type.BaseTypes.Select(t => t.Name))}]" : "null")}");
-            #endif
+            Console.WriteLine($"🔍 PySuper.GetAttribute: Looking for '{name}' in super({Type.Name})");
 
+            // Special case: __class__ returns the super class itself
+            if (name == "__class__")
+            {
+                return this.GetPyType();
+            }
+
+            // CPython 3.12: do_super_lookup()
+            if (ObjectType == null)
+            {
+                // Unbound super - only return class attributes without binding
+                return LookupInMRO(name, bindDescriptor: false);
+            }
+
+            return LookupInMRO(name, bindDescriptor: true);
+        }
+
+        /// <summary>
+        /// CPython 3.12: _super_lookup_descr() + descriptor protocol
+        /// </summary>
+        private PyObject LookupInMRO(string name, bool bindDescriptor)
+        {
             // CPython 3.12: Use MRO to find the method in parent classes
             // Skip the current class and look in its parents
             if (Type.MRO != null && Type.MRO.Count > 1)
@@ -2816,9 +3134,6 @@ namespace SharpPy
                 for (int i = 1; i < Type.MRO.Count; i++)
                 {
                     var baseType = Type.MRO[i];
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   → Checking base type: {baseType.Name}");
-                    #endif
 
                     try
                     {
@@ -2827,51 +3142,15 @@ namespace SharpPy
                         {
                             Console.WriteLine($"   ✅ Found '{name}' in {baseType.Name}: {attr.GetType().Name}");
 
-                            // Special handling for methods that need binding
-                            if (Object != null)
+                            if (!bindDescriptor || Object == null)
                             {
-                                if (attr is PyFunction function)
-                                {
-                                    // Check if we're in a metaclass context (Object is a class)
-                                    bool isMetaclassContext = Object is PyClass || Object is PyTypeMetaclass;
-
-                                    if (isMetaclassContext && (name == "__new__" || name == "__init__" || name == "__init_subclass__"))
-                                    {
-                                        // Return unbound function for class methods in metaclass context
-                                        #if DEBUG_LOG
-                                        Console.WriteLine($"   🔧 Metaclass context: returning unbound {name}");
-                                        #endif
-                                        return function;
-                                    }
-                                    else
-                                    {
-                                        // Regular instance method binding
-                                        #if DEBUG_LOG
-                                        Console.WriteLine($"   🔧 Instance context: binding {name} to {Object.GetType().Name}");
-                                        #endif
-                                        return new PyMethod(Object, function);
-                                    }
-                                }
-                                else if (attr is PyBuiltinMethod builtin)
-                                {
-                                    // Handle builtin methods like object.__init__
-                                    Console.WriteLine($"   🔧 Binding builtin method {name} to {Object.GetType().Name}");
-                                    // Convert PyBuiltinMethod to PyFunction for proper binding
-                                    var func = new PyFunction(builtin.Name, args => builtin.Call(args, null));
-                                    return new PyMethod(Object, func);
-                                }
-                                else if (attr is PyBuiltinFunction builtinFunc)
-                                {
-                                    // Handle builtin functions like object.__init__
-                                    Console.WriteLine($"   🔧 Binding builtin function {name} to {Object.GetType().Name}");
-                                    // Convert PyBuiltinFunction to PyFunction for proper binding
-                                    var func = new PyFunction(builtinFunc.Name, args => builtinFunc.Call(args, null));
-                                    return new PyMethod(Object, func);
-                                }
+                                // Unbound super or no binding needed
+                                Console.WriteLine($"🔧 PySuper returning unbound attr: {attr.GetType().Name}");
+                                return attr;
                             }
 
-                            Console.WriteLine($"🔧 PySuperProxy returning final attr: {attr?.GetType().Name ?? "null"}");
-                            return attr;
+                            // CPython 3.12: Apply descriptor protocol if needed
+                            return ApplyDescriptorProtocol(attr, name);
                         }
                     }
                     catch (Exception ex)
@@ -2882,40 +3161,65 @@ namespace SharpPy
                     }
                 }
             }
-            else
-            {
-                // CPython 3.12: If no explicit base classes, implicitly inherit from object
-                #if DEBUG_LOG
-                Console.WriteLine($"   → No base types, checking implicit 'object' base class");
-                #endif
 
-                // For object.__init__, return a no-op function (object's __init__ does nothing)
-                if (name == "__init__" && Object != null)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   ✅ Found implicit object.__init__: returning bound method");
-                    #endif
-
-                    // Create a no-op __init__ function that matches object.__init__
-                    // We need to wrap PyBuiltinFunction as PyFunction for binding
-                    var objectInitBuiltin = new PyBuiltinFunction("__init__", args => PyNone.Instance);
-
-                    // Convert PyBuiltinFunction to PyFunction-compatible form
-                    var objectInitFunction = new PyFunction("__init__", args => PyNone.Instance);
-
-                    return new PyMethod(Object, objectInitFunction);
-                }
-
-                // For other object methods, we could add them here if needed
-                // For now, let's see if __init__ is enough
-            }
-
-            #if DEBUG_LOG
-            Console.WriteLine($"   ❌ '{name}' not found in any parent class");
-            #endif
             throw PyAttributeError.Create($"'super' object has no attribute '{name}'");
         }
-        
+
+        /// <summary>
+        /// CPython 3.12: Apply tp_descr_get if the attribute is a descriptor
+        /// Key logic from do_super_lookup():
+        ///   f(res, (su_obj == su_obj_type) ? NULL : su_obj, (PyObject *)su_obj_type)
+        /// </summary>
+        private PyObject ApplyDescriptorProtocol(PyObject attr, string name)
+        {
+            // CPython 3.12: Check if descriptor protocol applies
+            if (attr is IDescriptor descriptor)
+            {
+                // CPython 3.12 key logic:
+                // If Object == ObjectType (class-mode super), pass NULL for instance
+                // Otherwise pass Object (instance-mode super)
+                PyObject instance = (Object == ObjectType) ? null : Object;
+
+                Console.WriteLine($"   🔧 Applying descriptor protocol: instance={(instance != null ? instance.GetType().Name : "null")}, owner={ObjectType.Name}");
+
+                var result = descriptor.Get(instance, ObjectType);
+                Console.WriteLine($"🔧 PySuper returning bound attr: {result?.GetType().Name ?? "null"}");
+                return result;
+            }
+            else if (attr is PyFunction function)
+            {
+                // PyFunction implements descriptor protocol
+                // CPython 3.12: If Object == ObjectType, don't bind (class-mode)
+                Console.WriteLine($"   🔧 PyFunction check: Object={Object?.GetType().Name ?? "null"}, ObjectType={ObjectType?.Name ?? "null"}");
+                Console.WriteLine($"   🔧 Object == ObjectType: {Object == ObjectType}, ReferenceEquals: {ReferenceEquals(Object, ObjectType)}");
+
+                if (Object == ObjectType)
+                {
+                    Console.WriteLine($"   🔧 Class-mode super: returning unbound function");
+                    Console.WriteLine($"🔧 PySuper returning unbound function");
+                    return function;
+                }
+                else
+                {
+                    Console.WriteLine($"   🔧 Instance-mode super: binding function to {Object.GetType().Name}");
+                    var result = new PyMethod(Object, function);
+                    Console.WriteLine($"🔧 PySuper returning bound method");
+                    return result;
+                }
+            }
+            else if (attr is PyStaticBuiltinMethod || attr is PyBuiltinMethod)
+            {
+                // StaticBuiltinMethod and BuiltinMethod already implement IDescriptor
+                // This case is already handled above
+                Console.WriteLine($"🔧 PySuper returning builtin method as-is: {attr.GetType().Name}");
+                return attr;
+            }
+
+            // Not a descriptor - return as-is
+            Console.WriteLine($"🔧 PySuper returning non-descriptor attr: {attr.GetType().Name}");
+            return attr;
+        }
+
         public override string ToString() => $"<super: {Type.Name}, {Object}>";
     }
 }

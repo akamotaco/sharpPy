@@ -70,9 +70,11 @@ public class PyBuiltinsModule : PyObject
         BuiltinDict["id"] = new PyBuiltinFunction("id");
         BuiltinDict["hash"] = new PyBuiltinFunction("hash");
         BuiltinDict["super"] = new PyBuiltinFunction("super");
-        BuiltinDict["property"] = new PyBuiltinFunction("property");
-        BuiltinDict["classmethod"] = new PyBuiltinFunction("classmethod");
-        BuiltinDict["staticmethod"] = new PyBuiltinFunction("staticmethod");
+        // CPython 3.12: Register descriptor types (property, classmethod, staticmethod)
+        // These are both types and callable (via PyType.Call)
+        BuiltinDict["property"] = PyType.PropertyType;
+        BuiltinDict["classmethod"] = PyType.ClassMethodType;
+        BuiltinDict["staticmethod"] = PyType.StaticMethodType;
         
         // CPython 3.12 호환성: 타입들을 PyType으로 등록 (isinstance 지원)
         BuiltinDict["str"] = PyType.StrType;
@@ -108,7 +110,8 @@ public class PyBuiltinsModule : PyObject
         BuiltinDict["locals"] = new PyBuiltinFunction("locals");
         
         // 내장 타입들 (타입 객체, 변환 함수와 별개)
-        BuiltinDict["object"] = new PyBuiltinType("object");
+        // CPython 3.12: Use PyType.ObjectType instead of PyBuiltinType for proper attribute access
+        BuiltinDict["object"] = PyType.ObjectType;
         
         // Exception Groups (PEP 654)
         BuiltinDict["BaseExceptionGroup"] = new PyBuiltinType("BaseExceptionGroup");
@@ -312,30 +315,147 @@ public class PyBuiltinType : PyObject
 
     public override PyObject GetAttribute(string name)
     {
-        // CPython 3.12: object type의 기본 속성들
-        if (Name == "object")
+        // CPython 3.12: Built-in type attributes (type, object, str, int, etc.)
+        switch (name)
         {
-            switch (name)
-            {
-                case "__name__":
-                    return new PyString(Name);
-                case "__init__":
+            case "__name__":
+                return new PyString(Name);
+
+            case "__new__":
+                // CPython 3.12: All built-in types have __new__
+                // Return a builtin method that creates instances
+                if (Name == "object")
+                {
+                    // object.__new__(cls) creates a new instance
+                    return new PyBuiltinMethod("__new__", (self, args) =>
+                    {
+                        if (args.Length < 1)
+                            throw PyTypeError.Create("__new__() missing 1 required positional argument: 'cls'");
+
+                        var cls = args[0];
+
+                        // If cls is object, create a basic PyInstance
+                        if (cls is PyBuiltinType builtin && builtin.Name == "object")
+                            return new PyInstance();
+
+                        // For other types, delegate to their __new__ if available
+                        // This is a simplified implementation
+                        return new PyInstance();
+                    });
+                }
+                else if (Name == "type")
+                {
+                    // type.__new__(mcs, name, bases, classdict) creates a new type
+                    return new PyBuiltinMethod("__new__", (self, args) =>
+                    {
+                        // Simplified: delegate to PyTypeMetaclass
+                        if (args.Length >= 4)
+                        {
+                            // type.__new__(mcs, name, bases, classdict)
+                            // Skip first argument (mcs) and pass the rest
+                            var newArgs = new PyObject[args.Length - 1];
+                            Array.Copy(args, 1, newArgs, 0, args.Length - 1);
+                            return PyTypeMetaclass.Instance.Call(newArgs, null);
+                        }
+                        else
+                        {
+                            throw PyTypeError.Create($"type.__new__() takes exactly 4 arguments ({args.Length} given)");
+                        }
+                    });
+                }
+                else
+                {
+                    // For other built-in types (str, int, etc.), return their __new__
+                    return new PyBuiltinMethod("__new__", (self, args) =>
+                    {
+                        if (args.Length < 1)
+                            throw PyTypeError.Create("__new__() missing 1 required positional argument: 'cls'");
+
+                        // Default: create instance using object.__new__
+                        return new PyInstance();
+                    });
+                }
+
+            case "__init__":
+                // CPython 3.12: All built-in types have __init__
+                if (Name == "object")
+                {
                     return new PyBuiltinMethod("__init__", (self, args) =>
                     {
                         // object.__init__() does nothing and returns None
                         return PyNone.Instance;
                     });
-            }
+                }
+                else if (Name == "type")
+                {
+                    return new PyBuiltinMethod("__init__", (self, args) =>
+                    {
+                        // type.__init__() does basic initialization
+                        return PyNone.Instance;
+                    });
+                }
+                else
+                {
+                    return new PyBuiltinMethod("__init__", (self, args) =>
+                    {
+                        // Default __init__ does nothing
+                        return PyNone.Instance;
+                    });
+                }
+
+            case "__call__":
+                // Only type has __call__
+                if (Name == "type")
+                {
+                    return new PyBuiltinMethod("__call__", (self, args) =>
+                    {
+                        // type.__call__ creates instances
+                        if (args.Length < 1)
+                            throw PyTypeError.Create("__call__() missing arguments");
+
+                        var cls = args[0];
+                        if (cls is PyObject pyObj)
+                        {
+                            // Skip first argument (cls) and pass the rest
+                            var newArgs = new PyObject[args.Length - 1];
+                            Array.Copy(args, 1, newArgs, 0, args.Length - 1);
+                            return pyObj.Call(newArgs, null);
+                        }
+                        return PyNone.Instance;
+                    });
+                }
+                break;
+
+            case "__mro__":
+                // Return MRO for the type
+                if (Name == "type")
+                {
+                    return new PyTuple(new PyObject[] { PyTypeMetaclass.Instance, PyType.ObjectType });
+                }
+                else if (Name == "object")
+                {
+                    return new PyTuple(new PyObject[] { PyType.ObjectType });
+                }
+                else
+                {
+                    // For other built-in types, return appropriate MRO
+                    return new PyTuple(new PyObject[] { this, PyType.ObjectType });
+                }
+
+            case "__bases__":
+                // Return base classes
+                if (Name == "object")
+                {
+                    return new PyTuple(new PyObject[0]); // object has no bases
+                }
+                else
+                {
+                    return new PyTuple(new PyObject[] { PyType.ObjectType });
+                }
         }
 
-        // 기본 type 속성들
-        switch (name)
-        {
-            case "__name__":
-                return new PyString(Name);
-            default:
-                return base.GetAttribute(name);
-        }
+        // Fall back to base implementation
+        return base.GetAttribute(name);
     }
 
     /// <summary>

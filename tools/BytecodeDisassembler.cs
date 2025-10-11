@@ -244,12 +244,42 @@ namespace SharpPy.Tools
                     return $"{arg,15}";
 
                 case ByteCodeOp.LOAD_ATTR:
+                    // CPython 3.12: LOAD_ATTR encodes (nameIndex << 1) | pushNull
+                    // Display format: "3 (NULL|self + name)" or "0 (name)"
+                    {
+                        bool pushNullAttr = (arg & 1) == 1;
+                        int attrNameIndex = arg >> 1;
+                        if (attrNameIndex >= 0 && attrNameIndex < names.Count)
+                        {
+                            var attrName = names[attrNameIndex];
+                            return pushNullAttr
+                                ? $"{arg,15} (NULL|self + {attrName})"
+                                : $"{arg,15} ({attrName})";
+                        }
+                        return $"{arg,15}";
+                    }
+
                 case ByteCodeOp.STORE_ATTR:
                     if (arg >= 0 && arg < names.Count)
                         return $"{arg,15} ({names[arg]})";
                     return $"{arg,15}";
 
                 case ByteCodeOp.LOAD_GLOBAL:
+                    // CPython 3.12: LOAD_GLOBAL encodes (nameIndex << 1) | pushNull
+                    // Display format: "1 (NULL + name)" or "0 (name)"
+                    {
+                        bool pushNull = (arg & 1) == 1;
+                        int nameIndex = arg >> 1;
+                        if (nameIndex >= 0 && nameIndex < names.Count)
+                        {
+                            var name = names[nameIndex];
+                            return pushNull
+                                ? $"{arg,15} (NULL + {name})"
+                                : $"{arg,15} ({name})";
+                        }
+                        return $"{arg,15}";
+                    }
+
                 case ByteCodeOp.STORE_GLOBAL:
                 case ByteCodeOp.LOAD_GLOBAL_BUILTIN:
                     if (arg >= 0 && arg < names.Count)

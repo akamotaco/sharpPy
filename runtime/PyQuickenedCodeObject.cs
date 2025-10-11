@@ -47,9 +47,11 @@ namespace SharpPy
                 varNames ?? originalCode.VarNames,
                 argCount >= 0 ? argCount : originalCode.ArgCount,
                 posonlyArgCount >= 0 ? posonlyArgCount : originalCode.PosonlyArgCount,
+                0, // kwonlyArgCount - use 0 as default
                 freeVars ?? originalCode.FreeVars,
                 cellVars ?? originalCode.CellVars,
                 defaultValues ?? originalCode.DefaultValues,
+                null, // kwDefaults - use null as default
                 flags >= 0 ? flags : originalCode.Flags,
                 fileName ?? originalCode.FileName,
                 sourceLines ?? originalCode.SourceLines,

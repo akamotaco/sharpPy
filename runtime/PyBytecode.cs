@@ -388,6 +388,7 @@ namespace SharpPy
         public List<string> VarNames { get; }         // co_varnames (지역변수명들)
         public int ArgCount { get; }                  // 매개변수 개수
         public int PosonlyArgCount { get; }           // co_posonlyargcount (positional-only 매개변수 개수)
+        public int KwonlyArgCount { get; }            // co_kwonlyargcount (keyword-only 매개변수 개수)
         public int Flags { get; }                     // co_flags (CPython 호환)
         public bool IsOptimized { get; }              // 바이트코드 최적화 여부
         public string? FileName { get; }              // co_filename (CPython 호환)
@@ -407,6 +408,7 @@ namespace SharpPy
         
         // CPython 호환 매개변수 기본값 지원 (Phase 3)
         public List<PyObject> DefaultValues { get; set; } = new List<PyObject>(); // 매개변수 기본값들 (NULL이면 기본값 없음)
+        public List<PyObject> KwDefaults { get; set; } = new List<PyObject>(); // 키워드 전용 매개변수 기본값들
         
         // CPython 3.12 Exception Table 지원
         public List<ExceptionTableEntry> ExceptionTable { get; set; } = new List<ExceptionTableEntry>();
@@ -417,8 +419,10 @@ namespace SharpPy
         public PyCodeObject(string name, List<ByteCodeInstruction> instructions,
                         List<PyObject> constants, List<string> names,
                         List<string> varNames, int argCount = 0, int posonlyArgCount = 0,
+                        int kwonlyArgCount = 0,
                         List<string> freeVars = null, List<string> cellVars = null,
-                        List<PyObject> defaultValues = null, int flags = 0, string fileName = null,
+                        List<PyObject> defaultValues = null, List<PyObject> kwDefaults = null,
+                        int flags = 0, string fileName = null,
                         List<string> sourceLines = null, bool isOptimized = false,
                         Dictionary<int, int> lineNumberTable = null,
                         List<ExceptionTableEntry> exceptionTable = null)
@@ -430,6 +434,7 @@ namespace SharpPy
             VarNames = varNames;
             ArgCount = argCount;
             PosonlyArgCount = posonlyArgCount;
+            KwonlyArgCount = kwonlyArgCount;
             Flags = flags;
             IsOptimized = isOptimized;
             FileName = fileName;
@@ -437,6 +442,7 @@ namespace SharpPy
             FreeVars = freeVars ?? new List<string>();
             CellVars = cellVars ?? new List<string>();
             DefaultValues = defaultValues ?? new List<PyObject>();
+            KwDefaults = kwDefaults ?? new List<PyObject>();
             ExceptionTable = exceptionTable ?? new List<ExceptionTableEntry>(); // 전달된 exception table 보존
             LineNumberTable = lineNumberTable ?? new Dictionary<int, int>();
         }
@@ -452,6 +458,8 @@ namespace SharpPy
                 "co_flags" => new PyInt(Flags),
                 "co_name" => new PyString(Name),
                 "co_argcount" => new PyInt(ArgCount),
+                "co_posonlyargcount" => new PyInt(PosonlyArgCount),
+                "co_kwonlyargcount" => new PyInt(KwonlyArgCount),
                 "co_varnames" => new PyTuple(VarNames.Select(n => new PyString(n) as PyObject).ToArray()),
                 "co_names" => new PyTuple(Names.Select(n => new PyString(n) as PyObject).ToArray()),
                 "co_consts" => new PyTuple(Constants.ToArray()),

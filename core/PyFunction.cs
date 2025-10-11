@@ -34,7 +34,7 @@ public partial class PyFunction : PyObject, IDescriptor
         TypeParams = typeParams;
         Closure = closure ?? new PyCell[0];
         CodeObject = codeObject;
-        
+
         // __type_params__ 속성 설정
         if (TypeParams != null && TypeParams.Count > 0)
         {
@@ -45,7 +45,7 @@ public partial class PyFunction : PyObject, IDescriptor
         {
             Attributes["__type_params__"] = new PyTuple(new PyObject[0]);
         }
-        
+
         // Closure 정보를 속성으로 노출
         if (Closure.Length > 0)
         {
@@ -55,6 +55,94 @@ public partial class PyFunction : PyObject, IDescriptor
         {
             Attributes["__closure__"] = PyNone.Instance;
         }
+
+        // CPython 호환: function type descriptor 초기화
+        InitializeFunctionDescriptors();
+    }
+
+    /// <summary>
+    /// CPython 호환: function 타입의 descriptor 테이블 초기화
+    /// </summary>
+    private static void InitializeFunctionDescriptors()
+    {
+        // 이미 초기화되었으면 스킵
+        if (PyType.FunctionType.Descriptors.GetSet.Count > 0)
+            return;
+
+        var funcType = PyType.FunctionType;
+
+        // __name__ getset descriptor
+        funcType.Descriptors.AddGetSet("__name__", new PyGetSetDescriptor(
+            "__name__",
+            funcType,
+            getter: self => {
+                if (self is PyFunction func)
+                    return new PyString(func.Name);
+                throw PyTypeError.Create("descriptor '__name__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+            }
+        ));
+
+        // __module__ getset descriptor
+        funcType.Descriptors.AddGetSet("__module__", new PyGetSetDescriptor(
+            "__module__",
+            funcType,
+            getter: self => {
+                if (self is PyFunction func)
+                    return func.DefiningModule != null ? new PyString(func.DefiningModule.Name) : new PyString("__main__");
+                throw PyTypeError.Create("descriptor '__module__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+            }
+        ));
+
+        // __doc__ getset descriptor
+        funcType.Descriptors.AddGetSet("__doc__", new PyGetSetDescriptor(
+            "__doc__",
+            funcType,
+            getter: self => {
+                if (self is PyFunction func)
+                    return new PyString($"Function {func.Name}");
+                throw PyTypeError.Create("descriptor '__doc__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+            }
+        ));
+
+        // __code__ getset descriptor
+        funcType.Descriptors.AddGetSet("__code__", new PyGetSetDescriptor(
+            "__code__",
+            funcType,
+            getter: self => {
+                if (self is PyFunction func)
+                    return (PyObject)(func.CodeObject ?? (object)PyNone.Instance);
+                throw PyTypeError.Create("descriptor '__code__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+            }
+        ));
+
+        // __closure__ getset descriptor
+        funcType.Descriptors.AddGetSet("__closure__", new PyGetSetDescriptor(
+            "__closure__",
+            funcType,
+            getter: self => {
+                if (self is PyFunction func)
+                    return func.Attributes["__closure__"];
+                throw PyTypeError.Create("descriptor '__closure__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+            }
+        ));
+
+        // __dict__ getset descriptor
+        funcType.Descriptors.AddGetSet("__dict__", new PyGetSetDescriptor(
+            "__dict__",
+            funcType,
+            getter: self => {
+                if (self is PyFunction func)
+                    return new PyDict(func.Attributes);
+                throw PyTypeError.Create("descriptor '__dict__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+            }
+        ));
+
+        // __call__ getset descriptor (함수 자체를 반환)
+        funcType.Descriptors.AddGetSet("__call__", new PyGetSetDescriptor(
+            "__call__",
+            funcType,
+            getter: self => self // 함수 자체가 __call__
+        ));
     }
     
     private PyObject DefaultImplementation(PyObject[] args)
@@ -265,20 +353,21 @@ public partial class PyFunction : PyObject, IDescriptor
     
     public bool IsDataDescriptor() => false; // function은 non-data descriptor
     
-    // Function attributes 접근
+    // Function attributes 접근 - CPython 호환: descriptor 테이블 사용
     public override PyObject GetAttribute(string name)
     {
-        return name switch
+        // CPython 3.12 호환: GenericGetAttribute를 통해 descriptor 테이블 조회
+        try
         {
-            "__name__" => new PyString(Name),
-            "__module__" => DefiningModule != null ? new PyString(DefiningModule.Name) : new PyString("__main__"),
-            "__doc__" => new PyString($"Function {Name}"),
-            "__call__" => this, // 함수 자체가 __call__
-            "__closure__" => Attributes["__closure__"], // 클로저 정보
-            "__code__" => (PyObject)(CodeObject ?? (object)PyNone.Instance), // 코드 객체
-            "__dict__" => new PyDict(Attributes), // CPython 3.12: Function __dict__ attribute
-            _ => Attributes.TryGetValue(name, out PyObject value) ? value : throw PyAttributeError.Create($"'function' object has no attribute '{name}'")
-        };
+            return GenericGetAttribute(name);
+        }
+        catch (PythonException)
+        {
+            // descriptor 테이블에 없으면 Attributes 딕셔너리 확인
+            if (Attributes.TryGetValue(name, out PyObject value))
+                return value;
+            throw;
+        }
     }
     
     public override void SetAttribute(string name, PyObject value)
@@ -356,6 +445,7 @@ public partial class PyFunction : PyObject, IDescriptor
                 "__func__" => Function,
                 "__name__" => new PyString(Function.Name),
                 "__call__" => this, // 메서드 자체가 __call__
+                "__code__" => Function.GetAttribute("__code__"), // CPython 3.12: Delegate to underlying function
                 _ => base.GetAttribute(name)
             };
         }

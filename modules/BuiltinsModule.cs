@@ -64,6 +64,44 @@ namespace SharpPy.Modules
             module.ModuleDict["getattr"] = new PyBuiltinFunction("getattr", GetAttr);
             module.ModuleDict["setattr"] = new PyBuiltinFunction("setattr", SetAttr);
 
+            // Add property, classmethod, staticmethod (required by enum module)
+            module.ModuleDict["property"] = new PyBuiltinFunction("property");
+            module.ModuleDict["classmethod"] = new PyBuiltinFunction("classmethod");
+            module.ModuleDict["staticmethod"] = new PyBuiltinFunction("staticmethod");
+
+            // Add other commonly used builtins
+            module.ModuleDict["print"] = new PyBuiltinFunction("print");
+            module.ModuleDict["input"] = new PyBuiltinFunction("input");
+            module.ModuleDict["repr"] = new PyBuiltinFunction("repr");
+            module.ModuleDict["id"] = new PyBuiltinFunction("id");
+            module.ModuleDict["hash"] = new PyBuiltinFunction("hash");
+            module.ModuleDict["callable"] = new PyBuiltinFunction("callable");
+            module.ModuleDict["dir"] = new PyBuiltinFunction("dir");
+            module.ModuleDict["iter"] = new PyBuiltinFunction("iter");
+            module.ModuleDict["next"] = new PyBuiltinFunction("next");
+            module.ModuleDict["range"] = new PyBuiltinFunction("range");
+            module.ModuleDict["enumerate"] = new PyBuiltinFunction("enumerate");
+            module.ModuleDict["zip"] = new PyBuiltinFunction("zip");
+            module.ModuleDict["map"] = new PyBuiltinFunction("map");
+            module.ModuleDict["filter"] = new PyBuiltinFunction("filter");
+            module.ModuleDict["sorted"] = new PyBuiltinFunction("sorted");
+            module.ModuleDict["reversed"] = new PyBuiltinFunction("reversed");
+            module.ModuleDict["sum"] = new PyBuiltinFunction("sum");
+            module.ModuleDict["min"] = new PyBuiltinFunction("min");
+            module.ModuleDict["max"] = new PyBuiltinFunction("max");
+            module.ModuleDict["any"] = new PyBuiltinFunction("any");
+            module.ModuleDict["all"] = new PyBuiltinFunction("all");
+            module.ModuleDict["delattr"] = new PyBuiltinFunction("delattr");
+            module.ModuleDict["super"] = new PyBuiltinFunction("super");
+            module.ModuleDict["round"] = new PyBuiltinFunction("round");
+            module.ModuleDict["pow"] = new PyBuiltinFunction("pow");
+            module.ModuleDict["divmod"] = new PyBuiltinFunction("divmod");
+            module.ModuleDict["ord"] = new PyBuiltinFunction("ord");
+            module.ModuleDict["chr"] = new PyBuiltinFunction("chr");
+            module.ModuleDict["open"] = new PyBuiltinFunction("open");
+            module.ModuleDict["globals"] = new PyBuiltinFunction("globals");
+            module.ModuleDict["locals"] = new PyBuiltinFunction("locals");
+
             // Python 3.12 special attributes
             module.ModuleDict["__name__"] = new PyString("builtins");
             module.ModuleDict["__doc__"] = new PyString("Built-in functions, exceptions, and other objects.");

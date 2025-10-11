@@ -169,8 +169,8 @@ namespace SharpPy
             switch (stmt)
             {
                 case GeneratedPass:
-                    // Pass statement - represented as expression statement with None
-                    return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
+                    // Pass statement - CPython 3.12 compatible
+                    return new PassStatement();
 
                 case GeneratedBreak:
                     // Break statement - only valid inside loops
@@ -332,6 +332,20 @@ namespace SharpPy
                         }
 
                         return new ReturnStatement(returnValue);
+                    }
+
+                case GeneratedAssert assertStmt:
+                    // Assert statement (assert test [, msg]) - CPython 3.12 compatible
+                    {
+                        var testExpr = ConvertAnyExpression(assertStmt.Test);
+                        Expression? msgExpr = null;
+
+                        if (assertStmt.Msg != null)
+                        {
+                            msgExpr = ConvertAnyExpression(assertStmt.Msg);
+                        }
+
+                        return new AssertStatement(testExpr, msgExpr);
                     }
 
                 case GeneratedRaise raiseStmt:
@@ -1022,10 +1036,41 @@ namespace SharpPy
                             }
                         }
 
+                        // CPython 3.12: Extract metaclass from keywords
+                        Expression? metaclassExpr = null;
+                        if (classDef.Keywords != null)
+                        {
+                            foreach (var keyword in classDef.Keywords.AsEnumerable())
+                            {
+                                if (keyword is GeneratedKeyword kw && kw.Arg?.Value == "metaclass")
+                                {
+                                    metaclassExpr = ConvertAnyExpression(kw.Value);
 #if DEBUG_AST_LOG
-                        Console.WriteLine($"[DEBUG] ConvertStatement: Creating ClassDefStatement with name='{className}', bases={baseClassExprs.Count}, body={classBodyStmts.Count}");
+                                    Console.WriteLine($"[DEBUG] Found metaclass keyword: {metaclassExpr?.GetType().Name}");
 #endif
-                        return new ClassDefStatement(className, baseClassExprs, classBodyStmts);
+                                    break;
+                                }
+                            }
+                        }
+
+                        // CPython 3.12: Extract type parameters
+                        List<string> typeParams = new List<string>();
+                        if (classDef.TypeParams != null)
+                        {
+                            foreach (var tp in classDef.TypeParams.AsEnumerable())
+                            {
+                                if (tp is GeneratedTypeVar tv && !string.IsNullOrEmpty(tv.Name))
+                                {
+                                    typeParams.Add(tv.Name);
+                                }
+                                // Add other type param types (ParamSpec, TypeVarTuple) as needed
+                            }
+                        }
+
+#if DEBUG_AST_LOG
+                        Console.WriteLine($"[DEBUG] ConvertStatement: Creating ClassDefStatement with name='{className}', bases={baseClassExprs.Count}, body={classBodyStmts.Count}, metaclass={metaclassExpr != null}, typeParams={typeParams.Count}");
+#endif
+                        return new ClassDefStatement(className, baseClassExprs, classBodyStmts, typeParams, metaclassExpr);
                     }
 
                 case GeneratedGlobal globalStmt:

@@ -192,9 +192,11 @@ namespace SharpPy
                     originalCode.VarNames,
                     originalCode.ArgCount,
                     originalCode.PosonlyArgCount,
+                    0, // kwonlyArgCount
                     originalCode.FreeVars,
                     originalCode.CellVars,
                     originalCode.DefaultValues,
+                    null, // kwDefaults
                     originalCode.Flags,
                     originalCode.FileName,
                     originalCode.SourceLines,

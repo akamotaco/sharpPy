@@ -8,6 +8,44 @@ namespace SharpPy
     /// </summary>
     public abstract class PyIterator : PyObject, IDisposable
     {
+        static PyIterator()
+        {
+            InitializeIteratorDescriptors();
+        }
+
+        private static void InitializeIteratorDescriptors()
+        {
+            if (PyType.IteratorType.Descriptors.Methods.Count > 0) return;
+
+            var iterType = PyType.IteratorType;
+
+            // __next__ method descriptor
+            iterType.Descriptors.AddMethod("__next__", new PyMethodDescriptor(
+                "__next__", iterType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create("__next__() takes no arguments");
+                    if (self is not PyIterator iterator)
+                        throw PyTypeError.Create($"descriptor '__next__' requires a 'iterator' object but received a '{self.GetTypeName()}'");
+                    return iterator.Next();
+                },
+                minArgs: 0, maxArgs: 0
+            ));
+
+            // __iter__ method descriptor
+            iterType.Descriptors.AddMethod("__iter__", new PyMethodDescriptor(
+                "__iter__", iterType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create("__iter__() takes no arguments");
+                    if (self is not PyIterator iterator)
+                        throw PyTypeError.Create($"descriptor '__iter__' requires a 'iterator' object but received a '{self.GetTypeName()}'");
+                    return iterator;
+                },
+                minArgs: 0, maxArgs: 0
+            ));
+        }
+
         public override PyType GetPyType() => PyType.IteratorType;
         public override string GetTypeName() => "iterator";
 
@@ -42,6 +80,14 @@ namespace SharpPy
         }
 
         public override bool PyBoolValue() => true;
+
+        /// <summary>
+        /// CPython 3.12: Use descriptor protocol for attribute access
+        /// </summary>
+        public override PyObject GetAttribute(string name)
+        {
+            return GenericGetAttribute(name);
+        }
 
         #region IDisposable Implementation
 

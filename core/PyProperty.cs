@@ -14,15 +14,142 @@ public interface IDescriptor
     // Python의 property 구현
     public class PyProperty : PyObject, IDescriptor
     {
-        protected readonly PyFunction _getter;
-        protected readonly PyFunction _setter;
-        protected readonly PyFunction _deleter;
+        protected readonly PyObject? _getter;
+        protected readonly PyObject? _setter;
+        protected readonly PyObject? _deleter;
+        protected readonly PyObject? _doc;
 
-        public PyProperty(PyFunction getter, PyFunction setter = null, PyFunction deleter = null)
+        public PyProperty(PyObject? getter = null, PyObject? setter = null, PyObject? deleter = null, PyObject? doc = null)
         {
             _getter = getter;
             _setter = setter;
             _deleter = deleter;
+            _doc = doc;
+
+            // CPython 호환: property type descriptor 초기화
+            InitializePropertyDescriptors();
+        }
+
+        /// <summary>
+        /// CPython 호환: property 타입의 descriptor 테이블 초기화
+        /// </summary>
+        private static void InitializePropertyDescriptors()
+        {
+            // 이미 초기화되었으면 스킵
+            if (PyType.PropertyType.Descriptors.Methods.Count > 0)
+                return;
+
+            var propType = PyType.PropertyType;
+
+            // setter 메서드 descriptor
+            propType.Descriptors.AddMethod("setter", new PyMethodDescriptor(
+                "setter",
+                propType,
+                (self, args, kwargs) => {
+                    if (self is not PyProperty prop)
+                        throw PyTypeError.Create("descriptor 'setter' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 PyProperty.setter called with {args.Length} args");
+                    #endif
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"setter() takes exactly one argument ({args.Length} given)");
+                    if (!args[0].IsCallable())
+                        throw PyTypeError.Create("setter() argument must be callable");
+
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   → Creating new PyProperty with setter: {args[0].GetTypeName()}");
+                    #endif
+                    var newProperty = new PyProperty(prop._getter, args[0], prop._deleter, prop._doc);
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   → New property: getter={newProperty._getter?.GetTypeName()}, setter={newProperty._setter?.GetTypeName()}, deleter={newProperty._deleter?.GetTypeName()}");
+                    #endif
+                    return newProperty;
+                },
+                minArgs: 1,
+                maxArgs: 1
+            ));
+
+            // deleter 메서드 descriptor
+            propType.Descriptors.AddMethod("deleter", new PyMethodDescriptor(
+                "deleter",
+                propType,
+                (self, args, kwargs) => {
+                    if (self is not PyProperty prop)
+                        throw PyTypeError.Create("descriptor 'deleter' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 PyProperty.deleter called with {args.Length} args");
+                    #endif
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"deleter() takes exactly one argument ({args.Length} given)");
+                    if (!args[0].IsCallable())
+                        throw PyTypeError.Create("deleter() argument must be callable");
+
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   → Creating new PyProperty with deleter: {args[0].GetTypeName()}");
+                    #endif
+                    var newProperty = new PyProperty(prop._getter, prop._setter, args[0], prop._doc);
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   → New property: getter={newProperty._getter?.GetTypeName()}, setter={newProperty._setter?.GetTypeName()}, deleter={newProperty._deleter?.GetTypeName()}");
+                    #endif
+                    return newProperty;
+                },
+                minArgs: 1,
+                maxArgs: 1
+            ));
+
+            // getter 메서드 descriptor
+            propType.Descriptors.AddMethod("getter", new PyMethodDescriptor(
+                "getter",
+                propType,
+                (self, args, kwargs) => {
+                    if (self is not PyProperty prop)
+                        throw PyTypeError.Create("descriptor 'getter' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"getter() takes exactly one argument ({args.Length} given)");
+                    if (!args[0].IsCallable())
+                        throw PyTypeError.Create("getter() argument must be callable");
+
+                    return new PyProperty(args[0], prop._setter, prop._deleter, prop._doc);
+                },
+                minArgs: 1,
+                maxArgs: 1
+            ));
+
+            // fget getset descriptor
+            propType.Descriptors.AddGetSet("fget", new PyGetSetDescriptor(
+                "fget",
+                propType,
+                getter: self => {
+                    if (self is PyProperty prop)
+                        return prop._getter ?? (PyObject)PyNone.Instance;
+                    throw PyTypeError.Create("descriptor 'fget' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                }
+            ));
+
+            // fset getset descriptor
+            propType.Descriptors.AddGetSet("fset", new PyGetSetDescriptor(
+                "fset",
+                propType,
+                getter: self => {
+                    if (self is PyProperty prop)
+                        return prop._setter ?? (PyObject)PyNone.Instance;
+                    throw PyTypeError.Create("descriptor 'fset' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                }
+            ));
+
+            // fdel getset descriptor
+            propType.Descriptors.AddGetSet("fdel", new PyGetSetDescriptor(
+                "fdel",
+                propType,
+                getter: self => {
+                    if (self is PyProperty prop)
+                        return prop._deleter ?? (PyObject)PyNone.Instance;
+                    throw PyTypeError.Create("descriptor 'fdel' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                }
+            ));
         }
 
         public PyObject Get(PyObject instance, PyType owner)
@@ -31,7 +158,7 @@ public interface IDescriptor
             Console.WriteLine($"🔧 PyProperty.Get called: instance={instance?.GetType().Name}, owner={owner?.Name}");
             #endif
             #if DEBUG_LOG
-            Console.WriteLine($"   → getter={_getter?.Name}, setter={_setter?.Name}, deleter={_deleter?.Name}");
+            Console.WriteLine($"   → getter={_getter?.GetTypeName()}, setter={_setter?.GetTypeName()}, deleter={_deleter?.GetTypeName()}");
             #endif
 
             if (_getter == null)
@@ -53,6 +180,12 @@ public interface IDescriptor
             #if DEBUG_LOG
             Console.WriteLine($"   → Calling getter with instance: {instance.GetType().Name}");
             #endif
+
+            if (!_getter.IsCallable())
+            {
+                throw PyTypeError.Create($"property getter is not callable");
+            }
+
             try
             {
                 var result = _getter.Call(new PyObject[] { instance }, null);
@@ -76,7 +209,7 @@ public interface IDescriptor
             Console.WriteLine($"🔧 PyProperty.Set called: instance={instance?.GetType().Name}, value={value}");
             #endif
             #if DEBUG_LOG
-            Console.WriteLine($"   → setter={_setter?.Name}");
+            Console.WriteLine($"   → setter={_setter?.GetTypeName()}");
             #endif
 
             if (_setter == null)
@@ -85,6 +218,11 @@ public interface IDescriptor
                 Console.WriteLine($"   ❌ No setter available - throwing AttributeError");
                 #endif
                 throw PyAttributeError.Create("can't set attribute");
+            }
+
+            if (!_setter.IsCallable())
+            {
+                throw PyTypeError.Create($"property setter is not callable");
             }
 
             #if DEBUG_LOG
@@ -112,7 +250,7 @@ public interface IDescriptor
             Console.WriteLine($"🔧 PyProperty.Delete called: instance={instance?.GetType().Name}");
             #endif
             #if DEBUG_LOG
-            Console.WriteLine($"   → deleter={_deleter?.Name}");
+            Console.WriteLine($"   → deleter={_deleter?.GetTypeName()}");
             #endif
 
             if (_deleter == null)
@@ -121,6 +259,11 @@ public interface IDescriptor
                 Console.WriteLine($"   ❌ No deleter available - throwing AttributeError");
                 #endif
                 throw PyAttributeError.Create("can't delete attribute");
+            }
+
+            if (!_deleter.IsCallable())
+            {
+                throw PyTypeError.Create($"property deleter is not callable");
             }
 
             #if DEBUG_LOG
@@ -144,58 +287,11 @@ public interface IDescriptor
 
         public bool IsDataDescriptor() => _setter != null || _deleter != null;
 
-        // Property decorator chaining methods
+        // Property decorator chaining methods - CPython 호환: descriptor 테이블 사용
         public override PyObject GetAttribute(string name)
         {
-            switch (name)
-            {
-                case "setter":
-                    return new PyBuiltinFunction("setter", args => {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 PyProperty.setter called with {args.Length} args");
-                        #endif
-                        if (args.Length != 1) throw PyTypeError.Create($"setter() takes exactly one argument ({args.Length} given)");
-                        if (args[0] is not PyFunction func) throw PyTypeError.Create("setter() argument must be a function");
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   → Creating new PyProperty with setter: {func.Name}");
-                        #endif
-                        var newProperty = new PyProperty(_getter, func, _deleter);
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   → New property: getter={newProperty._getter?.Name}, setter={newProperty._setter?.Name}, deleter={newProperty._deleter?.Name}");
-                        #endif
-                        return newProperty;
-                    });
-                case "deleter":
-                    return new PyBuiltinFunction("deleter", args => {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 PyProperty.deleter called with {args.Length} args");
-                        #endif
-                        if (args.Length != 1) throw PyTypeError.Create($"deleter() takes exactly one argument ({args.Length} given)");
-                        if (args[0] is not PyFunction func) throw PyTypeError.Create("deleter() argument must be a function");
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   → Creating new PyProperty with deleter: {func.Name}");
-                        #endif
-                        var newProperty = new PyProperty(_getter, _setter, func);
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   → New property: getter={newProperty._getter?.Name}, setter={newProperty._setter?.Name}, deleter={newProperty._deleter?.Name}");
-                        #endif
-                        return newProperty;
-                    });
-                case "getter":
-                    return new PyBuiltinFunction("getter", args => {
-                        if (args.Length != 1) throw PyTypeError.Create($"getter() takes exactly one argument ({args.Length} given)");
-                        if (args[0] is not PyFunction func) throw PyTypeError.Create("getter() argument must be a function");
-                        return new PyProperty(func, _setter, _deleter);
-                    });
-                case "fget":
-                    return _getter ?? (PyObject)PyNone.Instance;
-                case "fset":
-                    return _setter ?? (PyObject)PyNone.Instance;
-                case "fdel":
-                    return _deleter ?? (PyObject)PyNone.Instance;
-                default:
-                    return base.GetAttribute(name);
-            }
+            // CPython 3.12 호환: GenericGetAttribute를 통해 descriptor 테이블 조회
+            return GenericGetAttribute(name);
         }
 
         public override string GetTypeName() => "property";

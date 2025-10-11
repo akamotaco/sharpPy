@@ -177,9 +177,11 @@ namespace SharpPy
             bool hasVarArgs = (code.Flags & PyCodeObject.CO_VARARGS) != 0;
             bool hasVarKeywords = (code.Flags & PyCodeObject.CO_VARKEYWORDS) != 0;
 
-            // Phase 1: Bind positional arguments to regular parameters
+            // Phase 1: Bind positional arguments to regular parameters (NOT including keyword-only)
+            // CPython 3.12: co_argcount does NOT include keyword-only parameters
+            int regularArgCount = code.ArgCount - code.KwonlyArgCount;
             int posArgIndex = 0;
-            for (int paramIndex = 0; paramIndex < code.ArgCount; paramIndex++)
+            for (int paramIndex = 0; paramIndex < regularArgCount; paramIndex++)
             {
                 var paramName = code.VarNames[paramIndex];
 
@@ -209,7 +211,7 @@ namespace SharpPy
                 else
                 {
                     // Check for default value
-                    int numRequiredParams = code.ArgCount - code.DefaultValues.Count;
+                    int numRequiredParams = regularArgCount - code.DefaultValues.Count;
                     if (paramIndex >= numRequiredParams && paramIndex - numRequiredParams < code.DefaultValues.Count)
                     {
                         var defaultValue = code.DefaultValues[paramIndex - numRequiredParams];
@@ -224,6 +226,47 @@ namespace SharpPy
                     {
                         // Missing required argument
                         throw PyTypeError.Create($"[PyFrame] missing required argument: '{paramName}'");
+                    }
+                }
+            }
+
+            // Phase 1.5: Bind keyword-only arguments (CPython 3.12)
+            // These come AFTER regular parameters but BEFORE *args/**kwargs
+            for (int kwOnlyIndex = 0; kwOnlyIndex < code.KwonlyArgCount; kwOnlyIndex++)
+            {
+                int paramIndex = regularArgCount + kwOnlyIndex;
+                var paramName = code.VarNames[paramIndex];
+
+                // Keyword-only parameters can ONLY be passed by keyword, never positionally
+                if (keywordArgs != null && keywordArgs.ContainsKey(paramName))
+                {
+                    var keywordValue = keywordArgs[paramName];
+                    FastLocals[paramName] = keywordValue;
+                    ScopeChain.AssignVariable(paramName, keywordValue);
+                    keywordArgs.Remove(paramName); // Remove so it doesn't go into **kwargs
+
+#if DEBUG_LOG
+                    Console.WriteLine($"  → {paramName} = {keywordValue} (keyword-only 인수)");
+#endif
+                }
+                else
+                {
+                    // Check for keyword-only default value
+                    // In CPython, KwDefaults can contain None as a default value, so we check list bounds not value
+                    if (kwOnlyIndex < code.KwDefaults.Count)
+                    {
+                        var defaultValue = code.KwDefaults[kwOnlyIndex];
+                        FastLocals[paramName] = defaultValue;
+                        ScopeChain.AssignVariable(paramName, defaultValue);
+
+#if DEBUG_LOG
+                        Console.WriteLine($"  → {paramName} = {defaultValue} (keyword-only 기본값)");
+#endif
+                    }
+                    else
+                    {
+                        // Missing required keyword-only argument
+                        throw PyTypeError.Create($"[PyFrame] missing required keyword-only argument: '{paramName}'");
                     }
                 }
             }
@@ -534,7 +577,7 @@ namespace SharpPy
 
         // 프레임 실행 (바이트코드 해석)
         // CPython 3.12: Execute class body and return namespace
-        public Dictionary<string, PyObject> ExecuteClassBody(PyCodeObject classBody, PyCell[]? closure = null)
+        public Dictionary<string, PyObject> ExecuteClassBody(PyCodeObject classBody, PyCell[]? closure = null, Dictionary<string, PyObject>? initialNamespace = null)
         {
             // Store the original global scope state to detect new variables
             Dictionary<string, PyObject> originalGlobals = null;
@@ -551,10 +594,35 @@ namespace SharpPy
             var frame = closure != null
                 ? new PyFrame(classBody, new PyObject[0], parentScope, closure)
                 : new PyFrame(classBody, new PyObject[0], parentScope);
+
+            // CPython 3.12: Pre-populate local scope with initial namespace from __prepare__
+            if (initialNamespace != null && initialNamespace.Count > 0)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"📦 Pre-populating class namespace with {initialNamespace.Count} items from __prepare__");
+                #endif
+                foreach (var kvp in initialNamespace)
+                {
+                    frame.ScopeChain.CurrentScope.SetVariable(kvp.Key, kvp.Value);
+                    #if DEBUG_LOG
+                    Console.WriteLine($"  - {kvp.Key}: {kvp.Value?.GetType().Name}");
+                    #endif
+                }
+            }
+
             var result = ExecuteFrame(frame);
 
             // Extract class namespace - capture variables added during class body execution
             var classNamespace = new Dictionary<string, PyObject>();
+
+            // Start with initial namespace from __prepare__ if provided
+            if (initialNamespace != null)
+            {
+                foreach (var kvp in initialNamespace)
+                {
+                    classNamespace[kvp.Key] = kvp.Value;
+                }
+            }
 
             // Method 1: FastLocals (for STORE_FAST operations)
             foreach (var kvp in frame.FastLocals)
@@ -1106,10 +1174,25 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.LOAD_GLOBAL:
-                    var globalName = frame.Code.Names[instruction.Argument];
+                    // CPython 3.12: oparg encoding: (nameIndex << 1) | pushNull
+                    int globalOparg = instruction.Argument;
+                    bool pushNull = (globalOparg & 1) == 1;
+                    int globalNameIndex = globalOparg >> 1;
+
+                    var globalName = frame.Code.Names[globalNameIndex];
                     #if DEBUG_LOG
-                    Console.WriteLine($"🔍 LOAD_GLOBAL({globalName}): Checking GlobalScope");
+                    Console.WriteLine($"🔍 LOAD_GLOBAL({globalName}): pushNull={pushNull}, nameIndex={globalNameIndex}");
                     #endif
+
+                    // CPython 3.12: Push NULL first if flag is set
+                    if (pushNull)
+                    {
+                        frame.ValueStack.Push(PyNone.Instance); // Use PyNone.Instance as NULL marker
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   Pushed NULL before loading {globalName}");
+                        #endif
+                    }
+
                     #if DEBUG_LOG
                     Console.WriteLine($"   GlobalScope is null: {frame.ScopeChain.GlobalScope == null}");
                     #endif
@@ -1886,11 +1969,62 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.LOAD_ATTR:
-                    var attrName = frame.Code.Names[instruction.Argument];
-                    var obj = frame.ValueStack.Pop();
-                    // 기존 Attribute 시스템 사용!
-                    var attr = obj.GetAttribute(attrName);
-                    frame.ValueStack.Push(attr);
+                    // CPython 3.12: LOAD_ATTR with flag encoding
+                    // oparg encoding: (nameIndex << 1) | pushNull
+                    // If pushNull=1: Push two values [self/NULL, method/attr] for method call optimization
+                    // If pushNull=0: Push one value [attr] for simple attribute access
+                    {
+                        int attrOparg = instruction.Argument;
+                        bool pushNullForMethod = (attrOparg & 1) == 1;
+                        int attrNameIndex = attrOparg >> 1;
+
+                        var attrName = frame.Code.Names[attrNameIndex];
+                        var obj = frame.ValueStack.Pop();
+
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔍 LOAD_ATTR: attribute '{attrName}' from object type: {obj.GetType().Name}, PyType: {obj.GetTypeName()}, pushNull={pushNullForMethod}");
+                        if (obj is PyClassInstance objClassInst)
+                        {
+                            Console.WriteLine($"   → PyClassInstance of class: {objClassInst.PyClass.Name}");
+                        }
+                        #endif
+
+                        // Get attribute using existing system
+                        var attr = obj.GetAttribute(attrName);
+
+                        if (pushNullForMethod)
+                        {
+                            // CPython 3.12: Method call optimization
+                            // Check if attr is a bound method or regular attribute
+                            if (attr is PyFunction || attr is PyBuiltinFunction || attr is PyMethod)
+                            {
+                                // It's a method: push [self, unbound_method]
+                                // This allows CALL to optimize by passing self directly
+                                frame.ValueStack.Push(obj);  // self
+                                frame.ValueStack.Push(attr); // method
+                                #if DEBUG_LOG
+                                Console.WriteLine($"   → Method optimization: pushed [self, method]");
+                                #endif
+                            }
+                            else
+                            {
+                                // It's a regular attribute or callable descriptor: push [NULL, attr]
+                                frame.ValueStack.Push(PyNone.Instance); // NULL marker
+                                frame.ValueStack.Push(attr);
+                                #if DEBUG_LOG
+                                Console.WriteLine($"   → Regular attribute: pushed [NULL, attr]");
+                                #endif
+                            }
+                        }
+                        else
+                        {
+                            // Simple attribute access: push [attr]
+                            frame.ValueStack.Push(attr);
+                            #if DEBUG_LOG
+                            Console.WriteLine($"   → Simple access: pushed [attr]");
+                            #endif
+                        }
+                    }
                     break;
 
                 case ByteCodeOp.STORE_ATTR:
@@ -1958,38 +2092,58 @@ namespace SharpPy
                         #endif
 
                         // CPython 3.12: LOAD_SUPER_ATTR automatically binds methods to self
+                        // IMPORTANT: class-mode super (selfObj is a type) should NOT auto-bind
                         PyObject finalAttr = superAttr;
-                        if (superAttr is PyFunction pyFunc)
+
+                        // Check if this is class-mode super: selfObj is the class itself (PyType or PyClass)
+                        bool isClassModeSuper = (selfObj is PyType) || (selfObj is PyClass);
+
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔧 LOAD_SUPER_ATTR: isClassModeSuper={isClassModeSuper}, selfObj type={selfObj.GetType().Name}");
+                        #endif
+
+                        if (!isClassModeSuper)
                         {
-                            finalAttr = new PyMethod(selfObj, pyFunc);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding function {superAttrName} to self");
-                            #endif
+                            // Instance-mode super: auto-bind methods to instance
+                            if (superAttr is PyFunction pyFunc)
+                            {
+                                finalAttr = new PyMethod(selfObj, pyFunc);
+                                #if DEBUG_LOG
+                                Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding function {superAttrName} to self");
+                                #endif
+                            }
+                            else if (superAttr is PyBuiltinFunction builtinFunc)
+                            {
+                                // Convert PyBuiltinFunction to PyFunction for proper binding
+                                var func = new PyFunction(builtinFunc.Name, args => builtinFunc.Call(args, null));
+                                finalAttr = new PyMethod(selfObj, func);
+                                #if DEBUG_LOG
+                                Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding builtin function {superAttrName} to self");
+                                #endif
+                            }
+                            else if (superAttr is PyBuiltinMethod builtinMethod)
+                            {
+                                // Convert PyBuiltinMethod to PyFunction for proper binding
+                                var func = new PyFunction(builtinMethod.Name, args => builtinMethod.Call(args, null));
+                                finalAttr = new PyMethod(selfObj, func);
+                                #if DEBUG_LOG
+                                Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding builtin method {superAttrName} to self");
+                                #endif
+                            }
+                            else if (superAttr is PyMethod existingMethod)
+                            {
+                                // Already bound, but we need to re-bind to current self
+                                finalAttr = new PyMethod(selfObj, existingMethod.Function);
+                                #if DEBUG_LOG
+                                Console.WriteLine($"🔧 LOAD_SUPER_ATTR: re-binding existing method {superAttrName} to self");
+                                #endif
+                            }
                         }
-                        else if (superAttr is PyBuiltinFunction builtinFunc)
+                        else
                         {
-                            // Convert PyBuiltinFunction to PyFunction for proper binding
-                            var func = new PyFunction(builtinFunc.Name, args => builtinFunc.Call(args, null));
-                            finalAttr = new PyMethod(selfObj, func);
+                            // Class-mode super: do NOT auto-bind, return as-is
                             #if DEBUG_LOG
-                            Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding builtin function {superAttrName} to self");
-                            #endif
-                        }
-                        else if (superAttr is PyBuiltinMethod builtinMethod)
-                        {
-                            // Convert PyBuiltinMethod to PyFunction for proper binding
-                            var func = new PyFunction(builtinMethod.Name, args => builtinMethod.Call(args, null));
-                            finalAttr = new PyMethod(selfObj, func);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 LOAD_SUPER_ATTR: binding builtin method {superAttrName} to self");
-                            #endif
-                        }
-                        else if (superAttr is PyMethod existingMethod)
-                        {
-                            // Already bound, but we need to re-bind to current self
-                            finalAttr = new PyMethod(selfObj, existingMethod.Function);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 LOAD_SUPER_ATTR: re-binding existing method {superAttrName} to self");
+                            Console.WriteLine($"🔧 LOAD_SUPER_ATTR: class-mode super, NOT binding {superAttrName}");
                             #endif
                         }
 
@@ -3884,7 +4038,45 @@ namespace SharpPy
                     }
                     else
                     {
-                        throw PyTypeError.Create($"cannot unpack non-sequence {sequence.GetTypeName()}");
+                        // CPython 3.12: Use GetIterator() for iterable objects (including metaclass __iter__)
+                        try
+                        {
+                            // Call GetIterator() directly to support metaclass __iter__
+                            var iteratorObj = sequence.GetIterator();
+
+                            // Collect all items from iterator
+                            var items = new List<PyObject>();
+
+                            while (true)
+                            {
+                                try
+                                {
+                                    var item = iteratorObj.Next();
+                                    items.Add(item);
+                                }
+                                catch (PythonException pex) when (pex.PyException is PyStopIteration)
+                                {
+                                    break;
+                                }
+                            }
+
+                            // Check count matches
+                            if (items.Count != unpackCount)
+                            {
+                                throw PyValueError.Create($"not enough values to unpack (expected {unpackCount}, got {items.Count})");
+                            }
+
+                            // Push items in reverse order (CPython convention)
+                            for (int i = items.Count - 1; i >= 0; i--)
+                            {
+                                frame.ValueStack.Push(items[i]);
+                            }
+                        }
+                        catch (PythonException pex) when (pex.PyException is PyTypeError)
+                        {
+                            // Re-throw PyTypeError (already has correct message)
+                            throw;
+                        }
                     }
                     break;
 

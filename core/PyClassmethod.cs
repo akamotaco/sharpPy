@@ -59,6 +59,9 @@ namespace SharpPy
 
         public override string GetTypeName() => "staticmethod";
 
+        // CPython 3.12: Return proper type
+        public override PyType GetPyType() => PyType.StaticMethodType;
+
         // IDescriptor implementation
         public PyObject Get(PyObject instance, PyType owner)
         {
@@ -78,14 +81,28 @@ namespace SharpPy
 
         public bool IsDataDescriptor() => false; // staticmethod is not a data descriptor
 
+        // CPython 3.12: staticmethod object itself is not callable
+        public override bool IsCallable() => false;
+
         public override PyObject Call(PyObject[] args, PyDict kwargs = null)
         {
-            return Function.Call(args, kwargs);
+            // This shouldn't be called since IsCallable() returns false
+            throw PyTypeError.Create("'staticmethod' object is not callable");
+        }
+
+        // CPython 3.12: Support __func__ attribute
+        public override PyObject GetAttribute(string name)
+        {
+            if (name == "__func__")
+            {
+                return Function;
+            }
+            return base.GetAttribute(name);
         }
 
         public override string ToString()
         {
-            return $"<staticmethod({Function})>";
+            return $"<staticmethod object at 0x{GetHashCode():x}>";
         }
     }
 }
