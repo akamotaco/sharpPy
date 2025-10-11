@@ -356,16 +356,17 @@ public partial class PyFunction : PyObject, IDescriptor
     // Function attributes 접근 - CPython 호환: descriptor 테이블 사용
     public override PyObject GetAttribute(string name)
     {
-        // CPython 3.12 호환: GenericGetAttribute를 통해 descriptor 테이블 조회
+        // CPython 3.12: 먼저 function의 instance dictionary (Attributes) 확인
+        if (Attributes.TryGetValue(name, out PyObject value))
+            return value;
+
+        // 그 다음 descriptor 테이블 조회
         try
         {
             return GenericGetAttribute(name);
         }
         catch (PythonException)
         {
-            // descriptor 테이블에 없으면 Attributes 딕셔너리 확인
-            if (Attributes.TryGetValue(name, out PyObject value))
-                return value;
             throw;
         }
     }

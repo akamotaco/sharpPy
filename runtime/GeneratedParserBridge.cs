@@ -950,9 +950,17 @@ namespace SharpPy
                                 }
                             }
 
-                            // CPython 3.12: Create function with FunctionArguments
+                            // CPython 3.12: Extract return type annotation if present
+                            Expression? returnAnnotation = null;
+                            if (funcDef.Returns != null)
+                            {
+                                returnAnnotation = ConvertAnyExpression(funcDef.Returns);
+                                Console.WriteLine($"[DEBUG] Function '{name}' has return annotation: {returnAnnotation}");
+                            }
+
+                            // CPython 3.12: Create function with FunctionArguments and return annotation
                             Console.WriteLine($"[DEBUG] Creating FunctionDefStatement with FunctionArguments: {functionArgs}");
-                            var functionDef = new FunctionDefStatement(name, functionArgs, bodyStmts, null, decoratorExpressions);
+                            var functionDef = new FunctionDefStatement(name, functionArgs, bodyStmts, null, decoratorExpressions, returnAnnotation);
                             return functionDef;
                         }
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));

@@ -875,7 +875,14 @@ namespace SharpPy
             // Python 3.12: 모든 코드는 RESUME으로 시작 (line 0)
             _currentLineNumber = 0;
             EmitInstruction(ByteCodeOp.RESUME, 0);
-            
+
+            // CPython 3.12: SETUP_ANNOTATIONS once if module has any annotations
+            bool hasAnnotations = optimizedStatements.Any(stmt => stmt is AnnAssignStatement);
+            if (hasAnnotations)
+            {
+                EmitInstruction(ByteCodeOp.SETUP_ANNOTATIONS);
+            }
+
             foreach (var statement in optimizedStatements)
             {
                 CompileStatement(statement);
@@ -1017,7 +1024,42 @@ namespace SharpPy
             
             return optimizedCode;
         }
-        
+
+        /// <summary>
+        /// CPython 3.12: Extract type name from annotation Expression
+        /// Handles NameExpression, AttributeExpression, and SubscriptExpression
+        /// </summary>
+        private string ExtractAnnotationName(Expression annotation)
+        {
+            switch (annotation)
+            {
+                case NameExpression nameExpr:
+                    // Simple type: int, str, float, etc.
+                    return nameExpr.Name;
+
+                case AttributeExpression attrExpr:
+                    // Qualified name: typing.List, collections.abc.Mapping, etc.
+                    // Recursively build the full name
+                    string valueName = ExtractAnnotationName(attrExpr.Value);
+                    return $"{valueName}.{attrExpr.Attr}";
+
+                case SubscriptExpression subscriptExpr:
+                    // Generic type: List[int], Dict[str, int], Optional[str], etc.
+                    string baseName = ExtractAnnotationName(subscriptExpr.Value);
+                    string sliceName = ExtractAnnotationName(subscriptExpr.Slice);
+                    return $"{baseName}[{sliceName}]";
+
+                case TupleExpression tupleExpr:
+                    // Multiple types in subscript: Dict[str, int], Tuple[int, str, float]
+                    var elementNames = tupleExpr.Elements.Select(e => ExtractAnnotationName(e));
+                    return string.Join(", ", elementNames);
+
+                default:
+                    // Fallback: use ToString() for other expression types
+                    return annotation.ToString();
+            }
+        }
+
         /// <summary>
         /// CPython 3.12: FunctionArguments에서 매개변수와 기본값 추출
         /// Returns default expressions, NOT evaluated PyObjects
@@ -1042,9 +1084,17 @@ namespace SharpPy
             foreach (var arg in arguments.PosOnlyArgs)
             {
                 paramNames.Add(arg.Name);
+                #if DEBUG_LOG
+                Console.WriteLine($"  PosOnlyArg: {arg.Name}, Annotation: {arg.Annotation?.ToString() ?? "null"}");
+                #endif
                 if (arg.Annotation != null)
                 {
-                    annotations[arg.Name] = arg.Annotation.ToString();
+                    // CPython 3.12: Extract type name from annotation expression
+                    string annotationName = ExtractAnnotationName(arg.Annotation);
+                    annotations[arg.Name] = annotationName;
+                    #if DEBUG_LOG
+                    Console.WriteLine($"    → Extracted annotation name: {annotationName}");
+                    #endif
                 }
             }
 
@@ -1052,9 +1102,17 @@ namespace SharpPy
             foreach (var arg in arguments.Args)
             {
                 paramNames.Add(arg.Name);
+                #if DEBUG_LOG
+                Console.WriteLine($"  RegularArg: {arg.Name}, Annotation: {arg.Annotation?.ToString() ?? "null"}");
+                #endif
                 if (arg.Annotation != null)
                 {
-                    annotations[arg.Name] = arg.Annotation.ToString();
+                    // CPython 3.12: Extract type name from annotation expression
+                    string annotationName = ExtractAnnotationName(arg.Annotation);
+                    annotations[arg.Name] = annotationName;
+                    #if DEBUG_LOG
+                    Console.WriteLine($"    → Extracted annotation name: {annotationName}");
+                    #endif
                 }
             }
 
@@ -1065,7 +1123,12 @@ namespace SharpPy
                 flags |= PyCodeObject.CO_VARARGS;
                 if (arguments.VarArg.Annotation != null)
                 {
-                    annotations[arguments.VarArg.Name] = arguments.VarArg.Annotation.ToString();
+                    // CPython 3.12: Extract type name from annotation expression
+                    string annotationName = ExtractAnnotationName(arguments.VarArg.Annotation);
+                    annotations[arguments.VarArg.Name] = annotationName;
+                    #if DEBUG_LOG
+                    Console.WriteLine($"    → Extracted vararg annotation name: {annotationName}");
+                    #endif
                 }
             }
 
@@ -1075,7 +1138,12 @@ namespace SharpPy
                 paramNames.Add(arg.Name);
                 if (arg.Annotation != null)
                 {
-                    annotations[arg.Name] = arg.Annotation.ToString();
+                    // CPython 3.12: Extract type name from annotation expression
+                    string annotationName = ExtractAnnotationName(arg.Annotation);
+                    annotations[arg.Name] = annotationName;
+                    #if DEBUG_LOG
+                    Console.WriteLine($"  KwOnlyArg: {arg.Name}, Annotation: {annotationName}");
+                    #endif
                 }
             }
 
@@ -1086,7 +1154,12 @@ namespace SharpPy
                 flags |= PyCodeObject.CO_VARKEYWORDS;
                 if (arguments.KwArg.Annotation != null)
                 {
-                    annotations[arguments.KwArg.Name] = arguments.KwArg.Annotation.ToString();
+                    // CPython 3.12: Extract type name from annotation expression
+                    string annotationName = ExtractAnnotationName(arguments.KwArg.Annotation);
+                    annotations[arguments.KwArg.Name] = annotationName;
+                    #if DEBUG_LOG
+                    Console.WriteLine($"    → Extracted kwarg annotation name: {annotationName}");
+                    #endif
                 }
             }
 
@@ -1105,6 +1178,7 @@ namespace SharpPy
             Console.WriteLine($"  paramNames = [{string.Join(", ", paramNames)}]");
             Console.WriteLine($"  default expressions = [{string.Join(", ", defaultExprs.Select(d => d.ToString()))}]");
             Console.WriteLine($"  kwdefault expressions = [{string.Join(", ", kwDefaultExprs.Select(d => d?.ToString() ?? "None"))}]");
+            Console.WriteLine($"  annotations = [{string.Join(", ", annotations.Select(kv => $"{kv.Key}: {kv.Value}"))}]");
             #endif
 
             return (paramNames, defaultExprs, kwDefaultExprs, flags, argCount, posonlyArgCount, kwonlyArgCount, annotations);
@@ -2887,6 +2961,14 @@ namespace SharpPy
             // 2. 매개변수와 기본값 파싱 (CPython 3.12: use Arguments instead of Parameters)
             var (paramNames, defaultExprs, kwDefaultExprs, flags, argCount, posonlyArgCount, kwonlyArgCount, annotations) = ParseFunctionArguments(func.Arguments);
 
+            #if DEBUG_LOG
+            Console.WriteLine($"🔍 Function {func.Name}: annotations = {annotations.Count}");
+            foreach (var ann in annotations)
+            {
+                Console.WriteLine($"   {ann.Key} -> {ann.Value}");
+            }
+            #endif
+
             // Evaluate default expressions to PyObjects (defaults are evaluated at function definition time)
             var defaults = new List<PyObject>();
             foreach (var defaultExpr in defaultExprs)
@@ -2922,10 +3004,25 @@ namespace SharpPy
             }
 
             // 3. Return type annotation 처리 (CPython 3.12)
+            #if DEBUG_LOG
+            Console.WriteLine($"🔍 func.ReturnTypeAnnotation: {func.ReturnTypeAnnotation?.ToString() ?? "null"}");
+            #endif
             if (func.ReturnTypeAnnotation != null)
             {
-                annotations["return"] = func.ReturnTypeAnnotation.ToString();
+                // CPython 3.12: Extract type name from return annotation expression
+                string returnAnnotationName = ExtractAnnotationName(func.ReturnTypeAnnotation);
+                annotations["return"] = returnAnnotationName;
+                #if DEBUG_LOG
+                Console.WriteLine($"  → Added return annotation: {returnAnnotationName}");
+                #endif
             }
+            #if DEBUG_LOG
+            Console.WriteLine($"  → Total annotations: {annotations.Count}");
+            foreach (var kv in annotations)
+            {
+                Console.WriteLine($"      {kv.Key}: {kv.Value}");
+            }
+            #endif
             
             // 3. CPython 3.12 compatible: Multi-level closure chain analysis
             if (freeVars.Count == 0)
@@ -3118,20 +3215,12 @@ namespace SharpPy
             // CPython 3.12: 타입 어노테이션이 있는 경우 어노테이션 튜플 생성
             if (annotations.Count > 0)
             {
-                // CPython 패턴: BUILD_TUPLE로 튜플 생성 후 BUILD_TUPLE로 최종 래핑
+                // CPython 3.12 pattern: ('key', type_obj, 'key2', type_obj2, ...)
+                // All annotation values must be loaded as type objects via LOAD_NAME
                 foreach (var annotation in annotations)
                 {
-                    EmitLoadConst(new PyString(annotation.Key));    // key (예: 'return')
-                    // 어노테이션 값은 실제 타입 객체가 아닌 이름으로 저장
-                    if (annotation.Key == "return")
-                    {
-                        // return 타입 어노테이션: 타입 이름을 로드
-                        EmitLoadName(annotation.Value); // 'int', 'str' 등
-                    }
-                    else
-                    {
-                        EmitLoadConst(new PyString(annotation.Value));  // 매개변수 타입
-                    }
+                    EmitLoadConst(new PyString(annotation.Key));    // key (예: 'name', 'return')
+                    EmitLoadName(annotation.Value);                  // CPython 3.12: Load type object (int, str, etc.)
                 }
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, annotations.Count * 2);
                 makeFunctionFlags |= MakeFunctionFlags.ANNOTATIONS;
@@ -4146,27 +4235,26 @@ namespace SharpPy
         private void CompileAnnAssign(AnnAssignStatement annAssign)
         {
             // CPython 3.12 compatible annotated assignment: var: type = value
-            
-            // 1. First emit SETUP_ANNOTATIONS to ensure __annotations__ dict exists
-            EmitInstruction(ByteCodeOp.SETUP_ANNOTATIONS);
-            
-            // 2. Handle the value assignment if present
+
+            // 1. Handle the value assignment if present
             if (annAssign.Value != null)
             {
                 CompileExpression(annAssign.Value);
                 EmitStoreName(annAssign.VariableName);
             }
-            
-            // 3. Store type annotation in __annotations__ dict (CPython 3.12 pattern)
+
+            // 2. Store type annotation in __annotations__ dict (CPython 3.12 pattern)
+            // Note: SETUP_ANNOTATIONS should be called once at module start, not here
+
             // Compile the annotation expression (e.g., list[int] becomes LOAD_NAME list, LOAD_NAME int, BINARY_SUBSCR)
             CompileExpression(annAssign.Annotation);
-            
+
             // Load __annotations__ dict
             EmitLoadName("__annotations__");
-            
+
             // Load variable name as string key
             EmitLoadConst(new PyString(annAssign.VariableName));
-            
+
             // Store annotation: __annotations__[var_name] = annotation
             EmitInstruction(ByteCodeOp.STORE_SUBSCR);
         }
@@ -5038,6 +5126,17 @@ namespace SharpPy
                     className.Replace("<class_body_", "").TrimEnd('>') : className;
                 EmitLoadConst(new PyString(actualClassName));  // Load class name
                 EmitStoreName("__qualname__");  // Store as __qualname__ in class dict
+
+                // CPython 3.12: Check if class body has annotations
+                // If any statement is an AnnAssignStatement, emit SETUP_ANNOTATIONS
+                bool hasAnnotations = body.Any(stmt => stmt is AnnAssignStatement);
+                if (hasAnnotations)
+                {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔍 Class {actualClassName} has annotations, emitting SETUP_ANNOTATIONS");
+                    #endif
+                    EmitInstruction(ByteCodeOp.SETUP_ANNOTATIONS);
+                }
 
                 // Compile class body statements
                 foreach (var stmt in body)

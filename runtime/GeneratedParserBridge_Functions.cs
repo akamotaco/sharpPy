@@ -32,8 +32,14 @@ namespace SharpPy
                 Console.WriteLine($"[DEBUG] Found {argumentsData.Posonlyargs.Count} posonlyargs");
                 foreach (var argPtr in argumentsData.Posonlyargs.ToEnumerable<GeneratedArg>())
                 {
-                    functionArgs.PosOnlyArgs.Add(new Arg(argPtr.Arg.Value));
-                    Console.WriteLine($"[DEBUG] Added posonly arg: {argPtr.Arg.Value}");
+                    // CPython 3.12: Convert annotation if present
+                    Expression? annotation = null;
+                    if (argPtr.Annotation != null)
+                    {
+                        annotation = ConvertAnyExpression(argPtr.Annotation);
+                    }
+                    functionArgs.PosOnlyArgs.Add(new Arg(argPtr.Arg.Value, annotation));
+                    Console.WriteLine($"[DEBUG] Added posonly arg: {argPtr.Arg.Value}, annotation: {annotation}");
                 }
             }
 
@@ -43,16 +49,28 @@ namespace SharpPy
                 Console.WriteLine($"[DEBUG] Found {argumentsData.Args.Count} args");
                 foreach (var argPtr in argumentsData.Args.ToEnumerable<GeneratedArg>())
                 {
-                    functionArgs.Args.Add(new Arg(argPtr.Arg.Value));
-                    Console.WriteLine($"[DEBUG] Added regular arg: {argPtr.Arg.Value}");
+                    // CPython 3.12: Convert annotation if present
+                    Expression? annotation = null;
+                    if (argPtr.Annotation != null)
+                    {
+                        annotation = ConvertAnyExpression(argPtr.Annotation);
+                    }
+                    functionArgs.Args.Add(new Arg(argPtr.Arg.Value, annotation));
+                    Console.WriteLine($"[DEBUG] Added regular arg: {argPtr.Arg.Value}, annotation: {annotation}");
                 }
             }
 
             // Process vararg (*args)
             if (argumentsData.Vararg != null)
             {
-                functionArgs.VarArg = new Arg(argumentsData.Vararg.Arg.Value);
-                Console.WriteLine($"[DEBUG] Added vararg: *{argumentsData.Vararg.Arg.Value}");
+                // CPython 3.12: Convert annotation if present
+                Expression? annotation = null;
+                if (argumentsData.Vararg.Annotation != null)
+                {
+                    annotation = ConvertAnyExpression(argumentsData.Vararg.Annotation);
+                }
+                functionArgs.VarArg = new Arg(argumentsData.Vararg.Arg.Value, annotation);
+                Console.WriteLine($"[DEBUG] Added vararg: *{argumentsData.Vararg.Arg.Value}, annotation: {annotation}");
             }
 
             // Process kwonlyargs (keyword-only parameters after *)
@@ -61,16 +79,28 @@ namespace SharpPy
                 Console.WriteLine($"[DEBUG] Found {argumentsData.Kwonlyargs.Count} kwonlyargs");
                 foreach (var argPtr in argumentsData.Kwonlyargs.ToEnumerable<GeneratedArg>())
                 {
-                    functionArgs.KwOnlyArgs.Add(new Arg(argPtr.Arg.Value));
-                    Console.WriteLine($"[DEBUG] Added kwonly arg: {argPtr.Arg.Value}");
+                    // CPython 3.12: Convert annotation if present
+                    Expression? annotation = null;
+                    if (argPtr.Annotation != null)
+                    {
+                        annotation = ConvertAnyExpression(argPtr.Annotation);
+                    }
+                    functionArgs.KwOnlyArgs.Add(new Arg(argPtr.Arg.Value, annotation));
+                    Console.WriteLine($"[DEBUG] Added kwonly arg: {argPtr.Arg.Value}, annotation: {annotation}");
                 }
             }
 
             // Process kwarg (**kwargs)
             if (argumentsData.Kwarg != null)
             {
-                functionArgs.KwArg = new Arg(argumentsData.Kwarg.Arg.Value);
-                Console.WriteLine($"[DEBUG] Added kwarg: **{argumentsData.Kwarg.Arg.Value}");
+                // CPython 3.12: Convert annotation if present
+                Expression? annotation = null;
+                if (argumentsData.Kwarg.Annotation != null)
+                {
+                    annotation = ConvertAnyExpression(argumentsData.Kwarg.Annotation);
+                }
+                functionArgs.KwArg = new Arg(argumentsData.Kwarg.Arg.Value, annotation);
+                Console.WriteLine($"[DEBUG] Added kwarg: **{argumentsData.Kwarg.Arg.Value}, annotation: {annotation}");
             }
 
             // Process defaults (default values for regular args)

@@ -1292,20 +1292,37 @@ namespace SharpPy
 
                 case ByteCodeOp.SETUP_ANNOTATIONS:
                     // CPython 3.12: Initialize __annotations__ dictionary if not exists
+                    // IMPORTANT: Use CurrentScope for class bodies, GlobalScope for module level
                     var annotationsName = "__annotations__";
-                    var globalScope = frame.ScopeChain.GlobalScope;
 
-                    // Check if __annotations__ already exists
-                    var existingAnnotations = globalScope.GetVariable(annotationsName);
+                    // Determine which scope to use:
+                    // - Module level: GlobalScope (frame name is usually '<module>')
+                    // - Class body: CurrentScope (frame name like '<class_body_ClassName>')
+                    // - Function: Should not have SETUP_ANNOTATIONS
+                    bool isModuleLevel = frame.Code.Name == "<module>";
+                    var targetScope = isModuleLevel ? frame.ScopeChain.GlobalScope : frame.ScopeChain.CurrentScope;
+
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔍 SETUP_ANNOTATIONS: frame={frame.Code.Name}, isModuleLevel={isModuleLevel}, targetScope={targetScope.Name}");
+                    #endif
+
+                    // Check if __annotations__ already exists in target scope
+                    var existingAnnotations = targetScope.GetVariable(annotationsName);
                     if (existingAnnotations == null)
                     {
                         // __annotations__ doesn't exist, create it
-                        globalScope.SetVariable(annotationsName, new PyDict());
+                        targetScope.SetVariable(annotationsName, new PyDict());
+                        #if DEBUG_LOG
+                        Console.WriteLine($"  → Created new __annotations__ dict in {targetScope.Name}");
+                        #endif
                     }
                     else if (existingAnnotations is not PyDict)
                     {
                         // Replace with empty dict if it's not a dict
-                        globalScope.SetVariable(annotationsName, new PyDict());
+                        targetScope.SetVariable(annotationsName, new PyDict());
+                        #if DEBUG_LOG
+                        Console.WriteLine($"  → Replaced non-dict __annotations__ in {targetScope.Name}");
+                        #endif
                     }
                     // If it exists and is already a dict, do nothing
                     break;
@@ -1668,7 +1685,6 @@ namespace SharpPy
                     PyCell[] closure = null;
                     PyTuple defaults = null;
                     PyTuple kwDefaults = null;
-                    PyTuple annotations = null;
 
                     #if DEBUG_LOG
                     Console.WriteLine($"🔧 MAKE_FUNCTION with flags: {flags:X} (binary: {Convert.ToString(flags, 2)})");
@@ -1749,14 +1765,31 @@ namespace SharpPy
                     }
 
                     // Check for annotations flag (4 = HAS_ANNOTATIONS)
+                    PyDict annotationsDict = null;
                     if ((flags & 4) != 0)
                     {
                         var annotationsTuple = frame.ValueStack.Pop();
                         if (annotationsTuple is PyTuple annTuple)
                         {
-                            annotations = annTuple;
+                            // CPython 3.12: Convert annotations tuple to dict
+                            // Tuple format: ('key1', type1, 'key2', type2, ...)
+                            // Dict format: {'key1': type1, 'key2': type2, ...}
+                            annotationsDict = new PyDict();
+                            for (int i = 0; i < annTuple.Items.Length; i += 2)
+                            {
+                                if (i + 1 < annTuple.Items.Length)
+                                {
+                                    var annKey = annTuple.Items[i];
+                                    var annValue = annTuple.Items[i + 1];
+                                    annotationsDict.SetItem(annKey, annValue);
+                                }
+                            }
                             #if DEBUG_LOG
-                            Console.WriteLine($"  → Function has annotations: {annTuple.Items.Length} items");
+                            Console.WriteLine($"  → Function has annotations: {annTuple.Items.Length / 2} items");
+                            foreach (var kvp in annotationsDict.InternalDict)
+                            {
+                                Console.WriteLine($"     {kvp.Key}: {kvp.Value}");
+                            }
                             #endif
                         }
                         else
@@ -1764,7 +1797,7 @@ namespace SharpPy
                             #if DEBUG_LOG
                             Console.WriteLine($"  ⚠️ Warning: Expected tuple for annotations, got {annotationsTuple?.GetType()}");
                             #endif
-                            annotations = new PyTuple(new PyObject[0]);
+                            annotationsDict = new PyDict();
                         }
                     }
 
@@ -1836,6 +1869,10 @@ namespace SharpPy
                             {
                                 asyncGenFunction.SetAttribute("__kwdefaults__", kwDefaults);
                             }
+                            if (annotationsDict != null)
+                            {
+                                asyncGenFunction.SetAttribute("__annotations__", annotationsDict);
+                            }
 
                             frame.ValueStack.Push(asyncGenFunction);
                             #if DEBUG_LOG
@@ -1871,9 +1908,9 @@ namespace SharpPy
                             {
                                 asyncFunction.SetAttribute("__kwdefaults__", kwDefaults);
                             }
-                            if (annotations != null)
+                            if (annotationsDict != null)
                             {
-                                asyncFunction.SetAttribute("__annotations__", annotations);
+                                asyncFunction.SetAttribute("__annotations__", annotationsDict);
                             }
 
                             frame.ValueStack.Push(asyncFunction);
@@ -1954,9 +1991,9 @@ namespace SharpPy
                             {
                                 functionObject.SetAttribute("__kwdefaults__", kwDefaults);
                             }
-                            if (annotations != null)
+                            if (annotationsDict != null)
                             {
-                                functionObject.SetAttribute("__annotations__", annotations);
+                                functionObject.SetAttribute("__annotations__", annotationsDict);
                             }
 
                             frame.ValueStack.Push(functionObject);
