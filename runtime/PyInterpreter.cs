@@ -48,7 +48,8 @@ namespace SharpPy
         {
             // Store filename and source lines for Python-like error reporting
             _currentFileName = fileName;
-            _sourceLines = sourceCode.Split(new[] { '\r', '\n' }, StringSplitOptions.None);
+            // Fix: Handle all line ending types correctly (\r\n, \r, \n)
+            _sourceLines = sourceCode.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
             
             // Verbose 모드일 때만 상세 디버그 정보 출력
 #if DEBUG_LOG
@@ -132,132 +133,232 @@ namespace SharpPy
         
         /// <summary>
         /// Print Python-style traceback with filename, line numbers, and source code
+        /// CPython 3.12 compatible: Prints full call stack with traceback chain
         /// </summary>
         private void PrintPythonStyleTraceback(Exception e)
         {
             Console.WriteLine("Traceback (most recent call last):");
-            
-            // Get current execution frame from VM
+
+            // CPython 3.12: Use traceback chain from exception if available
+            if (e is PythonException pyEx && pyEx.PyException.__traceback__ != null)
+            {
+                // CPython 3.12: Chain is already in outermost-first order
+                // __traceback__ points to outermost frame, next points to progressively inner frames
+                // e.g., <module> → outer → middle → inner → NULL
+                var tb = pyEx.PyException.__traceback__;
+                while (tb != null)
+                {
+                    PrintTracebackFrame(tb);
+                    tb = tb.Next;
+                }
+            }
+            else
+            {
+                // Fallback: Print current frame only (old behavior)
+                PrintCurrentFrameFallback(e);
+            }
+
+            // CPython 3.12: Print exception chaining (__cause__ and __context__)
+            if (e is PythonException pyEx2 && pyEx2.PyException != null)
+            {
+                PrintExceptionChaining(pyEx2.PyException);
+            }
+
+            // Print exception type and message
+            PrintExceptionMessage(e);
+        }
+
+        /// <summary>
+        /// Print a single traceback frame (CPython 3.12 format)
+        /// </summary>
+        private void PrintTracebackFrame(PyTraceback tb)
+        {
+            var frame = tb.Frame;
+            var fileName = frame.CurrentFileName ?? _currentFileName ?? "<stdin>";
+            var functionName = frame.Code.Name ?? "<module>";
+            var lineNumber = tb.LineNo;
+
+            Console.WriteLine($"  File \"{fileName}\", line {lineNumber}, in {functionName}");
+
+            // Show source line with ^^^ markers using column info from traceback
+            var colOffset = tb.ColNo >= 0 ? tb.ColNo : frame.CurrentColumnOffset;
+            var endColOffset = tb.EndColNo >= 0 ? tb.EndColNo : colOffset;
+            ShowSourceLineWithMarkers(fileName, lineNumber, colOffset, endColOffset);
+        }
+
+        /// <summary>
+        /// Show source line with ^^^ markers (CPython 3.12 format)
+        /// </summary>
+        private void ShowSourceLineWithMarkers(string fileName, int lineNumber, int columnOffset, int endColumnOffset = -1)
+        {
+            // Try to get source line
+            string? sourceLine = null;
+
+            if (_sourceLines != null && lineNumber > 0 && lineNumber <= _sourceLines.Length)
+            {
+                sourceLine = _sourceLines[lineNumber - 1];
+            }
+
+            if (!string.IsNullOrEmpty(sourceLine))
+            {
+                var trimmedLine = sourceLine.Trim();
+                Console.WriteLine($"    {trimmedLine}");
+
+                // Add ^^^ markers if column information is available
+                if (columnOffset >= 0)
+                {
+                    var leadingSpaces = sourceLine.Length - trimmedLine.Length;
+                    var adjustedStartColumn = Math.Max(0, columnOffset - leadingSpaces);
+
+                    // Calculate marker length (CPython 3.12 style)
+                    int markerLength = 1;
+                    if (endColumnOffset > columnOffset)
+                    {
+                        var adjustedEndColumn = Math.Max(0, endColumnOffset - leadingSpaces);
+                        markerLength = Math.Max(1, adjustedEndColumn - adjustedStartColumn);
+                    }
+
+                    // Clamp to line length
+                    adjustedStartColumn = Math.Min(adjustedStartColumn, trimmedLine.Length);
+                    markerLength = Math.Min(markerLength, trimmedLine.Length - adjustedStartColumn);
+
+                    var markers = new string(' ', adjustedStartColumn) + new string('^', Math.Max(1, markerLength));
+                    Console.WriteLine($"    {markers}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"    # Source line not available (line {lineNumber})");
+            }
+        }
+
+        /// <summary>
+        /// Print current frame only (fallback for exceptions without traceback)
+        /// </summary>
+        private void PrintCurrentFrameFallback(Exception e)
+        {
             var currentFrame = PyVM.CurrentFrame;
-            
+
             if (currentFrame != null && currentFrame.CurrentLineNumber > 0)
             {
                 var fileName = _currentFileName ?? "<stdin>";
                 var functionName = currentFrame.Code.Name ?? "<module>";
                 var lineNumber = currentFrame.CurrentLineNumber;
-                
+
                 Console.WriteLine($"  File \"{fileName}\", line {lineNumber}, in {functionName}");
-                
-                // Show actual source line if available
-                if (_sourceLines != null && lineNumber > 0 && lineNumber <= _sourceLines.Length)
+                ShowSourceLineWithMarkers(fileName, lineNumber, currentFrame.CurrentColumnOffset);
+            }
+            else if (e is PySyntaxErrorException syntaxEx && syntaxEx.LineNumber > 0)
+            {
+                // SyntaxError special handling
+                var fileName = syntaxEx.FileName ?? _currentFileName ?? "<stdin>";
+                Console.WriteLine($"  File \"{fileName}\", line {syntaxEx.LineNumber}");
+
+                var sourceLine = syntaxEx.SourceLine;
+                if (string.IsNullOrEmpty(sourceLine) && _sourceLines != null && syntaxEx.LineNumber <= _sourceLines.Length)
                 {
-                    var sourceLine = _sourceLines[lineNumber - 1].Trim(); // Convert to 0-based index
-                    Console.WriteLine($"    {sourceLine}");
-                    
-                    // Add ^^^ markers if column information is available
-                    if (currentFrame.CurrentColumnOffset >= 0)
-                    {
-                        var leadingSpaces = _sourceLines[lineNumber - 1].Length - sourceLine.Length; // Account for trimmed whitespace
-                        var adjustedColumn = Math.Max(0, currentFrame.CurrentColumnOffset - leadingSpaces);
-                        var markers = new string(' ', Math.Min(adjustedColumn, sourceLine.Length)) + "^";
-                        
-                        // Extend markers if we can identify the token length
-                        var errorWord = GetErrorWordFromException(e);
-                        if (!string.IsNullOrEmpty(errorWord) && sourceLine.Contains(errorWord))
-                        {
-                            var wordIndex = sourceLine.IndexOf(errorWord);
-                            if (wordIndex >= 0 && Math.Abs(wordIndex - adjustedColumn) <= 5) // Close enough
-                            {
-                                markers = new string(' ', wordIndex) + new string('^', errorWord.Length);
-                            }
-                        }
-                        
-                        Console.WriteLine($"    {markers}");
-                    }
+                    sourceLine = _sourceLines[syntaxEx.LineNumber - 1];
                 }
-                else
+
+                if (!string.IsNullOrEmpty(sourceLine))
                 {
-                    Console.WriteLine($"    # Source line not available (line {lineNumber})");
+                    Console.WriteLine($"    {sourceLine}");
+                    if (syntaxEx.ColumnOffset >= 0)
+                    {
+                        var markerLength = syntaxEx.EndColumnOffset > syntaxEx.ColumnOffset
+                            ? syntaxEx.EndColumnOffset - syntaxEx.ColumnOffset : 3;
+                        var marker = new string(' ', syntaxEx.ColumnOffset) + new string('^', markerLength);
+                        Console.WriteLine($"    {marker}");
+                    }
                 }
             }
             else
             {
-                // CPython 3.12: Handle PySyntaxErrorException with detailed location info
-                if (e is PySyntaxErrorException syntaxEx && syntaxEx.LineNumber > 0)
+                // No frame info available
+                Console.WriteLine($"  File \"{_currentFileName ?? "<stdin>"}\", line ?, in <module>");
+                Console.WriteLine($"    # Line information not available");
+            }
+        }
+
+        /// <summary>
+        /// Print exception chaining (__cause__ and __context__)
+        /// CPython 3.12: Recursive exception printing
+        /// </summary>
+        private void PrintExceptionChaining(PyBaseException exception)
+        {
+            // Print __cause__ first (explicit chaining with "raise ... from ...")
+            if (exception.__cause__ != null)
+            {
+                // Recursively print the cause
+                PrintChainedException(exception.__cause__, isContext: false);
+                return; // __cause__ takes precedence over __context__
+            }
+
+            // Print __context__ if no __cause__ and __suppress_context__ is False
+            if (!exception.__suppress_context__ && exception.__context__ != null)
+            {
+                PrintChainedException(exception.__context__, isContext: true);
+            }
+        }
+
+        /// <summary>
+        /// Print a chained exception
+        /// </summary>
+        private void PrintChainedException(PyBaseException chainedException, bool isContext)
+        {
+            // CPython 3.12: Print chained exceptions recursively first (oldest first)
+            // Recursively handle chaining BEFORE printing this exception
+            PrintExceptionChaining(chainedException);
+
+            Console.WriteLine();
+
+            // Print traceback for the chained exception
+            if (chainedException.__traceback__ != null)
+            {
+                Console.WriteLine("Traceback (most recent call last):");
+
+                // CPython 3.12: Chain is already in outermost-first order
+                // __traceback__ points to outermost frame, next points to progressively inner frames
+                var tb = chainedException.__traceback__;
+                while (tb != null)
                 {
-                    var fileName = syntaxEx.FileName ?? _currentFileName ?? "<stdin>";
-                    Console.WriteLine($"  File \"{fileName}\", line {syntaxEx.LineNumber}");
-
-                    // Show source line from exception if available, otherwise from _sourceLines
-                    var sourceLine = syntaxEx.SourceLine;
-                    if (string.IsNullOrEmpty(sourceLine) && _sourceLines != null && syntaxEx.LineNumber <= _sourceLines.Length)
-                    {
-                        sourceLine = _sourceLines[syntaxEx.LineNumber - 1];
-                    }
-
-                    if (!string.IsNullOrEmpty(sourceLine))
-                    {
-                        Console.WriteLine($"    {sourceLine}");
-
-                        // Show error marker (^^^)
-                        if (syntaxEx.ColumnOffset >= 0)
-                        {
-                            var markerStart = Math.Max(0, syntaxEx.ColumnOffset);
-                            var markerLength = syntaxEx.EndColumnOffset > syntaxEx.ColumnOffset
-                                ? syntaxEx.EndColumnOffset - syntaxEx.ColumnOffset
-                                : 3;
-                            var marker = new string(' ', markerStart) + new string('^', markerLength);
-                            Console.WriteLine($"    {marker}");
-                        }
-                    }
-                }
-                else
-                {
-                    // Try to get line number from PythonException
-                    var lineNumber = -1;
-                    if (e is PythonException pythonEx && pythonEx.LineNumber > 0)
-                    {
-                        lineNumber = pythonEx.LineNumber;
-                    }
-
-                    var fileName = _currentFileName ?? "<stdin>";
-                    if (lineNumber > 0)
-                    {
-                        Console.WriteLine($"  File \"{fileName}\", line {lineNumber}, in <module>");
-
-                        // Show actual source line if available
-                        if (_sourceLines != null && lineNumber > 0 && lineNumber <= _sourceLines.Length)
-                        {
-                            var sourceLine = _sourceLines[lineNumber - 1].Trim();
-                            Console.WriteLine($"    {sourceLine}");
-                        }
-                        else
-                        {
-                            Console.WriteLine($"    # Source line not available (line {lineNumber})");
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine($"  File \"{fileName}\", line ?, in <module>");
-                        Console.WriteLine($"    # Line information not available");
-                    }
+                    PrintTracebackFrame(tb);
+                    tb = tb.Next;
                 }
             }
-            
-            // Show the exception type and message (Python-style)
-            // CPython 3.12 호환: PythonException에서 실제 Python 예외 타입 가져오기
+
+            // Print exception message
+            Console.WriteLine($"{chainedException.GetTypeName()}: {chainedException.ToStr().Value}");
+            Console.WriteLine();
+
+            // Print transition message
+            if (isContext)
+            {
+                Console.WriteLine("During handling of the above exception, another exception occurred:");
+                Console.WriteLine();
+            }
+            else
+            {
+                Console.WriteLine("The above exception was the direct cause of the following exception:");
+                Console.WriteLine();
+            }
+        }
+
+        /// <summary>
+        /// Print exception type and message
+        /// </summary>
+        private void PrintExceptionMessage(Exception e)
+        {
             string pythonExceptionType;
             string exceptionMessage;
 
             if (e is PythonException pyEx && pyEx.PyException != null)
             {
-                // PythonException인 경우: 내부 PyException의 GetTypeName() 사용
                 pythonExceptionType = pyEx.PyException.GetTypeName();
                 exceptionMessage = pyEx.PyException.ToStr().Value;
             }
             else
             {
-                // 다른 C# 예외인 경우: 기존 로직 사용
                 var exceptionTypeName = e.GetType().Name;
                 pythonExceptionType = exceptionTypeName switch
                 {
@@ -270,7 +371,7 @@ namespace SharpPy
                     "PyRuntimeError" => "RuntimeError",
                     "PyNotImplementedError" => "NotImplementedError",
                     "PySyntaxError" => "SyntaxError",
-                    "PySyntaxErrorException" => "SyntaxError",  // CPython 3.12: Parser syntax error
+                    "PySyntaxErrorException" => "SyntaxError",
                     "PyIndentationError" => "IndentationError",
                     "PyTabError" => "TabError",
                     "PySystemError" => "SystemError",

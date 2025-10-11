@@ -16,6 +16,9 @@ namespace SharpPy
         public PyBaseException? __context__ { get; set; }
         public bool __suppress_context__ { get; set; }
 
+        // CPython 3.12: Traceback information
+        public PyTraceback? __traceback__ { get; set; }
+
         public PyBaseException(string message = "", params PyObject[] args)
         {
             Message = message ?? "";
@@ -23,6 +26,7 @@ namespace SharpPy
             __cause__ = null;
             __context__ = null;
             __suppress_context__ = false;
+            __traceback__ = null;
         }
 
         public override PyType GetPyType() => PyType.BaseExceptionType;
@@ -62,6 +66,8 @@ namespace SharpPy
                     return (PyObject?)__context__ ?? PyNone.Instance;
                 case "__suppress_context__":
                     return __suppress_context__ ? PyBool.True : PyBool.False;
+                case "__traceback__":
+                    return (PyObject?)__traceback__ ?? PyNone.Instance;
                 default:
                     return base.GetAttribute(name);
             }
@@ -89,6 +95,14 @@ namespace SharpPy
                     break;
                 case "__suppress_context__":
                     __suppress_context__ = value is PyBool b ? b.Value : !(value is PyNone || (value is PyInt i && i.Value == 0));
+                    break;
+                case "__traceback__":
+                    if (value is PyNone)
+                        __traceback__ = null;
+                    else if (value is PyTraceback tb)
+                        __traceback__ = tb;
+                    else
+                        throw PyTypeError.Create($"__traceback__ must be a traceback object or None");
                     break;
                 default:
                     base.SetAttribute(name, value);
@@ -875,6 +889,51 @@ namespace SharpPy
     #endregion
 
     #region CPython 3.12 Exception Handling Support
+
+    /// <summary>
+    /// CPython 3.12: Traceback object - stores execution frame info for error reporting
+    /// Corresponds to PyTracebackObject in CPython (_traceback struct in traceback.h)
+    /// </summary>
+    public class PyTraceback : PyObject
+    {
+        public PyTraceback? Next { get; set; }     // tb_next: linked list of traceback frames
+        public PyFrame Frame { get; set; }         // tb_frame: execution frame snapshot
+        public int LastI { get; set; }             // tb_lasti: last instruction index
+        public int LineNo { get; set; }            // tb_lineno: line number
+        public int ColNo { get; set; }             // Column offset (CPython 3.12)
+        public int EndColNo { get; set; }          // End column offset (CPython 3.12)
+
+        public PyTraceback(PyFrame frame, int lasti, int lineno, PyTraceback? next = null, int colno = -1, int endcolno = -1)
+        {
+            Frame = frame;
+            LastI = lasti;
+            LineNo = lineno;
+            ColNo = colno;
+            EndColNo = endcolno;
+            Next = next;
+        }
+
+        public override PyType GetPyType() => PyType.ObjectType;
+        public override string GetTypeName() => "traceback";
+
+        public override PyString ToStr()
+        {
+            return new PyString($"<traceback object at {GetHashCode():X}>");
+        }
+
+        public override PyString ToRepr() => ToStr();
+
+        public override PyObject GetAttribute(string name)
+        {
+            return name switch
+            {
+                "tb_next" => (PyObject?)Next ?? PyNone.Instance,
+                "tb_lasti" => new PyInt(LastI),
+                "tb_lineno" => new PyInt(LineNo),
+                _ => base.GetAttribute(name)
+            };
+        }
+    }
 
     /// <summary>
     /// CPython 3.12 compatible exception info composite object

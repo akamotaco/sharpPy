@@ -2545,24 +2545,19 @@ namespace SharpPy
                                     classValue = actualClassValue;
                                 }
                                 
-                                // CPython 3.12: zero-argument super() needs __class__ and self/cls
-                                // Check if we have a 'self' parameter in the current frame (instance method)
+                                // CPython 3.12: zero-argument super() needs __class__ and first parameter
+                                // CPython uses LOAD_FAST 0 - always the first parameter, regardless of name
+                                // (could be 'self', 'cls', 'metacls', or any other name)
                                 PyObject instance = null;
                                 if (currentFrame.Code.VarNames.Count > 0)
                                 {
                                     var firstParam = currentFrame.Code.VarNames[0];
-                                    if (firstParam == "self" && currentFrame.FastLocals.TryGetValue("self", out var selfValue))
+                                    // CPython bytecode: LOAD_FAST 0 - get first parameter by index, not by name
+                                    if (currentFrame.FastLocals.TryGetValue(firstParam, out var firstValue))
                                     {
-                                        instance = selfValue;
+                                        instance = firstValue;
                                         #if DEBUG_LOG
-                                        Console.WriteLine($"🔍 Found 'self' parameter: {instance}");
-                                        #endif
-                                    }
-                                    else if (firstParam == "cls" && currentFrame.FastLocals.TryGetValue("cls", out var clsValue))
-                                    {
-                                        instance = clsValue;
-                                        #if DEBUG_LOG
-                                        Console.WriteLine($"🔍 Found 'cls' parameter: {instance}");
+                                        Console.WriteLine($"🔍 Found first parameter '{firstParam}': {instance}");
                                         #endif
                                     }
                                 }

@@ -977,7 +977,10 @@ namespace SharpPy
 
                 case CompareExpression compareOp:
                     AnalyzeExpression(compareOp.Left);
-                    AnalyzeExpression(compareOp.Right);
+                    foreach (var comparator in compareOp.Comparators)
+                    {
+                        AnalyzeExpression(comparator);
+                    }
                     break;
 
                 case UnaryOpExpression unaryOp:

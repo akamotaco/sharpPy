@@ -259,11 +259,6 @@ namespace SharpPy
                     Console.WriteLine($"   → returning __mro__ (count: {MRO.Count})");
                     #endif
                     return new PyTuple(MRO.Cast<PyObject>().ToArray());
-                case "__dict__":
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   → returning __dict__ (count: {ClassDict.Count})");
-                    #endif
-                    return new PyDict(ClassDict);
                 case "__call__":
                     #if DEBUG_LOG
                     Console.WriteLine($"   → returning self for __call__");

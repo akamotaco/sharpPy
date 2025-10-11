@@ -768,6 +768,10 @@ namespace SharpPy
 #endif
                         }
 
+                        // CPython 3.12: Add current frame to traceback BEFORE unwinding
+                        // Corresponds to PyTraceBack_Here() in CPython ceval.c:941
+                        PyTraceBack_Here(frame, pyEx);
+
                         // Handle Python exceptions with proper exception handler routing
                         var (handlerOffset, exceptionEntry) = frame.GetExceptionHandlerFromTableWithEntry();
                         if (handlerOffset.HasValue && exceptionEntry != null)
@@ -3492,7 +3496,14 @@ namespace SharpPy
                             throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
                         }
 
-                        // Set __cause__ attribute
+                        // CPython 3.12: Implicit exception chaining - set __context__ before __cause__
+                        // Corresponds to _PyErr_SetObject in Python/errors.c:207-235
+                        if (frame.CurrentException != null && frame.CurrentException != excInstance)
+                        {
+                            excInstance.__context__ = frame.CurrentException;
+                        }
+
+                        // Set __cause__ attribute (explicit chaining)
                         if (cause is PyException causeExc)
                         {
                             excInstance.__cause__ = causeExc;
@@ -3521,6 +3532,13 @@ namespace SharpPy
                         #endif
                         if (raisedException is PyException pyEx)
                         {
+                            // CPython 3.12: Implicit exception chaining
+                            // Corresponds to _PyErr_SetObject in Python/errors.c:207-235
+                            if (frame.CurrentException != null && frame.CurrentException != pyEx)
+                            {
+                                pyEx.__context__ = frame.CurrentException;
+                            }
+
                             // Already an exception instance
                             frame.LastException = pyEx;
                             throw new PythonException(pyEx);
@@ -3535,6 +3553,12 @@ namespace SharpPy
                             var instance = pyType.Call(Array.Empty<PyObject>());
                             if (instance is PyException instanceException)
                             {
+                                // CPython 3.12: Implicit exception chaining
+                                if (frame.CurrentException != null && frame.CurrentException != instanceException)
+                                {
+                                    instanceException.__context__ = frame.CurrentException;
+                                }
+
                                 frame.LastException = instanceException;
                                 throw new PythonException(instanceException);
                             }
@@ -3553,6 +3577,12 @@ namespace SharpPy
                             }
                             else if (builtinException is PyException pyExInstance)
                             {
+                                // CPython 3.12: Implicit exception chaining
+                                if (frame.CurrentException != null && frame.CurrentException != pyExInstance)
+                                {
+                                    pyExInstance.__context__ = frame.CurrentException;
+                                }
+
                                 frame.LastException = pyExInstance;
                                 throw new PythonException(pyExInstance);
                             }
@@ -3570,6 +3600,12 @@ namespace SharpPy
                             var userException = userClass.Call(new PyObject[0], null);
                             if (userException is PyException pyUserExInstance)
                             {
+                                // CPython 3.12: Implicit exception chaining
+                                if (frame.CurrentException != null && frame.CurrentException != pyUserExInstance)
+                                {
+                                    pyUserExInstance.__context__ = frame.CurrentException;
+                                }
+
                                 frame.LastException = pyUserExInstance;
                                 throw new PythonException(pyUserExInstance);
                             }
@@ -3605,6 +3641,13 @@ namespace SharpPy
                                 {
                                     wrappedException = new PyException(customInstance.ToString());
                                 }
+
+                                // CPython 3.12: Implicit exception chaining
+                                if (frame.CurrentException != null && frame.CurrentException != wrappedException)
+                                {
+                                    wrappedException.__context__ = frame.CurrentException;
+                                }
+
                                 frame.LastException = wrappedException;
                                 throw new PythonException(wrappedException);
                             }
@@ -5882,6 +5925,99 @@ namespace SharpPy
                 // Complex functions fall back to standard path
                 return pyFunc.Call(args, null);
             }
+        }
+
+        /// <summary>
+        /// CPython 3.12: PyTraceBack_Here - Add current frame to exception's traceback
+        /// This is called each time an exception propagates through a frame without being handled.
+        /// Corresponds to PyTraceBack_Here() in CPython traceback.c:266
+        /// </summary>
+        private void PyTraceBack_Here(PyFrame frame, PythonException pyEx)
+        {
+            // 1. Get existing traceback from exception (may be null)
+            var existingTraceback = pyEx.PyException.__traceback__;
+
+            // 2. Calculate lasti - CPython uses "next_instr-1" (ceval.c:941)
+            // InstructionPointer points to NEXT instruction after exception, so subtract 1
+            var lasti = Math.Max(0, frame.InstructionPointer - 1);
+
+            // 3. Get line number and column offset - try multiple strategies
+            int lineNo = 0;
+            int colNo = -1;
+
+            // Strategy 1: Get line number and column offset directly from instruction
+            if (lasti >= 0 && lasti < frame.Code.Instructions.Count)
+            {
+                var instr = frame.Code.Instructions[lasti];
+                lineNo = instr.LineNumber;
+                colNo = instr.ColumnOffset;
+            }
+
+            // Strategy 2: Use CurrentLineNumber if valid
+            if (lineNo <= 0 && frame.CurrentLineNumber > 0)
+            {
+                lineNo = frame.CurrentLineNumber;
+                colNo = frame.CurrentColumnOffset;
+            }
+
+            // Strategy 3: Look up exact lasti in LineNumberTable
+            if (lineNo <= 0 && frame.Code.LineNumberTable.TryGetValue(lasti, out var line))
+            {
+                lineNo = line;
+            }
+
+            // Strategy 4: Scan backwards in line number table to find most recent line
+            if (lineNo <= 0)
+            {
+                for (int offset = lasti; offset >= 0; offset--)
+                {
+                    if (frame.Code.LineNumberTable.TryGetValue(offset, out var foundLine) && foundLine > 0)
+                    {
+                        lineNo = foundLine;
+                        break;
+                    }
+                }
+            }
+
+            // Strategy 5: Scan backwards in instructions to find most recent line and column
+            if (lineNo <= 0)
+            {
+                for (int offset = lasti; offset >= 0; offset--)
+                {
+                    if (offset < frame.Code.Instructions.Count)
+                    {
+                        var instrLine = frame.Code.Instructions[offset].LineNumber;
+                        if (instrLine > 0)
+                        {
+                            lineNo = instrLine;
+                            if (colNo < 0)
+                            {
+                                colNo = frame.Code.Instructions[offset].ColumnOffset;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 4. Create new traceback entry for current frame
+            // CPython: newtb = _PyTraceBack_FromFrame(tb, frame)
+            var newTraceback = new PyTraceback(
+                frame: frame,
+                lasti: lasti,
+                lineno: lineNo,
+                next: existingTraceback,  // Link to existing chain (prepend)
+                colno: colNo,
+                endcolno: colNo  // For now, use same value for end
+            );
+
+            // 5. Attach new traceback to exception
+            // CPython: PyException_SetTraceback(exc, newtb)
+            pyEx.PyException.__traceback__ = newTraceback;
+
+#if DEBUG_LOG
+            Console.WriteLine($"🔍 PyTraceBack_Here: Added frame '{frame.Code.Name}' at line {newTraceback.LineNo} (lasti={lasti}, IP={frame.InstructionPointer})");
+#endif
         }
 
         /// <summary>

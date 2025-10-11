@@ -7,6 +7,27 @@ namespace SharpPy
     /// </summary>
     public class PyType : PyObject
     {
+        #region Type Kind (CPython equivalent: fast type identification)
+
+        /// <summary>
+        /// Built-in type identification for fast comparison (CPython uses pointer comparison)
+        /// </summary>
+        internal enum TypeKind
+        {
+            Generic,    // 일반 타입 (사용자 정의 클래스 등)
+            Object,     // object 타입
+            Type,       // type 타입
+            Str,        // str 타입
+            // 필요시 추가: Int, Float, List, Dict, etc.
+        }
+
+        /// <summary>
+        /// This type's kind (readonly for safety, set only in constructor)
+        /// </summary>
+        private readonly TypeKind _kind;
+
+        #endregion
+
         #region Descriptor Tables (CPython tp_methods, tp_getset, tp_members)
 
         /// <summary>
@@ -19,17 +40,17 @@ namespace SharpPy
         #region Built-in Type Constants
 
         // 핵심 기본 타입들 (실제 구현된 것들만)
-        public static readonly PyType ObjectType = new PyType("object", new PyType[0]);
-        public static readonly PyType TypeType = new PyType("type", new[] { ObjectType });
-        
+        public static readonly PyType ObjectType = new PyType("object", new PyType[0], null, TypeKind.Object);
+        public static readonly PyType TypeType = new PyType("type", new[] { ObjectType }, null, TypeKind.Type);
+
         // 숫자 타입들
         public static readonly PyType IntType = new PyType("int", new[] { ObjectType });
         public static readonly PyType FloatType = new PyType("float", new[] { ObjectType });
         public static readonly PyType BoolType = new PyType("bool", new[] { IntType });
         public static readonly PyType ComplexType = new PyType("complex", new[] { ObjectType });
-        
+
         // 컬렉션 타입들
-        public static readonly PyType StrType = new PyType("str", new[] { ObjectType });
+        public static readonly PyType StrType = new PyType("str", new[] { ObjectType }, null, TypeKind.Str);
         public static readonly PyType BytesType = new PyType("bytes", new[] { ObjectType });
         public static readonly PyType BytearrayType = new PyType("bytearray", new[] { ObjectType });
         public static readonly PyType MemoryViewType = new PyType("memoryview", new[] { ObjectType });
@@ -59,6 +80,7 @@ namespace SharpPy
         public static readonly PyType NoneType = new PyType("NoneType", new[] { ObjectType });
         public static readonly PyType NullType = new PyType("NullType", new[] { ObjectType }); // CPython 내부 NULL
         public static readonly PyType GenericAliasType = new PyType("GenericAlias", new[] { ObjectType });
+        public static readonly PyType MappingProxyType = new PyType("mappingproxy", new[] { ObjectType }); // CPython Objects/descrobject.c
 
         // 예외 타입 계층 (PyException.cs와 연동)
         public static readonly PyType BaseExceptionType = new PyType("BaseException", new[] { ObjectType });
@@ -143,15 +165,21 @@ namespace SharpPy
 
         #region Constructor
 
-        public PyType(string name, PyType[] baseTypes) : this(name, baseTypes, null)
+        public PyType(string name, PyType[] baseTypes) : this(name, baseTypes, null, TypeKind.Generic)
         {
         }
 
-        public PyType(string name, PyType[] baseTypes, string module)
+        public PyType(string name, PyType[] baseTypes, string module) : this(name, baseTypes, module, TypeKind.Generic)
+        {
+        }
+
+        // Internal constructor: TypeKind는 내부에서만 사용 (CPython equivalent: tp_flags 설정)
+        internal PyType(string name, PyType[] baseTypes, string module, TypeKind kind)
         {
             Name = name;
             BaseTypes = baseTypes ?? new PyType[0];
             Module = module;
+            _kind = kind;  // readonly 필드는 생성자에서만 설정 가능
             MRO = CalculateC3MRO();
             Descriptors = new PyTypeDescriptors();
 
@@ -473,6 +501,22 @@ namespace SharpPy
                         }
                         return new PyExceptionGroup(message, new List<PyException>());
                     }
+                case "mappingproxy":
+                    // CPython 3.12: mappingproxy(dict) - create read-only dict proxy
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"mappingproxy expected 1 argument, got {args.Length}");
+                    if (args[0] is PyDict dict)
+                    {
+                        // Convert PyDict to Dictionary<string, PyObject>
+                        var stringDict = new Dictionary<string, PyObject>();
+                        foreach (var kv in dict.InternalDict)
+                        {
+                            if (kv.Key is PyString keyStr)
+                                stringDict[keyStr.Value] = kv.Value;
+                        }
+                        return new PyMappingProxy(stringDict);
+                    }
+                    throw PyTypeError.Create($"mappingproxy() argument must be dict, not '{args[0].GetTypeName()}'");
             }
 
             // 내장 타입들에 대한 특별 처리 (타입 변환) - PyBuiltinFunction 위임
@@ -499,25 +543,29 @@ namespace SharpPy
 
         /// <summary>
         /// 타입별 descriptor 초기화 (CPython의 타입 객체 초기화와 유사)
+        /// CPython equivalent: fast type identification using enum instead of string comparison
         /// </summary>
         private void InitializeDescriptors()
         {
             // CPython 3.12 호환: 각 타입의 tp_methods, tp_getset 초기화
+            // readonly TypeKind를 사용하여 빠른 int 비교 (string 비교보다 훨씬 빠름)
+            switch (_kind)
+            {
+                case TypeKind.Str:
+                    InitializeStrTypeDescriptors();
+                    break;
 
-            // str 타입 메서드 초기화
-            if (this == StrType)
-            {
-                InitializeStrTypeDescriptors();
-            }
-            // object 타입 메서드 초기화
-            else if (this == ObjectType)
-            {
-                InitializeObjectTypeDescriptors();
-            }
-            // type 타입 속성 및 메서드 초기화
-            else if (this == TypeType)
-            {
-                InitializeTypeTypeDescriptors();
+                case TypeKind.Object:
+                    InitializeObjectTypeDescriptors();
+                    break;
+
+                case TypeKind.Type:
+                    InitializeTypeTypeDescriptors();
+                    break;
+
+                case TypeKind.Generic:
+                    // 일반 타입은 descriptor 초기화 불필요
+                    break;
             }
         }
 
@@ -659,6 +707,47 @@ namespace SharpPy
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__mro__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return new PyTuple(type.MRO.Cast<PyObject>().ToArray());
+                }
+            ));
+
+            // type.__dict__ - CPython type_dict (read-only, returns mappingproxy)
+            Descriptors.AddGetSet("__dict__", new PyGetSetDescriptor(
+                "__dict__",
+                typeType,
+                getter: self => {
+                    if (self is not PyType type)
+                        throw PyTypeError.Create("descriptor '__dict__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+
+                    // CPython 3.12: Build type's namespace dictionary
+                    var typeDict = new Dictionary<string, PyObject>();
+
+                    // Add __name__, __bases__, __mro__
+                    typeDict["__name__"] = new PyString(type.Name);
+                    typeDict["__bases__"] = new PyTuple(type.BaseTypes.Cast<PyObject>().ToArray());
+                    typeDict["__mro__"] = new PyTuple(type.MRO.Cast<PyObject>().ToArray());
+
+                    // Add descriptors from descriptor tables
+                    foreach (var kv in type.Descriptors.Methods)
+                    {
+                        typeDict[kv.Key] = kv.Value;
+                    }
+                    foreach (var kv in type.Descriptors.GetSet)
+                    {
+                        typeDict[kv.Key] = kv.Value;
+                    }
+
+                    // For PyClass, add attributes from ClassDict
+                    if (type is PyClass customType)
+                    {
+                        foreach (var kv in customType.ClassDict)
+                        {
+                            if (!typeDict.ContainsKey(kv.Key))
+                                typeDict[kv.Key] = kv.Value;
+                        }
+                    }
+
+                    // Return as read-only mappingproxy
+                    return new PyMappingProxy(typeDict);
                 }
             ));
 

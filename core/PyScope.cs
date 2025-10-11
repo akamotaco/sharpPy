@@ -66,7 +66,7 @@ public class PyBuiltinsModule : PyObject
         BuiltinDict["setattr"] = new PyBuiltinFunction("setattr");
         BuiltinDict["delattr"] = new PyBuiltinFunction("delattr");
         BuiltinDict["dir"] = new PyBuiltinFunction("dir");
-        BuiltinDict["type"] = PyTypeMetaclass.Instance;
+        BuiltinDict["type"] = PyType.TypeType;  // Use PyType.TypeType instead of PyTypeMetaclass.Instance
         BuiltinDict["id"] = new PyBuiltinFunction("id");
         BuiltinDict["hash"] = new PyBuiltinFunction("hash");
         BuiltinDict["super"] = new PyBuiltinFunction("super");

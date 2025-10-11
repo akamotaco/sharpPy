@@ -1354,6 +1354,8 @@ namespace SharpPy
 
             var compiler = new PythonCompiler();
             compiler.SetupClosureCompilation(cellVars, freeVars);
+            // CPython 3.12: Pass source location information
+            compiler.SetSourceLocation(_currentFileName, _sourceLines);
             var codeObject = compiler.CompileWithClosureAndDefaults(asyncFunc.Body, asyncFunc.Name, paramNames, defaults, kwDefaults, freeVars, cellVars, flags, argCount, posonlyArgCount, kwonlyArgCount);
             
             // yield가 있는 async 함수는 async generator
@@ -1543,6 +1545,8 @@ namespace SharpPy
             }
 
             // CPython 3.12: RESUME instruction after MAKE_CELL and before function body
+            // Set line number to 0 for RESUME (matching CPython 3.12 behavior)
+            _currentLineNumber = 0;
             EmitInstruction(ByteCodeOp.RESUME, 0);
 
             foreach (var statement in statements)
@@ -1806,6 +1810,15 @@ namespace SharpPy
             _cellVars = cellVars ?? new List<string>();
             _freeVars = freeVars ?? new List<string>();
         }
+
+        /// <summary>
+        /// CPython 3.12: Set source location information for nested function compilation
+        /// </summary>
+        public void SetSourceLocation(string? fileName, List<string>? sourceLines)
+        {
+            _currentFileName = fileName;
+            _sourceLines = sourceLines;
+        }
         
         private void CompileStatement(Statement statement)
         {
@@ -1893,6 +1906,14 @@ namespace SharpPy
                     break;
                     
                 case ReturnStatement ret:
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔍 CompileStatement ReturnStatement: LineNo={ret.LineNo}, ColOffset={ret.ColOffset}, _currentLineNumber={_currentLineNumber}");
+                    if (ret.Value != null)
+                    {
+                        Console.WriteLine($"   Return value: {ret.Value.GetType().Name}, LineNo={ret.Value.LineNo}");
+                    }
+                    #endif
+
                     if (ret.Value != null)
                     {
                         // CPython 3.12: 상수 표현식이면 RETURN_CONST 직접 생성
@@ -2109,9 +2130,19 @@ namespace SharpPy
                     break;
                     
                 case CompareExpression compare:
-                    CompileExpression(compare.Left);
-                    CompileExpression(compare.Right);
-                    EmitCompareOp(compare.Op);
+                    // CPython 3.12: Compare now uses lists (ops, comparators)
+                    if (compare.Ops.Count == 1)
+                    {
+                        // Simple comparison: left op comparator
+                        CompileExpression(compare.Left);
+                        CompileExpression(compare.Comparators[0]);
+                        EmitCompareOp(compare.Ops[0]);
+                    }
+                    else
+                    {
+                        // Chained comparison: use CPython pattern with SWAP/COPY
+                        CompileChainedComparisonFromCompare(compare);
+                    }
                     break;
 
                 case ChainedCompareExpression chainedCompare:
@@ -3105,6 +3136,12 @@ namespace SharpPy
             // 3. 코드 객체 컴파일 (자유 변수 정보와 기본값 포함)
             var compiler = new PythonCompiler();
             compiler.SetupClosureCompilation(cellVars, freeVars); // 셀 변수와 자유 변수 설정
+
+            // CPython 3.12: Pass source location information to nested compiler
+            compiler.SetSourceLocation(_currentFileName, _sourceLines);
+            #if DEBUG_LOG
+            Console.WriteLine($"  📤 Passed source location to nested compiler: {_currentFileName}");
+            #endif
 
             // CPython 3.12: 심볼 테이블 컨텍스트를 새로운 컴파일러에 전달
             if (_currentSymbolTable != null)
@@ -4546,9 +4583,11 @@ namespace SharpPy
                 }
                 
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, annotationCount);
-                
+
                 // Compile actual function
                 var compiler = new PythonCompiler();
+                // CPython 3.12: Pass source location information
+                compiler.SetSourceLocation(_currentFileName, _sourceLines);
                 var funcCode = compiler.CompileFunction(func.Body, func.Name, paramNames, defaults, flags);
                 EmitLoadConst(funcCode);
                 EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 4); // annotations flag
@@ -8078,6 +8117,65 @@ namespace SharpPy
             PlaceLabel(endLabel);
         }
 
+        /// <summary>
+        /// Compile chained comparison from CompareExpression (CPython 3.12 compatible)
+        /// Pattern: a < b < c generates SWAP, COPY, COMPARE_OP with proper cleanup
+        /// </summary>
+        private void CompileChainedComparisonFromCompare(CompareExpression compare)
+        {
+            // Load first two operands for the first comparison
+            CompileExpression(compare.Left);
+            CompileExpression(compare.Comparators[0]);
+
+            // Generate cleanup and end labels for short-circuiting
+            var cleanupLabel = CreateLabel($"chained_cleanup_{_labelCounter}");
+            var endLabel = CreateLabel($"chained_end_{_labelCounter++}");
+
+            // CPython pattern for first comparison
+            EmitInstruction(ByteCodeOp.SWAP, 2);      // Stack: [b, a]
+            EmitInstruction(ByteCodeOp.COPY, 2);      // Stack: [b, a, b]
+            EmitCompareOp(compare.Ops[0]); // Stack: [b, result1]
+            EmitInstruction(ByteCodeOp.COPY, 1);      // Stack: [b, result1, result1]
+            EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, cleanupLabel); // Stack: [b, result1]
+            EmitInstruction(ByteCodeOp.POP_TOP);      // Stack: [b]
+
+            // Handle remaining comparisons
+            for (int i = 1; i < compare.Ops.Count; i++)
+            {
+                var isLastComparison = (i == compare.Ops.Count - 1);
+
+                // Load next operand
+                CompileExpression(compare.Comparators[i]); // Stack: [prev, curr]
+
+                if (!isLastComparison)
+                {
+                    // Intermediate comparison
+                    EmitInstruction(ByteCodeOp.SWAP, 2);     // Stack: [curr, prev]
+                    EmitInstruction(ByteCodeOp.COPY, 2);     // Stack: [curr, prev, curr]
+                    EmitCompareOp(compare.Ops[i]); // Stack: [curr, result]
+                    EmitInstruction(ByteCodeOp.COPY, 1);     // Stack: [curr, result, result]
+                    EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, cleanupLabel); // Stack: [curr, result]
+                    EmitInstruction(ByteCodeOp.POP_TOP);     // Stack: [curr]
+                }
+                else
+                {
+                    // Last comparison - CPython doesn't SWAP here
+                    EmitCompareOp(compare.Ops[i]); // Stack: [result]
+                }
+            }
+
+            // Jump to end after successful completion
+            EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, endLabel);
+
+            // Cleanup: when any comparison fails
+            PlaceLabel(cleanupLabel);
+            EmitInstruction(ByteCodeOp.SWAP, 2);
+            EmitInstruction(ByteCodeOp.POP_TOP);
+
+            // End label
+            PlaceLabel(endLabel);
+        }
+
         private void CompileLambda(LambdaExpression lambda)
         {
             // CPython 3.12 compatible lambda compilation
@@ -10031,6 +10129,8 @@ namespace SharpPy
 
             // 제너레이터는 별도 함수로 컴파일 필요
             var genCompiler = new PythonCompiler();
+            // CPython 3.12: Pass source location information
+            genCompiler.SetSourceLocation(_currentFileName, _sourceLines);
 
             // 다중 for 루프 지원: 모든 generators 처리
             var outerGenerator = genExp.Generators[0];

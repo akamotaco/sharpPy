@@ -207,6 +207,13 @@ namespace SharpPy.Tools
                 return sb.ToString();
             }
 
+            // GeneratedCmpop 처리 (CPython 3.12 호환)
+            if (value is Generated.GeneratedCmpop cmpop)
+            {
+                var typeName = value.GetType().Name.Replace("Generated", "");
+                return $"{indent}{typeName}()";
+            }
+
             // 기본 타입 처리
             if (value is string str)
                 return $"'{str}'";
@@ -308,6 +315,12 @@ namespace SharpPy.Tools
                     fields.Add(("left", binOp.Left));
                     fields.Add(("op", binOp.OpNode));
                     fields.Add(("right", binOp.Right));
+                    break;
+
+                case CompareExpression compare:
+                    fields.Add(("left", compare.Left));
+                    fields.Add(("ops", compare.Ops));
+                    fields.Add(("comparators", compare.Comparators));
                     break;
 
                 case UnaryOpExpression unaryOp:

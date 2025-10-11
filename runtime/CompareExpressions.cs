@@ -6,53 +6,87 @@ using SharpPy.Generated;
 namespace SharpPy
 {
     /// <summary>
-    /// Single comparison expression (a < b)
-    /// CPython 3.12: Uses GeneratedCmpop from ASDL (not hardcoded)
+    /// Comparison expression - supports both single and chained comparisons
+    /// CPython 3.12: Compare(expr left, cmpop* ops, expr* comparators)
+    /// Examples: a < b  OR  a < b < c
     /// </summary>
     public class CompareExpression : Expression
     {
         public override string NodeType => "Compare";
         public Expression Left { get; }
-        public GeneratedCmpop Op { get; }
-        public Expression Right { get; }
+        public List<GeneratedCmpop> Ops { get; }
+        public List<Expression> Comparators { get; }
 
-        public CompareExpression(Expression left, GeneratedCmpop op, Expression right)
+        public CompareExpression(Expression left, List<GeneratedCmpop> ops, List<Expression> comparators)
         {
-            Left = left;
-            Op = op;
-            Right = right;
+            Left = left ?? throw new ArgumentNullException(nameof(left));
+            Ops = ops ?? throw new ArgumentNullException(nameof(ops));
+            Comparators = comparators ?? throw new ArgumentNullException(nameof(comparators));
+
+            if (ops.Count == 0)
+                throw new ArgumentException("ops cannot be empty", nameof(ops));
+            if (ops.Count != comparators.Count)
+                throw new ArgumentException("Number of operators must equal number of comparators");
         }
 
         public override PyObject Evaluate(PyScope scope)
         {
-            var left = Left.Evaluate(scope);
-            var right = Right.Evaluate(scope);
+            // CPython 3.12: Evaluate chained comparison with short-circuit
+            // Example: 1 < x < 10 evaluates as (1 < x) and (x < 10)
 
-            // CPython 3.12: Pattern match on GeneratedCmpop types from ASDL
-            return Op switch
+            var leftVal = Left.Evaluate(scope);
+
+            for (int i = 0; i < Ops.Count; i++)
             {
-                // CPython: PyObject_RichCompare(left, right, oparg>>4)
-                GeneratedEq _    => left.RichCompare(right, PyObject.CompareOp.EQ),
-                GeneratedNotEq _ => left.RichCompare(right, PyObject.CompareOp.NE),
-                GeneratedLt _    => left.RichCompare(right, PyObject.CompareOp.LT),
-                GeneratedLtE _   => left.RichCompare(right, PyObject.CompareOp.LE),
-                GeneratedGt _    => left.RichCompare(right, PyObject.CompareOp.GT),
-                GeneratedGtE _   => left.RichCompare(right, PyObject.CompareOp.GE),
+                var rightVal = Comparators[i].Evaluate(scope);
 
-                // CPython: IS_OP - int res = Py_Is(left, right) ^ oparg
-                GeneratedIs _    => ReferenceEquals(left, right) ? PyBool.True : PyBool.False,
-                GeneratedIsNot _ => ReferenceEquals(left, right) ? PyBool.False : PyBool.True,
+                // CPython 3.12: Pattern match on GeneratedCmpop types from ASDL
+                var result = Ops[i] switch
+                {
+                    // CPython: PyObject_RichCompare(left, right, oparg>>4)
+                    GeneratedEq _    => leftVal.RichCompare(rightVal, PyObject.CompareOp.EQ),
+                    GeneratedNotEq _ => leftVal.RichCompare(rightVal, PyObject.CompareOp.NE),
+                    GeneratedLt _    => leftVal.RichCompare(rightVal, PyObject.CompareOp.LT),
+                    GeneratedLtE _   => leftVal.RichCompare(rightVal, PyObject.CompareOp.LE),
+                    GeneratedGt _    => leftVal.RichCompare(rightVal, PyObject.CompareOp.GT),
+                    GeneratedGtE _   => leftVal.RichCompare(rightVal, PyObject.CompareOp.GE),
 
-                // CPython: CONTAINS_OP - int res = PySequence_Contains(right, left)
-                // Note: PySequence_Contains(right, left) - 순서 반대!
-                GeneratedIn _    => right.Contains(left).ToBool() ? PyBool.True : PyBool.False,
-                GeneratedNotIn _ => right.Contains(left).ToBool() ? PyBool.False : PyBool.True,
+                    // CPython: IS_OP - int res = Py_Is(left, right) ^ oparg
+                    GeneratedIs _    => ReferenceEquals(leftVal, rightVal) ? PyBool.True : PyBool.False,
+                    GeneratedIsNot _ => ReferenceEquals(leftVal, rightVal) ? PyBool.False : PyBool.True,
 
-                _ => throw new NotImplementedException($"Compare operator {Op.GetType().Name} not implemented")
-            };
+                    // CPython: CONTAINS_OP - int res = PySequence_Contains(right, left)
+                    GeneratedIn _    => rightVal.Contains(leftVal).ToBool() ? PyBool.True : PyBool.False,
+                    GeneratedNotIn _ => rightVal.Contains(leftVal).ToBool() ? PyBool.False : PyBool.True,
+
+                    _ => throw new NotImplementedException($"Compare operator {Ops[i].GetType().Name} not implemented")
+                };
+
+                // Short-circuit: if this comparison is false, return false immediately
+                if (!result.ToBool())
+                    return PyBool.False;
+
+                // For next iteration, the right value becomes the left value
+                leftVal = rightVal;
+            }
+
+            // All comparisons were true
+            return PyBool.True;
         }
 
-        public override string ToString() => $"({Left} {Op} {Right})";
+        public override string ToString()
+        {
+            if (Ops.Count == 1)
+                return $"({Left} {Ops[0].GetType().Name.Replace("Generated", "")} {Comparators[0]})";
+
+            var parts = new List<string> { Left.ToString() };
+            for (int i = 0; i < Ops.Count; i++)
+            {
+                parts.Add(Ops[i].GetType().Name.Replace("Generated", ""));
+                parts.Add(Comparators[i].ToString());
+            }
+            return $"({string.Join(" ", parts)})";
+        }
     }
 
     /// <summary>

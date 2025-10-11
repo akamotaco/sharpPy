@@ -157,6 +157,28 @@ namespace SharpPy
 
 
         /// <summary>
+        /// Copy source location information from Generated AST node to runtime AST node
+        /// CPython 3.12: Preserves lineno, col_offset, end_lineno, end_col_offset
+        /// </summary>
+        private static void CopySourceLocation(GeneratedPtr source, ASTNode target)
+        {
+            if (source is GeneratedStmt generatedStmt)
+            {
+                target.LineNo = generatedStmt.LineNo;
+                target.ColOffset = generatedStmt.ColOffset;
+                target.EndLineNo = generatedStmt.EndLineNo;
+                target.EndColOffset = generatedStmt.EndColOffset;
+            }
+            else if (source is GeneratedExpr generatedExpr)
+            {
+                target.LineNo = generatedExpr.LineNo;
+                target.ColOffset = generatedExpr.ColOffset;
+                target.EndLineNo = generatedExpr.EndLineNo;
+                target.EndColOffset = generatedExpr.EndColOffset;
+            }
+        }
+
+        /// <summary>
         /// Convert Generated statement to SharpPy statement
         /// </summary>
         private static Statement? ConvertStatement(GeneratedStmt stmt, bool insideLoop = false, bool insideFunction = false)
@@ -170,7 +192,11 @@ namespace SharpPy
             {
                 case GeneratedPass:
                     // Pass statement - CPython 3.12 compatible
-                    return new PassStatement();
+                    {
+                        var result = new PassStatement();
+                        CopySourceLocation(stmt, result);
+                        return result;
+                    }
 
                 case GeneratedBreak:
                     // Break statement - only valid inside loops
@@ -178,7 +204,11 @@ namespace SharpPy
                     {
                         throw new PythonException(new PySyntaxError("'break' outside loop"));
                     }
-                    return new BreakStatement();
+                    {
+                        var result = new BreakStatement();
+                        CopySourceLocation(stmt, result);
+                        return result;
+                    }
 
                 case GeneratedContinue:
                     // Continue statement - only valid inside loops
@@ -186,7 +216,11 @@ namespace SharpPy
                     {
                         throw new PythonException(new PySyntaxError("'continue' not properly in loop"));
                     }
-                    return new ContinueStatement();
+                    {
+                        var result = new ContinueStatement();
+                        CopySourceLocation(stmt, result);
+                        return result;
+                    }
 
                 case GeneratedAnnAssign annAssign:
                     // Annotated assignment statement (name: type = value or name: type)
@@ -218,7 +252,9 @@ namespace SharpPy
                             Console.WriteLine($"[DEBUG] ConvertStatement AnnAssign: Creating AnnAssignStatement with name='{targetName}'");
 #endif
 
-                            return new AnnAssignStatement(targetName, annotationExpr, valueExpr);
+                            var result = new AnnAssignStatement(targetName, annotationExpr, valueExpr);
+                            CopySourceLocation(stmt, result);
+                            return result;
                         }
                         catch (Exception ex)
                         {
@@ -261,7 +297,9 @@ namespace SharpPy
                             Expression convertedValueExpr = ConvertAnyExpression(valueExpr);
 
                             // CPython 3.12: Return AssignStatement (handles both single and chained)
-                            return new AssignStatement(targetExprs, convertedValueExpr);
+                            var result = new AssignStatement(targetExprs, convertedValueExpr);
+                            CopySourceLocation(stmt, result);
+                            return result;
                         }
                     }
                     return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
@@ -294,7 +332,9 @@ namespace SharpPy
 #if DEBUG_AST_LOG
                                 Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Creating AugAssignStatement with target='{nameExpr.Name}', op={opNode.OperatorType}");
 #endif
-                                return new AugAssignStatement(nameExpr.Name, opNode, valueExpr);
+                                var result = new AugAssignStatement(nameExpr.Name, opNode, valueExpr);
+                                CopySourceLocation(augAssign, result);
+                                return result;
                             }
                         }
                     }
@@ -307,9 +347,13 @@ namespace SharpPy
                         if (valueExpr != null)
                         {
                             var expression = ConvertAnyExpression(valueExpr);
-                            return new ExpressionStatement(expression);
+                            var result = new ExpressionStatement(expression);
+                            CopySourceLocation(stmt, result);
+                            return result;
                         }
-                        return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
+                        var emptyResult = new ExpressionStatement(new ConstantExpression(PyNone.Instance));
+                        CopySourceLocation(stmt, emptyResult);
+                        return emptyResult;
                     }
 
                 case GeneratedReturn returnStmt:
@@ -331,7 +375,9 @@ namespace SharpPy
                             returnValue = new ConstantExpression(PyNone.Instance);
                         }
 
-                        return new ReturnStatement(returnValue);
+                        var result = new ReturnStatement(returnValue);
+                        CopySourceLocation(returnStmt, result);
+                        return result;
                     }
 
                 case GeneratedAssert assertStmt:
@@ -345,7 +391,9 @@ namespace SharpPy
                             msgExpr = ConvertAnyExpression(assertStmt.Msg);
                         }
 
-                        return new AssertStatement(testExpr, msgExpr);
+                        var result = new AssertStatement(testExpr, msgExpr);
+                        CopySourceLocation(assertStmt, result);
+                        return result;
                     }
 
                 case GeneratedRaise raiseStmt:
@@ -364,7 +412,9 @@ namespace SharpPy
                             fromExpr = ConvertAnyExpression(raiseStmt.Cause);
                         }
 
-                        return new RaiseStatement(exceptionExpr, fromExpr);
+                        var result = new RaiseStatement(exceptionExpr, fromExpr);
+                        CopySourceLocation(raiseStmt, result);
+                        return result;
                     }
 
                 case GeneratedIf ifStmt:
@@ -394,7 +444,9 @@ namespace SharpPy
                             }
                         }
 
-                        return new IfStatement(conditionExpr, bodyStmts, elseStmts);
+                        var result = new IfStatement(conditionExpr, bodyStmts, elseStmts);
+                        CopySourceLocation(ifStmt, result);
+                        return result;
                     }
 
                 case GeneratedWhile whileStmt:
@@ -424,7 +476,9 @@ namespace SharpPy
                             }
                         }
 
-                        return new WhileStatement(conditionExpr, bodyStmts, elseStmts);
+                        var result = new WhileStatement(conditionExpr, bodyStmts, elseStmts);
+                        CopySourceLocation(whileStmt, result);
+                        return result;
                     }
 
                 case GeneratedFor forStmt:
@@ -457,7 +511,9 @@ namespace SharpPy
                             }
                         }
 
-                        return new ForStatement(targetExpr, iterableExpr, bodyStmts, elseStmts);
+                        var result = new ForStatement(targetExpr, iterableExpr, bodyStmts, elseStmts);
+                        CopySourceLocation(forStmt, result);
+                        return result;
                     }
 
                 case GeneratedAsyncFor asyncForStmt:
@@ -495,7 +551,9 @@ namespace SharpPy
                             }
                         }
 
-                        return new AsyncForStatement(targetVar, iterableExpr, bodyStmts, elseStmts);
+                        var result = new AsyncForStatement(targetVar, iterableExpr, bodyStmts, elseStmts);
+                        CopySourceLocation(asyncForStmt, result);
+                        return result;
                     }
 
                 case GeneratedTry tryStmt:
@@ -574,7 +632,9 @@ namespace SharpPy
                             }
                         }
 
-                        return new TryStatement(tryBodyStatements, exceptHandlersList, elseStatements, finallyStatements);
+                        var result = new TryStatement(tryBodyStatements, exceptHandlersList, elseStatements, finallyStatements);
+                        CopySourceLocation(tryStmt, result);
+                        return result;
                     }
 
                 case GeneratedTryStar tryStarStmt:
@@ -650,7 +710,9 @@ namespace SharpPy
                             }
                         }
 
-                        return new TryStatement(tryBodyStmts, exceptHandlers, elseStmts, finallyStmts);
+                        var result = new TryStatement(tryBodyStmts, exceptHandlers, elseStmts, finallyStmts);
+                        CopySourceLocation(tryStarStmt, result);
+                        return result;
                     }
 
                 case GeneratedFunctionDef funcDef:
@@ -961,6 +1023,7 @@ namespace SharpPy
                             // CPython 3.12: Create function with FunctionArguments and return annotation
                             Console.WriteLine($"[DEBUG] Creating FunctionDefStatement with FunctionArguments: {functionArgs}");
                             var functionDef = new FunctionDefStatement(name, functionArgs, bodyStmts, null, decoratorExpressions, returnAnnotation);
+                            CopySourceLocation(funcDef, functionDef);
                             return functionDef;
                         }
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
@@ -982,7 +1045,9 @@ namespace SharpPy
                                 new ExpressionStatement(new ConstantExpression(PyNone.Instance))
                             };
 
-                            return new AsyncFunctionDefStatement(name, parameters, bodyStmts);
+                            var result = new AsyncFunctionDefStatement(name, parameters, bodyStmts);
+                            CopySourceLocation(asyncFuncDef, result);
+                            return result;
                         }
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
@@ -1078,7 +1143,9 @@ namespace SharpPy
 #if DEBUG_AST_LOG
                         Console.WriteLine($"[DEBUG] ConvertStatement: Creating ClassDefStatement with name='{className}', bases={baseClassExprs.Count}, body={classBodyStmts.Count}, metaclass={metaclassExpr != null}, typeParams={typeParams.Count}");
 #endif
-                        return new ClassDefStatement(className, baseClassExprs, classBodyStmts, typeParams, metaclassExpr);
+                        var result = new ClassDefStatement(className, baseClassExprs, classBodyStmts, typeParams, metaclassExpr);
+                        CopySourceLocation(classDef, result);
+                        return result;
                     }
 
                 case GeneratedGlobal globalStmt:
@@ -1087,7 +1154,9 @@ namespace SharpPy
                         if (globalStmt.Names != null && globalStmt.Names.Count > 0)
                         {
                             var names = globalStmt.Names.ToEnumerable<GeneratedIdentifier>().Select(id => id.Value).ToList();
-                            return new GlobalStatement(names);
+                            var result = new GlobalStatement(names);
+                            CopySourceLocation(globalStmt, result);
+                            return result;
                         }
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
@@ -1098,7 +1167,9 @@ namespace SharpPy
                         if (nonlocalStmt.Names != null && nonlocalStmt.Names.Count > 0)
                         {
                             var names = nonlocalStmt.Names.ToEnumerable<GeneratedIdentifier>().Select(id => id.Value).ToList();
-                            return new NonlocalStatement(names);
+                            var result = new NonlocalStatement(names);
+                            CopySourceLocation(nonlocalStmt, result);
+                            return result;
                         }
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
@@ -1117,7 +1188,9 @@ namespace SharpPy
                         }
                         if (targets.Count > 0)
                         {
-                            return new DeleteStatement(targets);
+                            var result = new DeleteStatement(targets);
+                            CopySourceLocation(delStmt, result);
+                            return result;
                         }
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
@@ -1193,7 +1266,9 @@ namespace SharpPy
 #if DEBUG_AST_LOG
                                 Console.WriteLine($"[DEBUG] Import: Creating ImportStatement with {names.Count} modules: {string.Join(", ", names)}");
 #endif
-                                return new ImportStatement(names);
+                                var result = new ImportStatement(names);
+                                CopySourceLocation(importStmt, result);
+                                return result;
                             }
                         }
 #if DEBUG_AST_LOG
@@ -1237,7 +1312,9 @@ namespace SharpPy
                         if (importAliases.Count > 0)
                         {
                             Console.WriteLine($"[DEBUG] Creating ImportFromStatement: module={module}, level={level}, aliases={importAliases.Count}");
-                            return new ImportFromStatement(module, importAliases, level);
+                            var result = new ImportFromStatement(module, importAliases, level);
+                            CopySourceLocation(importFromStmt, result);
+                            return result;
                         }
 
                         Console.WriteLine("[DEBUG] Failed to parse from_import, returning placeholder");
@@ -1277,7 +1354,9 @@ namespace SharpPy
                             }
                         }
 
-                        return new WithStatement(items, bodyStmts);
+                        var result = new WithStatement(items, bodyStmts);
+                        CopySourceLocation(withStmt, result);
+                        return result;
                     }
 
                 case GeneratedAsyncWith asyncWithStmt:
@@ -1313,7 +1392,9 @@ namespace SharpPy
                             }
                         }
 
-                        return new AsyncWithStatement(items, bodyStmts);
+                        var result = new AsyncWithStatement(items, bodyStmts);
+                        CopySourceLocation(asyncWithStmt, result);
+                        return result;
                     }
 
                 case GeneratedMatch matchStmt:
@@ -1391,7 +1472,9 @@ namespace SharpPy
                             }
                         }
 
-                        return new MatchStatement(subject, cases);
+                        var result = new MatchStatement(subject, cases);
+                        CopySourceLocation(matchStmt, result);
+                        return result;
                     }
 
                 // TODO: Add GeneratedTypeAliasStmt case when type is available
@@ -1749,8 +1832,8 @@ namespace SharpPy
 
                 GeneratedCompare compare => new CompareExpression(
                     ConvertAnyExpression(compare.Left),
-                    (GeneratedCmpop)compare.Ops.First(),  // CPython 3.12: Direct use of GeneratedCmpop from ASDL
-                    ConvertAnyExpression(compare.Comparators.ToEnumerable<GeneratedExpr>().First())
+                    compare.Ops.ToEnumerable<GeneratedCmpop>().ToList(),  // CPython 3.12: All ops
+                    compare.Comparators.ToEnumerable<GeneratedExpr>().Select(ConvertAnyExpression).ToList()  // CPython 3.12: All comparators
                 ),
 
                 // Function calls and attribute access
