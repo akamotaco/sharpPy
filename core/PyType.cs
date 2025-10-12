@@ -627,59 +627,12 @@ namespace SharpPy
 
         /// <summary>
         /// str 타입의 descriptor 테이블 초기화 (CPython unicodeobject.c 참조)
+        /// 실제 descriptor 등록은 PyString.InitializeStringDescriptors()에서 수행됨
         /// </summary>
         private void InitializeStrTypeDescriptors()
         {
-            // 이미 초기화되었으면 스킵
-            if (Descriptors.Methods.Count > 0)
-                return;
-
-            var strType = this;
-
-            // str.upper() - CPython unicode_upper
-            Descriptors.AddMethod("upper", new PyMethodDescriptor(
-                "upper",
-                strType,
-                (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"upper() takes no arguments ({args.Length} given)");
-                    if (self is not PyString str)
-                        throw PyTypeError.Create("descriptor 'upper' for 'str' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    return new PyString(str.Value.ToUpperInvariant());
-                },
-                minArgs: 0,
-                maxArgs: 0
-            ));
-
-            // str.lower() - CPython unicode_lower
-            Descriptors.AddMethod("lower", new PyMethodDescriptor(
-                "lower",
-                strType,
-                (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"lower() takes no arguments ({args.Length} given)");
-                    if (self is not PyString str)
-                        throw PyTypeError.Create("descriptor 'lower' for 'str' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    return new PyString(str.Value.ToLowerInvariant());
-                },
-                minArgs: 0,
-                maxArgs: 0
-            ));
-
-            // str.title() - CPython unicode_title
-            Descriptors.AddMethod("title", new PyMethodDescriptor(
-                "title",
-                strType,
-                (self, args, kwargs) => {
-                    if (args.Length != 0)
-                        throw PyTypeError.Create($"title() takes no arguments ({args.Length} given)");
-                    if (self is not PyString str)
-                        throw PyTypeError.Create("descriptor 'title' for 'str' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    return str.Title();
-                },
-                minArgs: 0,
-                maxArgs: 0
-            ));
+            // PyString.InitializeStringDescriptors()에서 모든 str descriptor를 등록하므로
+            // 여기서는 아무것도 하지 않음 (중복 방지)
         }
 
         /// <summary>
@@ -687,8 +640,8 @@ namespace SharpPy
         /// </summary>
         private void InitializeObjectTypeDescriptors()
         {
-            // 이미 초기화되었으면 스킵
-            if (Descriptors.Methods.Count > 0)
+            // CPython 호환: 이미 초기화되었으면 스킵
+            if (Descriptors.IsInitialized)
                 return;
 
             var objectType = this;
@@ -720,6 +673,9 @@ namespace SharpPy
                 minArgs: 1,
                 maxArgs: int.MaxValue
             ));
+
+            // CPython 호환: descriptor 초기화 완료 표시
+            Descriptors.MarkInitialized();
         }
 
         /// <summary>
@@ -727,8 +683,8 @@ namespace SharpPy
         /// </summary>
         private void InitializeTypeTypeDescriptors()
         {
-            // 이미 초기화되었으면 스킵
-            if (Descriptors.GetSet.Count > 0 && Descriptors.Methods.Count > 0)
+            // CPython 호환: 이미 초기화되었으면 스킵
+            if (Descriptors.IsInitialized)
                 return;
 
             var typeType = this;
@@ -945,6 +901,9 @@ namespace SharpPy
                 minArgs: 1,
                 maxArgs: 1
             ));
+
+            // CPython 호환: descriptor 초기화 완료 표시
+            Descriptors.MarkInitialized();
         }
 
         /// <summary>
@@ -952,7 +911,8 @@ namespace SharpPy
         /// </summary>
         private void InitializeSetTypeDescriptors()
         {
-            if (Descriptors.Methods.Count > 0)
+            // CPython 호환: 이미 초기화되었으면 스킵
+            if (Descriptors.IsInitialized)
                 return;
 
             var setType = this;
@@ -1166,6 +1126,9 @@ namespace SharpPy
                 minArgs: 1,
                 maxArgs: 1
             ));
+
+            // CPython 호환: descriptor 초기화 완료 표시
+            Descriptors.MarkInitialized();
         }
 
         /// <summary>
@@ -1197,7 +1160,8 @@ namespace SharpPy
         /// </summary>
         private void InitializeDictTypeDescriptors()
         {
-            if (Descriptors.Methods.Count > 0)
+            // CPython 호환: 이미 초기화되었으면 스킵
+            if (Descriptors.IsInitialized)
                 return;
 
             var dictType = this;
@@ -1385,6 +1349,9 @@ namespace SharpPy
                 maxArgs: int.MaxValue,
                 acceptsKwargs: true
             ));
+
+            // CPython 호환: descriptor 초기화 완료 표시
+            Descriptors.MarkInitialized();
         }
 
         #endregion
@@ -1393,8 +1360,16 @@ namespace SharpPy
 
         public override PyObject GetAttribute(string name)
         {
-            // CPython 3.12 호환: descriptor 테이블을 통한 속성 조회
-            // MRO 기반으로 GenericGetAttribute가 자동으로 descriptor를 찾아줌
+            // CPython 3.12 호환: type_getattro() 구현
+            // 1. 먼저 이 타입 자신의 descriptor 테이블 확인 (예: str.join은 str 타입의 Descriptors에 있음)
+            var descriptor = Descriptors.Lookup(name);
+            if (descriptor != null)
+            {
+                // Descriptor protocol: 타입에서 직접 접근하면 descriptor 자체 반환
+                return (PyObject)descriptor;
+            }
+
+            // 2. 그 다음 type의 MRO 확인 (type 클래스의 속성들)
             return GenericGetAttribute(name);
         }
 

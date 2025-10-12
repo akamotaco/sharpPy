@@ -927,6 +927,7 @@ namespace SharpPy
         {
             return name switch
             {
+                "tb_frame" => Frame,
                 "tb_next" => (PyObject?)Next ?? PyNone.Instance,
                 "tb_lasti" => new PyInt(LastI),
                 "tb_lineno" => new PyInt(LineNo),

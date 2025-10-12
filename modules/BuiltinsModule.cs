@@ -25,6 +25,10 @@ namespace SharpPy.Modules
             module.ModuleDict["int"] = PyType.IntType;
             module.ModuleDict["float"] = PyType.FloatType;
             module.ModuleDict["str"] = PyType.StrType;
+
+            // Initialize str type descriptors (join, split, etc.)
+            PyString.InitializeStringDescriptors();
+
             module.ModuleDict["bool"] = PyType.BoolType;
             module.ModuleDict["list"] = PyType.ListType;
             module.ModuleDict["tuple"] = PyType.TupleType;

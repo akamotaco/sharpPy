@@ -5,7 +5,7 @@ namespace SharpPy
     #region Virtual Machine (기존 LEGB 시스템 활용)
 
     // VM 실행 프레임 (기존 PyScopeChain과 연동)
-    public class PyFrame
+    public class PyFrame : PyObject
     {
         public PyCodeObject Code { get; }
         public Stack<PyObject> ValueStack { get; }
@@ -442,6 +442,10 @@ namespace SharpPy
         }
 
         public override string ToString() => $"<frame for {Code.Name}>";
+
+        // PyObject required overrides
+        public override PyType GetPyType() => PyType.ObjectType;
+        public override string GetTypeName() => "frame";
     }
 
     // Python 가상 머신 (기존 객체 시스템과 완전 통합)

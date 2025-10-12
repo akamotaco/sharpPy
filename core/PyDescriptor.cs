@@ -382,12 +382,27 @@ namespace SharpPy
         /// </summary>
         public Dictionary<string, PyWrapperDescriptor> Wrappers { get; }
 
+        /// <summary>
+        /// CPython 호환: 타입 descriptor 초기화 완료 여부
+        /// CPython의 _PyType_Ready()와 유사하게 한 번만 초기화되었는지 체크
+        /// </summary>
+        public bool IsInitialized { get; private set; }
+
         public PyTypeDescriptors()
         {
             Methods = new Dictionary<string, PyMethodDescriptor>();
             GetSet = new Dictionary<string, PyGetSetDescriptor>();
             Members = new Dictionary<string, PyMemberDescriptor>();
             Wrappers = new Dictionary<string, PyWrapperDescriptor>();
+            IsInitialized = false;
+        }
+
+        /// <summary>
+        /// CPython 호환: 타입 descriptor 초기화 완료 표시
+        /// </summary>
+        public void MarkInitialized()
+        {
+            IsInitialized = true;
         }
 
         /// <summary>
