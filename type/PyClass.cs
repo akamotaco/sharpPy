@@ -592,6 +592,52 @@ namespace SharpPy
                             return PyNone.Instance;
                         }, minArgs: 0, maxArgs: int.MaxValue, acceptsKwargs: true),
 
+                        // CPython 3.12: __getitem__ wrapper descriptor (mp_subscript slot)
+                        "__getitem__" => new PyWrapperDescriptor(
+                            "__getitem__",
+                            PyType.DictType,
+                            (self, args, kwargs) =>
+                            {
+                                if (args.Length != 1)
+                                    throw PyTypeError.Create($"__getitem__() takes exactly 1 argument ({args.Length} given)");
+
+                                var key = args[0];
+                                // CPython 3.12: Call self.GetItem() which allows subclass override
+                                return self.GetItem(key);
+                            }),
+
+                        // CPython 3.12: __setitem__ wrapper descriptor (mp_ass_subscript slot)
+                        "__setitem__" => new PyWrapperDescriptor(
+                            "__setitem__",
+                            PyType.DictType,
+                            (self, args, kwargs) =>
+                            {
+                                if (args.Length != 2)
+                                    throw PyTypeError.Create($"__setitem__() takes exactly 2 arguments ({args.Length} given)");
+
+                                var key = args[0];
+                                var value = args[1];
+
+                                // CPython 3.12: Direct storage access (dict_ass_sub in C)
+                                // This wrapper descriptor represents the C-level slot, not Python method
+                                PyDict dict;
+                                if (self is PyDict d)
+                                {
+                                    dict = d;
+                                }
+                                else if (self is PyClassInstance ci && ci.IsDictSubclass())
+                                {
+                                    dict = ci.GetDictStorage();
+                                }
+                                else
+                                {
+                                    throw PyTypeError.Create($"descriptor '__setitem__' for 'dict' objects doesn't apply to a '{self.GetTypeName()}'  object");
+                                }
+
+                                dict.SetItem(key, value);
+                                return PyNone.Instance;
+                            }),
+
                         "get" => new PyBuiltinFunction("get", (args, kwargs) =>
                         {
                             if (args.Length < 2 || args.Length > 3)
@@ -703,6 +749,120 @@ namespace SharpPy
                             var dict = GetDictStorage(args[0]);
                             return dict.Copy();
                         }),
+
+                        _ => null
+                    };
+                }
+
+                // list 타입의 메서드들 - CPython 3.12 compatible
+                if (pyType == PyType.ListType)
+                {
+                    // Helper to get PyList from self (works for both PyList and list subclasses)
+                    static PyList GetListStorage(PyObject self)
+                    {
+                        if (self is PyList list)
+                            return list;
+
+                        if (self is PyClassInstance instance && instance.InstanceType.BaseTypes.Any(bt => bt == PyType.ListType))
+                        {
+                            // List subclass - get its storage
+                            // For now, we don't have internal list storage for subclasses
+                            // This would need to be implemented similar to dict subclasses
+                            throw PyTypeError.Create($"list subclass storage not yet implemented");
+                        }
+
+                        throw PyTypeError.Create($"descriptor requires a 'list' object but received a '{self.GetTypeName()}'");
+                    }
+
+                    return name switch
+                    {
+                        // CPython 3.12: __getitem__ wrapper descriptor (sq_item slot)
+                        "__getitem__" => new PyWrapperDescriptor(
+                            "__getitem__",
+                            PyType.ListType,
+                            (self, args, kwargs) =>
+                            {
+                                if (args.Length != 1)
+                                    throw PyTypeError.Create($"__getitem__() takes exactly 1 argument ({args.Length} given)");
+
+                                var key = args[0];
+                                // CPython 3.12: Call self.GetItem() which allows subclass override
+                                return self.GetItem(key);
+                            }),
+
+                        // CPython 3.12: __setitem__ wrapper descriptor (sq_ass_item slot)
+                        "__setitem__" => new PyWrapperDescriptor(
+                            "__setitem__",
+                            PyType.ListType,
+                            (self, args, kwargs) =>
+                            {
+                                if (args.Length != 2)
+                                    throw PyTypeError.Create($"__setitem__() takes exactly 2 arguments ({args.Length} given)");
+
+                                var key = args[0];
+                                var value = args[1];
+
+                                // CPython 3.12: Direct storage access (list_ass_item in C)
+                                // This wrapper descriptor represents the C-level slot, not Python method
+                                PyList list;
+                                if (self is PyList l)
+                                {
+                                    list = l;
+                                }
+                                else
+                                {
+                                    throw PyTypeError.Create($"descriptor '__setitem__' for 'list' objects doesn't apply to a '{self.GetTypeName()}' object");
+                                }
+
+                                list.SetItem(key, value);
+                                return PyNone.Instance;
+                            }),
+
+                        // CPython 3.12: __delitem__ wrapper descriptor (sq_ass_item slot with NULL value)
+                        "__delitem__" => new PyWrapperDescriptor(
+                            "__delitem__",
+                            PyType.ListType,
+                            (self, args, kwargs) =>
+                            {
+                                if (args.Length != 1)
+                                    throw PyTypeError.Create($"__delitem__() takes exactly 1 argument ({args.Length} given)");
+
+                                var key = args[0];
+
+                                // CPython 3.12: Direct storage access
+                                PyList list;
+                                if (self is PyList l)
+                                {
+                                    list = l;
+                                }
+                                else
+                                {
+                                    throw PyTypeError.Create($"descriptor '__delitem__' for 'list' objects doesn't apply to a '{self.GetTypeName()}' object");
+                                }
+
+                                // Delete item at index
+                                if (key is PyInt index)
+                                {
+                                    int idx = (int)index.Value;
+                                    int count = list.Length();
+                                    if (idx < 0) idx += count;
+                                    if (idx < 0 || idx >= count)
+                                        throw PyIndexError.Create("list index out of range");
+                                    // Use list.Pop() which handles deletion correctly
+                                    list.Pop(idx);
+                                }
+                                else if (key is PySlice slice)
+                                {
+                                    // Handle slice deletion
+                                    throw PyNotImplementedError.Create("list slice deletion not yet implemented");
+                                }
+                                else
+                                {
+                                    throw PyTypeError.Create("list indices must be integers or slices, not " + key.GetTypeName());
+                                }
+
+                                return PyNone.Instance;
+                            }),
 
                         _ => null
                     };
@@ -924,6 +1084,29 @@ namespace SharpPy
 
         public override void SetItem(PyObject key, PyObject value)
         {
+            // CPython 3.12: Check for user-defined __setitem__ first
+            // This allows dict subclasses to override __setitem__ behavior
+            foreach (var mroType in InstanceType.MRO)
+            {
+                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue("__setitem__", out PyObject setitemMethod))
+                {
+                    // Found __setitem__, call it with self, key, and value
+                    if (setitemMethod is PyFunction func)
+                    {
+                        var boundMethod = new PyMethod(this, func);
+                        boundMethod.Call(new PyObject[] { key, value }, null);
+                        return;
+                    }
+                    else if (setitemMethod.IsCallable())
+                    {
+                        setitemMethod.Call(new PyObject[] { this, key, value }, null);
+                        return;
+                    }
+                    break;
+                }
+            }
+
+            // Fall back to direct storage access for dict subclasses
             if (_dictStorage != null)
             {
                 _dictStorage.SetItem(key, value);

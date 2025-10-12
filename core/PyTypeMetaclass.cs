@@ -316,6 +316,7 @@ namespace SharpPy
             Console.WriteLine($"🏗️ type.__new__ creating class: {(name is PyString pyStr ? pyStr.Value : name.ToString())}");
             Console.WriteLine($"   cls (metaclass): {cls.GetType().Name} / {cls}");
             Console.WriteLine($"   bases: {bases}");
+            Console.WriteLine($"   namespaceDict: {namespaceDict.GetType().Name} / {namespaceDict.GetTypeName()}");
             Console.WriteLine($"   skipMetaclassCheck: {skipMetaclassCheck}");
 
             // Convert arguments
@@ -424,7 +425,8 @@ namespace SharpPy
 
             // CPython 3.12: Check if we need to call custom metaclass.__new__
             // This follows CPython's type_new_get_bases logic (typeobject.c:3864-3875)
-            // Key: if (winner != ctx->metatype && winner->tp_new != type_new)
+            // Key: if (winner->tp_new != type_new) - check if metaclass has custom __new__
+            // This applies whether winner == metatype OR winner != metatype
             PyClass newClass;
             PyClass metatype = cls as PyClass ?? Instance;
 
@@ -432,129 +434,64 @@ namespace SharpPy
             Console.WriteLine($"   winner != metatype: {winner != metatype}");
             Console.WriteLine($"   skipMetaclassCheck: {skipMetaclassCheck}");
 
-            if (!skipMetaclassCheck && winner != null && winner != metatype && winner != Instance)
-            {
-                Console.WriteLine($"🔧 Custom metaclass detected: {winner.Name}");
-                Console.WriteLine($"   Looking for __new__ method in metaclass");
+            // CPython: Check if the winner metaclass (or metatype if winner==metatype) has custom __new__
+            // We need to call it even when winner == metatype if it's overridden!
+            bool shouldCallCustomNew = false;
+            PyObject customNewMethod = null;
 
-                // Try to get __new__ from the custom metaclass
+            if (!skipMetaclassCheck && winner != null && winner != Instance)
+            {
+                // Try to get __new__ from the winner metaclass
                 try
                 {
                     var newMethod = winner.GetAttribute("__new__");
                     if (newMethod != null && newMethod.IsCallable())
                     {
-                        Console.WriteLine($"   Found __new__ method: {newMethod.GetType().Name}");
-
-                        // CPython 3.12: Check if winner->tp_new != type_new
-                        // If the metaclass's __new__ is the same as type.__new__,
-                        // it means it's inherited (not overridden), so we should NOT call it
-                        // to prevent infinite recursion when super().__new__() is called
                         bool isTypeNew = IsTypeNew(newMethod);
-                        Console.WriteLine($"   Is type.__new__ (inherited, not overridden): {isTypeNew}");
+                        Console.WriteLine($"   winner={winner.Name}, has custom __new__: {!isTypeNew}");
 
                         if (!isTypeNew)
                         {
-                            // Overridden __new__ - call it
-                            Console.WriteLine($"   Calling {winner.Name}.__new__(cls, name, bases, namespace)");
-
-                            // Call metaclass.__new__(cls, name, bases, namespace)
-                            // Note: The namespace should be passed as-is (could be _EnumDict)
-                            var result = newMethod.Call(new PyObject[] { winner, name, bases, namespaceDict }, null);
-
-                            if (result is PyClass resultClass)
-                            {
-                                newClass = resultClass;
-                                Console.WriteLine($"   ✅ {winner.Name}.__new__ returned: {newClass.Name}");
-                            }
-                            else
-                            {
-                                throw PyTypeError.Create($"{winner.Name}.__new__ must return a class, got {result.GetTypeName()}");
-                            }
+                            shouldCallCustomNew = true;
+                            customNewMethod = newMethod;  // Store the method to reuse it
                         }
-                        else
-                        {
-                            // Inherited type.__new__ - don't call it again, just create the class
-                            // This is the key to preventing infinite recursion!
-                            Console.WriteLine($"   Inherited type.__new__, creating class directly (no recursion)");
-
-                            // Convert namespace if needed
-                            if (classDict == null)
-                            {
-                                classDict = new Dictionary<string, PyObject>();
-                                foreach (var item in dictItems.Items)
-                                {
-                                    if (item is PyTuple tuple && tuple.Items.Length == 2)
-                                    {
-                                        if (tuple.Items[0] is PyString keyStr)
-                                        {
-                                            classDict[keyStr.Value] = tuple.Items[1];
-                                        }
-                                    }
-                                }
-                            }
-
-                            newClass = new PyClass(nameStr.Value, baseTypes, classDict);
-                            newClass.Metaclass = winner;
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine($"   No __new__ found, falling back to PyClass creation");
-
-                        // Convert namespace if needed
-                        if (classDict == null)
-                        {
-                            classDict = new Dictionary<string, PyObject>();
-                            foreach (var item in dictItems.Items)
-                            {
-                                if (item is PyTuple tuple && tuple.Items.Length == 2)
-                                {
-                                    if (tuple.Items[0] is PyString keyStr)
-                                    {
-                                        classDict[keyStr.Value] = tuple.Items[1];
-                                    }
-                                }
-                            }
-                        }
-
-                        newClass = new PyClass(nameStr.Value, baseTypes, classDict);
-                        newClass.Metaclass = winner;
                     }
                 }
                 catch (PythonException ex)
                 {
-                    if (ex.PyException.GetTypeName() == "AttributeError")
-                    {
-                        Console.WriteLine($"   No __new__ attribute, falling back to PyClass creation");
-
-                        // Convert namespace if needed
-                        if (classDict == null)
-                        {
-                            classDict = new Dictionary<string, PyObject>();
-                            foreach (var item in dictItems.Items)
-                            {
-                                if (item is PyTuple tuple && tuple.Items.Length == 2)
-                                {
-                                    if (tuple.Items[0] is PyString keyStr)
-                                    {
-                                        classDict[keyStr.Value] = tuple.Items[1];
-                                    }
-                                }
-                            }
-                        }
-
-                        newClass = new PyClass(nameStr.Value, baseTypes, classDict);
-                        newClass.Metaclass = winner;
-                    }
-                    else
+                    if (ex.PyException.GetTypeName() != "AttributeError")
                     {
                         throw;
                     }
                 }
             }
+
+            if (shouldCallCustomNew && customNewMethod != null)
+            {
+                // Custom metaclass with overridden __new__ - call it
+                Console.WriteLine($"🔧 Calling custom metaclass {winner.Name}.__new__");
+                Console.WriteLine($"   Method type: {customNewMethod.GetType().Name}");
+                Console.WriteLine($"   namespaceDict type: {namespaceDict.GetType().Name} / {namespaceDict.GetTypeName()}");
+
+                // Call metaclass.__new__(cls, name, bases, namespace)
+                // Note: The namespace should be passed as-is (could be _EnumDict)
+                var result = customNewMethod.Call(new PyObject[] { winner, name, bases, namespaceDict }, null);
+
+                if (result is PyClass resultClass)
+                {
+                    newClass = resultClass;
+                    Console.WriteLine($"   ✅ {winner.Name}.__new__ returned: {newClass.Name}");
+                }
+                else
+                {
+                    throw PyTypeError.Create($"{winner.Name}.__new__ must return a class, got {result.GetTypeName()}");
+                }
+            }
             else
             {
-                // Default type.__new__ behavior
+                // Default type.__new__ behavior - create class directly
+                Console.WriteLine($"🔧 Creating class directly (no custom metaclass __new__)");
+
                 // Convert namespace if needed
                 if (classDict == null)
                 {
@@ -581,42 +518,41 @@ namespace SharpPy
             #endif
 
             // PEP 487: Call __set_name__ on all descriptors in the class namespace
-            // Only do this if we created the class ourselves (without custom metaclass)
-            // Custom metaclasses are responsible for calling __set_name__ themselves
-            if (classDict != null)
+            // CPython 3.12: This MUST be called regardless of custom metaclass
+            // The custom metaclass creates the class, but type.__new__ still needs to call __set_name__
+            Console.WriteLine($"🔧 PEP 487: Calling __set_name__ on descriptors in {nameStr.Value}");
+            Console.WriteLine($"   newClass.ClassDict has {newClass.ClassDict.Count} attributes");
+
+            foreach (var kvp in newClass.ClassDict)
             {
-                Console.WriteLine($"🔧 PEP 487: Calling __set_name__ on descriptors in {nameStr.Value}");
-                foreach (var kvp in classDict)
+                string attrName = kvp.Key;
+                PyObject attrValue = kvp.Value;
+
+                // Check if the attribute has __set_name__ method
+                try
                 {
-                    string attrName = kvp.Key;
-                    PyObject attrValue = kvp.Value;
-
-                    // Check if the attribute has __set_name__ method
-                    try
+                    var setNameMethod = attrValue.GetAttribute("__set_name__");
+                    if (setNameMethod != null && setNameMethod.IsCallable())
                     {
-                        var setNameMethod = attrValue.GetAttribute("__set_name__");
-                        if (setNameMethod != null && setNameMethod.IsCallable())
-                        {
-                            Console.WriteLine($"  Calling __set_name__ on {attrName}: {attrValue.GetType().Name}");
-                            // Call __set_name__(owner, name)
-                            setNameMethod.Call(new PyObject[] { newClass, new PyString(attrName) }, null);
-                            Console.WriteLine($"  ✅ __set_name__ completed for {attrName}");
-                        }
+                        Console.WriteLine($"  Calling __set_name__ on {attrName}: {attrValue.GetType().Name}");
+                        // Call __set_name__(owner, name)
+                        setNameMethod.Call(new PyObject[] { newClass, new PyString(attrName) }, null);
+                        Console.WriteLine($"  ✅ __set_name__ completed for {attrName}");
                     }
-                    catch (PythonException ex)
+                }
+                catch (PythonException ex)
+                {
+                    // If it's an AttributeError, the attribute doesn't have __set_name__ - that's fine
+                    if (ex.PyException.GetTypeName() == "AttributeError")
                     {
-                        // If it's an AttributeError, the attribute doesn't have __set_name__ - that's fine
-                        if (ex.PyException.GetTypeName() == "AttributeError")
-                        {
-                            continue;
-                        }
-
-                        #if DEBUG_LOG
-                        Console.WriteLine($"  Error calling __set_name__ on {attrName}: {ex.Message}");
-                        #endif
-                        // Re-throw other exceptions - __set_name__ errors should propagate
-                        throw;
+                        continue;
                     }
+
+                    #if DEBUG_LOG
+                    Console.WriteLine($"  Error calling __set_name__ on {attrName}: {ex.Message}");
+                    #endif
+                    // Re-throw other exceptions - __set_name__ errors should propagate
+                    throw;
                 }
             }
 

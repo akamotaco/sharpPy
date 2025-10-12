@@ -1174,8 +1174,22 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"keys() takes no arguments ({args.Length} given)");
-                    if (self is not PyDict dict)
+
+                    // CPython 3.12: Accept dict subclasses (isinstance check)
+                    PyDict dict;
+                    if (self is PyDict d)
+                    {
+                        dict = d;
+                    }
+                    else if (self is PyClassInstance ci && ci.IsInstance(PyType.DictType))
+                    {
+                        dict = ci.GetDictStorage();
+                    }
+                    else
+                    {
                         throw PyTypeError.Create("descriptor 'keys' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    }
+
                     return dict.Keys();
                 },
                 minArgs: 0,
@@ -1189,8 +1203,22 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"values() takes no arguments ({args.Length} given)");
-                    if (self is not PyDict dict)
+
+                    // CPython 3.12: Accept dict subclasses (isinstance check)
+                    PyDict dict;
+                    if (self is PyDict d)
+                    {
+                        dict = d;
+                    }
+                    else if (self is PyClassInstance ci && ci.IsInstance(PyType.DictType))
+                    {
+                        dict = ci.GetDictStorage();
+                    }
+                    else
+                    {
                         throw PyTypeError.Create("descriptor 'values' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    }
+
                     return dict.Values();
                 },
                 minArgs: 0,
@@ -1204,8 +1232,22 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"items() takes no arguments ({args.Length} given)");
-                    if (self is not PyDict dict)
+
+                    // CPython 3.12: Accept dict subclasses (isinstance check)
+                    PyDict dict;
+                    if (self is PyDict d)
+                    {
+                        dict = d;
+                    }
+                    else if (self is PyClassInstance ci && ci.IsInstance(PyType.DictType))
+                    {
+                        dict = ci.GetDictStorage();
+                    }
+                    else
+                    {
                         throw PyTypeError.Create("descriptor 'items' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    }
+
                     return dict.Items();
                 },
                 minArgs: 0,
@@ -1219,8 +1261,22 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 2)
                         throw PyTypeError.Create($"get() takes from 1 to 2 positional arguments but {args.Length} were given");
-                    if (self is not PyDict dict)
+
+                    // CPython 3.12: Accept dict subclasses (isinstance check)
+                    PyDict dict;
+                    if (self is PyDict d)
+                    {
+                        dict = d;
+                    }
+                    else if (self is PyClassInstance ci && ci.IsInstance(PyType.DictType))
+                    {
+                        dict = ci.GetDictStorage();
+                    }
+                    else
+                    {
                         throw PyTypeError.Create("descriptor 'get' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    }
+
                     var key = args[0];
                     var defaultValue = args.Length > 1 ? args[1] : PyNone.Instance;
                     return dict.Get(key, defaultValue);
@@ -1236,8 +1292,22 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 2)
                         throw PyTypeError.Create($"pop() takes from 1 to 2 positional arguments but {args.Length} were given");
-                    if (self is not PyDict dict)
+
+                    // CPython 3.12: Accept dict subclasses (isinstance check)
+                    PyDict dict;
+                    if (self is PyDict d)
+                    {
+                        dict = d;
+                    }
+                    else if (self is PyClassInstance ci && ci.IsInstance(PyType.DictType))
+                    {
+                        dict = ci.GetDictStorage();
+                    }
+                    else
+                    {
                         throw PyTypeError.Create("descriptor 'pop' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    }
+
                     var key = args[0];
                     var defaultValue = args.Length > 1 ? args[1] : null;
                     return dict.Pop(key, defaultValue);
@@ -1253,8 +1323,22 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"popitem() takes no arguments ({args.Length} given)");
-                    if (self is not PyDict dict)
+
+                    // CPython 3.12: Accept dict subclasses (isinstance check)
+                    PyDict dict;
+                    if (self is PyDict d)
+                    {
+                        dict = d;
+                    }
+                    else if (self is PyClassInstance ci && ci.IsInstance(PyType.DictType))
+                    {
+                        dict = ci.GetDictStorage();
+                    }
+                    else
+                    {
                         throw PyTypeError.Create("descriptor 'popitem' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    }
+
                     return dict.PopItem();
                 },
                 minArgs: 0,
@@ -1268,8 +1352,22 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"clear() takes no arguments ({args.Length} given)");
-                    if (self is not PyDict dict)
+
+                    // CPython 3.12: Accept dict subclasses (isinstance check)
+                    PyDict dict;
+                    if (self is PyDict d)
+                    {
+                        dict = d;
+                    }
+                    else if (self is PyClassInstance ci && ci.IsInstance(PyType.DictType))
+                    {
+                        dict = ci.GetDictStorage();
+                    }
+                    else
+                    {
                         throw PyTypeError.Create("descriptor 'clear' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    }
+
                     return dict.Clear();
                 },
                 minArgs: 0,
@@ -1283,8 +1381,22 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"copy() takes no arguments ({args.Length} given)");
-                    if (self is not PyDict dict)
+
+                    // CPython 3.12: Accept dict subclasses (isinstance check)
+                    PyDict dict;
+                    if (self is PyDict d)
+                    {
+                        dict = d;
+                    }
+                    else if (self is PyClassInstance ci && ci.IsInstance(PyType.DictType))
+                    {
+                        dict = ci.GetDictStorage();
+                    }
+                    else
+                    {
                         throw PyTypeError.Create("descriptor 'copy' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    }
+
                     return dict.Copy();
                 },
                 minArgs: 0,
@@ -1298,8 +1410,22 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length != 1)
                         throw PyTypeError.Create($"update() takes exactly one argument ({args.Length} given)");
-                    if (self is not PyDict dict)
+
+                    // CPython 3.12: Accept dict subclasses (isinstance check)
+                    PyDict dict;
+                    if (self is PyDict d)
+                    {
+                        dict = d;
+                    }
+                    else if (self is PyClassInstance ci && ci.IsInstance(PyType.DictType))
+                    {
+                        dict = ci.GetDictStorage();
+                    }
+                    else
+                    {
                         throw PyTypeError.Create("descriptor 'update' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    }
+
                     return dict.Update(args[0]);
                 },
                 minArgs: 1,
@@ -1313,8 +1439,22 @@ namespace SharpPy
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 2)
                         throw PyTypeError.Create($"setdefault() takes from 1 to 2 positional arguments but {args.Length} were given");
-                    if (self is not PyDict dict)
+
+                    // CPython 3.12: Accept dict subclasses (isinstance check)
+                    PyDict dict;
+                    if (self is PyDict d)
+                    {
+                        dict = d;
+                    }
+                    else if (self is PyClassInstance ci && ci.IsInstance(PyType.DictType))
+                    {
+                        dict = ci.GetDictStorage();
+                    }
+                    else
+                    {
                         throw PyTypeError.Create("descriptor 'setdefault' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    }
+
                     var key = args[0];
                     var defaultValue = args.Length > 1 ? args[1] : PyNone.Instance;
                     return dict.SetDefault(key, defaultValue);
@@ -1370,7 +1510,16 @@ namespace SharpPy
                 return (PyObject)descriptor;
             }
 
-            // 2. 그 다음 type의 MRO 확인 (type 클래스의 속성들)
+            // 2. CPython 3.12: Check PyClass.GetTypeAttribute() for wrapper descriptors
+            // This is needed because some descriptors (like dict.__setitem__) are in GetTypeAttribute()
+            // but not in the Descriptors table
+            var typeAttr = SharpPy.PyClass.GetTypeAttribute(this, name);
+            if (typeAttr != null)
+            {
+                return typeAttr;
+            }
+
+            // 3. 그 다음 type의 MRO 확인 (type 클래스의 속성들)
             return GenericGetAttribute(name);
         }
 

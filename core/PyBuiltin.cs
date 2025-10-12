@@ -1846,27 +1846,89 @@ namespace SharpPy
                     // Create a PyDict from the class namespace for the metaclass call
                     // CPython 3.12: If __prepare__ returned a custom dict, use it to preserve special attributes
                     PyObject namespaceObj;
+
+                    // Check if prepareDict contains the __prepare_result__ marker
+                    PyObject storedPrepareResult = null;
+                    if (prepareDict != null && prepareDict.InternalDict.ContainsKey(new PyString("__prepare_result__")))
+                    {
+                        storedPrepareResult = prepareDict.InternalDict[new PyString("__prepare_result__")];
+                        Console.WriteLine($"  🔍 Found __prepare_result__ marker: {storedPrepareResult?.GetType().Name}");
+                    }
+
                     if (originalPrepareResult != null)
                     {
-                        // Use the original __prepare__ result directly (PyClassInstance for _EnumDict)
-                        Console.WriteLine($"  ✅ Using original __prepare__ result! Type: {originalPrepareResult.GetType().Name}");
+                        // CPython 3.12: Use the original __prepare__ result directly (PyClassInstance for _EnumDict)
+                        // CRITICAL: We must call Python's __setitem__ to trigger custom dict behavior!
+                        // _EnumDict.__setitem__ tracks member names - SetItem bypasses this!
+                        Console.WriteLine($"  ✅ Using original __prepare__ result from variable! Type: {originalPrepareResult.GetType().Name}");
 
-                        // Update the original _EnumDict-like object with class body variables
-                        foreach (var kvp in classNamespace)
+                        // CPython behavior: During class body execution, STORE_NAME calls __setitem__ on the namespace dict
+                        // This triggers _EnumDict.__setitem__ which populates _member_names
+                        // SharpPy uses C# Dictionary during execution, so we need to replay the assignments
+                        var setitemMethod = originalPrepareResult.GetAttribute("__setitem__");
+                        if (setitemMethod != null && setitemMethod.IsCallable())
                         {
-                            // Use __setitem__ to set values on the dict-like object
-                            try
+                            Console.WriteLine($"  🔧 Found __setitem__ method, calling it for each class member");
+                            foreach (var kvp in classNamespace)
                             {
-                                originalPrepareResult.SetItem(new PyString(kvp.Key), kvp.Value);
+                                Console.WriteLine($"    Calling __setitem__('{kvp.Key}', {kvp.Value?.GetTypeName()})");
+                                setitemMethod.Call(new PyObject[] { new PyString(kvp.Key), kvp.Value }, null);
                             }
-                            catch (PythonException)
+                        }
+                        else
+                        {
+                            // Fallback: use SetItem if __setitem__ not available
+                            Console.WriteLine($"  ⚠️ No __setitem__ found, using SetItem fallback");
+                            foreach (var kvp in classNamespace)
                             {
-                                // Fallback: try setAttribute
-                                originalPrepareResult.SetAttribute(kvp.Key, kvp.Value);
+                                try
+                                {
+                                    originalPrepareResult.SetItem(new PyString(kvp.Key), kvp.Value);
+                                }
+                                catch (PythonException)
+                                {
+                                    originalPrepareResult.SetAttribute(kvp.Key, kvp.Value);
+                                }
                             }
                         }
                         namespaceObj = originalPrepareResult;  // Use the original _EnumDict instance
                         Console.WriteLine($"📦 Using original __prepare__ result (_EnumDict instance)");
+                        Console.WriteLine($"   namespaceObj type after assignment: {namespaceObj?.GetType().Name}, PyType: {namespaceObj?.GetTypeName()}");
+                    }
+                    else if (storedPrepareResult != null)
+                    {
+                        // CPython 3.12: Restore the original __prepare__ result from the marker
+                        // CRITICAL: Same as above - call __setitem__ to trigger custom dict behavior
+                        Console.WriteLine($"  ✅ Restoring original __prepare__ result from marker! Type: {storedPrepareResult.GetType().Name}");
+
+                        var setitemMethod = storedPrepareResult.GetAttribute("__setitem__");
+                        if (setitemMethod != null && setitemMethod.IsCallable())
+                        {
+                            Console.WriteLine($"  🔧 Found __setitem__ method, calling it for each class member");
+                            foreach (var kvp in classNamespace)
+                            {
+                                Console.WriteLine($"    Calling __setitem__('{kvp.Key}', {kvp.Value?.GetTypeName()})");
+                                setitemMethod.Call(new PyObject[] { new PyString(kvp.Key), kvp.Value }, null);
+                            }
+                        }
+                        else
+                        {
+                            // Fallback
+                            Console.WriteLine($"  ⚠️ No __setitem__ found, using SetItem fallback");
+                            foreach (var kvp in classNamespace)
+                            {
+                                try
+                                {
+                                    storedPrepareResult.SetItem(new PyString(kvp.Key), kvp.Value);
+                                }
+                                catch (PythonException)
+                                {
+                                    storedPrepareResult.SetAttribute(kvp.Key, kvp.Value);
+                                }
+                            }
+                        }
+                        namespaceObj = storedPrepareResult;  // Use the original _EnumDict instance
+                        Console.WriteLine($"📦 Using restored __prepare__ result (_EnumDict instance)");
                         Console.WriteLine($"   namespaceObj type after assignment: {namespaceObj?.GetType().Name}, PyType: {namespaceObj?.GetTypeName()}");
                     }
                     else if (prepareDict != null)
@@ -3270,7 +3332,20 @@ namespace SharpPy
 
                     try
                     {
-                        var attr = baseType.GetAttribute(name);
+                        PyObject attr = null;
+
+                        // CPython 3.12: For built-in types, use PyClass.GetTypeAttribute() to access descriptors
+                        // This is crucial for finding wrapper descriptors like dict.__setitem__
+                        if (baseType is PyType pyType && !(baseType is PyClass))
+                        {
+                            attr = SharpPy.PyClass.GetTypeAttribute(pyType, name);
+                        }
+                        else
+                        {
+                            // For user-defined classes, use normal GetAttribute
+                            attr = baseType.GetAttribute(name);
+                        }
+
                         if (attr != null)
                         {
                             Console.WriteLine($"   ✅ Found '{name}' in {baseType.Name}: {attr.GetType().Name}");
