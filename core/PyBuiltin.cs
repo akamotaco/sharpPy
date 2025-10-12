@@ -1741,6 +1741,8 @@ namespace SharpPy
                 {
                     Console.WriteLine($"❌ Exception while calling __prepare__: {ex.GetType().Name}: {ex.Message}");
                     Console.WriteLine($"   Stack trace: {ex.StackTrace}");
+                    // CPython 3.12: If __prepare__ exists but fails, the exception should propagate
+                    throw;
                 }
             }
 
@@ -2783,11 +2785,67 @@ namespace SharpPy
                 throw PyTypeError.Create("type.__new__() argument 3 must be tuple");
             }
             
-            if (!(attrs is PyDict attrsDict))
+            // CPython 3.12: Accept both PyDict and dict-like objects (e.g., _EnumDict which is PyClassInstance)
+            PyDict attrsDict = null;
+            PyList attrItems = null;
+
+            if (attrs is PyDict dict)
             {
-                throw PyTypeError.Create("type.__new__() argument 4 must be dict");
+                attrsDict = dict;
+                attrItems = attrsDict.Items();
             }
-            
+            else if (attrs is PyClassInstance instance && instance.IsDictSubclass())
+            {
+                // For dict subclasses like _EnumDict, get items from the dict-like object
+                // Try to call items() method on the dict-like object
+                try
+                {
+                    var itemsMethod = instance.GetAttribute("items");
+                    if (itemsMethod != null && itemsMethod.IsCallable())
+                    {
+                        var itemsResult = itemsMethod.Call(new PyObject[0], null);
+                        if (itemsResult is PyList list)
+                        {
+                            attrItems = list;
+                        }
+                        else
+                        {
+                            // items() might return an iterator or other iterable
+                            var itemsList = new List<PyObject>();
+                            var iter = itemsResult.GetIterator();
+                            PyObject item;
+                            while ((item = iter.Next()) != null)
+                            {
+                                itemsList.Add(item);
+                            }
+                            attrItems = new PyList(itemsList);
+                        }
+                    }
+                    else
+                    {
+                        // Fallback: get from internal dict storage
+                        attrsDict = instance.GetDictStorage();
+                        if (attrsDict != null)
+                        {
+                            attrItems = attrsDict.Items();
+                        }
+                    }
+                }
+                catch
+                {
+                    // If items() fails, try to get from internal storage
+                    attrsDict = instance.GetDictStorage();
+                    if (attrsDict != null)
+                    {
+                        attrItems = attrsDict.Items();
+                    }
+                }
+            }
+            else
+            {
+                throw PyTypeError.Create("type.__new__() argument 4 must be dict or dict subclass");
+            }
+
             // Create the new class using the standard class creation mechanism
             var baseTypes = new List<PyType>();
             foreach (var baseObj in basesTuple.Items)
@@ -2801,12 +2859,12 @@ namespace SharpPy
                     throw PyTypeError.Create("bases must be types");
                 }
             }
-            
+
             // Create new class
             var newClass = new PyClass(nameStr.Value, baseTypes.ToArray());
-            
-            // Set class attributes from the attrs dict
-            var items = attrsDict.Items();
+
+            // Set class attributes from the attrs dict or dict-like object
+            var items = attrItems;
             for (int i = 0; i < items.Items.Length; i++)
             {
                 if (items.Items[i] is PyTuple kvp && kvp.Items.Length == 2)

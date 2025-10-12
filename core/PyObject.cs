@@ -150,6 +150,14 @@ namespace SharpPy
 
         public virtual PyObject GetAttribute(string name)
         {
+            // CPython 3.12: For type-level access (accessing attributes ON a type),
+            // always use descriptor protocol via PyGetAttribute
+            if (this is PyType || this is PyClass)
+            {
+                return PyGetAttribute(name);
+            }
+
+            // Instance-level access: handle special cases
             switch (name)
             {
                 case "__class__":
@@ -265,13 +273,26 @@ namespace SharpPy
                 }
             }
 
+            // CPython 3.12: For type-level access to METHOD descriptors,
+            // pass null as the instance to get an unbound method.
+            // For getset/member descriptors, pass the type itself to call the getter.
+            PyObject instanceForDescriptor;
+            if ((this is PyType || this is PyClass) && descriptor is PyMethodDescriptor)
+            {
+                instanceForDescriptor = null; // Unbound method for type-level access
+            }
+            else
+            {
+                instanceForDescriptor = this; // Normal descriptor binding
+            }
+
             // 2. data descriptor라면 우선권
             if (descriptor != null && descriptor.IsDataDescriptor())
             {
                 #if DEBUG_LOG
-                Console.WriteLine($"   → calling data descriptor.Get({this}, {type}) for '{name}'");
+                Console.WriteLine($"   → calling data descriptor.Get({instanceForDescriptor?.GetType().Name ?? "null"}, {type}) for '{name}'");
                 #endif
-                return descriptor.Get(this, type);
+                return descriptor.Get(instanceForDescriptor, type);
             }
 
             // 3. instance dictionary 확인
@@ -283,7 +304,7 @@ namespace SharpPy
             // 4. non-data descriptor 또는 일반 attribute
             if (descriptor != null)
             {
-                return descriptor.Get(this, type);
+                return descriptor.Get(instanceForDescriptor, type);
             }
 
             if (attr != null)

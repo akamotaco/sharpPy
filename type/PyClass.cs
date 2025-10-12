@@ -580,6 +580,18 @@ namespace SharpPy
 
                     return name switch
                     {
+                        "__init__" => new PyMethodDescriptor("__init__", PyType.DictType, (self, args, kwargs) =>
+                        {
+                            // CPython 3.12: dict.__init__ can accept optional args and kwargs
+                            // dict() -> empty dict
+                            // dict(mapping) -> dict initialized from a mapping
+                            // dict(**kwargs) -> dict initialized with keyword arguments
+                            // dict(iterable) -> dict initialized from iterable of pairs
+                            // For dict subclasses (like _EnumDict), just return None
+                            // The subclass's __init__ will handle its own initialization
+                            return PyNone.Instance;
+                        }, minArgs: 0, maxArgs: int.MaxValue, acceptsKwargs: true),
+
                         "get" => new PyBuiltinFunction("get", (args, kwargs) =>
                         {
                             if (args.Length < 2 || args.Length > 3)
@@ -840,10 +852,16 @@ namespace SharpPy
             }
         }
 
-        private bool IsDictSubclass()
+        public bool IsDictSubclass()
         {
             // Check if any base type is dict
             return InstanceType.BaseTypes.Any(bt => bt == PyType.DictType);
+        }
+
+        // CPython 3.12: Provide access to internal dict storage for dict subclasses
+        public PyDict GetDictStorage()
+        {
+            return _dictStorage;
         }
 
         public override string ToString()

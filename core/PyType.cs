@@ -517,6 +517,52 @@ namespace SharpPy
                         return new PyMappingProxy(stringDict);
                     }
                     throw PyTypeError.Create($"mappingproxy() argument must be dict, not '{args[0].GetTypeName()}'");
+                case "set":
+                    // set() constructor - create a new set
+                    if (args.Length == 0)
+                        return PySet.Empty;
+                    if (args.Length == 1)
+                    {
+                        var iterable = args[0];
+                        var items = new List<PyObject>();
+                        var iterator = iterable.GetIterator();
+                        try
+                        {
+                            while (true)
+                            {
+                                items.Add(iterator.Next());
+                            }
+                        }
+                        catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                        {
+                            // Normal termination
+                        }
+                        return new PySet(items);
+                    }
+                    throw PyTypeError.Create($"set expected at most 1 arguments ({args.Length} given)");
+                case "frozenset":
+                    // frozenset() constructor - create a new frozenset
+                    if (args.Length == 0)
+                        return new PyFrozenSet();
+                    if (args.Length == 1)
+                    {
+                        var iterable = args[0];
+                        var items = new List<PyObject>();
+                        var iterator = iterable.GetIterator();
+                        try
+                        {
+                            while (true)
+                            {
+                                items.Add(iterator.Next());
+                            }
+                        }
+                        catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                        {
+                            // Normal termination
+                        }
+                        return new PyFrozenSet(items);
+                    }
+                    throw PyTypeError.Create($"frozenset expected at most 1 arguments ({args.Length} given)");
             }
 
             // 내장 타입들에 대한 특별 처리 (타입 변환) - PyBuiltinFunction 위임
@@ -564,7 +610,17 @@ namespace SharpPy
                     break;
 
                 case TypeKind.Generic:
-                    // 일반 타입은 descriptor 초기화 불필요
+                    // 특정 내장 타입들에 대한 descriptor 초기화
+                    if (Name == "set")
+                        InitializeSetTypeDescriptors();
+                    else if (Name == "frozenset")
+                        InitializeFrozenSetTypeDescriptors();
+                    else if (Name == "list")
+                        InitializeListTypeDescriptors();
+                    else if (Name == "tuple")
+                        InitializeTupleTypeDescriptors();
+                    else if (Name == "dict")
+                        InitializeDictTypeDescriptors();
                     break;
             }
         }
@@ -888,6 +944,446 @@ namespace SharpPy
                 },
                 minArgs: 1,
                 maxArgs: 1
+            ));
+        }
+
+        /// <summary>
+        /// set 타입의 descriptor 테이블 초기화 (CPython Objects/setobject.c 참조)
+        /// </summary>
+        private void InitializeSetTypeDescriptors()
+        {
+            if (Descriptors.Methods.Count > 0)
+                return;
+
+            var setType = this;
+
+            // set.add(elem)
+            Descriptors.AddMethod("add", new PyMethodDescriptor(
+                "add",
+                setType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"add() takes exactly 1 argument ({args.Length} given)");
+                    if (self is not PySet set)
+                        throw PyTypeError.Create("descriptor 'add' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return set.Add(args[0]);
+                },
+                minArgs: 1,
+                maxArgs: 1
+            ));
+
+            // set.remove(elem)
+            Descriptors.AddMethod("remove", new PyMethodDescriptor(
+                "remove",
+                setType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"remove() takes exactly 1 argument ({args.Length} given)");
+                    if (self is not PySet set)
+                        throw PyTypeError.Create("descriptor 'remove' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return set.Remove(args[0]);
+                },
+                minArgs: 1,
+                maxArgs: 1
+            ));
+
+            // set.discard(elem)
+            Descriptors.AddMethod("discard", new PyMethodDescriptor(
+                "discard",
+                setType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"discard() takes exactly 1 argument ({args.Length} given)");
+                    if (self is not PySet set)
+                        throw PyTypeError.Create("descriptor 'discard' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return set.Discard(args[0]);
+                },
+                minArgs: 1,
+                maxArgs: 1
+            ));
+
+            // set.pop()
+            Descriptors.AddMethod("pop", new PyMethodDescriptor(
+                "pop",
+                setType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"pop() takes no arguments ({args.Length} given)");
+                    if (self is not PySet set)
+                        throw PyTypeError.Create("descriptor 'pop' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return set.Pop();
+                },
+                minArgs: 0,
+                maxArgs: 0
+            ));
+
+            // set.clear()
+            Descriptors.AddMethod("clear", new PyMethodDescriptor(
+                "clear",
+                setType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"clear() takes no arguments ({args.Length} given)");
+                    if (self is not PySet set)
+                        throw PyTypeError.Create("descriptor 'clear' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return set.Clear();
+                },
+                minArgs: 0,
+                maxArgs: 0
+            ));
+
+            // set.copy()
+            Descriptors.AddMethod("copy", new PyMethodDescriptor(
+                "copy",
+                setType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"copy() takes no arguments ({args.Length} given)");
+                    if (self is not PySet set)
+                        throw PyTypeError.Create("descriptor 'copy' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return set.Copy();
+                },
+                minArgs: 0,
+                maxArgs: 0
+            ));
+
+            // set.update(other)
+            Descriptors.AddMethod("update", new PyMethodDescriptor(
+                "update",
+                setType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"update() takes exactly 1 argument ({args.Length} given)");
+                    if (self is not PySet set)
+                        throw PyTypeError.Create("descriptor 'update' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return set.Update(args[0]);
+                },
+                minArgs: 1,
+                maxArgs: 1
+            ));
+
+            // set.union(other)
+            Descriptors.AddMethod("union", new PyMethodDescriptor(
+                "union",
+                setType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"union() takes exactly 1 argument ({args.Length} given)");
+                    if (self is not PySet set)
+                        throw PyTypeError.Create("descriptor 'union' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return set.Union(args[0]);
+                },
+                minArgs: 1,
+                maxArgs: 1
+            ));
+
+            // set.intersection(other)
+            Descriptors.AddMethod("intersection", new PyMethodDescriptor(
+                "intersection",
+                setType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"intersection() takes exactly 1 argument ({args.Length} given)");
+                    if (self is not PySet set)
+                        throw PyTypeError.Create("descriptor 'intersection' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return set.Intersection(args[0]);
+                },
+                minArgs: 1,
+                maxArgs: 1
+            ));
+
+            // set.difference(other)
+            Descriptors.AddMethod("difference", new PyMethodDescriptor(
+                "difference",
+                setType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"difference() takes exactly 1 argument ({args.Length} given)");
+                    if (self is not PySet set)
+                        throw PyTypeError.Create("descriptor 'difference' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return set.Difference(args[0]);
+                },
+                minArgs: 1,
+                maxArgs: 1
+            ));
+
+            // set.symmetric_difference(other)
+            Descriptors.AddMethod("symmetric_difference", new PyMethodDescriptor(
+                "symmetric_difference",
+                setType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"symmetric_difference() takes exactly 1 argument ({args.Length} given)");
+                    if (self is not PySet set)
+                        throw PyTypeError.Create("descriptor 'symmetric_difference' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return set.SymmetricDifference(args[0]);
+                },
+                minArgs: 1,
+                maxArgs: 1
+            ));
+
+            // set.issubset(other)
+            Descriptors.AddMethod("issubset", new PyMethodDescriptor(
+                "issubset",
+                setType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"issubset() takes exactly 1 argument ({args.Length} given)");
+                    if (self is not PySet set)
+                        throw PyTypeError.Create("descriptor 'issubset' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return set.IsSubset(args[0]);
+                },
+                minArgs: 1,
+                maxArgs: 1
+            ));
+
+            // set.issuperset(other)
+            Descriptors.AddMethod("issuperset", new PyMethodDescriptor(
+                "issuperset",
+                setType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"issuperset() takes exactly 1 argument ({args.Length} given)");
+                    if (self is not PySet set)
+                        throw PyTypeError.Create("descriptor 'issuperset' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return set.IsSuperset(args[0]);
+                },
+                minArgs: 1,
+                maxArgs: 1
+            ));
+
+            // set.isdisjoint(other)
+            Descriptors.AddMethod("isdisjoint", new PyMethodDescriptor(
+                "isdisjoint",
+                setType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"isdisjoint() takes exactly 1 argument ({args.Length} given)");
+                    if (self is not PySet set)
+                        throw PyTypeError.Create("descriptor 'isdisjoint' for 'set' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return set.IsDisjoint(args[0]);
+                },
+                minArgs: 1,
+                maxArgs: 1
+            ));
+        }
+
+        /// <summary>
+        /// frozenset 타입의 descriptor 테이블 초기화
+        /// </summary>
+        private void InitializeFrozenSetTypeDescriptors()
+        {
+            // TODO: frozenset 메서드들 구현
+        }
+
+        /// <summary>
+        /// list 타입의 descriptor 테이블 초기화
+        /// </summary>
+        private void InitializeListTypeDescriptors()
+        {
+            // TODO: list 메서드들 구현
+        }
+
+        /// <summary>
+        /// tuple 타입의 descriptor 테이블 초기화
+        /// </summary>
+        private void InitializeTupleTypeDescriptors()
+        {
+            // TODO: tuple 메서드들 구현
+        }
+
+        /// <summary>
+        /// dict 타입의 descriptor 테이블 초기화 (CPython Objects/dictobject.c 참조)
+        /// </summary>
+        private void InitializeDictTypeDescriptors()
+        {
+            if (Descriptors.Methods.Count > 0)
+                return;
+
+            var dictType = this;
+
+            // dict.keys()
+            Descriptors.AddMethod("keys", new PyMethodDescriptor(
+                "keys",
+                dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"keys() takes no arguments ({args.Length} given)");
+                    if (self is not PyDict dict)
+                        throw PyTypeError.Create("descriptor 'keys' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return dict.Keys();
+                },
+                minArgs: 0,
+                maxArgs: 0
+            ));
+
+            // dict.values()
+            Descriptors.AddMethod("values", new PyMethodDescriptor(
+                "values",
+                dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"values() takes no arguments ({args.Length} given)");
+                    if (self is not PyDict dict)
+                        throw PyTypeError.Create("descriptor 'values' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return dict.Values();
+                },
+                minArgs: 0,
+                maxArgs: 0
+            ));
+
+            // dict.items()
+            Descriptors.AddMethod("items", new PyMethodDescriptor(
+                "items",
+                dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"items() takes no arguments ({args.Length} given)");
+                    if (self is not PyDict dict)
+                        throw PyTypeError.Create("descriptor 'items' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return dict.Items();
+                },
+                minArgs: 0,
+                maxArgs: 0
+            ));
+
+            // dict.get(key, default=None)
+            Descriptors.AddMethod("get", new PyMethodDescriptor(
+                "get",
+                dictType,
+                (self, args, kwargs) => {
+                    if (args.Length < 1 || args.Length > 2)
+                        throw PyTypeError.Create($"get() takes from 1 to 2 positional arguments but {args.Length} were given");
+                    if (self is not PyDict dict)
+                        throw PyTypeError.Create("descriptor 'get' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var key = args[0];
+                    var defaultValue = args.Length > 1 ? args[1] : PyNone.Instance;
+                    return dict.Get(key, defaultValue);
+                },
+                minArgs: 1,
+                maxArgs: 2
+            ));
+
+            // dict.pop(key, default)
+            Descriptors.AddMethod("pop", new PyMethodDescriptor(
+                "pop",
+                dictType,
+                (self, args, kwargs) => {
+                    if (args.Length < 1 || args.Length > 2)
+                        throw PyTypeError.Create($"pop() takes from 1 to 2 positional arguments but {args.Length} were given");
+                    if (self is not PyDict dict)
+                        throw PyTypeError.Create("descriptor 'pop' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var key = args[0];
+                    var defaultValue = args.Length > 1 ? args[1] : null;
+                    return dict.Pop(key, defaultValue);
+                },
+                minArgs: 1,
+                maxArgs: 2
+            ));
+
+            // dict.popitem()
+            Descriptors.AddMethod("popitem", new PyMethodDescriptor(
+                "popitem",
+                dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"popitem() takes no arguments ({args.Length} given)");
+                    if (self is not PyDict dict)
+                        throw PyTypeError.Create("descriptor 'popitem' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return dict.PopItem();
+                },
+                minArgs: 0,
+                maxArgs: 0
+            ));
+
+            // dict.clear()
+            Descriptors.AddMethod("clear", new PyMethodDescriptor(
+                "clear",
+                dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"clear() takes no arguments ({args.Length} given)");
+                    if (self is not PyDict dict)
+                        throw PyTypeError.Create("descriptor 'clear' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return dict.Clear();
+                },
+                minArgs: 0,
+                maxArgs: 0
+            ));
+
+            // dict.copy()
+            Descriptors.AddMethod("copy", new PyMethodDescriptor(
+                "copy",
+                dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"copy() takes no arguments ({args.Length} given)");
+                    if (self is not PyDict dict)
+                        throw PyTypeError.Create("descriptor 'copy' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return dict.Copy();
+                },
+                minArgs: 0,
+                maxArgs: 0
+            ));
+
+            // dict.update(other)
+            Descriptors.AddMethod("update", new PyMethodDescriptor(
+                "update",
+                dictType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"update() takes exactly one argument ({args.Length} given)");
+                    if (self is not PyDict dict)
+                        throw PyTypeError.Create("descriptor 'update' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return dict.Update(args[0]);
+                },
+                minArgs: 1,
+                maxArgs: 1
+            ));
+
+            // dict.setdefault(key, default=None)
+            Descriptors.AddMethod("setdefault", new PyMethodDescriptor(
+                "setdefault",
+                dictType,
+                (self, args, kwargs) => {
+                    if (args.Length < 1 || args.Length > 2)
+                        throw PyTypeError.Create($"setdefault() takes from 1 to 2 positional arguments but {args.Length} were given");
+                    if (self is not PyDict dict)
+                        throw PyTypeError.Create("descriptor 'setdefault' for 'dict' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    var key = args[0];
+                    var defaultValue = args.Length > 1 ? args[1] : PyNone.Instance;
+                    return dict.SetDefault(key, defaultValue);
+                },
+                minArgs: 1,
+                maxArgs: 2
+            ));
+
+            // dict.fromkeys(seq, value=None) - static method
+            Descriptors.AddMethod("fromkeys", new PyMethodDescriptor(
+                "fromkeys",
+                dictType,
+                (self, args, kwargs) => {
+                    if (args.Length < 1 || args.Length > 2)
+                        throw PyTypeError.Create($"fromkeys() takes from 1 to 2 positional arguments but {args.Length} were given");
+                    var keys = args[0];
+                    var value = args.Length > 1 ? args[1] : PyNone.Instance;
+                    return PyDict.FromKeys(keys, value);
+                },
+                minArgs: 1,
+                maxArgs: 2
+            ));
+
+            // dict.__init__ - CPython 3.12: dict.__init__ can accept optional args and kwargs
+            Descriptors.AddMethod("__init__", new PyMethodDescriptor(
+                "__init__",
+                dictType,
+                (self, args, kwargs) => {
+                    // For dict subclasses (like _EnumDict), just return None
+                    return PyNone.Instance;
+                },
+                minArgs: 0,
+                maxArgs: int.MaxValue,
+                acceptsKwargs: true
             ));
         }
 

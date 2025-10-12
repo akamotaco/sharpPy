@@ -30,26 +30,22 @@ namespace SharpPy
         #region Python Method Access
 
         /// <summary>
-        /// CPython 3.12: GetAttribute to expose set methods as bound methods
+        /// CPython 3.12: Use descriptor protocol for attribute access
         /// </summary>
         public override PyObject GetAttribute(string name)
         {
-            // CPython 3.12: Create bound methods
-            // Note: VM's CALL instruction passes self as args[0], so all methods expect self as first arg
-            switch (name)
-            {
-                case "add":
-                    {
-                        var self = this;
-                        return new PyBuiltinFunction("add", (args, kwargs) =>
-                        {
-                            // args[0] = self (from VM), args[1] = actual argument
-                            if (args.Length != 2)
-                                throw PyTypeError.Create($"add() takes exactly one argument ({args.Length - 1} given)");
-                            return self.Add(args[1]);
-                        });
-                    }
-                case "remove":
+            // CPython 3.12: Use GenericGetAttribute to follow descriptor protocol
+            // This will find methods from PyType.SetType.Descriptors
+            return GenericGetAttribute(name);
+        }
+
+        #endregion
+
+        #region OLD_HARDCODED_METHODS_REMOVED
+        /* 아래 하드코딩된 메서드들은 모두 PyType.InitializeSetTypeDescriptors()로 이동됨
+        switch (name)
+        {
+            case "add":
                     {
                         var self = this;
                         return new PyBuiltinFunction("remove", (args, kwargs) =>
@@ -184,6 +180,7 @@ namespace SharpPy
                     return base.GetAttribute(name);
             }
         }
+        */
 
         #endregion
 
