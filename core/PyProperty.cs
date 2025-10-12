@@ -295,6 +295,7 @@ public interface IDescriptor
         }
 
         public override string GetTypeName() => "property";
+        public override PyType GetPyType() => PyType.PropertyType;
         public override string ToString() => "<property object>";
     }
 

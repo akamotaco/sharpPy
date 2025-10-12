@@ -11,6 +11,9 @@ namespace SharpPy
 
         public override string GetTypeName() => "classmethod";
 
+        // CPython 3.12: Return proper type
+        public override PyType GetPyType() => PyType.ClassMethodType;
+
         // IDescriptor implementation
         public PyObject Get(PyObject instance, PyType owner)
         {

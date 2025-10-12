@@ -2294,13 +2294,74 @@ namespace SharpPy
                         }
                         else if (call.Function is AttributeExpression attrExpr)
                         {
-                            // CPython 3.12: Method call optimization with LOAD_ATTR(pushNull=true)
-                            // This will push [self/NULL, method] for efficient method calls
-                            #if DEBUG_LOG
-                            Console.WriteLine($"   → Using LOAD_ATTR(pushNull=true) for method call");
-                            #endif
-                            CompileExpression(attrExpr.Value); // Load the object
-                            EmitLoadAttr(attrExpr.Attr, pushNull: true); // Load attribute with method optimization
+                            // CPython 3.12: Check for super().method() call pattern
+                            if (attrExpr.Value is CallExpression attrSuperCall &&
+                                attrSuperCall.Function is NameExpression attrSuperName &&
+                                attrSuperName.Name == "super" &&
+                                attrSuperCall.Arguments.Count == 0)
+                            {
+                                // super().method() call: use LOAD_SUPER_ATTR
+                                #if DEBUG_LOG
+                                Console.WriteLine($"🔍 Detected super().{attrExpr.Attr}() call - generating LOAD_SUPER_ATTR + CALL");
+                                #endif
+
+                                // Load __class__ free variable using LOAD_DEREF
+                                var classIndex = _freeVars.IndexOf("__class__");
+                                #if DEBUG_LOG
+                                Console.WriteLine($"🔍 Looking for __class__ in free variables: index={classIndex}, freeVars=[{string.Join(", ", _freeVars)}]");
+                                #endif
+
+                                if (classIndex >= 0)
+                                {
+                                    // Check if we have 'self' or 'cls' in local scope
+                                    bool hasSelfParameter = _varNames.Count > 0 &&
+                                                           (_varNames[0] == "self" || _varNames[0] == "cls");
+
+                                    if (hasSelfParameter)
+                                    {
+                                        // CPython 3.12: LOAD_GLOBAL without NULL for LOAD_SUPER_ATTR
+                                        EmitLoadGlobal("super", pushNull: false);
+                                        EmitInstruction(ByteCodeOp.LOAD_DEREF, classIndex);
+
+                                        // Load self - first parameter (cls/self)
+                                        EmitInstruction(ByteCodeOp.LOAD_FAST, 0);
+
+                                        // LOAD_SUPER_ATTR with NULL|self flag for method call
+                                        // CPython 3.12: oparg = (name_index << 1) | method_flag
+                                        var attrNameIndex = GetOrAddName(attrExpr.Attr);
+                                        var flags = (attrNameIndex << 1) | 1;  // name index in high bits, method flag=1
+                                        EmitInstruction(ByteCodeOp.LOAD_SUPER_ATTR, flags);
+                                    }
+                                    else
+                                    {
+                                        // No self parameter - fall back to regular call
+                                        #if DEBUG_LOG
+                                        Console.WriteLine("⚠️  No self/cls parameter in current scope, using regular call");
+                                        #endif
+                                        CompileExpression(attrExpr.Value); // super()
+                                        EmitLoadAttr(attrExpr.Attr, pushNull: true);
+                                    }
+                                }
+                                else
+                                {
+                                    // No __class__ free variable - fall back to regular call
+                                    #if DEBUG_LOG
+                                    Console.WriteLine("⚠️  No __class__ free variable found, using regular call");
+                                    #endif
+                                    CompileExpression(attrExpr.Value); // super()
+                                    EmitLoadAttr(attrExpr.Attr, pushNull: true);
+                                }
+                            }
+                            else
+                            {
+                                // Regular method call with LOAD_ATTR(pushNull=true)
+                                // This will push [self/NULL, method] for efficient method calls
+                                #if DEBUG_LOG
+                                Console.WriteLine($"   → Using LOAD_ATTR(pushNull=true) for method call");
+                                #endif
+                                CompileExpression(attrExpr.Value); // Load the object
+                                EmitLoadAttr(attrExpr.Attr, pushNull: true); // Load attribute with method optimization
+                            }
                         }
                         else
                         {
@@ -2372,16 +2433,18 @@ namespace SharpPy
 
                             if (hasSelfParameter)
                             {
-                                // CPython 3.12: LOAD_GLOBAL with NULL for super()
-                                EmitLoadGlobal("super", pushNull: true);
+                                // CPython 3.12: LOAD_GLOBAL without NULL for LOAD_SUPER_ATTR
+                                EmitLoadGlobal("super", pushNull: false);
                                 EmitInstruction(ByteCodeOp.LOAD_DEREF, classIndex);
 
                                 // Load self - first parameter (cls/self)
                                 EmitInstruction(ByteCodeOp.LOAD_FAST, 0);
 
-                                // Call super with __class__ and self
+                                // LOAD_SUPER_ATTR for value access (not method call)
+                                // CPython 3.12: oparg = (name_index << 1) | method_flag
                                 var attrNameIndex = GetOrAddName(attr.Attr);
-                                EmitInstruction(ByteCodeOp.LOAD_SUPER_ATTR, attrNameIndex);
+                                var flags = (attrNameIndex << 1) | 0;  // name index in high bits, method flag=0
+                                EmitInstruction(ByteCodeOp.LOAD_SUPER_ATTR, flags);
                             }
                             else
                             {

@@ -27,6 +27,166 @@ namespace SharpPy
 
         #endregion
 
+        #region Python Method Access
+
+        /// <summary>
+        /// CPython 3.12: GetAttribute to expose set methods as bound methods
+        /// </summary>
+        public override PyObject GetAttribute(string name)
+        {
+            // CPython 3.12: Create bound methods
+            // Note: VM's CALL instruction passes self as args[0], so all methods expect self as first arg
+            switch (name)
+            {
+                case "add":
+                    {
+                        var self = this;
+                        return new PyBuiltinFunction("add", (args, kwargs) =>
+                        {
+                            // args[0] = self (from VM), args[1] = actual argument
+                            if (args.Length != 2)
+                                throw PyTypeError.Create($"add() takes exactly one argument ({args.Length - 1} given)");
+                            return self.Add(args[1]);
+                        });
+                    }
+                case "remove":
+                    {
+                        var self = this;
+                        return new PyBuiltinFunction("remove", (args, kwargs) =>
+                        {
+                            if (args.Length != 2)
+                                throw PyTypeError.Create($"remove() takes exactly one argument ({args.Length - 1} given)");
+                            return self.Remove(args[1]);
+                        });
+                    }
+                case "discard":
+                    {
+                        var self = this;
+                        return new PyBuiltinFunction("discard", (args, kwargs) =>
+                        {
+                            if (args.Length != 2)
+                                throw PyTypeError.Create($"discard() takes exactly one argument ({args.Length - 1} given)");
+                            return self.Discard(args[1]);
+                        });
+                    }
+                case "pop":
+                    {
+                        var self = this;
+                        return new PyBuiltinFunction("pop", (args, kwargs) =>
+                        {
+                            // args[0] = self (from VM), no other arguments
+                            if (args.Length != 1)
+                                throw PyTypeError.Create($"pop() takes no arguments ({args.Length - 1} given)");
+                            return self.Pop();
+                        });
+                    }
+                case "clear":
+                    {
+                        var self = this;
+                        return new PyBuiltinFunction("clear", (args, kwargs) =>
+                        {
+                            if (args.Length != 1)
+                                throw PyTypeError.Create($"clear() takes no arguments ({args.Length - 1} given)");
+                            return self.Clear();
+                        });
+                    }
+                case "update":
+                    {
+                        var self = this;
+                        return new PyBuiltinFunction("update", (args, kwargs) =>
+                        {
+                            if (args.Length != 2)
+                                throw PyTypeError.Create($"update() takes exactly one argument ({args.Length - 1} given)");
+                            return self.Update(args[1]);
+                        });
+                    }
+                case "union":
+                    {
+                        var self = this;
+                        return new PyBuiltinFunction("union", (args, kwargs) =>
+                        {
+                            if (args.Length != 2)
+                                throw PyTypeError.Create($"union() takes exactly one argument ({args.Length - 1} given)");
+                            return self.Union(args[1]);
+                        });
+                    }
+                case "intersection":
+                    {
+                        var self = this;
+                        return new PyBuiltinFunction("intersection", (args, kwargs) =>
+                        {
+                            if (args.Length != 2)
+                                throw PyTypeError.Create($"intersection() takes exactly one argument ({args.Length - 1} given)");
+                            return self.Intersection(args[1]);
+                        });
+                    }
+                case "difference":
+                    {
+                        var self = this;
+                        return new PyBuiltinFunction("difference", (args, kwargs) =>
+                        {
+                            if (args.Length != 2)
+                                throw PyTypeError.Create($"difference() takes exactly one argument ({args.Length - 1} given)");
+                            return self.Difference(args[1]);
+                        });
+                    }
+                case "symmetric_difference":
+                    {
+                        var self = this;
+                        return new PyBuiltinFunction("symmetric_difference", (args, kwargs) =>
+                        {
+                            if (args.Length != 2)
+                                throw PyTypeError.Create($"symmetric_difference() takes exactly one argument ({args.Length - 1} given)");
+                            return self.SymmetricDifference(args[1]);
+                        });
+                    }
+                case "issubset":
+                    {
+                        var self = this;
+                        return new PyBuiltinFunction("issubset", (args, kwargs) =>
+                        {
+                            if (args.Length != 2)
+                                throw PyTypeError.Create($"issubset() takes exactly one argument ({args.Length - 1} given)");
+                            return self.IsSubset(args[1]);
+                        });
+                    }
+                case "issuperset":
+                    {
+                        var self = this;
+                        return new PyBuiltinFunction("issuperset", (args, kwargs) =>
+                        {
+                            if (args.Length != 2)
+                                throw PyTypeError.Create($"issuperset() takes exactly one argument ({args.Length - 1} given)");
+                            return self.IsSuperset(args[1]);
+                        });
+                    }
+                case "isdisjoint":
+                    {
+                        var self = this;
+                        return new PyBuiltinFunction("isdisjoint", (args, kwargs) =>
+                        {
+                            if (args.Length != 2)
+                                throw PyTypeError.Create($"isdisjoint() takes exactly one argument ({args.Length - 1} given)");
+                            return self.IsDisjoint(args[1]);
+                        });
+                    }
+                case "copy":
+                    {
+                        var self = this;
+                        return new PyBuiltinFunction("copy", (args, kwargs) =>
+                        {
+                            if (args.Length != 1)
+                                throw PyTypeError.Create($"copy() takes no arguments ({args.Length - 1} given)");
+                            return self.Copy();
+                        });
+                    }
+                default:
+                    return base.GetAttribute(name);
+            }
+        }
+
+        #endregion
+
         #region String Representation
 
         public override PyString ToStr() => ToRepr();

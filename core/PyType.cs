@@ -726,14 +726,23 @@ namespace SharpPy
                     typeDict["__bases__"] = new PyTuple(type.BaseTypes.Cast<PyObject>().ToArray());
                     typeDict["__mro__"] = new PyTuple(type.MRO.Cast<PyObject>().ToArray());
 
-                    // Add descriptors from descriptor tables
-                    foreach (var kv in type.Descriptors.Methods)
+                    // CPython 3.12: Add descriptors from MRO (inherited descriptors)
+                    // This ensures int.__dict__ includes __new__ from object
+                    foreach (var mroType in type.MRO)
                     {
-                        typeDict[kv.Key] = kv.Value;
-                    }
-                    foreach (var kv in type.Descriptors.GetSet)
-                    {
-                        typeDict[kv.Key] = kv.Value;
+                        if (mroType.Descriptors != null)
+                        {
+                            foreach (var kv in mroType.Descriptors.Methods)
+                            {
+                                if (!typeDict.ContainsKey(kv.Key))
+                                    typeDict[kv.Key] = kv.Value;
+                            }
+                            foreach (var kv in mroType.Descriptors.GetSet)
+                            {
+                                if (!typeDict.ContainsKey(kv.Key))
+                                    typeDict[kv.Key] = kv.Value;
+                            }
+                        }
                     }
 
                     // For PyClass, add attributes from ClassDict
@@ -814,6 +823,71 @@ namespace SharpPy
                 },
                 minArgs: 4,
                 maxArgs: 4
+            ));
+
+            // type.__repr__ - CPython type_repr (from PyTypeMetaclass)
+            Descriptors.AddMethod("__repr__", new PyMethodDescriptor(
+                "__repr__",
+                typeType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"__repr__() takes no arguments ({args.Length} given)");
+                    if (self is not PyType type)
+                        throw PyTypeError.Create("descriptor '__repr__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return new PyString($"<class '{type.Name}'>");
+                },
+                minArgs: 0,
+                maxArgs: 0
+            ));
+
+            // type.__str__ - CPython type_repr (same as __repr__ for type)
+            Descriptors.AddMethod("__str__", new PyMethodDescriptor(
+                "__str__",
+                typeType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"__str__() takes no arguments ({args.Length} given)");
+                    if (self is not PyType type)
+                        throw PyTypeError.Create("descriptor '__str__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return new PyString($"<class '{type.Name}'>");
+                },
+                minArgs: 0,
+                maxArgs: 0
+            ));
+
+            // type.__format__ - CPython 3.12 (defaults to __str__)
+            Descriptors.AddMethod("__format__", new PyMethodDescriptor(
+                "__format__",
+                typeType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"__format__() takes exactly 1 argument ({args.Length} given)");
+                    if (self is not PyType type)
+                        throw PyTypeError.Create("descriptor '__format__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    // format_spec is args[0], but for type objects we just return str()
+                    return new PyString($"<class '{type.Name}'>");
+                },
+                minArgs: 1,
+                maxArgs: 1
+            ));
+
+            // type.__reduce_ex__ - CPython 3.12 (pickle support)
+            Descriptors.AddMethod("__reduce_ex__", new PyMethodDescriptor(
+                "__reduce_ex__",
+                typeType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"__reduce_ex__() takes exactly 1 argument ({args.Length} given)");
+                    if (self is not PyType type)
+                        throw PyTypeError.Create("descriptor '__reduce_ex__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    // Return (type, (type.__name__,))
+                    return new PyTuple(new PyObject[] {
+                        TypeType,
+                        new PyTuple(new PyObject[] { new PyString(type.Name) })
+                    });
+                },
+                minArgs: 1,
+                maxArgs: 1
             ));
         }
 

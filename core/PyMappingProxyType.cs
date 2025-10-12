@@ -37,6 +37,16 @@ namespace SharpPy
             throw PyTypeError.Create("'mappingproxy' object does not support item assignment");
         }
 
+        // CPython 3.12: __contains__ method for 'in' operator
+        public override PyBool Contains(PyObject item)
+        {
+            if (item is PyString keyStr)
+            {
+                return PyBool.FromBool(_mapping.ContainsKey(keyStr.Value));
+            }
+            return PyBool.False;
+        }
+
         public bool ContainsKey(string key) => _mapping.ContainsKey(key);
 
         public IEnumerable<string> Keys => _mapping.Keys;

@@ -923,8 +923,30 @@ namespace SharpPy
                 #if DEBUG_LOG
                 Console.WriteLine($"  → Returning mappingproxy of {pyClass.Name}.__dict__ (count: {pyClass.ClassDict.Count})");
                 #endif
+                // CPython 3.12: Merge ClassDict and Descriptors
+                // __dict__ should include both regular attributes and descriptors (like __new__, __init__)
+                var mergedDict = new Dictionary<string, PyObject>(pyClass.ClassDict);
+
+                // Add descriptors from Descriptors table
+                if (pyClass.Descriptors != null)
+                {
+                    var descriptorNames = pyClass.Descriptors.GetAllNames();
+                    foreach (var name in descriptorNames)
+                    {
+                        // Only add if not already in ClassDict (ClassDict takes precedence)
+                        if (!mergedDict.ContainsKey(name))
+                        {
+                            var descriptor = pyClass.Descriptors.Lookup(name);
+                            if (descriptor != null)
+                            {
+                                mergedDict[name] = (PyObject)descriptor;
+                            }
+                        }
+                    }
+                }
+
                 // Return PyDictProxy_New(dict)
-                return new PyMappingProxy(pyClass.ClassDict);
+                return new PyMappingProxy(mergedDict);
             }
 
             // CPython 3.12: If dict is NULL, return None

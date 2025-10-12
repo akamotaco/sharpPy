@@ -1453,26 +1453,34 @@ namespace SharpPy
                     // 함수 객체 팝 (callable) - 인수들 아래에 있음
                     var callableFunc = frame.ValueStack.Pop();
 
-                    // 다음 요소 확인 (NULL 또는 첫 번째 암시적 인수) - 최하위
-                    var nextElement = frame.ValueStack.Pop();
+                    // CPython 3.12: Check if there's a NULL/self on the stack
+                    // If stack is empty or top is NULL, it's a simple call
+                    // Otherwise, it's a method call with self
+                    PyObject nextElement = null;
+                    if (frame.ValueStack.Count > 0)
+                    {
+                        nextElement = frame.ValueStack.Pop();
+                    }
 
                     // CPython 3.12 호출 방식 결정
+                    // CPython: if (method != NULL) { callable = method; args--; total_args++; }
                     PyObject newCallResult;
                     PyObject[] finalArgs;
                     PyObject actualCallable;
 
                     if (nextElement == null || nextElement.Equals(PyNone.Instance))
                     {
-                        // PUSH_NULL 패턴: 일반 함수 호출
+                        // PUSH_NULL 패턴: method == NULL, 일반 함수 호출
                         actualCallable = callableFunc;
                         finalArgs = callArgs;
                     }
                     else
                     {
-                        // 데코레이터 패턴: nextElement is the decorator, callableFunc is the implicit first argument
-                        actualCallable = nextElement;
+                        // CPython 3.12: method != NULL
+                        // callable = method, args includes original callable as first arg
+                        actualCallable = nextElement;  // method becomes the callable!
                         finalArgs = new PyObject[callArgs.Length + 1];
-                        finalArgs[0] = callableFunc;  // The function being decorated
+                        finalArgs[0] = callableFunc;  // original callable becomes first arg
                         Array.Copy(callArgs, 0, finalArgs, 1, callArgs.Length);
                     }
 
@@ -2059,6 +2067,28 @@ namespace SharpPy
                         }
                         #endif
 
+                        // CPython 3.12: Check for descriptor BEFORE calling GetAttribute
+                        // This allows us to distinguish staticmethod from regular methods
+                        bool isStaticMethod = false;
+                        if (obj is PyClassInstance instance && pushNullForMethod)
+                        {
+                            // Check if this attribute is a staticmethod descriptor
+                            foreach (var mroType in instance.InstanceType.MRO)
+                            {
+                                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(attrName, out PyObject classValue))
+                                {
+                                    if (classValue is PyStaticmethod)
+                                    {
+                                        isStaticMethod = true;
+                                        #if DEBUG_LOG
+                                        Console.WriteLine($"   → Found staticmethod descriptor for '{attrName}'");
+                                        #endif
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+
                         // Get attribute using existing system
                         var attr = obj.GetAttribute(attrName);
 
@@ -2078,13 +2108,28 @@ namespace SharpPy
                             }
                             else if (attr is PyFunction || attr is PyBuiltinFunction)
                             {
-                                // It's an unbound function: push [self, unbound_method]
-                                // This allows CALL to optimize by passing self directly
-                                frame.ValueStack.Push(obj);  // self
-                                frame.ValueStack.Push(attr); // unbound method
-                                #if DEBUG_LOG
-                                Console.WriteLine($"   → Unbound method: pushed [self, unbound_method]");
-                                #endif
+                                // CPython 3.12: staticmethod or class/instance method
+                                bool isClassAccess = (obj is PyClass) || (obj is PyType);
+
+                                if (isClassAccess || isStaticMethod)
+                                {
+                                    // Class access or staticmethod: push [NULL, function]
+                                    frame.ValueStack.Push(PyNone.Instance); // NULL marker
+                                    frame.ValueStack.Push(attr); // function
+                                    #if DEBUG_LOG
+                                    Console.WriteLine($"   → Class/staticmethod access: pushed [NULL, function]");
+                                    #endif
+                                }
+                                else
+                                {
+                                    // Instance method: push [self, unbound_method]
+                                    // This allows CALL to optimize by passing self directly
+                                    frame.ValueStack.Push(obj);  // self
+                                    frame.ValueStack.Push(attr); // unbound method
+                                    #if DEBUG_LOG
+                                    Console.WriteLine($"   → Instance method access: pushed [self, unbound_method]");
+                                    #endif
+                                }
                             }
                             else
                             {
@@ -2131,14 +2176,18 @@ namespace SharpPy
                     Console.WriteLine($"🚀 ENTERING LOAD_SUPER_ATTR");
                     #endif
                     // CPython 3.12: super() attribute access
-                    // Stack: [..., super_func, __class__, self] -> [..., attr_value]
-                    var superAttrName = frame.Code.Names[instruction.Argument];
+                    // Stack: [..., super_func, __class__, self] -> [..., attr_value] or [..., NULL, bound_method]
+                    // oparg format: (name_index << 1) | method_flag
+                    int superOparg = instruction.Argument;
+                    int superMethodFlag = superOparg & 1;  // Low bit: method flag
+                    int superAttrIndex = superOparg >> 1;  // High bits: name index
+                    var superAttrName = frame.Code.Names[superAttrIndex];
                     var selfObj = frame.ValueStack.Pop();         // self
                     var classObj = frame.ValueStack.Pop();        // __class__
                     var superFunc = frame.ValueStack.Pop();       // super function
 
                     #if DEBUG_LOG
-                    Console.WriteLine($"🔧 LOAD_SUPER_ATTR: {superAttrName}, super={superFunc.GetType().Name}, class={classObj.GetType().Name}, self={selfObj.GetType().Name}");
+                    Console.WriteLine($"🔧 LOAD_SUPER_ATTR: {superAttrName}, methodFlag={superMethodFlag}, super={superFunc.GetType().Name}, class={classObj.GetType().Name}, self={selfObj.GetType().Name}");
                     #endif
 
                     // Call super(__class__, self) to create super proxy, then get attribute
@@ -2227,10 +2276,24 @@ namespace SharpPy
                             #endif
                         }
 
-                        frame.ValueStack.Push(finalAttr);
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 LOAD_SUPER_ATTR success: got {finalAttr.GetType().Name}");
-                        #endif
+                        // CPython 3.12: Push result based on method flag
+                        if (superMethodFlag == 1)
+                        {
+                            // Method call: push [NULL, bound_method] for CALL optimization
+                            frame.ValueStack.Push(PyNone.Instance);  // NULL marker
+                            frame.ValueStack.Push(finalAttr);
+                            #if DEBUG_LOG
+                            Console.WriteLine($"🔧 LOAD_SUPER_ATTR success (method call): pushed [NULL, {finalAttr.GetType().Name}]");
+                            #endif
+                        }
+                        else
+                        {
+                            // Value access: push [attr_value]
+                            frame.ValueStack.Push(finalAttr);
+                            #if DEBUG_LOG
+                            Console.WriteLine($"🔧 LOAD_SUPER_ATTR success (value access): pushed [{finalAttr.GetType().Name}]");
+                            #endif
+                        }
                     }
                     catch (Exception ex)
                     {
