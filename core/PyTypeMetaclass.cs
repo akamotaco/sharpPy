@@ -854,40 +854,30 @@ namespace SharpPy
             }
 
             // CPython 3.12: instance should be a type/class object
+            // Check PyClass first (PyClass inherits from PyType)
             if (instance is PyClass pyClass)
             {
                 #if DEBUG_LOG
                 Console.WriteLine($"  → Returning mappingproxy of {pyClass.Name}.__dict__ (count: {pyClass.ClassDict.Count})");
                 #endif
-                // CPython 3.12: Merge ClassDict and Descriptors
-                // __dict__ should include both regular attributes and descriptors (like __new__, __init__)
-                var mergedDict = new Dictionary<string, PyObject>(pyClass.ClassDict);
-
-                // Add descriptors from Descriptors table
-                if (pyClass.Descriptors != null)
-                {
-                    var descriptorNames = pyClass.Descriptors.GetAllNames();
-                    foreach (var name in descriptorNames)
-                    {
-                        // Only add if not already in ClassDict (ClassDict takes precedence)
-                        if (!mergedDict.ContainsKey(name))
-                        {
-                            var descriptor = pyClass.Descriptors.Lookup(name);
-                            if (descriptor != null)
-                            {
-                                mergedDict[name] = (PyObject)descriptor;
-                            }
-                        }
-                    }
-                }
-
-                // Return PyDictProxy_New(dict)
-                return new PyMappingProxy(mergedDict);
+                // CPython 3.12: Return ClassDict as mappingproxy
+                // All descriptors are now in ClassDict, no need to merge
+                return new PyMappingProxy(pyClass.ClassDict);
+            }
+            // CPython 3.12: Handle builtin PyType instances (like dict, str, int, etc.)
+            else if (instance is PyType pyType)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"  → Returning mappingproxy of {pyType.Name}.__dict__ (builtin type)");
+                #endif
+                // CPython 3.12: Return TypeDict as mappingproxy
+                // All descriptors are now in TypeDict, no need to merge
+                return new PyMappingProxy(pyType.TypeDict);
             }
 
             // CPython 3.12: If dict is NULL, return None
             #if DEBUG_LOG
-            Console.WriteLine($"  → instance is not a class, returning None");
+            Console.WriteLine($"  → instance is not a type/class, returning None");
             #endif
             return PyNone.Instance;
         }

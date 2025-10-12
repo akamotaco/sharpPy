@@ -18,16 +18,14 @@ namespace SharpPy
         /// <summary>
         /// Initialize str type descriptors - called from BuiltinsModule
         /// CPython 호환: _PyType_Ready()와 유사하게 한 번만 초기화
+        /// Phase 3: Directly populate TypeDict instead of Descriptors
         /// </summary>
         public static void InitializeStringDescriptors()
         {
-            // CPython 호환: 이미 초기화되었으면 스킵 (타입 객체는 한 번만 초기화)
-            if (PyType.StrType.Descriptors.IsInitialized) return;
-
             var strType = PyType.StrType;
 
             // join method descriptor - types.py:48에서 필요
-            strType.Descriptors.AddMethod("join", new PyMethodDescriptor(
+            strType.TypeDict["join"] = new PyMethodDescriptor(
                 "join", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 1)
@@ -67,10 +65,10 @@ namespace SharpPy
                     return new PyString(string.Join(str.Value, items));
                 },
                 minArgs: 1, maxArgs: 1
-            ));
+            );
 
             // 기타 주요 메서드들도 등록
-            strType.Descriptors.AddMethod("upper", new PyMethodDescriptor(
+            strType.TypeDict["upper"] = new PyMethodDescriptor(
                 "upper", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
@@ -80,9 +78,9 @@ namespace SharpPy
                     return new PyString(str.Value.ToUpperInvariant());
                 },
                 minArgs: 0, maxArgs: 0
-            ));
+            );
 
-            strType.Descriptors.AddMethod("lower", new PyMethodDescriptor(
+            strType.TypeDict["lower"] = new PyMethodDescriptor(
                 "lower", strType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
@@ -92,9 +90,9 @@ namespace SharpPy
                     return new PyString(str.Value.ToLowerInvariant());
                 },
                 minArgs: 0, maxArgs: 0
-            ));
+            );
 
-            strType.Descriptors.AddMethod("split", new PyMethodDescriptor(
+            strType.TypeDict["split"] = new PyMethodDescriptor(
                 "split", strType,
                 (self, args, kwargs) => {
                     if (args.Length > 2)
@@ -112,9 +110,9 @@ namespace SharpPy
                     return str.Split(sep, maxsplit);
                 },
                 minArgs: 0, maxArgs: 2
-            ));
+            );
 
-            strType.Descriptors.AddMethod("strip", new PyMethodDescriptor(
+            strType.TypeDict["strip"] = new PyMethodDescriptor(
                 "strip", strType,
                 (self, args, kwargs) => {
                     if (args.Length > 1)
@@ -129,9 +127,9 @@ namespace SharpPy
                     return new PyString(str.Value.Trim(chars));
                 },
                 minArgs: 0, maxArgs: 1
-            ));
+            );
 
-            strType.Descriptors.AddMethod("replace", new PyMethodDescriptor(
+            strType.TypeDict["replace"] = new PyMethodDescriptor(
                 "replace", strType,
                 (self, args, kwargs) => {
                     if (args.Length < 2 || args.Length > 3)
@@ -147,10 +145,7 @@ namespace SharpPy
                         : str.Replace(old, newStr);
                 },
                 minArgs: 2, maxArgs: 3
-            ));
-
-            // CPython 호환: descriptor 초기화 완료 표시
-            strType.Descriptors.MarkInitialized();
+            );
         }
 
         #region Core Properties
@@ -354,6 +349,101 @@ namespace SharpPy
                     : new PyString(string.Concat(Enumerable.Repeat(Value, (int)count.Value))),
                 _ => throw PyTypeError.Create($"can't multiply sequence by non-int of type '{other.GetTypeName()}'")
             };
+        }
+
+        /// <summary>
+        /// 문자열 포맷팅 (% 연산자) - CPython 3.12 호환
+        /// 예: "Hello %s" % "world" -> "Hello world"
+        ///     "_%s__" % (name,) -> "_name__"
+        /// </summary>
+        public override PyObject Modulo(PyObject other)
+        {
+            // CPython 3.12: Support both single values and tuples
+            PyObject[] values;
+
+            if (other is PyTuple tuple)
+            {
+                // Tuple of values: "Hello %s %d" % ("world", 42)
+                values = tuple.Items;
+            }
+            else
+            {
+                // Single value: "Hello %s" % "world"
+                values = new PyObject[] { other };
+            }
+
+            try
+            {
+                // Simple % formatting - support %s, %d, %r
+                var result = Value;
+                int valueIndex = 0;
+
+                for (int i = 0; i < result.Length; i++)
+                {
+                    if (result[i] == '%' && i + 1 < result.Length)
+                    {
+                        char formatChar = result[i + 1];
+
+                        if (formatChar == '%')
+                        {
+                            // Escape: %% -> %
+                            result = result.Remove(i, 1);
+                            continue;
+                        }
+
+                        if (valueIndex >= values.Length)
+                        {
+                            throw PyTypeError.Create("not enough arguments for format string");
+                        }
+
+                        var value = values[valueIndex++];
+                        string replacement;
+
+                        switch (formatChar)
+                        {
+                            case 's': // String
+                                replacement = value is PyString str ? str.Value : value.ToStr().Value;
+                                break;
+                            case 'r': // Repr
+                                replacement = value.ToRepr().Value;
+                                break;
+                            case 'd': // Decimal integer
+                            case 'i': // Integer
+                                replacement = value is PyInt pyInt ? pyInt.Value.ToString() : value.ToStr().Value;
+                                break;
+                            case 'f': // Float
+                                if (value is PyFloat pyFloat)
+                                    replacement = pyFloat.Value.ToString(CultureInfo.InvariantCulture);
+                                else if (value is PyInt pyIntForFloat)
+                                    replacement = ((double)pyIntForFloat.Value).ToString(CultureInfo.InvariantCulture);
+                                else
+                                    replacement = value.ToStr().Value;
+                                break;
+                            default:
+                                throw PyValueError.Create($"unsupported format character '{formatChar}' (0x{(int)formatChar:x}) at index {i + 1}");
+                        }
+
+                        // Replace %X with the value
+                        result = result.Substring(0, i) + replacement + result.Substring(i + 2);
+                        i += replacement.Length - 1; // Adjust index after replacement
+                    }
+                }
+
+                if (valueIndex < values.Length)
+                {
+                    throw PyTypeError.Create("not all arguments converted during string formatting");
+                }
+
+                return new PyString(result);
+            }
+            catch (PythonException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw PyTypeError.Create($"unsupported operand type(s) for %: 'str' and '{other.GetTypeName()}': {ex.Message}");
+            }
         }
 
         /// <summary>

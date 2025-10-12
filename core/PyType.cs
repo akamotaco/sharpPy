@@ -31,9 +31,10 @@ namespace SharpPy
         #region Descriptor Tables (CPython tp_methods, tp_getset, tp_members)
 
         /// <summary>
-        /// CPython 호환: 타입의 descriptor 테이블
+        /// CPython 3.12 호환: 타입의 딕셔너리 (tp_dict)
+        /// All types (builtin and user-defined) use this unified storage
         /// </summary>
-        public PyTypeDescriptors Descriptors { get; private set; }
+        public Dictionary<string, PyObject> TypeDict { get; protected set; }
 
         #endregion
 
@@ -182,9 +183,11 @@ namespace SharpPy
             Module = module;
             _kind = kind;  // readonly 필드는 생성자에서만 설정 가능
             MRO = CalculateC3MRO();
-            Descriptors = new PyTypeDescriptors();
 
-            // 타입별 descriptor 초기화
+            // CPython 3.12: Initialize tp_dict (unified type dictionary)
+            TypeDict = new Dictionary<string, PyObject>();
+
+            // 타입별 descriptor 초기화 (Phase 3: Directly populates TypeDict)
             InitializeDescriptors();
         }
 
@@ -192,7 +195,14 @@ namespace SharpPy
 
         #region Type Identity
 
-        public override PyType GetPyType() => TypeType;
+        public override PyType GetPyType()
+        {
+            // CPython 3.12: type(int) is type → True
+            // All types (PyType instances) return the type metaclass
+            // Use PyTypeMetaclass.Instance instead of TypeType to ensure singleton
+            return PyTypeMetaclass.Instance;
+        }
+
         public override string GetTypeName() => "type";
 
         #endregion
@@ -638,17 +648,14 @@ namespace SharpPy
 
         /// <summary>
         /// object 타입의 descriptor 테이블 초기화 (CPython typeobject.c 참조)
+        /// Phase 3: Directly populate TypeDict instead of Descriptors
         /// </summary>
         private void InitializeObjectTypeDescriptors()
         {
-            // CPython 호환: 이미 초기화되었으면 스킵
-            if (Descriptors.IsInitialized)
-                return;
-
             var objectType = this;
 
             // object.__init__() - CPython object_init
-            Descriptors.AddMethod("__init__", new PyMethodDescriptor(
+            TypeDict["__init__"] = new PyMethodDescriptor(
                 "__init__",
                 objectType,
                 (self, args, kwargs) => {
@@ -657,10 +664,10 @@ namespace SharpPy
                 },
                 minArgs: 0,
                 maxArgs: int.MaxValue
-            ));
+            );
 
             // object.__new__(cls) - CPython object_new
-            Descriptors.AddMethod("__new__", new PyMethodDescriptor(
+            TypeDict["__new__"] = new PyMethodDescriptor(
                 "__new__",
                 objectType,
                 (self, args, kwargs) => {
@@ -673,25 +680,19 @@ namespace SharpPy
                 },
                 minArgs: 1,
                 maxArgs: int.MaxValue
-            ));
-
-            // CPython 호환: descriptor 초기화 완료 표시
-            Descriptors.MarkInitialized();
+            );
         }
 
         /// <summary>
         /// type 타입의 descriptor 테이블 초기화 (CPython typeobject.c 참조)
+        /// Phase 3: Directly populate TypeDict instead of Descriptors
         /// </summary>
         private void InitializeTypeTypeDescriptors()
         {
-            // CPython 호환: 이미 초기화되었으면 스킵
-            if (Descriptors.IsInitialized)
-                return;
-
             var typeType = this;
 
             // type.__name__ - CPython type_name / type_set_name
-            Descriptors.AddGetSet("__name__", new PyGetSetDescriptor(
+            TypeDict["__name__"] = new PyGetSetDescriptor(
                 "__name__",
                 typeType,
                 getter: self => {
@@ -699,10 +700,10 @@ namespace SharpPy
                         throw PyTypeError.Create("descriptor '__name__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return new PyString(type.Name);
                 }
-            ));
+            );
 
             // type.__bases__ - CPython type_get_bases / type_set_bases
-            Descriptors.AddGetSet("__bases__", new PyGetSetDescriptor(
+            TypeDict["__bases__"] = new PyGetSetDescriptor(
                 "__bases__",
                 typeType,
                 getter: self => {
@@ -710,10 +711,10 @@ namespace SharpPy
                         throw PyTypeError.Create("descriptor '__bases__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return new PyTuple(type.BaseTypes.Cast<PyObject>().ToArray());
                 }
-            ));
+            );
 
             // type.__mro__ - CPython type_mro (read-only)
-            Descriptors.AddGetSet("__mro__", new PyGetSetDescriptor(
+            TypeDict["__mro__"] = new PyGetSetDescriptor(
                 "__mro__",
                 typeType,
                 getter: self => {
@@ -721,10 +722,10 @@ namespace SharpPy
                         throw PyTypeError.Create("descriptor '__mro__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                     return new PyTuple(type.MRO.Cast<PyObject>().ToArray());
                 }
-            ));
+            );
 
             // type.__dict__ - CPython type_dict (read-only, returns mappingproxy)
-            Descriptors.AddGetSet("__dict__", new PyGetSetDescriptor(
+            TypeDict["__dict__"] = new PyGetSetDescriptor(
                 "__dict__",
                 typeType,
                 getter: self => {
@@ -743,14 +744,10 @@ namespace SharpPy
                     // This ensures int.__dict__ includes __new__ from object
                     foreach (var mroType in type.MRO)
                     {
-                        if (mroType.Descriptors != null)
+                        // Phase 3: Use TypeDict instead of Descriptors
+                        if (mroType.TypeDict != null)
                         {
-                            foreach (var kv in mroType.Descriptors.Methods)
-                            {
-                                if (!typeDict.ContainsKey(kv.Key))
-                                    typeDict[kv.Key] = kv.Value;
-                            }
-                            foreach (var kv in mroType.Descriptors.GetSet)
+                            foreach (var kv in mroType.TypeDict)
                             {
                                 if (!typeDict.ContainsKey(kv.Key))
                                     typeDict[kv.Key] = kv.Value;
@@ -771,10 +768,10 @@ namespace SharpPy
                     // Return as read-only mappingproxy
                     return new PyMappingProxy(typeDict);
                 }
-            ));
+            );
 
             // type.__new__ - CPython type_new
-            Descriptors.AddMethod("__new__", new PyMethodDescriptor(
+            TypeDict["__new__"] = new PyMethodDescriptor(
                 "__new__",
                 typeType,
                 (self, args, kwargs) => {
@@ -836,10 +833,10 @@ namespace SharpPy
                 },
                 minArgs: 4,
                 maxArgs: 4
-            ));
+            );
 
             // type.__repr__ - CPython type_repr (from PyTypeMetaclass)
-            Descriptors.AddMethod("__repr__", new PyMethodDescriptor(
+            TypeDict["__repr__"] = new PyMethodDescriptor(
                 "__repr__",
                 typeType,
                 (self, args, kwargs) => {
@@ -851,10 +848,10 @@ namespace SharpPy
                 },
                 minArgs: 0,
                 maxArgs: 0
-            ));
+            );
 
             // type.__str__ - CPython type_repr (same as __repr__ for type)
-            Descriptors.AddMethod("__str__", new PyMethodDescriptor(
+            TypeDict["__str__"] = new PyMethodDescriptor(
                 "__str__",
                 typeType,
                 (self, args, kwargs) => {
@@ -866,10 +863,10 @@ namespace SharpPy
                 },
                 minArgs: 0,
                 maxArgs: 0
-            ));
+            );
 
             // type.__format__ - CPython 3.12 (defaults to __str__)
-            Descriptors.AddMethod("__format__", new PyMethodDescriptor(
+            TypeDict["__format__"] = new PyMethodDescriptor(
                 "__format__",
                 typeType,
                 (self, args, kwargs) => {
@@ -882,10 +879,10 @@ namespace SharpPy
                 },
                 minArgs: 1,
                 maxArgs: 1
-            ));
+            );
 
             // type.__reduce_ex__ - CPython 3.12 (pickle support)
-            Descriptors.AddMethod("__reduce_ex__", new PyMethodDescriptor(
+            TypeDict["__reduce_ex__"] = new PyMethodDescriptor(
                 "__reduce_ex__",
                 typeType,
                 (self, args, kwargs) => {
@@ -901,25 +898,19 @@ namespace SharpPy
                 },
                 minArgs: 1,
                 maxArgs: 1
-            ));
-
-            // CPython 호환: descriptor 초기화 완료 표시
-            Descriptors.MarkInitialized();
+            );
         }
 
         /// <summary>
         /// set 타입의 descriptor 테이블 초기화 (CPython Objects/setobject.c 참조)
+        /// Phase 3: Directly populate TypeDict instead of Descriptors
         /// </summary>
         private void InitializeSetTypeDescriptors()
         {
-            // CPython 호환: 이미 초기화되었으면 스킵
-            if (Descriptors.IsInitialized)
-                return;
-
             var setType = this;
 
             // set.add(elem)
-            Descriptors.AddMethod("add", new PyMethodDescriptor(
+            TypeDict["add"] = new PyMethodDescriptor(
                 "add",
                 setType,
                 (self, args, kwargs) => {
@@ -931,10 +922,10 @@ namespace SharpPy
                 },
                 minArgs: 1,
                 maxArgs: 1
-            ));
+            );
 
             // set.remove(elem)
-            Descriptors.AddMethod("remove", new PyMethodDescriptor(
+            TypeDict["remove"] = new PyMethodDescriptor(
                 "remove",
                 setType,
                 (self, args, kwargs) => {
@@ -946,10 +937,10 @@ namespace SharpPy
                 },
                 minArgs: 1,
                 maxArgs: 1
-            ));
+            );
 
             // set.discard(elem)
-            Descriptors.AddMethod("discard", new PyMethodDescriptor(
+            TypeDict["discard"] = new PyMethodDescriptor(
                 "discard",
                 setType,
                 (self, args, kwargs) => {
@@ -961,10 +952,10 @@ namespace SharpPy
                 },
                 minArgs: 1,
                 maxArgs: 1
-            ));
+            );
 
             // set.pop()
-            Descriptors.AddMethod("pop", new PyMethodDescriptor(
+            TypeDict["pop"] = new PyMethodDescriptor(
                 "pop",
                 setType,
                 (self, args, kwargs) => {
@@ -976,10 +967,10 @@ namespace SharpPy
                 },
                 minArgs: 0,
                 maxArgs: 0
-            ));
+            );
 
             // set.clear()
-            Descriptors.AddMethod("clear", new PyMethodDescriptor(
+            TypeDict["clear"] = new PyMethodDescriptor(
                 "clear",
                 setType,
                 (self, args, kwargs) => {
@@ -991,10 +982,10 @@ namespace SharpPy
                 },
                 minArgs: 0,
                 maxArgs: 0
-            ));
+            );
 
             // set.copy()
-            Descriptors.AddMethod("copy", new PyMethodDescriptor(
+            TypeDict["copy"] = new PyMethodDescriptor(
                 "copy",
                 setType,
                 (self, args, kwargs) => {
@@ -1006,10 +997,10 @@ namespace SharpPy
                 },
                 minArgs: 0,
                 maxArgs: 0
-            ));
+            );
 
             // set.update(other)
-            Descriptors.AddMethod("update", new PyMethodDescriptor(
+            TypeDict["update"] = new PyMethodDescriptor(
                 "update",
                 setType,
                 (self, args, kwargs) => {
@@ -1021,10 +1012,10 @@ namespace SharpPy
                 },
                 minArgs: 1,
                 maxArgs: 1
-            ));
+            );
 
             // set.union(other)
-            Descriptors.AddMethod("union", new PyMethodDescriptor(
+            TypeDict["union"] = new PyMethodDescriptor(
                 "union",
                 setType,
                 (self, args, kwargs) => {
@@ -1036,10 +1027,10 @@ namespace SharpPy
                 },
                 minArgs: 1,
                 maxArgs: 1
-            ));
+            );
 
             // set.intersection(other)
-            Descriptors.AddMethod("intersection", new PyMethodDescriptor(
+            TypeDict["intersection"] = new PyMethodDescriptor(
                 "intersection",
                 setType,
                 (self, args, kwargs) => {
@@ -1051,10 +1042,10 @@ namespace SharpPy
                 },
                 minArgs: 1,
                 maxArgs: 1
-            ));
+            );
 
             // set.difference(other)
-            Descriptors.AddMethod("difference", new PyMethodDescriptor(
+            TypeDict["difference"] = new PyMethodDescriptor(
                 "difference",
                 setType,
                 (self, args, kwargs) => {
@@ -1066,10 +1057,10 @@ namespace SharpPy
                 },
                 minArgs: 1,
                 maxArgs: 1
-            ));
+            );
 
             // set.symmetric_difference(other)
-            Descriptors.AddMethod("symmetric_difference", new PyMethodDescriptor(
+            TypeDict["symmetric_difference"] = new PyMethodDescriptor(
                 "symmetric_difference",
                 setType,
                 (self, args, kwargs) => {
@@ -1081,10 +1072,10 @@ namespace SharpPy
                 },
                 minArgs: 1,
                 maxArgs: 1
-            ));
+            );
 
             // set.issubset(other)
-            Descriptors.AddMethod("issubset", new PyMethodDescriptor(
+            TypeDict["issubset"] = new PyMethodDescriptor(
                 "issubset",
                 setType,
                 (self, args, kwargs) => {
@@ -1096,10 +1087,10 @@ namespace SharpPy
                 },
                 minArgs: 1,
                 maxArgs: 1
-            ));
+            );
 
             // set.issuperset(other)
-            Descriptors.AddMethod("issuperset", new PyMethodDescriptor(
+            TypeDict["issuperset"] = new PyMethodDescriptor(
                 "issuperset",
                 setType,
                 (self, args, kwargs) => {
@@ -1111,10 +1102,10 @@ namespace SharpPy
                 },
                 minArgs: 1,
                 maxArgs: 1
-            ));
+            );
 
             // set.isdisjoint(other)
-            Descriptors.AddMethod("isdisjoint", new PyMethodDescriptor(
+            TypeDict["isdisjoint"] = new PyMethodDescriptor(
                 "isdisjoint",
                 setType,
                 (self, args, kwargs) => {
@@ -1126,10 +1117,7 @@ namespace SharpPy
                 },
                 minArgs: 1,
                 maxArgs: 1
-            ));
-
-            // CPython 호환: descriptor 초기화 완료 표시
-            Descriptors.MarkInitialized();
+            );
         }
 
         /// <summary>
@@ -1158,17 +1146,14 @@ namespace SharpPy
 
         /// <summary>
         /// dict 타입의 descriptor 테이블 초기화 (CPython Objects/dictobject.c 참조)
+        /// Phase 3: Directly populate TypeDict instead of Descriptors
         /// </summary>
         private void InitializeDictTypeDescriptors()
         {
-            // CPython 호환: 이미 초기화되었으면 스킵
-            if (Descriptors.IsInitialized)
-                return;
-
             var dictType = this;
 
             // dict.keys()
-            Descriptors.AddMethod("keys", new PyMethodDescriptor(
+            TypeDict["keys"] = new PyMethodDescriptor(
                 "keys",
                 dictType,
                 (self, args, kwargs) => {
@@ -1194,10 +1179,10 @@ namespace SharpPy
                 },
                 minArgs: 0,
                 maxArgs: 0
-            ));
+            );
 
             // dict.values()
-            Descriptors.AddMethod("values", new PyMethodDescriptor(
+            TypeDict["values"] = new PyMethodDescriptor(
                 "values",
                 dictType,
                 (self, args, kwargs) => {
@@ -1223,10 +1208,10 @@ namespace SharpPy
                 },
                 minArgs: 0,
                 maxArgs: 0
-            ));
+            );
 
             // dict.items()
-            Descriptors.AddMethod("items", new PyMethodDescriptor(
+            TypeDict["items"] = new PyMethodDescriptor(
                 "items",
                 dictType,
                 (self, args, kwargs) => {
@@ -1252,10 +1237,10 @@ namespace SharpPy
                 },
                 minArgs: 0,
                 maxArgs: 0
-            ));
+            );
 
             // dict.get(key, default=None)
-            Descriptors.AddMethod("get", new PyMethodDescriptor(
+            TypeDict["get"] = new PyMethodDescriptor(
                 "get",
                 dictType,
                 (self, args, kwargs) => {
@@ -1283,10 +1268,10 @@ namespace SharpPy
                 },
                 minArgs: 1,
                 maxArgs: 2
-            ));
+            );
 
             // dict.pop(key, default)
-            Descriptors.AddMethod("pop", new PyMethodDescriptor(
+            TypeDict["pop"] = new PyMethodDescriptor(
                 "pop",
                 dictType,
                 (self, args, kwargs) => {
@@ -1314,10 +1299,10 @@ namespace SharpPy
                 },
                 minArgs: 1,
                 maxArgs: 2
-            ));
+            );
 
             // dict.popitem()
-            Descriptors.AddMethod("popitem", new PyMethodDescriptor(
+            TypeDict["popitem"] = new PyMethodDescriptor(
                 "popitem",
                 dictType,
                 (self, args, kwargs) => {
@@ -1343,10 +1328,10 @@ namespace SharpPy
                 },
                 minArgs: 0,
                 maxArgs: 0
-            ));
+            );
 
             // dict.clear()
-            Descriptors.AddMethod("clear", new PyMethodDescriptor(
+            TypeDict["clear"] = new PyMethodDescriptor(
                 "clear",
                 dictType,
                 (self, args, kwargs) => {
@@ -1372,10 +1357,10 @@ namespace SharpPy
                 },
                 minArgs: 0,
                 maxArgs: 0
-            ));
+            );
 
             // dict.copy()
-            Descriptors.AddMethod("copy", new PyMethodDescriptor(
+            TypeDict["copy"] = new PyMethodDescriptor(
                 "copy",
                 dictType,
                 (self, args, kwargs) => {
@@ -1401,10 +1386,10 @@ namespace SharpPy
                 },
                 minArgs: 0,
                 maxArgs: 0
-            ));
+            );
 
             // dict.update(other)
-            Descriptors.AddMethod("update", new PyMethodDescriptor(
+            TypeDict["update"] = new PyMethodDescriptor(
                 "update",
                 dictType,
                 (self, args, kwargs) => {
@@ -1430,10 +1415,10 @@ namespace SharpPy
                 },
                 minArgs: 1,
                 maxArgs: 1
-            ));
+            );
 
             // dict.setdefault(key, default=None)
-            Descriptors.AddMethod("setdefault", new PyMethodDescriptor(
+            TypeDict["setdefault"] = new PyMethodDescriptor(
                 "setdefault",
                 dictType,
                 (self, args, kwargs) => {
@@ -1461,10 +1446,10 @@ namespace SharpPy
                 },
                 minArgs: 1,
                 maxArgs: 2
-            ));
+            );
 
             // dict.fromkeys(seq, value=None) - static method
-            Descriptors.AddMethod("fromkeys", new PyMethodDescriptor(
+            TypeDict["fromkeys"] = new PyMethodDescriptor(
                 "fromkeys",
                 dictType,
                 (self, args, kwargs) => {
@@ -1476,10 +1461,10 @@ namespace SharpPy
                 },
                 minArgs: 1,
                 maxArgs: 2
-            ));
+            );
 
             // dict.__init__ - CPython 3.12: dict.__init__ can accept optional args and kwargs
-            Descriptors.AddMethod("__init__", new PyMethodDescriptor(
+            TypeDict["__init__"] = new PyMethodDescriptor(
                 "__init__",
                 dictType,
                 (self, args, kwargs) => {
@@ -1489,10 +1474,7 @@ namespace SharpPy
                 minArgs: 0,
                 maxArgs: int.MaxValue,
                 acceptsKwargs: true
-            ));
-
-            // CPython 호환: descriptor 초기화 완료 표시
-            Descriptors.MarkInitialized();
+            );
         }
 
         #endregion
@@ -1502,24 +1484,77 @@ namespace SharpPy
         public override PyObject GetAttribute(string name)
         {
             // CPython 3.12 호환: type_getattro() 구현
-            // 1. 먼저 이 타입 자신의 descriptor 테이블 확인 (예: str.join은 str 타입의 Descriptors에 있음)
-            var descriptor = Descriptors.Lookup(name);
-            if (descriptor != null)
+            // Equivalent to _Py_type_getattro_impl in Objects/typeobject.c:4800
+
+            // Step 1: Look for attribute in metatype (Py_TYPE(type))
+            var metatype = GetPyType(); // For PyType, this is PyTypeMetaclass.Instance
+            PyObject metaAttribute = null;
+            IDescriptor metaGet = null;
+
+            // CPython: meta_attribute = _PyType_Lookup(metatype, name)
+            if (metatype is PyClass metaclass)
             {
-                // Descriptor protocol: 타입에서 직접 접근하면 descriptor 자체 반환
-                return (PyObject)descriptor;
+                if (metaclass.ClassDict.TryGetValue(name, out metaAttribute))
+                {
+                    // Check if it's a descriptor
+                    if (metaAttribute is IDescriptor descriptor)
+                    {
+                        metaGet = descriptor;
+
+                        // CPython: if (meta_get != NULL && PyDescr_IsData(meta_attribute))
+                        if (metaGet.IsDataDescriptor())
+                        {
+                            // Data descriptors on metatype have highest priority
+                            // Call descriptor.__get__(self, type(self))
+                            return metaGet.Get(this, metatype);
+                        }
+                    }
+                }
             }
 
-            // 2. CPython 3.12: Check PyClass.GetTypeAttribute() for wrapper descriptors
-            // This is needed because some descriptors (like dict.__setitem__) are in GetTypeAttribute()
-            // but not in the Descriptors table
+            // Step 2: Look in tp_dict of this type (and its bases via MRO)
+            // CPython: attribute = _PyType_Lookup(type, name)
+
+            // Phase 3: Check TypeDict (unified storage)
+            if (TypeDict != null && TypeDict.TryGetValue(name, out var typeDictAttr))
+            {
+                // Found in TypeDict - check if it's a descriptor
+                if (typeDictAttr is IDescriptor localDescriptor)
+                {
+                    // CPython: local_get(attribute, NULL, type)
+                    // NULL 2nd argument indicates descriptor found on target object itself
+                    return localDescriptor.Get(null, this);
+                }
+                return typeDictAttr;
+            }
+
+            // Check PyClass.GetTypeAttribute() for wrapper descriptors
             var typeAttr = SharpPy.PyClass.GetTypeAttribute(this, name);
             if (typeAttr != null)
             {
+                if (typeAttr is IDescriptor localDescriptor)
+                {
+                    return localDescriptor.Get(null, this);
+                }
                 return typeAttr;
             }
 
-            // 3. 그 다음 type의 MRO 확인 (type 클래스의 속성들)
+            // Step 3: Use non-data descriptor from metatype (if found in step 1)
+            // CPython: if (meta_get != NULL) { res = meta_get(...); }
+            if (metaGet != null)
+            {
+                return metaGet.Get(this, metatype);
+            }
+
+            // Step 4: Return ordinary attribute from metatype
+            // CPython: if (meta_attribute != NULL) { return meta_attribute; }
+            if (metaAttribute != null)
+            {
+                return metaAttribute;
+            }
+
+            // Step 5: Give up - attribute not found
+            // CPython: PyErr_Format(PyExc_AttributeError, ...)
             return GenericGetAttribute(name);
         }
 

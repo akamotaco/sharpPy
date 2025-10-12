@@ -15,12 +15,10 @@ namespace SharpPy
 
         private static void InitializeGeneratorDescriptors()
         {
-            if (PyType.GeneratorType.Descriptors.Methods.Count > 0) return;
-
             var genType = PyType.GeneratorType;
 
             // send method descriptor
-            genType.Descriptors.AddMethod("send", new PyMethodDescriptor(
+            genType.TypeDict["send"] = new PyMethodDescriptor(
                 "send", genType,
                 (self, args, kwargs) => {
                     if (args.Length != 1)
@@ -30,10 +28,10 @@ namespace SharpPy
                     return generator.Send(args[0]);
                 },
                 minArgs: 1, maxArgs: 1
-            ));
+            );
 
             // throw method descriptor
-            genType.Descriptors.AddMethod("throw", new PyMethodDescriptor(
+            genType.TypeDict["throw"] = new PyMethodDescriptor(
                 "throw", genType,
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 3)
@@ -48,10 +46,10 @@ namespace SharpPy
                     return generator.Throw(excType, value, traceback);
                 },
                 minArgs: 1, maxArgs: 3
-            ));
+            );
 
             // close method descriptor
-            genType.Descriptors.AddMethod("close", new PyMethodDescriptor(
+            genType.TypeDict["close"] = new PyMethodDescriptor(
                 "close", genType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
@@ -61,7 +59,7 @@ namespace SharpPy
                     return generator.Close();
                 },
                 minArgs: 0, maxArgs: 0
-            ));
+            );
 
             // __iter__ and __next__ are inherited from PyIterator
         }

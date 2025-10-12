@@ -40,12 +40,10 @@ namespace SharpPy.Core
 
         private static void InitializeCoroutineDescriptors()
         {
-            if (PyType.CoroutineType.Descriptors.Methods.Count > 0) return;
-
             var corType = PyType.CoroutineType;
 
             // send method descriptor
-            corType.Descriptors.AddMethod("send", new PyMethodDescriptor(
+            corType.TypeDict["send"] = new PyMethodDescriptor(
                 "send", corType,
                 (self, args, kwargs) => {
                     if (args.Length > 1)
@@ -55,10 +53,10 @@ namespace SharpPy.Core
                     return coroutine.Send(args.Length == 0 ? null : args[0]);
                 },
                 minArgs: 0, maxArgs: 1
-            ));
+            );
 
             // close method descriptor
-            corType.Descriptors.AddMethod("close", new PyMethodDescriptor(
+            corType.TypeDict["close"] = new PyMethodDescriptor(
                 "close", corType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
@@ -69,10 +67,10 @@ namespace SharpPy.Core
                     return PyNone.Instance;
                 },
                 minArgs: 0, maxArgs: 0
-            ));
+            );
 
             // __await__ method descriptor
-            corType.Descriptors.AddMethod("__await__", new PyMethodDescriptor(
+            corType.TypeDict["__await__"] = new PyMethodDescriptor(
                 "__await__", corType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
@@ -82,7 +80,7 @@ namespace SharpPy.Core
                     return coroutine.GetAwaiter();
                 },
                 minArgs: 0, maxArgs: 0
-            ));
+            );
         }
 
         public override string GetTypeName() => "coroutine";

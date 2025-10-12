@@ -13,12 +13,10 @@ namespace SharpPy
 
         private static void InitializeListDescriptors()
         {
-            if (PyType.ListType.Descriptors.Methods.Count > 0) return;
-
             var listType = PyType.ListType;
 
             // append method descriptor
-            listType.Descriptors.AddMethod("append", new PyMethodDescriptor(
+            listType.TypeDict["append"] = new PyMethodDescriptor(
                 "append", listType,
                 (self, args, kwargs) => {
                     if (args.Length != 1)
@@ -29,10 +27,10 @@ namespace SharpPy
                     return PyNone.Instance;
                 },
                 minArgs: 1, maxArgs: 1
-            ));
+            );
 
             // insert method descriptor
-            listType.Descriptors.AddMethod("insert", new PyMethodDescriptor(
+            listType.TypeDict["insert"] = new PyMethodDescriptor(
                 "insert", listType,
                 (self, args, kwargs) => {
                     if (args.Length != 2)
@@ -44,10 +42,10 @@ namespace SharpPy
                     return PyNone.Instance;
                 },
                 minArgs: 2, maxArgs: 2
-            ));
+            );
 
             // remove method descriptor
-            listType.Descriptors.AddMethod("remove", new PyMethodDescriptor(
+            listType.TypeDict["remove"] = new PyMethodDescriptor(
                 "remove", listType,
                 (self, args, kwargs) => {
                     if (args.Length != 1)
@@ -58,10 +56,10 @@ namespace SharpPy
                     return PyNone.Instance;
                 },
                 minArgs: 1, maxArgs: 1
-            ));
+            );
 
             // pop method descriptor
-            listType.Descriptors.AddMethod("pop", new PyMethodDescriptor(
+            listType.TypeDict["pop"] = new PyMethodDescriptor(
                 "pop", listType,
                 (self, args, kwargs) => {
                     if (args.Length > 1)
@@ -72,10 +70,10 @@ namespace SharpPy
                     return list.Pop(index);
                 },
                 minArgs: 0, maxArgs: 1
-            ));
+            );
 
             // clear method descriptor
-            listType.Descriptors.AddMethod("clear", new PyMethodDescriptor(
+            listType.TypeDict["clear"] = new PyMethodDescriptor(
                 "clear", listType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
@@ -86,10 +84,10 @@ namespace SharpPy
                     return PyNone.Instance;
                 },
                 minArgs: 0, maxArgs: 0
-            ));
+            );
 
             // extend method descriptor
-            listType.Descriptors.AddMethod("extend", new PyMethodDescriptor(
+            listType.TypeDict["extend"] = new PyMethodDescriptor(
                 "extend", listType,
                 (self, args, kwargs) => {
                     if (args.Length != 1)
@@ -100,10 +98,10 @@ namespace SharpPy
                     return PyNone.Instance;
                 },
                 minArgs: 1, maxArgs: 1
-            ));
+            );
 
             // index method descriptor
-            listType.Descriptors.AddMethod("index", new PyMethodDescriptor(
+            listType.TypeDict["index"] = new PyMethodDescriptor(
                 "index", listType,
                 (self, args, kwargs) => {
                     if (args.Length != 1)
@@ -114,10 +112,10 @@ namespace SharpPy
                     return new PyInt(index);
                 },
                 minArgs: 1, maxArgs: 1
-            ));
+            );
 
             // count method descriptor
-            listType.Descriptors.AddMethod("count", new PyMethodDescriptor(
+            listType.TypeDict["count"] = new PyMethodDescriptor(
                 "count", listType,
                 (self, args, kwargs) => {
                     if (args.Length != 1)
@@ -128,10 +126,10 @@ namespace SharpPy
                     return new PyInt(count);
                 },
                 minArgs: 1, maxArgs: 1
-            ));
+            );
 
             // reverse method descriptor
-            listType.Descriptors.AddMethod("reverse", new PyMethodDescriptor(
+            listType.TypeDict["reverse"] = new PyMethodDescriptor(
                 "reverse", listType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
@@ -142,10 +140,10 @@ namespace SharpPy
                     return PyNone.Instance;
                 },
                 minArgs: 0, maxArgs: 0
-            ));
+            );
 
             // sort method descriptor (special handling for keyword-only args)
-            listType.Descriptors.AddMethod("sort", new PyMethodDescriptor(
+            listType.TypeDict["sort"] = new PyMethodDescriptor(
                 "sort", listType,
                 (self, args, kwargs) => {
                     if (args.Length > 0)
@@ -175,10 +173,10 @@ namespace SharpPy
                     return PyNone.Instance;
                 },
                 minArgs: 0, maxArgs: 0, acceptsKwargs: true
-            ));
+            );
 
             // copy method descriptor
-            listType.Descriptors.AddMethod("copy", new PyMethodDescriptor(
+            listType.TypeDict["copy"] = new PyMethodDescriptor(
                 "copy", listType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
@@ -188,7 +186,7 @@ namespace SharpPy
                     return new PyList(list._items.ToArray());
                 },
                 minArgs: 0, maxArgs: 0
-            ));
+            );
         }
 
         private List<PyObject> _items;

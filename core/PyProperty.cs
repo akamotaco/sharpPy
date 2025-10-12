@@ -35,14 +35,10 @@ public interface IDescriptor
         /// </summary>
         private static void InitializePropertyDescriptors()
         {
-            // 이미 초기화되었으면 스킵
-            if (PyType.PropertyType.Descriptors.Methods.Count > 0)
-                return;
-
             var propType = PyType.PropertyType;
 
             // setter 메서드 descriptor
-            propType.Descriptors.AddMethod("setter", new PyMethodDescriptor(
+            propType.TypeDict["setter"] = new PyMethodDescriptor(
                 "setter",
                 propType,
                 (self, args, kwargs) => {
@@ -68,10 +64,10 @@ public interface IDescriptor
                 },
                 minArgs: 1,
                 maxArgs: 1
-            ));
+            );
 
             // deleter 메서드 descriptor
-            propType.Descriptors.AddMethod("deleter", new PyMethodDescriptor(
+            propType.TypeDict["deleter"] = new PyMethodDescriptor(
                 "deleter",
                 propType,
                 (self, args, kwargs) => {
@@ -97,10 +93,10 @@ public interface IDescriptor
                 },
                 minArgs: 1,
                 maxArgs: 1
-            ));
+            );
 
             // getter 메서드 descriptor
-            propType.Descriptors.AddMethod("getter", new PyMethodDescriptor(
+            propType.TypeDict["getter"] = new PyMethodDescriptor(
                 "getter",
                 propType,
                 (self, args, kwargs) => {
@@ -116,10 +112,10 @@ public interface IDescriptor
                 },
                 minArgs: 1,
                 maxArgs: 1
-            ));
+            );
 
             // fget getset descriptor
-            propType.Descriptors.AddGetSet("fget", new PyGetSetDescriptor(
+            propType.TypeDict["fget"] = new PyGetSetDescriptor(
                 "fget",
                 propType,
                 getter: self => {
@@ -127,10 +123,10 @@ public interface IDescriptor
                         return prop._getter ?? (PyObject)PyNone.Instance;
                     throw PyTypeError.Create("descriptor 'fget' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                 }
-            ));
+            );
 
             // fset getset descriptor
-            propType.Descriptors.AddGetSet("fset", new PyGetSetDescriptor(
+            propType.TypeDict["fset"] = new PyGetSetDescriptor(
                 "fset",
                 propType,
                 getter: self => {
@@ -138,10 +134,10 @@ public interface IDescriptor
                         return prop._setter ?? (PyObject)PyNone.Instance;
                     throw PyTypeError.Create("descriptor 'fset' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                 }
-            ));
+            );
 
             // fdel getset descriptor
-            propType.Descriptors.AddGetSet("fdel", new PyGetSetDescriptor(
+            propType.TypeDict["fdel"] = new PyGetSetDescriptor(
                 "fdel",
                 propType,
                 getter: self => {
@@ -149,7 +145,7 @@ public interface IDescriptor
                         return prop._deleter ?? (PyObject)PyNone.Instance;
                     throw PyTypeError.Create("descriptor 'fdel' for 'property' objects doesn't apply to a '" + self.GetTypeName() + "' object");
                 }
-            ));
+            );
         }
 
         public PyObject Get(PyObject instance, PyType owner)

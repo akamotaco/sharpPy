@@ -15,12 +15,12 @@ namespace SharpPy
         private static void InitializeTypeTypeDescriptors()
         {
             // PyType.TypeType의 descriptor가 이미 초기화되었는지 확인
-            if (PyType.TypeType.Descriptors.Methods.ContainsKey("mro")) return;
+            if (PyType.TypeType.TypeDict.ContainsKey("mro")) return;
 
             var typeType = PyType.TypeType;
 
             // mro() method descriptor - CPython 3.12 호환
-            typeType.Descriptors.AddMethod("mro", new PyMethodDescriptor(
+            typeType.TypeDict["mro"] = new PyMethodDescriptor(
                 "mro", typeType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
@@ -30,7 +30,7 @@ namespace SharpPy
                     return new PyList(type.MRO.Cast<PyObject>().ToList());
                 },
                 minArgs: 0, maxArgs: 0
-            ));
+            );
         }
 
         public Dictionary<string, PyObject> ClassDict { get; }

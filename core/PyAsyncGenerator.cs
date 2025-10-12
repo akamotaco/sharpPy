@@ -17,12 +17,10 @@ namespace SharpPy.Core
 
         private static void InitializeAsyncGeneratorDescriptors()
         {
-            if (PyType.AsyncGeneratorType.Descriptors.Methods.Count > 0) return;
-
             var agType = PyType.AsyncGeneratorType;
 
             // __anext__ method descriptor
-            agType.Descriptors.AddMethod("__anext__", new PyMethodDescriptor(
+            agType.TypeDict["__anext__"] = new PyMethodDescriptor(
                 "__anext__", agType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
@@ -32,10 +30,10 @@ namespace SharpPy.Core
                     return asyncGen.ANext();
                 },
                 minArgs: 0, maxArgs: 0
-            ));
+            );
 
             // asend method descriptor
-            agType.Descriptors.AddMethod("asend", new PyMethodDescriptor(
+            agType.TypeDict["asend"] = new PyMethodDescriptor(
                 "asend", agType,
                 (self, args, kwargs) => {
                     if (args.Length != 1)
@@ -45,10 +43,10 @@ namespace SharpPy.Core
                     return asyncGen.ASend(args[0]);
                 },
                 minArgs: 1, maxArgs: 1
-            ));
+            );
 
             // athrow method descriptor
-            agType.Descriptors.AddMethod("athrow", new PyMethodDescriptor(
+            agType.TypeDict["athrow"] = new PyMethodDescriptor(
                 "athrow", agType,
                 (self, args, kwargs) => {
                     if (args.Length < 1 || args.Length > 3)
@@ -60,10 +58,10 @@ namespace SharpPy.Core
                     return asyncGen.AThrow(args[0], value, tb);
                 },
                 minArgs: 1, maxArgs: 3
-            ));
+            );
 
             // aclose method descriptor
-            agType.Descriptors.AddMethod("aclose", new PyMethodDescriptor(
+            agType.TypeDict["aclose"] = new PyMethodDescriptor(
                 "aclose", agType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
@@ -73,7 +71,7 @@ namespace SharpPy.Core
                     return asyncGen.AClose();
                 },
                 minArgs: 0, maxArgs: 0
-            ));
+            );
         }
 
         public override string GetTypeName() => "async_generator";

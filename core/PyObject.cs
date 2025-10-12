@@ -232,19 +232,29 @@ namespace SharpPy
                 Console.WriteLine($"     - checking {mroType.Name}");
                 #endif
 
-                // CPython 호환: 먼저 descriptor 테이블 확인
-                if (mroType.Descriptors != null)
+                // CPython 호환: TypeDict에서 descriptor 확인
+                if (mroType.TypeDict != null && mroType.TypeDict.TryGetValue(name, out var typeAttr))
                 {
-                    var desc = mroType.Descriptors.Lookup(name);
-                    if (desc != null)
+                    attr = typeAttr;
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   ✅ found '{name}' in {mroType.Name} TypeDict: {typeAttr?.GetType().Name}");
+                    #endif
+                    if (attr is IDescriptor desc)
                     {
                         descriptor = desc;
-                        attr = (PyObject)desc;
                         #if DEBUG_LOG
-                        Console.WriteLine($"   ✅ found '{name}' in {mroType.Name} descriptor table: {desc.GetType().Name}");
+                        Console.WriteLine($"   🔧 '{name}' is a descriptor: {desc.GetType().Name}");
                         #endif
-                        break;
                     }
+                    // CPython 호환: __get__, __set__, __delete__ 메서드가 있는 객체는 디스크립터로 취급
+                    else if (IsPythonDescriptor(attr))
+                    {
+                        descriptor = new PyDescriptorWrapper(attr);
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   🔧 '{name}' is a Python descriptor: {attr.GetType().Name}");
+                        #endif
+                    }
+                    break;
                 }
 
                 // 사용자 정의 클래스의 ClassDict 확인

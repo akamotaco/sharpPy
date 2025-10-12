@@ -65,14 +65,10 @@ public partial class PyFunction : PyObject, IDescriptor
     /// </summary>
     private static void InitializeFunctionDescriptors()
     {
-        // 이미 초기화되었으면 스킵
-        if (PyType.FunctionType.Descriptors.GetSet.Count > 0)
-            return;
-
         var funcType = PyType.FunctionType;
 
         // __name__ getset descriptor
-        funcType.Descriptors.AddGetSet("__name__", new PyGetSetDescriptor(
+        funcType.TypeDict["__name__"] = new PyGetSetDescriptor(
             "__name__",
             funcType,
             getter: self => {
@@ -80,10 +76,10 @@ public partial class PyFunction : PyObject, IDescriptor
                     return new PyString(func.Name);
                 throw PyTypeError.Create("descriptor '__name__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
             }
-        ));
+        );
 
         // __module__ getset descriptor
-        funcType.Descriptors.AddGetSet("__module__", new PyGetSetDescriptor(
+        funcType.TypeDict["__module__"] = new PyGetSetDescriptor(
             "__module__",
             funcType,
             getter: self => {
@@ -91,10 +87,10 @@ public partial class PyFunction : PyObject, IDescriptor
                     return func.DefiningModule != null ? new PyString(func.DefiningModule.Name) : new PyString("__main__");
                 throw PyTypeError.Create("descriptor '__module__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
             }
-        ));
+        );
 
         // __doc__ getset descriptor
-        funcType.Descriptors.AddGetSet("__doc__", new PyGetSetDescriptor(
+        funcType.TypeDict["__doc__"] = new PyGetSetDescriptor(
             "__doc__",
             funcType,
             getter: self => {
@@ -102,10 +98,10 @@ public partial class PyFunction : PyObject, IDescriptor
                     return new PyString($"Function {func.Name}");
                 throw PyTypeError.Create("descriptor '__doc__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
             }
-        ));
+        );
 
         // __code__ getset descriptor
-        funcType.Descriptors.AddGetSet("__code__", new PyGetSetDescriptor(
+        funcType.TypeDict["__code__"] = new PyGetSetDescriptor(
             "__code__",
             funcType,
             getter: self => {
@@ -113,10 +109,10 @@ public partial class PyFunction : PyObject, IDescriptor
                     return (PyObject)(func.CodeObject ?? (object)PyNone.Instance);
                 throw PyTypeError.Create("descriptor '__code__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
             }
-        ));
+        );
 
         // __closure__ getset descriptor
-        funcType.Descriptors.AddGetSet("__closure__", new PyGetSetDescriptor(
+        funcType.TypeDict["__closure__"] = new PyGetSetDescriptor(
             "__closure__",
             funcType,
             getter: self => {
@@ -124,10 +120,10 @@ public partial class PyFunction : PyObject, IDescriptor
                     return func.Attributes["__closure__"];
                 throw PyTypeError.Create("descriptor '__closure__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
             }
-        ));
+        );
 
         // __globals__ getset descriptor - CPython 3.12
-        funcType.Descriptors.AddGetSet("__globals__", new PyGetSetDescriptor(
+        funcType.TypeDict["__globals__"] = new PyGetSetDescriptor(
             "__globals__",
             funcType,
             getter: self => {
@@ -135,10 +131,10 @@ public partial class PyFunction : PyObject, IDescriptor
                     return func.GlobalsDict != null ? new PyDict(func.GlobalsDict) : PyNone.Instance;
                 throw PyTypeError.Create("descriptor '__globals__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
             }
-        ));
+        );
 
         // __dict__ getset descriptor
-        funcType.Descriptors.AddGetSet("__dict__", new PyGetSetDescriptor(
+        funcType.TypeDict["__dict__"] = new PyGetSetDescriptor(
             "__dict__",
             funcType,
             getter: self => {
@@ -146,14 +142,14 @@ public partial class PyFunction : PyObject, IDescriptor
                     return new PyDict(func.Attributes);
                 throw PyTypeError.Create("descriptor '__dict__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
             }
-        ));
+        );
 
         // __call__ getset descriptor (함수 자체를 반환)
-        funcType.Descriptors.AddGetSet("__call__", new PyGetSetDescriptor(
+        funcType.TypeDict["__call__"] = new PyGetSetDescriptor(
             "__call__",
             funcType,
             getter: self => self // 함수 자체가 __call__
-        ));
+        );
     }
     
     private PyObject DefaultImplementation(PyObject[] args)

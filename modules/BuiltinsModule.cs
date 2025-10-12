@@ -155,21 +155,119 @@ namespace SharpPy.Modules
             var obj = args[0];
             var classInfo = args[1];
 
-            if (classInfo is PyType pyType)
-            {
-                return PyBool.FromBool(obj.GetPyType() == pyType);
-            }
-            else if (classInfo is PyTuple tuple)
+            // CPython 3.12: Check for tuple first
+            if (classInfo is PyTuple tuple)
             {
                 foreach (var item in tuple.Items)
                 {
-                    if (item is PyType type && obj.GetPyType() == type)
+                    // Recursively check each type in the tuple
+                    var result = IsInstance(new PyObject[] { obj, item });
+                    if (result == PyBool.True)
                         return PyBool.True;
                 }
                 return PyBool.False;
             }
 
-            throw PyTypeError.Create("isinstance() arg 2 must be a type or tuple of types");
+            // CPython 3.12: Check if classInfo is a valid type by looking for __bases__
+            // This works for both PyType and PyClass (including type metaclass)
+            PyObject bases = null;
+            try
+            {
+                bases = classInfo.GetAttribute("__bases__");
+                Console.WriteLine($"[isinstance check_class] bases type: {bases?.GetType().Name}");
+                Console.WriteLine($"[isinstance check_class] bases value: {bases}");
+
+                // If bases is a descriptor, we need to call it with classInfo
+                // to get the actual __bases__ value
+                if (bases is PyGetSetDescriptor getSetDescriptor)
+                {
+                    Console.WriteLine($"[isinstance check_class] Calling PyGetSetDescriptor.Get()");
+                    // Call the descriptor's getter with classInfo as the instance
+                    bases = getSetDescriptor.Get(classInfo, classInfo.GetPyType());
+                    Console.WriteLine($"[isinstance check_class] After descriptor.Get(), bases type: {bases?.GetType().Name}");
+                    Console.WriteLine($"[isinstance check_class] After descriptor.Get(), bases value: {bases}");
+                }
+                else if (bases is PyBasesDescriptor basesDescriptor)
+                {
+                    Console.WriteLine($"[isinstance check_class] Calling PyBasesDescriptor.Get()");
+                    // Call the descriptor's getter with classInfo as the instance
+                    bases = basesDescriptor.Get(classInfo, classInfo.GetPyType());
+                    Console.WriteLine($"[isinstance check_class] After descriptor.Get(), bases type: {bases?.GetType().Name}");
+                    Console.WriteLine($"[isinstance check_class] After descriptor.Get(), bases value: {bases}");
+                }
+
+                if (bases == null || !(bases is PyTuple))
+                {
+                    Console.WriteLine($"[isinstance check_class] ERROR: bases is not a PyTuple");
+                    throw PyTypeError.Create("isinstance() arg 2 must be a type or tuple of types");
+                }
+                Console.WriteLine($"[isinstance check_class] SUCCESS: bases is a PyTuple");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[isinstance check_class] EXCEPTION: {ex.Message}");
+                throw PyTypeError.Create("isinstance() arg 2 must be a type or tuple of types");
+            }
+
+            // Now perform the actual isinstance check
+            // CPython 3.12: First check if obj.__class__ is a subclass of classInfo
+            var objType = obj.GetPyType();
+
+            // Quick check: exact type match
+            if (objType == classInfo)
+                return PyBool.True;
+
+            // Check MRO if available
+            if (classInfo is PyType pyTypeClass)
+            {
+                // For builtin types: check if obj's type matches
+                return PyBool.FromBool(objType == pyTypeClass);
+            }
+            else if (classInfo is PyClass pyClass)
+            {
+                // For user-defined classes: check instance
+                if (obj is PyClassInstance instance)
+                {
+                    foreach (var mroType in instance.InstanceType.MRO)
+                    {
+                        if (mroType == pyClass)
+                            return PyBool.True;
+                    }
+                }
+                // Check if obj itself is a type/class that is subclass of pyClass
+                else if (obj is PyType || obj is PyClass)
+                {
+                    // isinstance(int, type) should return True
+                    // Check if obj (which is a type) has classInfo in its MRO
+                    try
+                    {
+                        var objBases = obj.GetAttribute("__bases__");
+                        if (objBases is PyTuple objBasesTuple)
+                        {
+                            // obj is a type, check if classInfo is in its metaclass chain
+                            // For isinstance(int, type), we need to check if int is an instance of type
+                            // This means: type(int) should be type (or subclass of type)
+                            var objMetaclass = obj.GetPyType();
+                            if (objMetaclass == classInfo)
+                                return PyBool.True;
+
+                            // Check MRO of the metaclass
+                            if (objMetaclass is PyClass metaClass)
+                            {
+                                foreach (var mroType in metaClass.MRO)
+                                {
+                                    if (mroType == pyClass)
+                                        return PyBool.True;
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+                return PyBool.False;
+            }
+
+            return PyBool.False;
         }
 
         private static PyObject IsSubclass(PyObject[] args)

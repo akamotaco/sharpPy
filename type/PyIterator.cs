@@ -15,12 +15,10 @@ namespace SharpPy
 
         private static void InitializeIteratorDescriptors()
         {
-            if (PyType.IteratorType.Descriptors.Methods.Count > 0) return;
-
             var iterType = PyType.IteratorType;
 
             // __next__ method descriptor
-            iterType.Descriptors.AddMethod("__next__", new PyMethodDescriptor(
+            iterType.TypeDict["__next__"] = new PyMethodDescriptor(
                 "__next__", iterType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
@@ -30,10 +28,10 @@ namespace SharpPy
                     return iterator.Next();
                 },
                 minArgs: 0, maxArgs: 0
-            ));
+            );
 
             // __iter__ method descriptor
-            iterType.Descriptors.AddMethod("__iter__", new PyMethodDescriptor(
+            iterType.TypeDict["__iter__"] = new PyMethodDescriptor(
                 "__iter__", iterType,
                 (self, args, kwargs) => {
                     if (args.Length != 0)
@@ -43,7 +41,7 @@ namespace SharpPy
                     return iterator;
                 },
                 minArgs: 0, maxArgs: 0
-            ));
+            );
         }
 
         public override PyType GetPyType() => PyType.IteratorType;
