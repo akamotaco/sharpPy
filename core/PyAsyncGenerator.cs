@@ -10,6 +10,72 @@ namespace SharpPy.Core
     /// </summary>
     public class PyAsyncGenerator : PyObject
     {
+        static PyAsyncGenerator()
+        {
+            InitializeAsyncGeneratorDescriptors();
+        }
+
+        private static void InitializeAsyncGeneratorDescriptors()
+        {
+            if (PyType.AsyncGeneratorType.Descriptors.Methods.Count > 0) return;
+
+            var agType = PyType.AsyncGeneratorType;
+
+            // __anext__ method descriptor
+            agType.Descriptors.AddMethod("__anext__", new PyMethodDescriptor(
+                "__anext__", agType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create("__anext__() takes no arguments");
+                    if (self is not PyAsyncGenerator asyncGen)
+                        throw PyTypeError.Create($"descriptor '__anext__' requires an 'async_generator' object but received a '{self.GetTypeName()}'");
+                    return asyncGen.ANext();
+                },
+                minArgs: 0, maxArgs: 0
+            ));
+
+            // asend method descriptor
+            agType.Descriptors.AddMethod("asend", new PyMethodDescriptor(
+                "asend", agType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create("asend() takes exactly one argument");
+                    if (self is not PyAsyncGenerator asyncGen)
+                        throw PyTypeError.Create($"descriptor 'asend' requires an 'async_generator' object but received a '{self.GetTypeName()}'");
+                    return asyncGen.ASend(args[0]);
+                },
+                minArgs: 1, maxArgs: 1
+            ));
+
+            // athrow method descriptor
+            agType.Descriptors.AddMethod("athrow", new PyMethodDescriptor(
+                "athrow", agType,
+                (self, args, kwargs) => {
+                    if (args.Length < 1 || args.Length > 3)
+                        throw PyTypeError.Create("athrow() takes 1 to 3 arguments");
+                    if (self is not PyAsyncGenerator asyncGen)
+                        throw PyTypeError.Create($"descriptor 'athrow' requires an 'async_generator' object but received a '{self.GetTypeName()}'");
+                    var value = args.Length > 1 ? args[1] : null;
+                    var tb = args.Length > 2 ? args[2] : null;
+                    return asyncGen.AThrow(args[0], value, tb);
+                },
+                minArgs: 1, maxArgs: 3
+            ));
+
+            // aclose method descriptor
+            agType.Descriptors.AddMethod("aclose", new PyMethodDescriptor(
+                "aclose", agType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create("aclose() takes no arguments");
+                    if (self is not PyAsyncGenerator asyncGen)
+                        throw PyTypeError.Create($"descriptor 'aclose' requires an 'async_generator' object but received a '{self.GetTypeName()}'");
+                    return asyncGen.AClose();
+                },
+                minArgs: 0, maxArgs: 0
+            ));
+        }
+
         public override string GetTypeName() => "async_generator";
         public override PyType GetPyType() => PyType.AsyncGeneratorType;
         

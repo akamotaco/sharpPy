@@ -434,4 +434,40 @@ namespace SharpPy
 
         public override PyString ToRepr() => new PyString($"<empty_iterator object>");
     }
+
+    /// <summary>
+    /// enumerate 이터레이터 구현 - CPython 3.12 호환
+    /// </summary>
+    public class PyEnumerateIterator : PyIterator
+    {
+        private readonly PyIterator _iterator;
+        private long _index;
+
+        public PyEnumerateIterator(PyObject iterable, long start = 0)
+        {
+            if (iterable == null) throw new ArgumentNullException(nameof(iterable));
+            _iterator = iterable.GetIterator() as PyIterator
+                ?? throw PyTypeError.Create($"'{iterable.GetTypeName()}' object is not iterable");
+            _index = start;
+        }
+
+        public override PyObject Next()
+        {
+            var item = _iterator.Next();
+            var result = new PyTuple(new PyInt(_index), item);
+            _index++;
+            return result;
+        }
+
+        public override PyString ToRepr() => new PyString("<enumerate object>");
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _iterator?.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+    }
 }

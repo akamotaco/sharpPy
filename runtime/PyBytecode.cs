@@ -491,7 +491,9 @@ namespace SharpPy
                         break;
                     case ByteCodeOp.LOAD_ATTR:
                     case ByteCodeOp.STORE_ATTR:
-                        extra = $"({Names[inst.Argument]})";
+                        // CPython 3.12: LOAD_ATTR oparg encodes name_index in high bits, push_null in low bit
+                        int attrNameIndex = inst.Argument >> 1;
+                        extra = $"({Names[attrNameIndex]})";
                         break;
                 }
                 

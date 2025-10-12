@@ -427,26 +427,8 @@ namespace SharpPy
             var iterable = args[0];
             var start = args.Length > 1 ? ((PyInt)args[1]).Value : 0;
 
-            // 간단한 enumerate 구현 - PyList 반환
-            var result = new System.Collections.Generic.List<PyObject>();
-            var iterator = iterable.GetIterator();
-            var index = start;
-
-            try
-            {
-                while (true)
-                {
-                    var item = iterator.Next();
-                    result.Add(new PyTuple(new PyInt(index), item));
-                    index++;
-                }
-            }
-            catch (PythonException ex) when (ex.PyException is PyStopIteration)
-            {
-                // 정상 종료
-            }
-
-            return new PyList(result.ToArray());
+            // CPython 3.12 호환: enumerate iterator 객체 반환
+            return new PyEnumerateIterator(iterable, start);
         }
 
         private static PyObject CallZip(PyObject[] args, PyDict kwargs = null)

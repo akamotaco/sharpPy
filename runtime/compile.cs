@@ -2022,6 +2022,14 @@ namespace SharpPy
                     if (_loopStack.Count > 0)
                     {
                         var currentLoop = _loopStack.Peek();
+
+                        // CPython 3.12: For loops need to pop the iterator before breaking
+                        // because break jumps over END_FOR which normally pops the iterator
+                        if (currentLoop.ForIterInstruction >= 0)
+                        {
+                            EmitInstruction(ByteCodeOp.POP_TOP); // Pop the iterator from stack
+                        }
+
                         EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, currentLoop.BreakLabel);
                     }
                     else
@@ -2031,11 +2039,23 @@ namespace SharpPy
                     break;
                     
                 case ContinueStatement:
-                    // CPython 3.12: CONTINUE_LOOP removed, use JUMP_BACKWARD to loop start  
+                    // CPython 3.12: CONTINUE_LOOP removed, use JUMP_BACKWARD to loop start
                     if (_loopStack.Count > 0)
                     {
                         var currentLoop = _loopStack.Peek();
-                        EmitJumpToLabel(ByteCodeOp.JUMP_BACKWARD, currentLoop.ContinueLabel);
+                        // CPython 3.12 호환: For loop의 경우 FOR_ITER로 직접 점프
+                        if (currentLoop.ForIterInstruction >= 0)
+                        {
+                            // For loop: Jump back to FOR_ITER instruction
+                            int currentPos = _instructions.Count;
+                            int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, currentLoop.ForIterInstruction);
+                            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
+                        }
+                        else
+                        {
+                            // While loop: Use continue label
+                            EmitJumpToLabel(ByteCodeOp.JUMP_BACKWARD, currentLoop.ContinueLabel);
+                        }
                     }
                     else
                     {

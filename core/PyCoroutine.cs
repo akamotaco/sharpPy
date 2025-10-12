@@ -33,6 +33,58 @@ namespace SharpPy.Core
     /// </summary>
     public class PyCoroutine : PyObject
     {
+        static PyCoroutine()
+        {
+            InitializeCoroutineDescriptors();
+        }
+
+        private static void InitializeCoroutineDescriptors()
+        {
+            if (PyType.CoroutineType.Descriptors.Methods.Count > 0) return;
+
+            var corType = PyType.CoroutineType;
+
+            // send method descriptor
+            corType.Descriptors.AddMethod("send", new PyMethodDescriptor(
+                "send", corType,
+                (self, args, kwargs) => {
+                    if (args.Length > 1)
+                        throw PyTypeError.Create("send() takes at most 1 argument");
+                    if (self is not PyCoroutine coroutine)
+                        throw PyTypeError.Create($"descriptor 'send' requires a 'coroutine' object but received a '{self.GetTypeName()}'");
+                    return coroutine.Send(args.Length == 0 ? null : args[0]);
+                },
+                minArgs: 0, maxArgs: 1
+            ));
+
+            // close method descriptor
+            corType.Descriptors.AddMethod("close", new PyMethodDescriptor(
+                "close", corType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create("close() takes no arguments");
+                    if (self is not PyCoroutine coroutine)
+                        throw PyTypeError.Create($"descriptor 'close' requires a 'coroutine' object but received a '{self.GetTypeName()}'");
+                    coroutine.Close();
+                    return PyNone.Instance;
+                },
+                minArgs: 0, maxArgs: 0
+            ));
+
+            // __await__ method descriptor
+            corType.Descriptors.AddMethod("__await__", new PyMethodDescriptor(
+                "__await__", corType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create("__await__() takes no arguments");
+                    if (self is not PyCoroutine coroutine)
+                        throw PyTypeError.Create($"descriptor '__await__' requires a 'coroutine' object but received a '{self.GetTypeName()}'");
+                    return coroutine.GetAwaiter();
+                },
+                minArgs: 0, maxArgs: 0
+            ));
+        }
+
         public override string GetTypeName() => "coroutine";
         public override PyType GetPyType() => PyType.CoroutineType;
 
@@ -161,40 +213,9 @@ namespace SharpPy.Core
             _finished = true;
             _frame.State = PyFrame.FrameState.Completed;
         }
-        
-        /// <summary>
-        /// CPython compatibility: expose coroutine methods as Python attributes
-        /// </summary>
-        public override PyObject? GetAttribute(string name)
-        {
-            switch (name)
-            {
-                case "send":
-                    return new PyBuiltinMethod("send", (instance, args) => {
-                        if (args.Length == 0)
-                            return Send(null);
-                        else if (args.Length == 1)
-                            return Send(args[0]);
-                        else
-                            throw PyTypeError.Create("send() takes at most 1 argument");
-                    });
-                case "close":
-                    return new PyBuiltinMethod("close", (instance, args) => {
-                        if (args.Length != 0)
-                            throw PyTypeError.Create("close() takes no arguments");
-                        Close();
-                        return PyNone.Instance;
-                    });
-                case "__await__":
-                    return new PyBuiltinMethod("__await__", (instance, args) => {
-                        if (args.Length != 0)
-                            throw PyTypeError.Create("__await__() takes no arguments");
-                        return GetAwaiter();
-                    });
-                default:
-                    return base.GetAttribute(name);
-            }
-        }
+
+        // Note: GetAttribute is inherited from PyObject, which uses GenericGetAttribute
+        // All coroutine methods (send, close, __await__) are registered as descriptors in PyType.CoroutineType
 
         public override string ToString()
         {
