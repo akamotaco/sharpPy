@@ -10,6 +10,149 @@ namespace SharpPy
     /// </summary>
     public class PyString : PyObject
     {
+        static PyString()
+        {
+            InitializeStringDescriptors();
+        }
+
+        /// <summary>
+        /// Initialize str type descriptors - called from BuiltinsModule
+        /// CPython 호환: _PyType_Ready()와 유사하게 한 번만 초기화
+        /// </summary>
+        public static void InitializeStringDescriptors()
+        {
+            // CPython 호환: 이미 초기화되었으면 스킵 (타입 객체는 한 번만 초기화)
+            if (PyType.StrType.Descriptors.IsInitialized) return;
+
+            var strType = PyType.StrType;
+
+            // join method descriptor - types.py:48에서 필요
+            strType.Descriptors.AddMethod("join", new PyMethodDescriptor(
+                "join", strType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"join() takes exactly one argument ({args.Length} given)");
+                    if (self is not PyString str)
+                        throw PyTypeError.Create($"descriptor 'join' requires a 'str' object but received a '{self.GetTypeName()}'");
+
+                    // Use private Join method implementation
+                    var iterable = args[0];
+                    var items = new System.Collections.Generic.List<string>();
+
+                    if (iterable is PyList list)
+                    {
+                        foreach (var item in list.Items)
+                        {
+                            if (item is PyString itemStr)
+                                items.Add(itemStr.Value);
+                            else
+                                throw PyTypeError.Create($"sequence item: expected str instance, {item.GetTypeName()} found");
+                        }
+                    }
+                    else if (iterable is PyTuple tuple)
+                    {
+                        foreach (var item in tuple.Items)
+                        {
+                            if (item is PyString itemStr)
+                                items.Add(itemStr.Value);
+                            else
+                                throw PyTypeError.Create($"sequence item: expected str instance, {item.GetTypeName()} found");
+                        }
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create("can only join an iterable");
+                    }
+
+                    return new PyString(string.Join(str.Value, items));
+                },
+                minArgs: 1, maxArgs: 1
+            ));
+
+            // 기타 주요 메서드들도 등록
+            strType.Descriptors.AddMethod("upper", new PyMethodDescriptor(
+                "upper", strType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"upper() takes no arguments ({args.Length} given)");
+                    if (self is not PyString str)
+                        throw PyTypeError.Create($"descriptor 'upper' requires a 'str' object but received a '{self.GetTypeName()}'");
+                    return new PyString(str.Value.ToUpperInvariant());
+                },
+                minArgs: 0, maxArgs: 0
+            ));
+
+            strType.Descriptors.AddMethod("lower", new PyMethodDescriptor(
+                "lower", strType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"lower() takes no arguments ({args.Length} given)");
+                    if (self is not PyString str)
+                        throw PyTypeError.Create($"descriptor 'lower' requires a 'str' object but received a '{self.GetTypeName()}'");
+                    return new PyString(str.Value.ToLowerInvariant());
+                },
+                minArgs: 0, maxArgs: 0
+            ));
+
+            strType.Descriptors.AddMethod("split", new PyMethodDescriptor(
+                "split", strType,
+                (self, args, kwargs) => {
+                    if (args.Length > 2)
+                        throw PyTypeError.Create($"split() takes at most 2 arguments ({args.Length} given)");
+                    if (self is not PyString str)
+                        throw PyTypeError.Create($"descriptor 'split' requires a 'str' object but received a '{self.GetTypeName()}'");
+
+                    string sep = null;
+                    int maxsplit = -1;
+                    if (args.Length >= 1 && args[0] is PyString sepStr)
+                        sep = sepStr.Value;
+                    if (args.Length >= 2 && args[1] is PyInt maxsplitInt)
+                        maxsplit = (int)maxsplitInt.Value;
+
+                    return str.Split(sep, maxsplit);
+                },
+                minArgs: 0, maxArgs: 2
+            ));
+
+            strType.Descriptors.AddMethod("strip", new PyMethodDescriptor(
+                "strip", strType,
+                (self, args, kwargs) => {
+                    if (args.Length > 1)
+                        throw PyTypeError.Create($"strip() takes at most 1 argument ({args.Length} given)");
+                    if (self is not PyString str)
+                        throw PyTypeError.Create($"descriptor 'strip' requires a 'str' object but received a '{self.GetTypeName()}'");
+
+                    if (args.Length == 0)
+                        return new PyString(str.Value.Trim());
+
+                    var chars = args[0] is PyString charsStr ? charsStr.Value.ToCharArray() : throw PyTypeError.Create("strip arg must be None or str");
+                    return new PyString(str.Value.Trim(chars));
+                },
+                minArgs: 0, maxArgs: 1
+            ));
+
+            strType.Descriptors.AddMethod("replace", new PyMethodDescriptor(
+                "replace", strType,
+                (self, args, kwargs) => {
+                    if (args.Length < 2 || args.Length > 3)
+                        throw PyTypeError.Create($"replace() takes 2 or 3 arguments ({args.Length} given)");
+                    if (self is not PyString str)
+                        throw PyTypeError.Create($"descriptor 'replace' requires a 'str' object but received a '{self.GetTypeName()}'");
+
+                    var old = args[0] is PyString oldStr ? oldStr.Value : throw PyTypeError.Create("replace() old must be str");
+                    var newStr = args[1] is PyString newPyStr ? newPyStr.Value : throw PyTypeError.Create("replace() new must be str");
+
+                    return args.Length == 3
+                        ? str.Replace(old, newStr, (int)((PyInt)args[2]).Value)
+                        : str.Replace(old, newStr);
+                },
+                minArgs: 2, maxArgs: 3
+            ));
+
+            // CPython 호환: descriptor 초기화 완료 표시
+            strType.Descriptors.MarkInitialized();
+        }
+
         #region Core Properties
 
         public string Value { get; }

@@ -43,6 +43,7 @@ namespace SharpPy.Modules
             module.ModuleDict["True"] = PyBool.True;
             module.ModuleDict["False"] = PyBool.False;
             module.ModuleDict["NotImplemented"] = PyNotImplemented.Instance;
+            module.ModuleDict["Ellipsis"] = PyEllipsis.Instance;
 
             // Exception types (most important for enum module)
             module.ModuleDict["BaseException"] = PyType.BaseExceptionType;
