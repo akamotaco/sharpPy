@@ -447,6 +447,7 @@ namespace SharpPy.Generated
                 {
                     HandleString();
                 }
+                else if(HandleLiteral()){}
                 else
                 {
                     AddToken(TokenType.ERRORTOKEN, CurrentChar.ToString(), _line, _column);
@@ -901,49 +902,17 @@ namespace SharpPy.Generated
             _currentLineHasRealTokens = true; // Mark line as having real tokens
         }
 
-        private bool IsFStringStart()
+        private bool HandleLiteral()
         {
-            // Check for f"..." or f'...' or F"..." or F'...'
-            if ((CurrentChar == 'f' || CurrentChar == 'F') && _position + 1 < _source.Length)
-            {
-                char nextChar = _source[_position + 1];
-                if (nextChar == '\"' || nextChar == '\'')
-                {
-                    return true;
-                }
-                // Check for rf"..." or rf'...' or fr"..." or fr'...'
-                if ((nextChar == 'r' || nextChar == 'R') && _position + 2 < _source.Length)
-                {
-                    char thirdChar = _source[_position + 2];
-                    if (thirdChar == '\"' || thirdChar == '\'')
-                    {
-                        return true;
-                    }
-                }
-                // Check for triple-quoted f-strings: f""" or f'''
-                if (_position + 3 < _source.Length && nextChar == '\"' && _source[_position + 2] == '\"' && _source[_position + 3] == '\"')
-                {
-                    return true;
-                }
-                if (_position + 3 < _source.Length && nextChar == '\'' && _source[_position + 2] == '\'' && _source[_position + 3] == '\'')
-                {
-                    return true;
-                }
-            }
-            // Check for r"..." or r'...' or R"..." or R'...' that might be part of rf/fr
-            if ((CurrentChar == 'r' || CurrentChar == 'R') && _position + 1 < _source.Length)
-            {
-                char nextChar = _source[_position + 1];
-                if ((nextChar == 'f' || nextChar == 'F') && _position + 2 < _source.Length)
-                {
-                    char thirdChar = _source[_position + 2];
-                    if (thirdChar == '\"' || thirdChar == '\'')
-                    {
-                        return true;
-                    }
-                }
-            }
-            return false;
+            var index = GetLiteralIndex(_source, _position);
+            if (index == -1)
+                return false;
+
+            var lit = Literals[index];
+            AddToken(lit.type, lit.name, _line, _position);
+            _position += lit.name.Length;
+
+            return true;
         }
 
         // 일단 f-string 은 무시
