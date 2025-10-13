@@ -86,7 +86,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = GeneratedParserBridge.ParseSource(testCase);
+                    var result = GeneratedParserBridge.LexerSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공 ({result.Count} 노드)");
                 }
                 catch (Exception ex)
@@ -112,7 +112,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = GeneratedParserBridge.ParseSource(testCase);
+                    var result = GeneratedParserBridge.LexerSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -138,7 +138,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = GeneratedParserBridge.ParseSource(testCase);
+                    var result = GeneratedParserBridge.LexerSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -164,7 +164,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = GeneratedParserBridge.ParseSource(testCase);
+                    var result = GeneratedParserBridge.LexerSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -190,7 +190,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = GeneratedParserBridge.ParseSource(testCase);
+                    var result = GeneratedParserBridge.LexerSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -216,7 +216,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = GeneratedParserBridge.ParseSource(testCase);
+                    var result = GeneratedParserBridge.LexerSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -246,7 +246,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = GeneratedParserBridge.ParseSource(testCase);
+                    var result = GeneratedParserBridge.LexerSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -276,7 +276,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = GeneratedParserBridge.ParseSource(testCase);
+                    var result = GeneratedParserBridge.LexerSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -303,7 +303,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = GeneratedParserBridge.ParseSource(testCase);
+                    var result = GeneratedParserBridge.LexerSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -330,7 +330,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = GeneratedParserBridge.ParseSource(testCase);
+                    var result = GeneratedParserBridge.LexerSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -367,7 +367,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = GeneratedParserBridge.ParseSource(testCase);
+                    var result = GeneratedParserBridge.LexerSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -394,7 +394,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = GeneratedParserBridge.ParseSource(testCase);
+                    var result = GeneratedParserBridge.LexerSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -419,7 +419,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = GeneratedParserBridge.ParseSource(testCase);
+                    var result = GeneratedParserBridge.LexerSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -454,7 +454,7 @@ namespace SharpPy.Verification
             {
                 try
                 {
-                    var result = GeneratedParserBridge.ParseSource(testCase);
+                    var result = GeneratedParserBridge.LexerSource(testCase);
                     Console.WriteLine($"  ✓ {testCase} - 파싱 성공");
                 }
                 catch (Exception ex)
@@ -500,8 +500,9 @@ namespace SharpPy.Verification
         {
             try
             {
-                var result = GeneratedParserBridge.ParseSource(testCase);
-                var nodeTypes = string.Join(", ", result.ConvertAll(r => r.NodeType));
+                var tokens = GeneratedParserBridge.LexerSource(testCase);
+                var stmts = GeneratedParserBridge.ParseSource(tokens, testCase);
+                var nodeTypes = string.Join(", ", stmts.ConvertAll(r => r.NodeType));
                 Console.WriteLine($"  ✓ {testCase}");
                 Console.WriteLine($"    -> AST 노드: [{nodeTypes}]");
             }

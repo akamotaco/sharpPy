@@ -48,7 +48,8 @@ namespace SharpPy.Tools
 #if DEBUG
                 Console.WriteLine("[DEBUG] Calling GeneratedParserBridge.ParseSource...");
 #endif
-                var statements = GeneratedParserBridge.ParseSource(source, pythonFile);
+                var tokens = GeneratedParserBridge.LexerSource(source);
+                var statements = GeneratedParserBridge.ParseSource(tokens, source, pythonFile);
 #if DEBUG
                 Console.WriteLine($"[DEBUG] ParseSource returned {statements?.Count ?? 0} statements");
 #endif

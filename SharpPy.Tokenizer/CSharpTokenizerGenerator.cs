@@ -265,8 +265,6 @@ namespace SharpPy.Tokenizer
             WriteLine("public int Column { get; set; }");
             WriteLine("public int EndLine { get; set; }");
             WriteLine("public int EndColumn { get; set; }");
-            WriteLine("public int Start { get; set; }");
-            WriteLine("public int End { get; set; }");
             WriteLine();
             WriteLine("/// <summary>");
             WriteLine("/// CPython 3.12: Memoization cache for this token");
@@ -275,17 +273,15 @@ namespace SharpPy.Tokenizer
             WriteLine("public List<MemoEntry>? Memo { get; set; }");
             WriteLine();
 
-            WriteLine("public GeneratedTokenInfo(TokenType type, string value, int line, int column, int start = 0, int end = 0, int endLine = 0, int endColumn = 0)");
+            WriteLine("public GeneratedTokenInfo(TokenType type, string value, int line, int column, int endLine, int endColumn)");
             WriteLine("{");
             Indent();
             WriteLine("Type = type;");
             WriteLine("Value = value;");
             WriteLine("Line = line;");
             WriteLine("Column = column;");
-            WriteLine("EndLine = endLine == 0 ? line : endLine;");
-            WriteLine("EndColumn = endColumn == 0 ? column : endColumn;");
-            WriteLine("Start = start;");
-            WriteLine("End = end;");
+            WriteLine("EndLine = endLine;");
+            WriteLine("EndColumn = endColumn;");
             Dedent();
             WriteLine("}");
 
@@ -364,7 +360,6 @@ namespace SharpPy.Tokenizer
         private void GenerateTokenizerFields()
         {
             WriteLine("private readonly string _source;");
-            WriteLine("private readonly string _filename;");
             WriteLine("private int _position;");
             WriteLine("private int _line = 1;");
             WriteLine("private int _column = 0; // CPython uses 0-based column indexing");
@@ -424,11 +419,10 @@ namespace SharpPy.Tokenizer
 
         private void GenerateTokenizerConstructor()
         {
-            WriteLine("public PyTokenizer(string source, string filename = \"<string>\")");
+            WriteLine("public PyTokenizer(string source)");
             WriteLine("{");
             Indent();
             WriteLine("_source = source ?? throw new ArgumentNullException(nameof(source));");
-            WriteLine("_filename = filename;");
             WriteLine("_position = 0;");
             WriteLine("_indentStack.Push(0); // Initialize with base indentation level");
             Dedent();
@@ -570,7 +564,7 @@ namespace SharpPy.Tokenizer
             WriteLine("{");
             Indent();
             WriteLine("_indentStack.Pop();");
-            WriteLine("_pendingTokens.Enqueue(new GeneratedTokenInfo(TokenType.DEDENT, \"\", _line + 1, 0));");
+            WriteLine("_pendingTokens.Enqueue(new GeneratedTokenInfo(TokenType.DEDENT, \"\", _line + 1, 0, _line + 1, 1));");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -651,18 +645,10 @@ namespace SharpPy.Tokenizer
             WriteLine();
 
             // Add token method
-            WriteLine("private void AddToken(TokenType type, string value)");
-            WriteLine("{");
-            Indent();
-            WriteLine("_tokens.Add(new GeneratedTokenInfo(type, value, _line, _column));");
-            Dedent();
-            WriteLine("}");
-            WriteLine();
-
             WriteLine("private void AddToken(TokenType type, string value, int startLine, int startColumn)");
             WriteLine("{");
             Indent();
-            WriteLine("_tokens.Add(new GeneratedTokenInfo(type, value, startLine, startColumn));");
+            WriteLine("_tokens.Add(new GeneratedTokenInfo(type, value, startLine, startColumn, startLine, startColumn + value.Length));");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -1864,7 +1850,7 @@ namespace SharpPy.Tokenizer
             WriteLine("_indentStack.Pop();");
             WriteLine("// CPython 3.12: DEDENT position should point to current indentation level");
             WriteLine("// Use current position (start of current token) not previous position");
-            WriteLine("_pendingTokens.Enqueue(new GeneratedTokenInfo(TokenType.DEDENT, \"\", _line, indent));");
+            WriteLine("_pendingTokens.Enqueue(new GeneratedTokenInfo(TokenType.DEDENT, \"\", _line, indent, _line, indent + 1));");
             Dedent();
             WriteLine("}");
             WriteLine();

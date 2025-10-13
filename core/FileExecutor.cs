@@ -12,7 +12,7 @@ namespace SharpPy.Core
         /// Python 파일을 실행
         /// </summary>
         /// <param name="pythonFile">실행할 Python 파일 경로</param>
-        public void ExecuteFile(string pythonFile)
+        public void ExecuteFile(string pythonFile, bool showTokenize, bool showAst, bool showBytecode)
         {
             if (string.IsNullOrEmpty(pythonFile))
             {
@@ -40,7 +40,7 @@ namespace SharpPy.Core
                 
                 string code = File.ReadAllText(pythonFile);
                 var interpreter = new IntegratedPythonInterpreter();
-                interpreter.Execute(code, pythonFile);
+                interpreter.Execute(code, pythonFile, showTokenize, showAst, showBytecode);
             }
             catch (FileNotFoundException)
             {
@@ -85,7 +85,7 @@ namespace SharpPy.Core
             try
             {
                 var interpreter = new IntegratedPythonInterpreter();
-                interpreter.Execute(codeString, "<string>");
+                interpreter.Execute(codeString, "<string>", false, false, false);
             }
             catch (Exception ex)
             {

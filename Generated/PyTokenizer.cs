@@ -226,8 +226,6 @@ namespace SharpPy.Generated
         public int Column { get; set; }
         public int EndLine { get; set; }
         public int EndColumn { get; set; }
-        public int Start { get; set; }
-        public int End { get; set; }
 
         /// <summary>
         /// CPython 3.12: Memoization cache for this token
@@ -235,16 +233,14 @@ namespace SharpPy.Generated
         /// </summary>
         public List<MemoEntry>? Memo { get; set; }
 
-        public GeneratedTokenInfo(TokenType type, string value, int line, int column, int start = 0, int end = 0, int endLine = 0, int endColumn = 0)
+        public GeneratedTokenInfo(TokenType type, string value, int line, int column, int endLine, int endColumn)
         {
             Type = type;
             Value = value;
             Line = line;
             Column = column;
-            EndLine = endLine == 0 ? line : endLine;
-            EndColumn = endColumn == 0 ? column : endColumn;
-            Start = start;
-            End = end;
+            EndLine = endLine;
+            EndColumn = endColumn;
         }
     }
 
@@ -293,7 +289,6 @@ namespace SharpPy.Generated
     public class PyTokenizer
     {
         private readonly string _source;
-        private readonly string _filename;
         private int _position;
         private int _line = 1;
         private int _column = 0; // CPython uses 0-based column indexing
@@ -379,10 +374,9 @@ namespace SharpPy.Generated
             return index;
         }
 
-        public PyTokenizer(string source, string filename = "<string>")
+        public PyTokenizer(string source)
         {
             _source = source ?? throw new ArgumentNullException(nameof(source));
-            _filename = filename;
             _position = 0;
             _indentStack.Push(0); // Initialize with base indentation level
         }
@@ -478,7 +472,7 @@ namespace SharpPy.Generated
             while (_indentStack.Count > 1)
             {
                 _indentStack.Pop();
-                _pendingTokens.Enqueue(new GeneratedTokenInfo(TokenType.DEDENT, "", _line + 1, 0));
+                _pendingTokens.Enqueue(new GeneratedTokenInfo(TokenType.DEDENT, "", _line + 1, 0, _line + 1, 1));
             }
 
             // Process any pending tokens at EOF
@@ -533,14 +527,9 @@ namespace SharpPy.Generated
             }
         }
 
-        private void AddToken(TokenType type, string value)
-        {
-            _tokens.Add(new GeneratedTokenInfo(type, value, _line, _column));
-        }
-
         private void AddToken(TokenType type, string value, int startLine, int startColumn)
         {
-            _tokens.Add(new GeneratedTokenInfo(type, value, startLine, startColumn));
+            _tokens.Add(new GeneratedTokenInfo(type, value, startLine, startColumn, startLine, startColumn + value.Length));
         }
 
         private void HandleWhitespace()
@@ -1019,7 +1008,7 @@ namespace SharpPy.Generated
                     _indentStack.Pop();
                     // CPython 3.12: DEDENT position should point to current indentation level
                     // Use current position (start of current token) not previous position
-                    _pendingTokens.Enqueue(new GeneratedTokenInfo(TokenType.DEDENT, "", _line, indent));
+                    _pendingTokens.Enqueue(new GeneratedTokenInfo(TokenType.DEDENT, "", _line, indent, _line, indent + 1));
                 }
 
                 // Check for indentation error

@@ -17,7 +17,7 @@ namespace SharpPy
         /// <summary>
         /// Main parsing entry point - uses auto-generated CPython 3.12 compatible tokenizer and parser
         /// </summary>
-        public static List<Statement> ParseSource(string source, string filename = "<string>")
+        public static List<GeneratedTokenInfo> LexerSource(string source)
         {
 #if DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] GeneratedParserBridge.ParseSource START for {filename}");
@@ -28,7 +28,7 @@ namespace SharpPy
             Console.WriteLine("[DEBUG] Creating tokenizer...");
 #endif
             // Use generated tokenizer
-            var tokenizer = new PyTokenizer(source, filename);
+            var tokenizer = new PyTokenizer(source);
 #if DEBUG_AST_LOG
             Console.WriteLine("[DEBUG] Calling tokenizer.Tokenize()...");
 #endif
@@ -36,6 +36,11 @@ namespace SharpPy
 #if DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] Tokenize returned {generatedTokens.Count} tokens");
 #endif
+            return generatedTokens;
+        }
+        
+        public static List<Statement> ParseSource(List<GeneratedTokenInfo> generatedTokens, string source, string filename = "<string>")
+        {
 
 #if DEBUG_AST_LOG
             Console.WriteLine("[DEBUG] Creating parser...");

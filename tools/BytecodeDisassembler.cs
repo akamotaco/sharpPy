@@ -36,10 +36,11 @@ namespace SharpPy.Tools
             {
                 // 컴파일러에서 직접 바이트코드 출력 (PyDisModule 우회)
                 Console.WriteLine($"Disassembly of {pythonFile}:");
-                
+
                 string code = File.ReadAllText(pythonFile);
                 // Use GeneratedParserBridge to get CPython 3.12 compatible PEG parser support
-                var ast = GeneratedParserBridge.ParseSource(code, pythonFile);
+                var tokens = GeneratedParserBridge.LexerSource(code);
+                var ast = GeneratedParserBridge.ParseSource(tokens, code, pythonFile);
                 
                 var compiler = new PythonCompiler();
                 var codeObject = compiler.Compile(ast, "<module>", new List<string>(), pythonFile);

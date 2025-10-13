@@ -20,7 +20,7 @@ namespace SharpPy.PegGenerator
                 var tokensPath = Path.Combine("..", "Grammar", "Tokens");
                 var asdlPath = Path.Combine("..", "Grammar", "Python.asdl");
                 var parserOutputPath = Path.Combine("..", "Generated", "PyParser.cs");
-                var astTypesOutputPath = Path.Combine("..", "Generated", "GeneratedAstTypes.cs");
+                var astTypesOutputPath = Path.Combine("..", "Generated", "PyAstTypes.cs");
                 var parserBaseOutputPath = Path.Combine("..", "Generated", "PyParserBase.cs");
 
                 // Parse command line arguments

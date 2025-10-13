@@ -139,7 +139,9 @@ public class PyModule : PyObject
         try
         {
             // 1단계: 파싱 (소스 → AST)
-            var statements = GeneratedParserBridge.ParseSource(sourceCode, FileName);
+            var tokens = GeneratedParserBridge.LexerSource(sourceCode);
+            
+            var statements = GeneratedParserBridge.ParseSource(tokens, sourceCode, FileName);
 
             // 2단계: 컴파일 (AST → 바이트코드)
             // CPython 3.12 호환: 모듈 코드 객체 이름은 항상 "<module>"

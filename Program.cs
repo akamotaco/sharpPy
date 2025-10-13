@@ -21,43 +21,50 @@ namespace SharpPy
                 // CPython 3.12 compatible PEG parser is always enabled
                 // No need for configuration - it's the default and only parser
 
+                bool showTokenize = false;
+                bool showAst = false;
+                bool showBytecode = false;
+
                 // 각 모드로 위임
                 if (parsedArgs.ContainsKey("--dis"))
                 {
-                    new BytecodeDisassembler().RunDirectDisassembly(pythonFile);
+                    // new BytecodeDisassembler().RunDirectDisassembly(pythonFile);
+                    showBytecode = true;
                 }
                 else if (parsedArgs.ContainsKey("--ast"))
                 {
-                    new ASTDumper().DumpAST(pythonFile);
+                    showAst = true;
                 }
                 else if (parsedArgs.ContainsKey("--tokens"))
                 {
-                    new TokenDebugger().OutputTokens(pythonFile);
+                    // new TokenDebugger().OutputTokens(pythonFile);
+                    showTokenize = true;
                 }
-                else if (parsedArgs.ContainsKey("--compare-parsers"))
+                // else if (parsedArgs.ContainsKey("--compare-parsers"))
+                // {
+                //     RunParserComparison(pythonFile);
+                // }
+
+                if (parsedArgs.ContainsKey("help"))
                 {
-                    RunParserComparison(pythonFile);
+                    new HelpDisplay().ShowHelp();
                 }
+                // else if (parsedArgs.ContainsKey("-m"))
+                // {
+                //     SharpPyConfig.ShowBytecode = parsedArgs["-m"] == "dis";
+                //     new ModuleRunner().RunModule(args);
+                // }
+                // else if (parsedArgs.ContainsKey("command"))
+                // {
+                //     HandleSpecialCommands(parsedArgs["command"]);
+                // }
                 else if (parsedArgs.ContainsKey("-c"))
                 {
-                    new FileExecutor().ExecuteCodeString(parsedArgs["-c"]);
-                }
-                else if (parsedArgs.ContainsKey("-m"))
-                {
-                    SharpPyConfig.ShowBytecode = parsedArgs["-m"] == "dis";
-                    new ModuleRunner().RunModule(args);
+                    // new FileExecutor().ExecuteCodeString(parsedArgs["-c"], showTokenize, showAst, showBytecode);
                 }
                 else if (!string.IsNullOrEmpty(pythonFile))
                 {
-                    new FileExecutor().ExecuteFile(pythonFile);
-                }
-                else if (parsedArgs.ContainsKey("command"))
-                {
-                    HandleSpecialCommands(parsedArgs["command"]);
-                }
-                else if (parsedArgs.ContainsKey("help"))
-                {
-                    new HelpDisplay().ShowHelp();
+                    new FileExecutor().ExecuteFile(pythonFile, showTokenize, showAst, showBytecode);
                 }
                 else
                 {
@@ -111,7 +118,8 @@ namespace SharpPy
 
                 try
                 {
-                    var statements = GeneratedParserBridge.ParseSource(System.IO.File.ReadAllText(pythonFile), pythonFile);
+                    var tokens = GeneratedParserBridge.LexerSource(System.IO.File.ReadAllText(pythonFile));
+                    var statements = GeneratedParserBridge.ParseSource(tokens, System.IO.File.ReadAllText(pythonFile), pythonFile);
                     Console.WriteLine($"✅ Successfully parsed {statements.Count} statements");
                     Console.WriteLine("🎉 CPython 3.12 compatibility verified!");
                 }

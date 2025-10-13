@@ -41,10 +41,10 @@ namespace SharpPy
         // 전체 실행 파이프라인 (기존 시스템과 완전 통합)
         public PyObject Execute(string sourceCode)
         {
-            return Execute(sourceCode, null);
+            return Execute(sourceCode, null, false, false, false);
         }
         
-        public PyObject Execute(string sourceCode, string fileName)
+        public PyObject Execute(string sourceCode, string fileName, bool showTokenize, bool showAst, bool showBytecode)
         {
             // Store filename and source lines for Python-like error reporting
             _currentFileName = fileName;
@@ -71,7 +71,18 @@ namespace SharpPy
                 Console.WriteLine("1️⃣ 파싱: 소스 → AST");
                 Console.WriteLine(new string('=', 30));
 #endif
-                var statements = GeneratedParserBridge.ParseSource(sourceCode, fileName ?? "<string>");
+                var tokens = GeneratedParserBridge.LexerSource(sourceCode);
+
+                if(showTokenize)
+                {
+                    for(int i=0;i<tokens.Count;++i)
+                    {
+                        var t = tokens[i];
+                        Console.WriteLine($"{i}:(lines: {t.Line}-{t.EndLine}/ cols: {t.Column}-{t.EndColumn})\t{t.Value}\t[{t.Type}]");
+                    }
+                }
+
+                var statements = GeneratedParserBridge.ParseSource(tokens, sourceCode, fileName ?? "<string>");
                 
                 // 2단계: 컴파일 (AST → 바이트코드)
 #if DEBUG_LOG
