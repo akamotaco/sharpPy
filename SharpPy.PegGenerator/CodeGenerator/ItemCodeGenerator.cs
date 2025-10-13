@@ -126,13 +126,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
                             enumName = "KW_" + enumName; // Avoid conflict with C# keywords
                         }
                         _parent.WriteLine($"// Expect hard keyword: '{escaped}' (token type {keywordTokenType})");
-                        _parent.WriteLine($"var {_varName} = ExpectToken((GeneratedTokenType)KeywordType.{enumName});");
+                        _parent.WriteLine($"var {_varName} = ExpectToken((TokenType)KeywordType.{enumName});");
                     }
                     else
                     {
                         // Not a keyword - treat as operator
                         _parent.WriteLine($"// Expect '{escaped}'");
-                        _parent.WriteLine($"var {_varName} = Expect(GeneratedTokenType.OP, \"{escaped}\");");
+                        _parent.WriteLine($"var {_varName} = Expect(TokenType.OP, \"{escaped}\");");
                     }
                 }
                 else // lit.QuoteChar == '"'
@@ -158,7 +158,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     _parent.WriteLine("#endif");
                 }
 
-                _parent.WriteLine($"var {_varName} = Expect(GeneratedTokenType.OP, \"{escaped}\");");
+                _parent.WriteLine($"var {_varName} = Expect(TokenType.OP, \"{escaped}\");");
 
                 // Debug log after Expect
                 if (lit.Value == "!")
@@ -204,7 +204,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 if (needsConversion)
                 {
                     // Store token temporarily, then convert to AST
-                    _parent.WriteLine($"var _token_{_varName} = ExpectToken(GeneratedTokenType.{tokenName});");
+                    _parent.WriteLine($"var _token_{_varName} = ExpectToken(TokenType.{tokenName});");
 
                     // CPython 3.12: Only add null check if NOT inside a repeater, loop rule, or optional
                     if (!_insideRepeater && !_insideLoopRule && !_insideOptional)
@@ -230,7 +230,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 else
                 {
                     // Other tokens - no conversion needed
-                    _parent.WriteLine($"var {_varName} = ExpectToken(GeneratedTokenType.{tokenName});");
+                    _parent.WriteLine($"var {_varName} = ExpectToken(TokenType.{tokenName});");
 
                     // CPython 3.12: Only add null check if NOT inside a repeater, loop rule, or optional
                     if (!_insideRepeater && !_insideLoopRule && !_insideOptional)
@@ -952,7 +952,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     var isToken = char.IsUpper(ruleRef.Name[0]);
                     if (isToken)
                     {
-                        return $"({varName} = ExpectToken(GeneratedTokenType.{ruleRef.Name.ToUpper()})) != null";
+                        return $"({varName} = ExpectToken(TokenType.{ruleRef.Name.ToUpper()})) != null";
                     }
                     else
                     {
@@ -1161,7 +1161,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     var isToken = char.IsUpper(ruleRef.Name[0]);
                     if (isToken)
                     {
-                        _parent.WriteLine($"GeneratedTokenInfo? {varName} = ExpectToken(GeneratedTokenType.{ruleRef.Name.ToUpper()});");
+                        _parent.WriteLine($"GeneratedTokenInfo? {varName} = ExpectToken(TokenType.{ruleRef.Name.ToUpper()});");
                     }
                     else
                     {
@@ -1275,7 +1275,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                                     bool isTokenSeq = char.IsUpper(rref.Name[0]);
                                     if (isTokenSeq)
                                     {
-                                        _parent.WriteLine($"var {checkVar} = ExpectToken(GeneratedTokenType.{rref.Name});");
+                                        _parent.WriteLine($"var {checkVar} = ExpectToken(TokenType.{rref.Name});");
                                     }
                                     else
                                     {
@@ -1286,7 +1286,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
                                 case StringLiteral slit:
                                     var escaped = _parent.EscapeString(slit.Value);
-                                    _parent.WriteLine($"var {checkVar} = Expect(GeneratedTokenType.OP, \"{escaped}\");");
+                                    _parent.WriteLine($"var {checkVar} = Expect(TokenType.OP, \"{escaped}\");");
                                     break;
 
                                 default:
@@ -1333,7 +1333,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                         // Token - use ExpectToken without consuming (save/restore position)
                         _parent.WriteLine($"// Negative lookahead: !{rref.Name}");
                         _parent.WriteLine($"int _nla_mark = _position;");
-                        _parent.WriteLine($"{testVar} = ExpectToken(GeneratedTokenType.{rref.Name});");
+                        _parent.WriteLine($"{testVar} = ExpectToken(TokenType.{rref.Name});");
                         _parent.WriteLine($"_position = _nla_mark;  // Restore position after lookahead");
                     }
                     else
@@ -1383,7 +1383,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     if (isToken)
                     {
                         // Token - check using ExpectToken
-                        _parent.WriteLine($"if (ExpectToken(GeneratedTokenType.{ruleRef.Name}) != null) {{ {testVar} = true; }}");
+                        _parent.WriteLine($"if (ExpectToken(TokenType.{ruleRef.Name}) != null) {{ {testVar} = true; }}");
                     }
                     else
                     {
@@ -1491,7 +1491,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 // CPython: _PyPegen_expect_forced_token(p, type, "expected")
                 var escaped = _parent.EscapeString(slit.Value);
                 _parent.WriteLine($"// Forced token: &&'{escaped}'");
-                _parent.WriteLine($"var {_varName} = ExpectForcedToken(GeneratedTokenType.OP, \"{escaped}\");");
+                _parent.WriteLine($"var {_varName} = ExpectForcedToken(TokenType.OP, \"{escaped}\");");
                 _parent.WriteLine($"if ({_varName} == null)");
                 _parent.WriteLine("{");
                 _parent.Indent();
@@ -2017,7 +2017,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     if (isToken)
                     {
                         // Token: Use ExpectToken
-                        return $"ExpectToken(GeneratedTokenType.{ruleRef.Name})";
+                        return $"ExpectToken(TokenType.{ruleRef.Name})";
                     }
                     else
                     {

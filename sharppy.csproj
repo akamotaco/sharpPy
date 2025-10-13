@@ -42,10 +42,8 @@
 
   <!-- Exclude build tools Program.cs and obj folders to avoid duplicate attributes -->
   <ItemGroup>
-    <Compile Remove="SharpPy.Tokenizer\Program.cs" />
-    <Compile Remove="SharpPy.PegGenerator\Program.cs" />
-    <Compile Remove="SharpPy.Tokenizer\obj\**" />
-    <Compile Remove="SharpPy.PegGenerator\obj\**" />
+    <Compile Remove="SharpPy.Tokenizer\**" />
+    <Compile Remove="SharpPy.PegGenerator\**" />
   </ItemGroup>
 
   <!-- Tokenizer and PegGenerator are build-time tools only, not runtime dependencies -->

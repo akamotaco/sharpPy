@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-
 namespace SharpPy.Generated
 {
     /// <summary>
@@ -116,7 +115,7 @@ namespace SharpPy.Generated
     /// CPython 3.12 compatible token types
     /// Explicit values to match CPython token indices
     /// </summary>
-    public enum GeneratedTokenType
+    public enum TokenType
     {
         ENDMARKER = 0,
         NAME = 1,
@@ -208,7 +207,7 @@ namespace SharpPy.Generated
     /// </summary>
     public interface ITokenInfo
     {
-        GeneratedTokenType Type { get; }
+        TokenType Type { get; }
         string Value { get; }
         int Line { get; }
         int Column { get; }
@@ -221,7 +220,7 @@ namespace SharpPy.Generated
     /// </summary>
     public class GeneratedTokenInfo : GeneratedPtr, ITokenInfo
     {
-        public GeneratedTokenType Type { get; set; }
+        public TokenType Type { get; set; }
         public string Value { get; set; } = "";
         public int Line { get; set; }
         public int Column { get; set; }
@@ -236,7 +235,7 @@ namespace SharpPy.Generated
         /// </summary>
         public List<MemoEntry>? Memo { get; set; }
 
-        public GeneratedTokenInfo(GeneratedTokenType type, string value, int line, int column, int start = 0, int end = 0, int endLine = 0, int endColumn = 0)
+        public GeneratedTokenInfo(TokenType type, string value, int line, int column, int start = 0, int end = 0, int endLine = 0, int endColumn = 0)
         {
             Type = type;
             Value = value;
@@ -291,7 +290,7 @@ namespace SharpPy.Generated
     /// <summary>
     /// Generated tokenizer for Python 3.12 grammar
     /// </summary>
-    public class GeneratedPyTokenizer
+    public class PyTokenizer
     {
         private readonly string _source;
         private readonly string _filename;
@@ -316,99 +315,71 @@ namespace SharpPy.Generated
         // Rule: colon-followed-by-newline always generates NEWLINE token (not NL)
         private bool _lastTokenWasColon = false;
 
-        private static readonly Dictionary<string, GeneratedTokenType> Keywords = new()
+        private static readonly List<(string name, TokenType type)> Literals = new()
         {
-            { "False", GeneratedTokenType.NAME }, // False
-            { "None", GeneratedTokenType.NAME }, // None
-            { "True", GeneratedTokenType.NAME }, // True
-            { "__peg_parser__", GeneratedTokenType.NAME }, // __peg_parser__
-            { "and", GeneratedTokenType.NAME }, // and
-            { "as", GeneratedTokenType.NAME }, // as
-            { "assert", GeneratedTokenType.NAME }, // assert
-            { "async", GeneratedTokenType.ASYNC }, // async
-            { "await", GeneratedTokenType.AWAIT }, // await
-            { "break", GeneratedTokenType.NAME }, // break
-            { "class", GeneratedTokenType.NAME }, // class
-            { "continue", GeneratedTokenType.NAME }, // continue
-            { "def", GeneratedTokenType.NAME }, // def
-            { "del", GeneratedTokenType.NAME }, // del
-            { "elif", GeneratedTokenType.NAME }, // elif
-            { "else", GeneratedTokenType.NAME }, // else
-            { "except", GeneratedTokenType.NAME }, // except
-            { "finally", GeneratedTokenType.NAME }, // finally
-            { "for", GeneratedTokenType.NAME }, // for
-            { "from", GeneratedTokenType.NAME }, // from
-            { "global", GeneratedTokenType.NAME }, // global
-            { "if", GeneratedTokenType.NAME }, // if
-            { "import", GeneratedTokenType.NAME }, // import
-            { "in", GeneratedTokenType.NAME }, // in
-            { "is", GeneratedTokenType.NAME }, // is
-            { "lambda", GeneratedTokenType.NAME }, // lambda
-            { "nonlocal", GeneratedTokenType.NAME }, // nonlocal
-            { "not", GeneratedTokenType.NAME }, // not
-            { "or", GeneratedTokenType.NAME }, // or
-            { "pass", GeneratedTokenType.NAME }, // pass
-            { "raise", GeneratedTokenType.NAME }, // raise
-            { "return", GeneratedTokenType.NAME }, // return
-            { "try", GeneratedTokenType.NAME }, // try
-            { "while", GeneratedTokenType.NAME }, // while
-            { "with", GeneratedTokenType.NAME }, // with
-            { "yield", GeneratedTokenType.NAME }, // yield
+            ( "(", TokenType.LPAR ),
+            ( ")", TokenType.RPAR ),
+            ( "[", TokenType.LSQB ),
+            ( "]", TokenType.RSQB ),
+            ( ":", TokenType.COLON ),
+            ( ",", TokenType.COMMA ),
+            ( ";", TokenType.SEMI ),
+            ( "+", TokenType.PLUS ),
+            ( "-", TokenType.MINUS ),
+            ( "*", TokenType.STAR ),
+            ( "/", TokenType.SLASH ),
+            ( "|", TokenType.VBAR ),
+            ( "&", TokenType.AMPER ),
+            ( "<", TokenType.LESS ),
+            ( ">", TokenType.GREATER ),
+            ( "=", TokenType.EQUAL ),
+            ( ".", TokenType.DOT ),
+            ( "%", TokenType.PERCENT ),
+            ( "{", TokenType.LBRACE ),
+            ( "}", TokenType.RBRACE ),
+            ( "==", TokenType.EQEQUAL ),
+            ( "!=", TokenType.NOTEQUAL ),
+            ( "<=", TokenType.LESSEQUAL ),
+            ( ">=", TokenType.GREATEREQUAL ),
+            ( "~", TokenType.TILDE ),
+            ( "^", TokenType.CIRCUMFLEX ),
+            ( "<<", TokenType.LEFTSHIFT ),
+            ( ">>", TokenType.RIGHTSHIFT ),
+            ( "**", TokenType.DOUBLESTAR ),
+            ( "+=", TokenType.PLUSEQUAL ),
+            ( "-=", TokenType.MINEQUAL ),
+            ( "*=", TokenType.STAREQUAL ),
+            ( "/=", TokenType.SLASHEQUAL ),
+            ( "%=", TokenType.PERCENTEQUAL ),
+            ( "&=", TokenType.AMPEREQUAL ),
+            ( "|=", TokenType.VBAREQUAL ),
+            ( "^=", TokenType.CIRCUMFLEXEQUAL ),
+            ( "<<=", TokenType.LEFTSHIFTEQUAL ),
+            ( ">>=", TokenType.RIGHTSHIFTEQUAL ),
+            ( "**=", TokenType.DOUBLESTAREQUAL ),
+            ( "//", TokenType.DOUBLESLASH ),
+            ( "//=", TokenType.DOUBLESLASHEQUAL ),
+            ( "@", TokenType.AT ),
+            ( "@=", TokenType.ATEQUAL ),
+            ( "->", TokenType.RARROW ),
+            ( "...", TokenType.ELLIPSIS ),
+            ( ":=", TokenType.COLONEQUAL ),
+            ( "!", TokenType.EXCLAMATION ),
         };
 
-        private static readonly Dictionary<string, GeneratedTokenType> Operators = new()
+        public int GetLiteralIndex(string srcString, int srcPosition)
         {
-            { "<<=", GeneratedTokenType.OP },
-            { ">>=", GeneratedTokenType.OP },
-            { "**=", GeneratedTokenType.OP },
-            { "//=", GeneratedTokenType.OP },
-            { "...", GeneratedTokenType.OP },
-            { "==", GeneratedTokenType.OP },
-            { "!=", GeneratedTokenType.OP },
-            { "<=", GeneratedTokenType.OP },
-            { ">=", GeneratedTokenType.OP },
-            { "<<", GeneratedTokenType.OP },
-            { ">>", GeneratedTokenType.OP },
-            { "**", GeneratedTokenType.OP },
-            { "+=", GeneratedTokenType.OP },
-            { "-=", GeneratedTokenType.OP },
-            { "*=", GeneratedTokenType.OP },
-            { "/=", GeneratedTokenType.OP },
-            { "%=", GeneratedTokenType.OP },
-            { "&=", GeneratedTokenType.OP },
-            { "|=", GeneratedTokenType.OP },
-            { "^=", GeneratedTokenType.OP },
-            { "//", GeneratedTokenType.OP },
-            { "@=", GeneratedTokenType.OP },
-            { "->", GeneratedTokenType.OP },
-            { ":=", GeneratedTokenType.OP },
-            { "(", GeneratedTokenType.OP },
-            { ")", GeneratedTokenType.OP },
-            { "[", GeneratedTokenType.OP },
-            { "]", GeneratedTokenType.OP },
-            { ":", GeneratedTokenType.OP },
-            { ",", GeneratedTokenType.OP },
-            { ";", GeneratedTokenType.OP },
-            { "+", GeneratedTokenType.OP },
-            { "-", GeneratedTokenType.OP },
-            { "*", GeneratedTokenType.OP },
-            { "/", GeneratedTokenType.OP },
-            { "|", GeneratedTokenType.OP },
-            { "&", GeneratedTokenType.OP },
-            { "<", GeneratedTokenType.OP },
-            { ">", GeneratedTokenType.OP },
-            { "=", GeneratedTokenType.OP },
-            { ".", GeneratedTokenType.OP },
-            { "%", GeneratedTokenType.OP },
-            { "{", GeneratedTokenType.OP },
-            { "}", GeneratedTokenType.OP },
-            { "~", GeneratedTokenType.OP },
-            { "^", GeneratedTokenType.OP },
-            { "@", GeneratedTokenType.OP },
-            { "!", GeneratedTokenType.OP },
-        };
+            int index = -1;
+            for(int i=0;i<Literals.Count;++i)
+            {
+                var lit = Literals[i];
+                if (string.Compare(srcString, srcPosition, lit.name, 0, lit.name.Length) == 0)
+                    index = i;
+            }
+            return index;
+        }
 
-        public GeneratedPyTokenizer(string source, string filename = "<string>")
+        public PyTokenizer(string source, string filename = "<string>")
         {
             _source = source ?? throw new ArgumentNullException(nameof(source));
             _filename = filename;
@@ -434,7 +405,7 @@ namespace SharpPy.Generated
             #endif
 
             // Skip ENCODING token for compatibility with CPython generate_tokens()
-            // AddToken(GeneratedTokenType.ENCODING, "utf-8", 0, 0);
+            // AddToken(TokenType.ENCODING, "utf-8", 0, 0);
 
             #if DEBUG_TOKEN_LOG
             Console.WriteLine("[DEBUG] Starting main tokenization loop");
@@ -470,13 +441,9 @@ namespace SharpPy.Generated
                 {
                     HandleComment();
                 }
-                else if (IsFStringStart())
-                {
-                    HandleFString();
-                }
                 else if (char.IsLetter(CurrentChar) || CurrentChar == '_')
                 {
-                    HandleNameOrKeyword();
+                    HandleName();
                 }
                 else if (char.IsDigit(CurrentChar))
                 {
@@ -488,12 +455,9 @@ namespace SharpPy.Generated
                 }
                 else
                 {
-                    if (!HandleOperator())
-                    {
-                        AddToken(GeneratedTokenType.ERRORTOKEN, CurrentChar.ToString(), _line, _column);
-                        _currentLineHasRealTokens = true; // Mark line as having real tokens
-                        Advance();
-                    }
+                    AddToken(TokenType.ERRORTOKEN, CurrentChar.ToString(), _line, _column);
+                    _currentLineHasRealTokens = true; // Mark line as having real tokens
+                    Advance();
                 }
 
                 // CRITICAL: Infinite loop protection
@@ -507,21 +471,21 @@ namespace SharpPy.Generated
             // Add final NEWLINE if file doesn't end with newline (BEFORE DEDENT for CPython compatibility)
             if (_position > 0 && _source[_position - 1] != '\n' && _source[_position - 1] != '\r')
             {
-                AddToken(GeneratedTokenType.NEWLINE, "\n", _line, _column);
+                AddToken(TokenType.NEWLINE, "\n", _line, _column);
             }
 
             // Generate remaining DEDENT tokens at EOF
             while (_indentStack.Count > 1)
             {
                 _indentStack.Pop();
-                _pendingTokens.Enqueue(new GeneratedTokenInfo(GeneratedTokenType.DEDENT, "", _line + 1, 0));
+                _pendingTokens.Enqueue(new GeneratedTokenInfo(TokenType.DEDENT, "", _line + 1, 0));
             }
 
             // Process any pending tokens at EOF
             ProcessPendingTokens();
 
             // Add ENDMARKER for compatibility with CPython generate_tokens()
-            AddToken(GeneratedTokenType.ENDMARKER, "", _line, _column);
+            AddToken(TokenType.ENDMARKER, "", _line, _column);
             return _tokens;
         }
 
@@ -569,12 +533,12 @@ namespace SharpPy.Generated
             }
         }
 
-        private void AddToken(GeneratedTokenType type, string value)
+        private void AddToken(TokenType type, string value)
         {
             _tokens.Add(new GeneratedTokenInfo(type, value, _line, _column));
         }
 
-        private void AddToken(GeneratedTokenType type, string value, int startLine, int startColumn)
+        private void AddToken(TokenType type, string value, int startLine, int startColumn)
         {
             _tokens.Add(new GeneratedTokenInfo(type, value, startLine, startColumn));
         }
@@ -611,7 +575,7 @@ namespace SharpPy.Generated
                         // CPython 3.12: Inside parentheses always NL, even after colon
                         if (IsInsideParentheses)
                         {
-                            AddToken(GeneratedTokenType.NL, newlineValue, _line, newlineColumn);
+                            AddToken(TokenType.NL, newlineValue, _line, newlineColumn);
                             // Process pending DEDENT tokens after NL
                             ProcessPendingTokens();
                             _lastTokenWasColon = false; // Reset after processing
@@ -622,7 +586,7 @@ namespace SharpPy.Generated
                             #if DEBUG_TOKEN_LOG
                             Console.WriteLine($"[DEBUG] Generating NEWLINE token after colon (standalone \r): value='{newlineValue}', line={_line}, col={newlineColumn}");
                             #endif
-                            AddToken(GeneratedTokenType.NEWLINE, newlineValue, _line, newlineColumn);
+                            AddToken(TokenType.NEWLINE, newlineValue, _line, newlineColumn);
                             _lastTokenWasColon = false; // Reset after processing
                         }
                         // Outside parentheses: check if blank line
@@ -631,13 +595,13 @@ namespace SharpPy.Generated
                             bool isBlankLine = IsBlankLine();
                             if (isBlankLine)
                             {
-                                AddToken(GeneratedTokenType.NL, newlineValue, _line, newlineColumn);
+                                AddToken(TokenType.NL, newlineValue, _line, newlineColumn);
                                 // Process pending DEDENT tokens after NL
                                 ProcessPendingTokens();
                             }
                             else
                             {
-                                AddToken(GeneratedTokenType.NEWLINE, newlineValue, _line, newlineColumn);
+                                AddToken(TokenType.NEWLINE, newlineValue, _line, newlineColumn);
                             }
                         }
                         _atLineStart = true;
@@ -667,7 +631,7 @@ namespace SharpPy.Generated
                     // CPython 3.12: Inside parentheses always NL, even after colon
                     if (IsInsideParentheses)
                     {
-                        AddToken(GeneratedTokenType.NL, newlineValue, _line, newlineColumn);
+                        AddToken(TokenType.NL, newlineValue, _line, newlineColumn);
                         // Process pending DEDENT tokens after NL
                         ProcessPendingTokens();
                         _lastTokenWasColon = false; // Reset after processing
@@ -678,7 +642,7 @@ namespace SharpPy.Generated
                         #if DEBUG_TOKEN_LOG
                         Console.WriteLine($"[DEBUG] Generating NEWLINE token after colon (\n processing): value='{newlineValue}', line={_line}, col={newlineColumn}");
                         #endif
-                        AddToken(GeneratedTokenType.NEWLINE, newlineValue, _line, newlineColumn);
+                        AddToken(TokenType.NEWLINE, newlineValue, _line, newlineColumn);
                         _lastTokenWasColon = false; // Reset after processing
                     }
                     // Outside parentheses: check if blank line
@@ -687,13 +651,13 @@ namespace SharpPy.Generated
                         bool isBlankLine = IsBlankLine();
                         if (isBlankLine)
                         {
-                            AddToken(GeneratedTokenType.NL, newlineValue, _line, newlineColumn);
+                            AddToken(TokenType.NL, newlineValue, _line, newlineColumn);
                             // Process pending DEDENT tokens after NL
                             ProcessPendingTokens();
                         }
                         else
                         {
-                            AddToken(GeneratedTokenType.NEWLINE, newlineValue, _line, newlineColumn);
+                            AddToken(TokenType.NEWLINE, newlineValue, _line, newlineColumn);
                         }
                     }
                     _atLineStart = true;
@@ -737,10 +701,10 @@ namespace SharpPy.Generated
                 Advance();
             }
             var comment = _source.Substring(start, _position - start);
-            AddToken(GeneratedTokenType.COMMENT, comment, startLine, startColumn);
+            AddToken(TokenType.COMMENT, comment, startLine, startColumn);
         }
 
-        private void HandleNameOrKeyword()
+        private void HandleName()
         {
             var start = _position;
             var startLine = _line;
@@ -760,22 +724,7 @@ namespace SharpPy.Generated
             }
             var name = _source.Substring(start, _position - start);
 
-            // Handle soft keywords (match/case are context-sensitive)
-            GeneratedTokenType tokenType;
-            if (Keywords.ContainsKey(name))
-            {
-                tokenType = Keywords[name];
-            }
-            else if (name == "match" || name == "case")
-            {
-                // For now, treat match/case as NAME tokens
-                // TODO: Context-sensitive parsing will be handled in parser
-                tokenType = GeneratedTokenType.NAME;
-            }
-            else
-            {
-                tokenType = GeneratedTokenType.NAME;
-            }
+            TokenType tokenType = TokenType.NAME;;
             AddToken(tokenType, name, startLine, startColumn);
             _currentLineHasRealTokens = true; // Mark line as having real tokens
         }
@@ -839,7 +788,7 @@ namespace SharpPy.Generated
             }
 
             var number = _source.Substring(start, _position - start);
-            AddToken(GeneratedTokenType.NUMBER, number, startLine, startColumn);
+            AddToken(TokenType.NUMBER, number, startLine, startColumn);
             _currentLineHasRealTokens = true; // Mark line as having real tokens
         }
 
@@ -901,7 +850,7 @@ namespace SharpPy.Generated
                     Advance();
                 }
                 var name = _source.Substring(start, _position - start);
-                var tokenType = Keywords.ContainsKey(name) ? Keywords[name] : GeneratedTokenType.NAME;
+                var tokenType = TokenType.NAME;
                 AddToken(tokenType, name, startLine, startColumn);
                 _currentLineHasRealTokens = true; // Mark line as having real tokens
                 return;
@@ -936,7 +885,7 @@ namespace SharpPy.Generated
             }
 
             var str = _source.Substring(start, _position - start);
-            AddToken(GeneratedTokenType.STRING, str, startLine, startColumn);
+            AddToken(TokenType.STRING, str, startLine, startColumn);
             _currentLineHasRealTokens = true; // Mark line as having real tokens
         }
 
@@ -959,7 +908,7 @@ namespace SharpPy.Generated
             }
 
             var str = _source.Substring(start, _position - start);
-            AddToken(GeneratedTokenType.STRING, str, startLine, startColumn);
+            AddToken(TokenType.STRING, str, startLine, startColumn);
             _currentLineHasRealTokens = true; // Mark line as having real tokens
         }
 
@@ -1008,436 +957,7 @@ namespace SharpPy.Generated
             return false;
         }
 
-        private void HandleFString()
-        {
-            var startLine = _line;
-            var startColumn = _column;
-
-            // Determine prefix (f, rf, fr)
-            string prefix = "";
-            if (CurrentChar == 'f' || CurrentChar == 'F')
-            {
-                prefix += CurrentChar;
-                Advance(); // Skip 'f' or 'F'
-                // Check for 'r' after 'f'
-                if (CurrentChar == 'r' || CurrentChar == 'R')
-                {
-                    prefix += CurrentChar;
-                    Advance(); // Skip 'r' or 'R'
-                }
-            }
-            else if (CurrentChar == 'r' || CurrentChar == 'R')
-            {
-                prefix += CurrentChar;
-                Advance(); // Skip 'r' or 'R'
-                // Must have 'f' after 'r'
-                if (CurrentChar == 'f' || CurrentChar == 'F')
-                {
-                    prefix += CurrentChar;
-                    Advance(); // Skip 'f' or 'F'
-                }
-            }
-
-            var quote = CurrentChar;
-            bool isTripleQuoted = false;
-
-            // Check for triple quotes
-            if (_position + 2 < _source.Length && _source[_position + 1] == quote && _source[_position + 2] == quote)
-            {
-                isTripleQuoted = true;
-            }
-
-            // Generate FSTRING_START token (f", rf", fr", etc.)
-            string startToken;
-            if (isTripleQuoted)
-            {
-                startToken = $"{prefix}{new string(quote, 3)}";
-                _position += 3; // Skip opening triple quotes
-            }
-            else
-            {
-                startToken = $"{prefix}{quote}";
-                _position += 1; // Skip opening quote
-            }
-            AddToken(GeneratedTokenType.FSTRING_START, startToken, startLine, startColumn);
-            _currentLineHasRealTokens = true; // Mark line as having real tokens
-
-            // Parse f-string content with expression handling
-            ParseFStringContent(quote, isTripleQuoted);
-
-            // Generate FSTRING_END token
-            string endToken = isTripleQuoted ? new string(quote, 3) : quote.ToString();
-            AddToken(GeneratedTokenType.FSTRING_END, endToken, _line, _column);
-        }
-
-        private void ParseFStringContent(char quote, bool isTripleQuoted)
-        {
-            var content = new System.Text.StringBuilder();
-
-            while (_position < _source.Length)
-            {
-                // Check for end of f-string
-                if (isTripleQuoted)
-                {
-                    if (_position + 2 < _source.Length && _source[_position] == quote && _source[_position + 1] == quote && _source[_position + 2] == quote)
-                    {
-                        _position += 3; // Skip closing triple quotes
-                        break;
-                    }
-                }
-                else
-                {
-                    if (CurrentChar == quote)
-                    {
-                        _position += 1; // Skip closing quote
-                        break;
-                    }
-                }
-
-                // Handle escape sequences
-                if (CurrentChar == '\\' && _position + 1 < _source.Length)
-                {
-                    content.Append(CurrentChar);
-                    Advance();
-                    content.Append(CurrentChar);
-                    Advance();
-                    continue;
-                }
-
-                // Handle opening brace - emit as separate OP token like CPython
-                if (CurrentChar == '{')
-                {
-                    // First emit any accumulated text content
-                    if (content.Length > 0)
-                    {
-                        AddToken(GeneratedTokenType.FSTRING_MIDDLE, content.ToString(), _line, _column);
-                        _currentLineHasRealTokens = true; // Mark line as having real tokens
-                        content.Clear();
-                    }
-                    // Emit opening brace as OP token
-                    AddToken(GeneratedTokenType.OP, "{", _line, _column);
-                    _currentLineHasRealTokens = true; // Mark line as having real tokens
-                    Advance();
-
-                    // Parse expression inside braces with full tokenization like CPython
-                    ParseFStringExpression();
-                }
-                // Handle closing brace - emit as separate OP token like CPython
-                else if (CurrentChar == '}')
-                {
-                    // This should not be reached as ParseFStringExpression handles the closing brace
-                    AddToken(GeneratedTokenType.OP, "}", _line, _column);
-                    _currentLineHasRealTokens = true; // Mark line as having real tokens
-                    Advance();
-                }
-                else
-                {
-                    content.Append(CurrentChar);
-                    Advance();
-                }
-            }
-
-            // Emit any remaining content
-            if (content.Length > 0)
-            {
-                AddToken(GeneratedTokenType.FSTRING_MIDDLE, content.ToString(), _line, _column);
-                _currentLineHasRealTokens = true; // Mark line as having real tokens
-            }
-        }
-
-        private void ParseFStringExpression()
-        {
-            // CPython 3.12: Track bracket/paren depth to distinguish slice colon from format spec colon
-            int bracketDepth = 0;  // Tracks [] nesting
-            int parenDepth = 0;    // Tracks () nesting
-
-            // Parse the expression inside f-string braces with full tokenization like CPython
-            while (_position < _source.Length && CurrentChar != '}')
-            {
-                // Skip whitespace
-                if (char.IsWhiteSpace(CurrentChar))
-                {
-                    Advance();
-                    continue;
-                }
-
-                // CPython 3.12: Track bracket depth for slice vs format spec distinction
-                if (CurrentChar == '[')
-                {
-                    bracketDepth++;
-                    AddToken(GeneratedTokenType.OP, "[", _line, _column);
-                    _currentLineHasRealTokens = true;
-                    Advance();
-                    continue;
-                }
-                if (CurrentChar == ']')
-                {
-                    bracketDepth--;
-                    AddToken(GeneratedTokenType.OP, "]", _line, _column);
-                    _currentLineHasRealTokens = true;
-                    Advance();
-                    continue;
-                }
-                if (CurrentChar == '(')
-                {
-                    parenDepth++;
-                    AddToken(GeneratedTokenType.OP, "(", _line, _column);
-                    _currentLineHasRealTokens = true;
-                    Advance();
-                    continue;
-                }
-                if (CurrentChar == ')')
-                {
-                    parenDepth--;
-                    AddToken(GeneratedTokenType.OP, ")", _line, _column);
-                    _currentLineHasRealTokens = true;
-                    Advance();
-                    continue;
-                }
-
-                // CPython 3.12: Handle colon - distinguish between slice colon and format spec colon
-                // Colon is format spec ONLY if we're not inside brackets/parens
-                if (CurrentChar == ':' && bracketDepth == 0 && parenDepth == 0)
-                {
-                    // Emit colon as OP token
-                    AddToken(GeneratedTokenType.OP, ":", _line, _column);
-                    _currentLineHasRealTokens = true;
-                    Advance();
-
-                    // Parse format specification as FSTRING_MIDDLE
-                    var formatSpec = new System.Text.StringBuilder();
-                    while (_position < _source.Length && CurrentChar != '}')
-                    {
-                        formatSpec.Append(CurrentChar);
-                        Advance();
-                    }
-
-                    // Emit format spec as FSTRING_MIDDLE token if we have content
-                    if (formatSpec.Length > 0)
-                    {
-                        AddToken(GeneratedTokenType.FSTRING_MIDDLE, formatSpec.ToString(), _line, _column);
-                        _currentLineHasRealTokens = true;
-                    }
-                    break; // Exit the main loop
-                }
-                else if (CurrentChar == ':')
-                {
-                    // Colon inside brackets/parens - this is a slice operator, emit as OP
-                    AddToken(GeneratedTokenType.OP, ":", _line, _column);
-                    _currentLineHasRealTokens = true;
-                    Advance();
-                    continue;
-                }
-
-                // CPython 3.12: Handle string literals inside f-string expressions
-                // Python 3.12 allows nested quotes: f"Value: {'hello'}"
-                if (CurrentChar == '\'' || CurrentChar == '"')
-                {
-                    var quoteChar = CurrentChar;
-                    var start = _position;
-                    var startLine = _line;
-                    var startColumn = _column;
-                    Advance(); // Skip opening quote
-
-                    // Check for triple-quoted string
-                    bool isTripleQuoted = false;
-                    if (_position + 1 < _source.Length && _source[_position] == quoteChar && _source[_position + 1] == quoteChar)
-                    {
-                        isTripleQuoted = true;
-                        Advance(); // Skip second quote
-                        Advance(); // Skip third quote
-                    }
-
-                    // Collect string content
-                    var stringContent = new System.Text.StringBuilder();
-                    stringContent.Append(_source.Substring(start, _position - start)); // Include opening quotes
-
-                    if (isTripleQuoted)
-                    {
-                        // Triple-quoted string - continue until we find three quotes
-                        int quoteCount = 0;
-                        while (_position < _source.Length)
-                        {
-                            if (CurrentChar == quoteChar)
-                            {
-                                quoteCount++;
-                                stringContent.Append(CurrentChar);
-                                Advance();
-                                if (quoteCount == 3) break;
-                            }
-                            else
-                            {
-                                quoteCount = 0;
-                                if (CurrentChar == '\\' && _position + 1 < _source.Length)
-                                {
-                                    // Handle escape sequence
-                                    stringContent.Append(CurrentChar);
-                                    Advance();
-                                    if (_position < _source.Length)
-                                    {
-                                        stringContent.Append(CurrentChar);
-                                        Advance();
-                                    }
-                                }
-                                else
-                                {
-                                    stringContent.Append(CurrentChar);
-                                    Advance();
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // Single-quoted string - continue until closing quote
-                        while (_position < _source.Length && CurrentChar != quoteChar)
-                        {
-                            if (CurrentChar == '\\' && _position + 1 < _source.Length)
-                            {
-                                // Handle escape sequence
-                                stringContent.Append(CurrentChar);
-                                Advance();
-                                if (_position < _source.Length)
-                                {
-                                    stringContent.Append(CurrentChar);
-                                    Advance();
-                                }
-                            }
-                            else
-                            {
-                                stringContent.Append(CurrentChar);
-                                Advance();
-                            }
-                        }
-
-                        // Include closing quote
-                        if (_position < _source.Length && CurrentChar == quoteChar)
-                        {
-                            stringContent.Append(CurrentChar);
-                            Advance();
-                        }
-                    }
-
-                    // Emit as STRING token
-                    AddToken(GeneratedTokenType.STRING, stringContent.ToString(), startLine, startColumn);
-                    _currentLineHasRealTokens = true;
-                    continue;
-                }
-
-                // Handle numbers
-                if (char.IsDigit(CurrentChar))
-                {
-                    var start = _position;
-                    var startLine = _line;
-                    var startColumn = _column;
-                    while (_position < _source.Length && (char.IsDigit(CurrentChar) || CurrentChar == '.'))
-                    {
-                        Advance();
-                    }
-                    var number = _source.Substring(start, _position - start);
-                    AddToken(GeneratedTokenType.NUMBER, number, startLine, startColumn);
-                    _currentLineHasRealTokens = true;
-                }
-                // Handle identifiers and keywords
-                else if (char.IsLetter(CurrentChar) || CurrentChar == '_')
-                {
-                    var start = _position;
-                    var startLine = _line;
-                    var startColumn = _column;
-                    while (_position < _source.Length && (char.IsLetterOrDigit(CurrentChar) || CurrentChar == '_'))
-                    {
-                        Advance();
-                    }
-                    var name = _source.Substring(start, _position - start);
-
-                    // Check if this is a nested f-string start (f followed by quote)
-                    if (name == "f" && _position < _source.Length && (_source[_position] == '"' || _source[_position] == '\''))
-                    {
-                        // This is a nested f-string, handle it as a complete f-string
-                        _position = start; // Reset position to the 'f'
-                        HandleFString(); // Recursively handle nested f-string
-                    }
-                    else
-                    {
-                        // Regular identifier or keyword
-                        var tokenType = Keywords.ContainsKey(name) ? Keywords[name] : GeneratedTokenType.NAME;
-                        AddToken(tokenType, name, startLine, startColumn);
-                        _currentLineHasRealTokens = true;
-                    }
-                }
-                // Handle operators and punctuation
-                else
-                {
-                    var op = CurrentChar.ToString();
-                    // Check for multi-character operators
-                    if (_position + 1 < _source.Length)
-                    {
-                        var twoChar = op + _source[_position + 1];
-                        if (Operators.ContainsKey(twoChar))
-                        {
-                            AddToken(GeneratedTokenType.OP, twoChar, _line, _column);
-                            _currentLineHasRealTokens = true;
-                            Advance();
-                            Advance();
-                            continue;
-                        }
-                    }
-                    // Single character operator
-                    AddToken(GeneratedTokenType.OP, op, _line, _column);
-                    _currentLineHasRealTokens = true;
-                    Advance();
-                }
-            }
-
-            // Emit closing brace as OP token
-            if (CurrentChar == '}')
-            {
-                AddToken(GeneratedTokenType.OP, "}", _line, _column);
-                _currentLineHasRealTokens = true;
-                Advance();
-            }
-        }
-
-        private bool HandleOperator()
-        {
-            var startLine = _line;
-            var startColumn = _column;
-            // Try to match operators from longest to shortest
-            foreach (var (op, tokenType) in Operators.OrderByDescending(x => x.Key.Length))
-            {
-                if (_position + op.Length <= _source.Length && _source.Substring(_position, op.Length) == op)
-                {
-                    AddToken(tokenType, op, startLine, startColumn);
-                    _currentLineHasRealTokens = true; // Mark line as having real tokens
-                    // Track parentheses context for correct NL/NEWLINE classification
-                    if (op == "(" || op == "[" || op == "{")
-                    {
-                        _parenStack.Push(op[0]);
-                    }
-                    else if (op == ")" || op == "]" || op == "}")
-                    {
-                        if (_parenStack.Count > 0) _parenStack.Pop();
-                    }
-                    // CPython 3.12: Track colon tokens for compound statement NEWLINE generation
-                    if (op == ":")
-                    {
-                        #if DEBUG_TOKEN_LOG
-                        Console.WriteLine($"[DEBUG] Colon token detected: setting _lastTokenWasColon = true");
-                        #endif
-                        _lastTokenWasColon = true;
-                    }
-                    // Reset colon context for non-colon operators
-                    else if (op != ":")
-                    {
-                        _lastTokenWasColon = false;
-                    }
-                    for (int i = 0; i < op.Length; i++) Advance();
-                    return true;
-                }
-            }
-            return false;
-        }
-
+        // 일단 f-string 은 무시
         private void HandleIndentation()
         {
             #if DEBUG_TOKEN_LOG
@@ -1486,7 +1006,7 @@ namespace SharpPy.Generated
                 // CPython 3.12: Only generate INDENT if we're actually increasing indentation
                 _indentStack.Push(indent);
                 var indentText = new string(' ', indent);
-                AddToken(GeneratedTokenType.INDENT, indentText, _line, indentStartColumn);
+                AddToken(TokenType.INDENT, indentText, _line, indentStartColumn);
                 #if DEBUG_TOKEN_LOG
                 Console.WriteLine($"[DEBUG] Generated INDENT token: level {currentLevel} -> {indent}");
                 #endif
@@ -1499,7 +1019,7 @@ namespace SharpPy.Generated
                     _indentStack.Pop();
                     // CPython 3.12: DEDENT position should point to current indentation level
                     // Use current position (start of current token) not previous position
-                    _pendingTokens.Enqueue(new GeneratedTokenInfo(GeneratedTokenType.DEDENT, "", _line, indent));
+                    _pendingTokens.Enqueue(new GeneratedTokenInfo(TokenType.DEDENT, "", _line, indent));
                 }
 
                 // Check for indentation error

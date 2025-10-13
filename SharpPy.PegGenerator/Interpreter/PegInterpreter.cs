@@ -1204,7 +1204,7 @@ namespace SharpPy.PegGenerator.Interpreter
         }
 
         /// <summary>
-        /// Check if a name refers to a token type (from GeneratedTokenType enum)
+        /// Check if a name refers to a token type (from TokenType enum)
         /// </summary>
         private bool IsTokenType(string name)
         {

@@ -29,7 +29,7 @@ namespace SharpPy.Tools
                 Console.WriteLine("========================================");
 
                 Console.WriteLine("[DEBUG] Creating tokenizer...");
-                var tokenizer = new GeneratedPyTokenizer(source, pythonFile);
+                var tokenizer = new PyTokenizer(source, pythonFile);
                 Console.WriteLine("[DEBUG] Tokenizer created, calling Tokenize()...");
                 var tokens = tokenizer.Tokenize();
                 Console.WriteLine($"[DEBUG] Tokenize() returned {tokens.Count} tokens");

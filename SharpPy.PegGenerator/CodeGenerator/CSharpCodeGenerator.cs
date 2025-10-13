@@ -506,7 +506,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
         private void GenerateParserClass()
         {
-            WriteLine("using SharpPy.Tokenizer;");
+            // WriteLine("using SharpPy.Tokenizer;");
             WriteLine();
             WriteLine("// CPython 3.12: Type aliases for grammar compatibility");
             WriteLine("using stmt_ty = SharpPy.Generated.GeneratedStmt;");
@@ -657,7 +657,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("#if DEBUG_PARSE_LOG");
             WriteLine("Console.WriteLine($\"[GetKeywordOrNameType] OUT OF BOUNDS or NULL, returning NAME\");");
             WriteLine("#endif");
-            WriteLine("return (int)GeneratedTokenType.NAME;");
+            WriteLine("return (int)TokenType.NAME;");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -674,7 +674,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("#if DEBUG_PARSE_LOG");
             WriteLine("Console.WriteLine($\"[GetKeywordOrNameType] NOT FOUND '{name}', returning NAME\");");
             WriteLine("#endif");
-            WriteLine("return (int)GeneratedTokenType.NAME;");
+            WriteLine("return (int)TokenType.NAME;");
             Dedent();
             WriteLine("}");
             WriteLine();
@@ -808,7 +808,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("private void SkipNL()");
             WriteLine("{");
             Indent();
-            WriteLine("while (CurrentToken?.Type == GeneratedTokenType.NL)");
+            WriteLine("while (CurrentToken?.Type == TokenType.NL)");
             WriteLine("{");
             WriteLine("    Advance(); // skip NL token");
             WriteLine("}");
@@ -2146,17 +2146,17 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("// Try assignment statement (name = expression)");
             WriteLine("var savedPos = _position;");
             WriteLine("var nameToken = CurrentToken;");
-            WriteLine("if (nameToken != null && nameToken.Type == GeneratedTokenType.NAME)");
+            WriteLine("if (nameToken != null && nameToken.Type == TokenType.NAME)");
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume name");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.EQUAL)");
+            WriteLine("if (CurrentToken?.Type == TokenType.EQUAL)");
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume '='");
             WriteLine("// For now, expect a NUMBER token for the value");
             WriteLine("var valueToken = CurrentToken;");
-            WriteLine("if (valueToken?.Type == GeneratedTokenType.NUMBER)");
+            WriteLine("if (valueToken?.Type == TokenType.NUMBER)");
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume number");
@@ -2178,7 +2178,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
             WriteLine("// Check if there's a value after return");
             WriteLine("object? returnValue = null;");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NUMBER)");
+            WriteLine("if (CurrentToken?.Type == TokenType.NUMBER)");
             WriteLine("{");
             Indent();
             WriteLine("returnValue = CurrentToken.Value;");
@@ -2193,7 +2193,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Try simple expression statement (NUMBER)");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NUMBER)");
+            WriteLine("if (CurrentToken?.Type == TokenType.NUMBER)");
             WriteLine("{");
             Indent();
             WriteLine("var numberToken = CurrentToken;");
@@ -2211,17 +2211,17 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
             WriteLine("// Expect one or more NAME tokens separated by commas");
             WriteLine("var names = new List<string>();");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("{");
             Indent();
             WriteLine("names.Add(CurrentToken.Value);");
             WriteLine("Advance(); // consume first name");
             WriteLine("// Handle comma-separated additional names");
-            WriteLine("while (CurrentToken?.Type == GeneratedTokenType.COMMA)");
+            WriteLine("while (CurrentToken?.Type == TokenType.COMMA)");
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume comma");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("{");
             Indent();
             WriteLine("names.Add(CurrentToken.Value);");
@@ -2245,17 +2245,17 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
             WriteLine("// Expect one or more NAME tokens separated by commas");
             WriteLine("var names = new List<string>();");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("{");
             Indent();
             WriteLine("names.Add(CurrentToken.Value);");
             WriteLine("Advance(); // consume first name");
             WriteLine("// Handle comma-separated additional names");
-            WriteLine("while (CurrentToken?.Type == GeneratedTokenType.COMMA)");
+            WriteLine("while (CurrentToken?.Type == TokenType.COMMA)");
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume comma");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("{");
             Indent();
             WriteLine("names.Add(CurrentToken.Value);");
@@ -2278,7 +2278,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("// For now, expect a simple NAME token");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("{");
             Indent();
             WriteLine("var targetName = CurrentToken.Value;");
@@ -2297,7 +2297,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("// For now, expect a simple module name");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("{");
             Indent();
             WriteLine("var moduleName = CurrentToken.Value;");
@@ -2316,7 +2316,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("// For now, expect 'from module import name'");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("{");
             Indent();
             WriteLine("var moduleName = CurrentToken.Value;");
@@ -2324,7 +2324,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (ExpectKeyword(\"import\"))");
             WriteLine("{");
             Indent();
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("{");
             Indent();
             WriteLine("var importName = CurrentToken.Value;");
@@ -2343,7 +2343,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Check for import statements");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"import\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"import\")");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParsePegStmt: Found import statement, calling ParseImportStatement\");");
             WriteLine("    var result = ParseImportStatement();");
@@ -2352,7 +2352,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Check for from-import statements");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"from\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"from\")");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParsePegStmt: Found from-import statement, calling ParseFromImportStatement\");");
             WriteLine("    var result = ParseFromImportStatement();");
@@ -2361,7 +2361,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Check for raise statements");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"raise\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"raise\")");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParsePegStmt: Found raise statement, calling ParseRaiseStatement\");");
             WriteLine("    var result = ParseRaiseStatement();");
@@ -2428,7 +2428,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
             WriteLine();
 
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP)");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP)");
             WriteLine("{");
             Indent();
             WriteLine("var op = CurrentToken.Value;");
@@ -4337,8 +4337,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// Check for tokens that should stop parsing");
             WriteLine("if (CurrentToken == null) return null;");
-            WriteLine("if (CurrentToken.Type == GeneratedTokenType.DEDENT) return null;");
-            WriteLine("if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;");
+            WriteLine("if (CurrentToken.Type == TokenType.DEDENT) return null;");
+            WriteLine("if (CurrentToken.Type == TokenType.ENDMARKER) return null;");
             WriteLine();
 
             WriteLine("// Check memoization for left recursion");
@@ -4608,7 +4608,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("string? op = null;");
             WriteLine();
 
-            WriteLine("if (CurrentToken.Type == GeneratedTokenType.OP)");
+            WriteLine("if (CurrentToken.Type == TokenType.OP)");
             WriteLine("{");
             Indent();
             WriteLine("switch (CurrentToken.Value)");
@@ -4624,7 +4624,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             Dedent();
             WriteLine("}");
-            WriteLine("else if (CurrentToken.Type == GeneratedTokenType.NAME)");
+            WriteLine("else if (CurrentToken.Type == TokenType.NAME)");
             WriteLine("{");
             Indent();
             WriteLine("// CPython 3.12: Handle 'not in' and 'is not' as 2-token sequences");
@@ -4632,7 +4632,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("var nextPos = _position + 1;");
-            WriteLine("if (nextPos < _tokens.Count && _tokens[nextPos].Type == GeneratedTokenType.NAME)");
+            WriteLine("if (nextPos < _tokens.Count && _tokens[nextPos].Type == TokenType.NAME)");
             WriteLine("{");
             Indent();
             WriteLine("if (_tokens[nextPos].Value == \"in\")");
@@ -4652,7 +4652,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("var nextPos = _position + 1;");
-            WriteLine("if (nextPos < _tokens.Count && _tokens[nextPos].Type == GeneratedTokenType.NAME && _tokens[nextPos].Value == \"not\")");
+            WriteLine("if (nextPos < _tokens.Count && _tokens[nextPos].Type == TokenType.NAME && _tokens[nextPos].Value == \"not\")");
             WriteLine("{");
             Indent();
             WriteLine("op = \"IsNot\";");
@@ -4770,8 +4770,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// Check for tokens that should stop parsing");
             WriteLine("if (CurrentToken == null) return null;");
-            WriteLine("if (CurrentToken.Type == GeneratedTokenType.DEDENT) return null;");
-            WriteLine("if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;");
+            WriteLine("if (CurrentToken.Type == TokenType.DEDENT) return null;");
+            WriteLine("if (CurrentToken.Type == TokenType.ENDMARKER) return null;");
             WriteLine();
 
             WriteLine("// Start with await_primary (base case)");
@@ -4832,11 +4832,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// Check for tokens that should stop parsing");
             WriteLine("if (CurrentToken == null) return null;");
-            WriteLine("if (CurrentToken.Type == GeneratedTokenType.DEDENT) return null;");
-            WriteLine("if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;");
+            WriteLine("if (CurrentToken.Type == TokenType.DEDENT) return null;");
+            WriteLine("if (CurrentToken.Type == TokenType.ENDMARKER) return null;");
             WriteLine();
             WriteLine("// Check for unary operators");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP)");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP)");
             WriteLine("{");
             Indent();
             WriteLine("if (CurrentToken.Value == \"+\")");
@@ -4918,8 +4918,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// Check for tokens that should stop parsing");
             WriteLine("if (CurrentToken == null) return null;");
-            WriteLine("if (CurrentToken.Type == GeneratedTokenType.DEDENT) return null;");
-            WriteLine("if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;");
+            WriteLine("if (CurrentToken.Type == TokenType.DEDENT) return null;");
+            WriteLine("if (CurrentToken.Type == TokenType.ENDMARKER) return null;");
             WriteLine();
 
             // Start with factor (base case) - CPython 3.12
@@ -5079,8 +5079,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// Check for tokens that should stop parsing");
             WriteLine("if (CurrentToken == null) return null;");
-            WriteLine("if (CurrentToken.Type == GeneratedTokenType.DEDENT) return null;");
-            WriteLine("if (CurrentToken.Type == GeneratedTokenType.ENDMARKER) return null;");
+            WriteLine("if (CurrentToken.Type == TokenType.DEDENT) return null;");
+            WriteLine("if (CurrentToken.Type == TokenType.ENDMARKER) return null;");
             WriteLine();
 
             // Start with term (base case)
@@ -5377,14 +5377,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             WriteLine("// Handle parenthesized assignment expression: (NAME := expression)");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \"(\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken.Value == \"(\")");
             WriteLine("{");
             Indent();
             WriteLine("var parenStart = _position;");
             WriteLine("Advance(); // consume '('");
             WriteLine();
             WriteLine("// Check if this is an assignment expression inside parentheses");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("{");
             Indent();
             WriteLine("var namePos = _position;");
@@ -5392,7 +5392,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Advance(); // consume NAME");
             WriteLine();
             WriteLine("// Check for ':=' operator");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \":=\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken.Value == \":=\")");
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume ':='");
@@ -5403,7 +5403,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("// Expect closing parenthesis");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \")\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken.Value == \")\")");
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume ')'");
@@ -5433,7 +5433,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             // Check for NAME token (original logic)
             WriteLine("// Direct assignment expression: a=NAME ':=' ~ b=expression");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("{");
             Indent();
             WriteLine("var name = CurrentToken.Value;");
@@ -5443,7 +5443,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             // Check for ':=' operator
             WriteLine("// Check for ':=' operator");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \":=\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken.Value == \":=\")");
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume ':='");
@@ -5534,7 +5534,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             WriteLine("// Look for 'or' followed by conjunction");
-            WriteLine("while (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"or\")");
+            WriteLine("while (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"or\")");
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume 'or'");
@@ -5599,7 +5599,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             WriteLine("// Look for 'and' followed by inversion");
-            WriteLine("while (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"and\")");
+            WriteLine("while (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"and\")");
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume 'and'");
@@ -5655,7 +5655,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
 
             WriteLine("// Try to parse: 'not' a=inversion");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"not\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"not\")");
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume 'not'");
@@ -5719,7 +5719,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
 
             WriteLine("// Check for FSTRING_START token");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.FSTRING_START)");
+            WriteLine("if (CurrentToken?.Type != TokenType.FSTRING_START)");
             WriteLine("{");
             Indent();
             WriteLine("return null;");
@@ -5733,8 +5733,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             WriteLine("// Parse fstring_middle* (zero or more)");
             WriteLine("var middleParts = new GeneratedExprSeq();");
-            WriteLine("while (CurrentToken?.Type == GeneratedTokenType.FSTRING_MIDDLE || ");
-            WriteLine("       (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \"{\"))");
+            WriteLine("while (CurrentToken?.Type == TokenType.FSTRING_MIDDLE || ");
+            WriteLine("       (CurrentToken?.Type == TokenType.OP && CurrentToken.Value == \"{\"))");
             WriteLine("{");
             Indent();
             WriteLine("var middle = FstringMiddle();");
@@ -5755,7 +5755,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             WriteLine("// Check for FSTRING_END token");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.FSTRING_END)");
+            WriteLine("if (CurrentToken?.Type != TokenType.FSTRING_END)");
             WriteLine("{");
             Indent();
             WriteLine("return null; // Error: expected FSTRING_END");
@@ -5801,7 +5801,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             WriteLine("// Try FSTRING_MIDDLE literal text");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.FSTRING_MIDDLE)");
+            WriteLine("if (CurrentToken?.Type == TokenType.FSTRING_MIDDLE)");
             WriteLine("{");
             Indent();
             WriteLine("var value = CurrentToken.Value;");
@@ -5839,7 +5839,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
 
             WriteLine("// Check for opening brace");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken.Value != \"{\")");
+            WriteLine("if (CurrentToken?.Type != TokenType.OP || CurrentToken.Value != \"{\")");
             WriteLine("{");
             Indent();
             WriteLine("return null;");
@@ -5862,7 +5862,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             WriteLine("// Check for optional debug expression ('=')");
             WriteLine("bool hasDebug = false;");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \"=\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken.Value == \"=\")");
             WriteLine("{");
             Indent();
             WriteLine("hasDebug = true;");
@@ -5876,7 +5876,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
 
             WriteLine("// Check for closing brace");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken.Value != \"}\")");
+            WriteLine("if (CurrentToken?.Type != TokenType.OP || CurrentToken.Value != \"}\")");
             WriteLine("{");
             Indent();
             WriteLine("return null; // Error: expected '}'");
@@ -5969,7 +5969,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("private GeneratedExpr? ParseStringLiteral()");
             WriteLine("{");
             Indent();
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.STRING)");
+            WriteLine("if (CurrentToken?.Type == TokenType.STRING)");
             WriteLine("{");
             Indent();
             WriteLine("var value = CurrentToken.Value;");
@@ -6003,7 +6003,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
 
             WriteLine("// Check for AWAIT token");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.AWAIT && CurrentToken?.Value == \"await\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.AWAIT && CurrentToken?.Value == \"await\")");
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume 'await'");
@@ -6056,7 +6056,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
             WriteLine("var statements = new GeneratedStmtSeq();");
             WriteLine("int iterationCount = 0;");
-            WriteLine("while (_position < _tokens.Count && CurrentToken?.Type != GeneratedTokenType.ENDMARKER)");
+            WriteLine("while (_position < _tokens.Count && CurrentToken?.Type != TokenType.ENDMARKER)");
             WriteLine("{");
             Indent();
             WriteLine("iterationCount++;");
@@ -6065,7 +6065,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // DEDENT tokens indicate indentation level changes but don't terminate statement sequences
             WriteLine();
             WriteLine("// Skip NEWLINE, NL, COMMENT tokens at module level");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NEWLINE || CurrentToken?.Type == GeneratedTokenType.NL || CurrentToken?.Type == GeneratedTokenType.COMMENT)");
+            WriteLine("if (CurrentToken?.Type == TokenType.NEWLINE || CurrentToken?.Type == TokenType.NL || CurrentToken?.Type == TokenType.COMMENT)");
             WriteLine("{");
             WriteLine("    Advance();");
             WriteLine("    continue;");
@@ -6110,11 +6110,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
             WriteLine("var statements = new GeneratedStmtSeq();");
             WriteLine();
-            WriteLine("while (_position < _tokens.Count && CurrentToken?.Type != GeneratedTokenType.ENDMARKER)");
+            WriteLine("while (_position < _tokens.Count && CurrentToken?.Type != TokenType.ENDMARKER)");
             WriteLine("{");
             Indent();
             WriteLine("// Skip NEWLINE, NL, COMMENT tokens");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NEWLINE || CurrentToken?.Type == GeneratedTokenType.NL || CurrentToken?.Type == GeneratedTokenType.COMMENT)");
+            WriteLine("if (CurrentToken?.Type == TokenType.NEWLINE || CurrentToken?.Type == TokenType.NL || CurrentToken?.Type == TokenType.COMMENT)");
             WriteLine("{");
             WriteLine("    Advance();");
             WriteLine("    continue;");
@@ -6122,7 +6122,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// CPython 3.12: DEDENT token marks the end of current indentation level");
             WriteLine("// block: NEWLINE INDENT statements DEDENT - DEDENT closes the block immediately");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.DEDENT)");
+            WriteLine("if (CurrentToken?.Type == TokenType.DEDENT)");
             WriteLine("{");
             WriteLine("    Advance(); // consume DEDENT");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseStatementsUntilDedent: Found DEDENT, block parsing complete with {statements.Count} statements\");");
@@ -6180,7 +6180,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// Handle unexpected INDENT tokens at module level");
             WriteLine("// INDENT tokens should not appear at module level - they indicate tokenizer/parser sync issues");
-            WriteLine("while (CurrentToken?.Type == GeneratedTokenType.INDENT)");
+            WriteLine("while (CurrentToken?.Type == TokenType.INDENT)");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseStatement: Skipping unexpected INDENT token at module level: position {_position}\");");
             WriteLine("    Advance();");
@@ -6232,7 +6232,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("var startPos = _position;");
             WriteLine();
             WriteLine("// Check for decorator (function or class definition with decorators)");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \"@\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken.Value == \"@\")");
             WriteLine("{");
             Indent();
             WriteLine("var decorators = ParseDecorators();");
@@ -6240,7 +6240,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("// Check what follows the decorators");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"def\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"def\")");
             WriteLine("{");
             Indent();
             WriteLine("var function = ParseFunctionDefRaw();");
@@ -6265,7 +6265,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             Dedent();
             WriteLine("}");
-            WriteLine("else if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"class\")");
+            WriteLine("else if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"class\")");
             WriteLine("{");
             Indent();
             WriteLine("var cls = ParseClassDefRaw();");
@@ -6285,7 +6285,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Check for async (function or for/with)");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.ASYNC)");
+            WriteLine("if (CurrentToken?.Type == TokenType.ASYNC)");
             WriteLine("{");
             Indent();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseCompoundStmt: Found ASYNC token\");");
@@ -6294,7 +6294,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Check for function definition");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"def\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"def\")");
             WriteLine("{");
             Indent();
             WriteLine("return ParseFunctionDef();");
@@ -6302,7 +6302,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Check for class statement");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"class\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"class\")");
             WriteLine("{");
             Indent();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseCompoundStmt: Found class statement\");");
@@ -6312,7 +6312,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Check for match statement (Python 3.10+)");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"match\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"match\")");
             WriteLine("{");
             Indent();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseCompoundStmt: Found match statement\");");
@@ -6322,7 +6322,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Check for try statement");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"try\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"try\")");
             WriteLine("{");
             Indent();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseCompoundStmt: Found try statement\");");
@@ -6332,7 +6332,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Check for with statement");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"with\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"with\")");
             WriteLine("{");
             Indent();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseCompoundStmt: Found with statement\");");
@@ -6346,7 +6346,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Console.WriteLine($\"[DEBUG] ParseCompoundStmt: Checking if/while/for\");");
             WriteLine();
             WriteLine("// Check for if statement");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"if\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"if\")");
             WriteLine("{");
             Indent();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseCompoundStmt: Found if, calling IfStmt\");");
@@ -6362,7 +6362,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Check for while statement");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"while\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"while\")");
             WriteLine("{");
             Indent();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseCompoundStmt: Found while, calling WhileStmt\");");
@@ -6378,7 +6378,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Check for for statement");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"for\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"for\")");
             WriteLine("{");
             Indent();
             WriteLine("Console.WriteLine($\"[DEBUG] ParseCompoundStmt: Found for, calling ForStmt\");");
@@ -6425,7 +6425,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("bool isAsync = false;");
             WriteLine();
             WriteLine("// Check for ASYNC 'def' or just 'def'");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.ASYNC)");
+            WriteLine("if (CurrentToken?.Type == TokenType.ASYNC)");
             WriteLine("{");
             Indent();
             WriteLine("isAsync = true;");
@@ -6455,7 +6455,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("var typeParams = ParseTypeParams();");
             WriteLine();
             WriteLine("// '('");
-            WriteLine("if (ExpectToken(GeneratedTokenType.OP, \"(\") == null)");
+            WriteLine("if (ExpectToken(TokenType.OP, \"(\") == null)");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseFunctionDefRaw: Failed to match '(' at position {_position}\");");
             WriteLine("    _position = startPos;");
@@ -6468,7 +6468,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Console.WriteLine($\"[DEBUG] ParseFunctionDefRaw: Parameters parsing completed\");");
             WriteLine();
             WriteLine("// ')'");
-            WriteLine("if (ExpectToken(GeneratedTokenType.OP, \")\") == null)");
+            WriteLine("if (ExpectToken(TokenType.OP, \")\") == null)");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseFunctionDefRaw: Failed to match ')' at position {_position}\");");
             WriteLine("    _position = startPos;");
@@ -6477,7 +6477,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// ['->' expression] - Optional return type annotation");
             WriteLine("object returnAnnotation = null;");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"->\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \"->\")");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseFunctionDefRaw: Found '->' for return type annotation at position {_position}\");");
             WriteLine("    Advance(); // consume '->'");
@@ -6495,7 +6495,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// ':'");
-            WriteLine("if (ExpectToken(GeneratedTokenType.OP, \":\") == null)");
+            WriteLine("if (ExpectToken(TokenType.OP, \":\") == null)");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseFunctionDefRaw: Failed to match ':' at position {_position}\");");
             WriteLine("    _position = startPos;");
@@ -6545,13 +6545,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    statements.Add(stmt);");
             WriteLine();
             WriteLine("// Handle semicolons and additional statements");
-            WriteLine("while (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \";\")");
+            WriteLine("while (CurrentToken?.Type == TokenType.OP && CurrentToken.Value == \";\")");
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume ';'");
             WriteLine();
             WriteLine("// Optional trailing semicolon before NEWLINE");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NEWLINE)");
+            WriteLine("if (CurrentToken?.Type == TokenType.NEWLINE)");
             WriteLine("    break;");
             WriteLine();
             WriteLine("var nextStmt = ParsePegStmt();");
@@ -6563,7 +6563,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Only expect NEWLINE if we're not at end of input and current token is NEWLINE");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NEWLINE)");
+            WriteLine("if (CurrentToken?.Type == TokenType.NEWLINE)");
             WriteLine("{");
             Indent();
             WriteLine("Advance(); // consume NEWLINE");
@@ -6590,7 +6590,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// CPython 3.12: star_expressions (expression statement) SECOND");
             WriteLine("// CRITICAL: Do not parse compound statement keywords as expressions");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("{");
             WriteLine("    var tokenValue = CurrentToken.Value;");
             WriteLine("    // Reject compound statement keywords and simple statement keywords");
@@ -6621,44 +6621,44 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// CPython 3.12: &'return' return_stmt");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"return\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"return\")");
             WriteLine("{");
             WriteLine("    return ParseReturnStmt();");
             WriteLine("}");
             WriteLine();
             WriteLine("// CPython 3.12: &('import' | 'from') import_stmt");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"import\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"import\")");
             WriteLine("{");
             WriteLine("    return ParseImportStatement();");
             WriteLine("}");
             WriteLine();
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"from\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"from\")");
             WriteLine("{");
             WriteLine("    return ParseFromImportStatement();");
             WriteLine("}");
             WriteLine();
             WriteLine("// CPython 3.12: &'raise' raise_stmt");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"raise\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"raise\")");
             WriteLine("{");
             WriteLine("    return ParseRaiseStatement();");
             WriteLine("}");
             WriteLine();
             WriteLine("// CPython 3.12: 'pass'");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"pass\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"pass\")");
             WriteLine("{");
             WriteLine("    Advance();");
             WriteLine("    return _PyAST_Pass();");
             WriteLine("}");
             WriteLine();
             WriteLine("// CPython 3.12: 'break'");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"break\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"break\")");
             WriteLine("{");
             WriteLine("    Advance();");
             WriteLine("    return new GeneratedBreakStmt();");
             WriteLine("}");
             WriteLine();
             WriteLine("// CPython 3.12: 'continue'");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"continue\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"continue\")");
             WriteLine("{");
             WriteLine("    Advance();");
             WriteLine("    return new GeneratedContinueStmt();");
@@ -6866,17 +6866,17 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Expect '/'");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \"/\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken.Value == \"/\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume '/'");
             WriteLine("    // Expect ',' or lookahead for ')'");
-            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \",\")");
+            WriteLine("    if (CurrentToken?.Type == TokenType.OP && CurrentToken.Value == \",\")");
             WriteLine("    {");
             WriteLine("        Advance(); // consume ','");
             WriteLine("        Console.WriteLine($\"[DEBUG] ParseSlashNoDefault: Found {paramsList.Count} positional-only parameters\");");
             WriteLine("        return paramsList;");
             WriteLine("    }");
-            WriteLine("    else if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \")\")");
+            WriteLine("    else if (CurrentToken?.Type == TokenType.OP && CurrentToken.Value == \")\")");
             WriteLine("    {");
             WriteLine("        // Lookahead for ')' - don't consume");
             WriteLine("        Console.WriteLine($\"[DEBUG] ParseSlashNoDefault: Found {paramsList.Count} positional-only parameters (end)\");");
@@ -6925,10 +6925,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Expect '/'");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \"/\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken.Value == \"/\")");
             WriteLine("{");
             WriteLine("    Advance();");
-            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.OP && (CurrentToken.Value == \",\" || CurrentToken.Value == \")\"))");
+            WriteLine("    if (CurrentToken?.Type == TokenType.OP && (CurrentToken.Value == \",\" || CurrentToken.Value == \")\"))");
             WriteLine("    {");
             WriteLine("        if (CurrentToken.Value == \",\") Advance();");
             WriteLine("        Console.WriteLine($\"[DEBUG] ParseSlashWithDefault: Found positional-only with defaults\");");
@@ -6953,12 +6953,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (param == null) return null;");
             WriteLine();
             WriteLine("// Check for comma or lookahead for ')' or '/'");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \",\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken.Value == \",\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume comma");
             WriteLine("    return param;");
             WriteLine("}");
-            WriteLine("else if (CurrentToken?.Type == GeneratedTokenType.OP && (CurrentToken.Value == \")\" || CurrentToken.Value == \"/\"))");
+            WriteLine("else if (CurrentToken?.Type == TokenType.OP && (CurrentToken.Value == \")\" || CurrentToken.Value == \"/\"))");
             WriteLine("{");
             WriteLine("    // Lookahead - don't consume");
             WriteLine("    return param;");
@@ -6981,7 +6981,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (param == null) return null;");
             WriteLine();
             WriteLine("// Expect '='");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken.Value != \"=\")");
+            WriteLine("if (CurrentToken?.Type != TokenType.OP || CurrentToken.Value != \"=\")");
             WriteLine("{");
             WriteLine("    _position = startPos;");
             WriteLine("    return null;");
@@ -6996,11 +6996,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Check for comma or lookahead");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \",\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken.Value == \",\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume comma");
             WriteLine("}");
-            WriteLine("else if (CurrentToken?.Type == GeneratedTokenType.OP && (CurrentToken.Value == \")\" || CurrentToken.Value == \"/\"))");
+            WriteLine("else if (CurrentToken?.Type == TokenType.OP && (CurrentToken.Value == \")\" || CurrentToken.Value == \"/\"))");
             WriteLine("{");
             WriteLine("    // Lookahead - don't consume");
             WriteLine("}");
@@ -7021,13 +7021,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("public object ParseParam()");
             WriteLine("{");
             Indent();
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.NAME) return null;");
+            WriteLine("if (CurrentToken?.Type != TokenType.NAME) return null;");
             WriteLine();
             WriteLine("var name = CurrentToken.Value;");
             WriteLine("Advance();");
             WriteLine();
             WriteLine("object annotation = null;");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \":\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken.Value == \":\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume ':'");
             WriteLine("    annotation = Expression();");
@@ -7055,7 +7055,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("var savedPos = _position;");
             WriteLine();
             WriteLine("// Alternative 1: '*' param_no_default ...");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \"*\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken.Value == \"*\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume '*'");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseStarEtc: Consumed '*', now at: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
@@ -7065,14 +7065,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    result[\"kwarg\"] = null;");
             WriteLine("    ");
             WriteLine("    // CPython 3.12: Parse NAME token for vararg parameter");
-            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("    if (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("    {");
             WriteLine("        var paramName = CurrentToken.Value;");
             WriteLine("        Console.WriteLine($\"[DEBUG] ParseStarEtc: Found vararg NAME: {paramName}\");");
             WriteLine("        Advance(); // consume NAME");
             WriteLine("        result[\"vararg\"] = paramName;");
             WriteLine("    }");
-            WriteLine("    else if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \",\")");
+            WriteLine("    else if (CurrentToken?.Type == TokenType.OP && CurrentToken.Value == \",\")");
             WriteLine("    {");
             WriteLine("        // '*' ',' case - bare star for keyword-only args");
             WriteLine("        Console.WriteLine($\"[DEBUG] ParseStarEtc: Bare '*' (keyword-only marker)\");");
@@ -7090,13 +7090,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Alternative 2: '**' param_no_default");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken.Value == \"**\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken.Value == \"**\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume '**'");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseStarEtc: Consumed '**', now at: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
             WriteLine("    ");
             WriteLine("    // CPython 3.12: Parse NAME token for kwarg parameter");
-            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("    if (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("    {");
             WriteLine("        var paramName = CurrentToken.Value;");
             WriteLine("        Console.WriteLine($\"[DEBUG] ParseStarEtc: Found kwarg NAME: {paramName}\");");
@@ -7139,12 +7139,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// CPython 3.12 block grammar: NEWLINE INDENT statements DEDENT | simple_stmts");
             WriteLine("// First alternative: NEWLINE INDENT statements DEDENT");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NEWLINE)");
+            WriteLine("if (CurrentToken?.Type == TokenType.NEWLINE)");
             WriteLine("{");
             WriteLine("    var savedPos = _position;");
             WriteLine("    Advance(); // consume NEWLINE");
             WriteLine();
-            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.INDENT)");
+            WriteLine("    if (CurrentToken?.Type == TokenType.INDENT)");
             WriteLine("    {");
             WriteLine("        Advance(); // consume INDENT");
             WriteLine();
@@ -7188,18 +7188,18 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("// CPython 3.12: Track class body indentation level for accurate parsing");
             WriteLine("int? classBodyIndentLevel = null;");
             WriteLine();
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NEWLINE)");
+            WriteLine("if (CurrentToken?.Type == TokenType.NEWLINE)");
             WriteLine("{");
             WriteLine("    Advance(); // consume NEWLINE");
             WriteLine("    ");
             WriteLine("    // Record the class body indentation level before consuming INDENT token");
-            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.INDENT && CurrentToken?.Value != null)");
+            WriteLine("    if (CurrentToken?.Type == TokenType.INDENT && CurrentToken?.Value != null)");
             WriteLine("    {");
             WriteLine("        classBodyIndentLevel = CurrentToken.Value.Length;");
             WriteLine("        Console.WriteLine($\"[DEBUG] ParseClassBody: Recorded class body indent level: {classBodyIndentLevel}\");");
             WriteLine("    }");
             WriteLine("    ");
-            WriteLine("    if (ExpectToken(GeneratedTokenType.INDENT) == null)");
+            WriteLine("    if (ExpectToken(TokenType.INDENT) == null)");
             WriteLine("    {");
             WriteLine("        Console.WriteLine($\"[DEBUG] ParseClassBody: Expected INDENT after class declaration\");");
             WriteLine("        return statements;");
@@ -7210,7 +7210,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    while (CurrentToken != null)");
             WriteLine("    {");
             WriteLine("        // Check for end of class body - DEDENT followed by non-INDENT token");
-            WriteLine("        if (CurrentToken.Type == GeneratedTokenType.DEDENT)");
+            WriteLine("        if (CurrentToken.Type == TokenType.DEDENT)");
             WriteLine("        {");
             WriteLine("            // CPython 3.12: Check if this DEDENT ends the class body");
             WriteLine("            // Calculate current indentation level after DEDENT");
@@ -7221,12 +7221,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("            while (nextPos < _tokens.Count)");
             WriteLine("            {");
             WriteLine("                var nextToken = _tokens[nextPos];");
-            WriteLine("                if (nextToken.Type == GeneratedTokenType.NL)");
+            WriteLine("                if (nextToken.Type == TokenType.NL)");
             WriteLine("                {");
             WriteLine("                    nextPos++;");
             WriteLine("                    continue;");
             WriteLine("                }");
-            WriteLine("                else if (nextToken.Type == GeneratedTokenType.INDENT)");
+            WriteLine("                else if (nextToken.Type == TokenType.INDENT)");
             WriteLine("                {");
             WriteLine("                    // Get indentation level from INDENT token");
             WriteLine("                    if (nextToken.Value != null)");
@@ -7248,13 +7248,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("                var nextToken = _tokens[nextPos];");
             WriteLine("                // Check if we're still at class body level and have class-level statements");
             WriteLine("                if (classBodyIndentLevel.HasValue && currentIndentLevel == classBodyIndentLevel.Value &&");
-            WriteLine("                    nextToken.Type == GeneratedTokenType.NAME && ");
+            WriteLine("                    nextToken.Type == TokenType.NAME && ");
             WriteLine("                    (nextToken.Value == \"def\" || nextToken.Value == \"class\" || nextToken.Value == \"async\"))");
             WriteLine("                {");
             WriteLine("                    hasMoreClassContent = true;");
             WriteLine("                }");
             WriteLine("                else if (classBodyIndentLevel.HasValue && currentIndentLevel == classBodyIndentLevel.Value &&");
-            WriteLine("                         nextToken.Type == GeneratedTokenType.OP && nextToken.Value == \"@\")");
+            WriteLine("                         nextToken.Type == TokenType.OP && nextToken.Value == \"@\")");
             WriteLine("                {");
             WriteLine("                    hasMoreClassContent = true;");
             WriteLine("                }");
@@ -7273,7 +7273,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        }");
             WriteLine();
             WriteLine("        // Skip blank lines (NL tokens) in class body");
-            WriteLine("        if (CurrentToken?.Type == GeneratedTokenType.NL)");
+            WriteLine("        if (CurrentToken?.Type == TokenType.NL)");
             WriteLine("        {");
             WriteLine("            Console.WriteLine($\"[DEBUG] ParseClassBody: Skipping NL token at position {_position}\");");
             WriteLine("            Advance();");
@@ -7281,7 +7281,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        }");
             WriteLine();
             WriteLine("        // Handle INDENT tokens within class body (for method definitions after blank lines)");
-            WriteLine("        if (CurrentToken?.Type == GeneratedTokenType.INDENT)");
+            WriteLine("        if (CurrentToken?.Type == TokenType.INDENT)");
             WriteLine("        {");
             WriteLine("            Console.WriteLine($\"[DEBUG] ParseClassBody: Found INDENT token, checking if it matches class level\");");
             WriteLine("            // In a class body, INDENT tokens can appear before method definitions");
@@ -7300,7 +7300,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        {");
             WriteLine("            // Handle parse failures more carefully");
             WriteLine("            Console.WriteLine($\"[DEBUG] ParseClassBody: Failed to parse statement at {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
-            WriteLine("            if (CurrentToken?.Type == GeneratedTokenType.DEDENT)");
+            WriteLine("            if (CurrentToken?.Type == TokenType.DEDENT)");
             WriteLine("            {");
             WriteLine("                break; // End of class body");
             WriteLine("            }");
@@ -7316,7 +7316,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        }");
             WriteLine("    }");
             WriteLine();
-            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.DEDENT)");
+            WriteLine("    if (CurrentToken?.Type == TokenType.DEDENT)");
             WriteLine("    {");
             WriteLine("        Advance(); // consume DEDENT");
             WriteLine("    }");
@@ -7347,7 +7347,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Console.WriteLine($\"[DEBUG] ParseClassDef: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
             WriteLine();
             WriteLine("// Expect 'class' keyword");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != \"class\")");
+            WriteLine("if (CurrentToken?.Type != TokenType.NAME || CurrentToken?.Value != \"class\")");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseClassDef: Expected 'class' but found {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("    return null;");
@@ -7355,7 +7355,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Advance(); // consume 'class'");
             WriteLine();
             WriteLine("// Parse class name");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.NAME)");
+            WriteLine("if (CurrentToken?.Type != TokenType.NAME)");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseClassDef: Expected class name but found {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("    return null;");
@@ -7366,26 +7366,26 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("// Parse optional base classes and keyword arguments '(' [arguments] ')'");
             WriteLine("var baseClasses = new GeneratedExprSeq();");
             WriteLine("var keywords = new List<object>(); // keyword arguments like metaclass=ABCMeta");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"(\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \"(\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume '('");
             WriteLine("    ");
             WriteLine("    // Parse class arguments (base classes and keyword arguments like metaclass=...)");
-            WriteLine("    while (CurrentToken != null && !(CurrentToken.Type == GeneratedTokenType.OP && CurrentToken.Value == \")\"))");
+            WriteLine("    while (CurrentToken != null && !(CurrentToken.Type == TokenType.OP && CurrentToken.Value == \")\"))");
             WriteLine("    {");
-            WriteLine("        if (CurrentToken.Type == GeneratedTokenType.NAME)");
+            WriteLine("        if (CurrentToken.Type == TokenType.NAME)");
             WriteLine("        {");
             WriteLine("            var startPos = _position;");
             WriteLine("            var firstToken = CurrentToken.Value;");
             WriteLine("            Advance();");
             WriteLine("            ");
             WriteLine("            // Check if this is a keyword argument (name=value)");
-            WriteLine("            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"=\")");
+            WriteLine("            if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \"=\")");
             WriteLine("            {");
             WriteLine("                Advance(); // consume '='");
             WriteLine("                ");
             WriteLine("                // Parse the value (expect a NAME for simple cases like metaclass=ABCMeta)");
-            WriteLine("                if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("                if (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("                {");
             WriteLine("                    var value = CurrentToken.Value;");
             WriteLine("                    Advance();");
@@ -7417,11 +7417,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        }");
             WriteLine("        ");
             WriteLine("        // Handle comma separator");
-            WriteLine("        if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \",\")");
+            WriteLine("        if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \",\")");
             WriteLine("        {");
             WriteLine("            Advance(); // consume ','");
             WriteLine("        }");
-            WriteLine("        else if (!(CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \")\"))");
+            WriteLine("        else if (!(CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \")\"))");
             WriteLine("        {");
             WriteLine("            Console.WriteLine($\"[DEBUG] ParseClassDef: Expected ',' or ')' but found {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("            break;");
@@ -7429,7 +7429,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    }");
             WriteLine("    ");
             WriteLine("    // Expect closing ')'");
-            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \")\")");
+            WriteLine("    if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \")\")");
             WriteLine("    {");
             WriteLine("        Advance(); // consume ')'");
             WriteLine("    }");
@@ -7441,7 +7441,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Expect ':'");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != \":\")");
+            WriteLine("if (CurrentToken?.Type != TokenType.OP || CurrentToken?.Value != \":\")");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseClassDef: Expected ':' but found {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("    return null;");
@@ -7478,7 +7478,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Console.WriteLine($\"[DEBUG] ParseTryStatement: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
             WriteLine();
             WriteLine("// Expect 'try' keyword");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != \"try\")");
+            WriteLine("if (CurrentToken?.Type != TokenType.NAME || CurrentToken?.Value != \"try\")");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseTryStatement: Expected 'try' but found {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("    return null;");
@@ -7486,7 +7486,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Advance(); // consume 'try'");
             WriteLine();
             WriteLine("// Expect ':'");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != \":\")");
+            WriteLine("if (CurrentToken?.Type != TokenType.OP || CurrentToken?.Value != \":\")");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseTryStatement: Expected ':' but found {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("    return null;");
@@ -7503,7 +7503,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// Parse except clauses (both except and except*)");
             WriteLine("var exceptClauses = new List<object>();");
-            WriteLine("while (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == \"except\")");
+            WriteLine("while (CurrentToken?.Type == TokenType.NAME && CurrentToken?.Value == \"except\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume 'except'");
             WriteLine("    var exceptionType = \"\"; // Optional exception type");
@@ -7511,7 +7511,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    var isExceptStar = false; // Track if this is except* clause");
             WriteLine();
             WriteLine("    // Check for except* syntax (PEP 654)");
-            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"*\")");
+            WriteLine("    if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \"*\")");
             WriteLine("    {");
             WriteLine("        isExceptStar = true;");
             WriteLine("        Console.WriteLine($\"[DEBUG] ParseTryStatement: Found except* clause\");");
@@ -7519,16 +7519,16 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    }");
             WriteLine();
             WriteLine("    // Parse optional exception type");
-            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value != \":\")");
+            WriteLine("    if (CurrentToken?.Type == TokenType.NAME && CurrentToken?.Value != \":\")");
             WriteLine("    {");
             WriteLine("        exceptionType = CurrentToken.Value;");
             WriteLine("        Advance();");
             WriteLine();
             WriteLine("        // Parse optional 'as' variable");
-            WriteLine("        if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == \"as\")");
+            WriteLine("        if (CurrentToken?.Type == TokenType.NAME && CurrentToken?.Value == \"as\")");
             WriteLine("        {");
             WriteLine("            Advance(); // consume 'as'");
-            WriteLine("            if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("            if (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("            {");
             WriteLine("                exceptionName = CurrentToken.Value;");
             WriteLine("                Advance();");
@@ -7537,7 +7537,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    }");
             WriteLine();
             WriteLine("    // Expect ':'");
-            WriteLine("    if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != \":\")");
+            WriteLine("    if (CurrentToken?.Type != TokenType.OP || CurrentToken?.Value != \":\")");
             WriteLine("    {");
             WriteLine("        Console.WriteLine($\"[DEBUG] ParseTryStatement: Expected ':' after except{(isExceptStar ? \"*\" : \"\")} but found {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("        return null;");
@@ -7557,11 +7557,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// Parse optional finally clause");
             WriteLine("var finallyBody = new GeneratedStmtSeq();");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == \"finally\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken?.Value == \"finally\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume 'finally'");
             WriteLine("    // Expect ':'");
-            WriteLine("    if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != \":\")");
+            WriteLine("    if (CurrentToken?.Type != TokenType.OP || CurrentToken?.Value != \":\")");
             WriteLine("    {");
             WriteLine("        Console.WriteLine($\"[DEBUG] ParseTryStatement: Expected ':' after finally but found {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("        return null;");
@@ -7598,7 +7598,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Console.WriteLine($\"[DEBUG] ParseImportStatement: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
             WriteLine();
             WriteLine("// Expect 'import' keyword");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != \"import\")");
+            WriteLine("if (CurrentToken?.Type != TokenType.NAME || CurrentToken?.Value != \"import\")");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseImportStatement: Expected 'import' but found {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("    return null;");
@@ -7607,17 +7607,17 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// Parse module names (dotted_as_names)");
             WriteLine("var modules = new List<object>();");
-            WriteLine("while (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("while (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("{");
             WriteLine("    var moduleName = \"\";");
             WriteLine("    var asName = \"\";");
             WriteLine();
             WriteLine("    // Parse dotted name (e.g., os.path)");
-            WriteLine("    while (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("    while (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("    {");
             WriteLine("        moduleName += CurrentToken.Value;");
             WriteLine("        Advance();");
-            WriteLine("        if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \".\")");
+            WriteLine("        if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \".\")");
             WriteLine("        {");
             WriteLine("            moduleName += \".\";");
             WriteLine("            Advance(); // consume '.'");
@@ -7629,10 +7629,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    }");
             WriteLine();
             WriteLine("    // Parse optional 'as' alias");
-            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == \"as\")");
+            WriteLine("    if (CurrentToken?.Type == TokenType.NAME && CurrentToken?.Value == \"as\")");
             WriteLine("    {");
             WriteLine("        Advance(); // consume 'as'");
-            WriteLine("        if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("        if (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("        {");
             WriteLine("            asName = CurrentToken.Value;");
             WriteLine("            Advance();");
@@ -7642,7 +7642,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    modules.Add(new { name = moduleName, asname = asName });");
             WriteLine();
             WriteLine("    // Check for comma separator");
-            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \",\")");
+            WriteLine("    if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \",\")");
             WriteLine("    {");
             WriteLine("        Advance(); // consume ','");
             WriteLine("    }");
@@ -7670,7 +7670,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Console.WriteLine($\"[DEBUG] ParseFromImportStatement: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
             WriteLine();
             WriteLine("// Expect 'from' keyword");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != \"from\")");
+            WriteLine("if (CurrentToken?.Type != TokenType.NAME || CurrentToken?.Value != \"from\")");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseFromImportStatement: Expected 'from' but found {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("    return null;");
@@ -7682,7 +7682,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("var level = 0; // relative import level");
             WriteLine();
             WriteLine("// Handle relative imports (. or ..)");
-            WriteLine("while (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \".\")");
+            WriteLine("while (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \".\")");
             WriteLine("{");
             WriteLine("    level++;");
             WriteLine("    fromModule += \".\";");
@@ -7690,11 +7690,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Parse module name");
-            WriteLine("while (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("while (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("{");
             WriteLine("    fromModule += CurrentToken.Value;");
             WriteLine("    Advance();");
-            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \".\")");
+            WriteLine("    if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \".\")");
             WriteLine("    {");
             WriteLine("        fromModule += \".\";");
             WriteLine("        Advance(); // consume '.'");
@@ -7706,7 +7706,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Expect 'import' keyword");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != \"import\")");
+            WriteLine("if (CurrentToken?.Type != TokenType.NAME || CurrentToken?.Value != \"import\")");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseFromImportStatement: Expected 'import' but found {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("    return null;");
@@ -7717,7 +7717,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("var importNames = new List<object>();");
             WriteLine();
             WriteLine("// Handle 'import *'");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"*\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \"*\")");
             WriteLine("{");
             WriteLine("    importNames.Add(new { Name = \"*\", AsName = (string)null });");
             WriteLine("    Advance();");
@@ -7725,17 +7725,17 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("else");
             WriteLine("{");
             WriteLine("    // Parse import name list");
-            WriteLine("    while (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("    while (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("    {");
             WriteLine("        var importName = CurrentToken.Value;");
             WriteLine("        var asName = \"\";");
             WriteLine("        Advance();");
             WriteLine();
             WriteLine("        // Parse optional 'as' alias");
-            WriteLine("        if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == \"as\")");
+            WriteLine("        if (CurrentToken?.Type == TokenType.NAME && CurrentToken?.Value == \"as\")");
             WriteLine("        {");
             WriteLine("            Advance(); // consume 'as'");
-            WriteLine("            if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("            if (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("            {");
             WriteLine("                asName = CurrentToken.Value;");
             WriteLine("                Advance();");
@@ -7745,7 +7745,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        importNames.Add(new { Name = importName, AsName = string.IsNullOrEmpty(asName) ? (string)null : asName });");
             WriteLine();
             WriteLine("        // Check for comma separator");
-            WriteLine("        if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \",\")");
+            WriteLine("        if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \",\")");
             WriteLine("        {");
             WriteLine("            Advance(); // consume ','");
             WriteLine("        }");
@@ -7777,7 +7777,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Console.WriteLine($\"[DEBUG] ParseRaiseStatement: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
             WriteLine();
             WriteLine("// Expect 'raise' keyword");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != \"raise\")");
+            WriteLine("if (CurrentToken?.Type != TokenType.NAME || CurrentToken?.Value != \"raise\")");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseRaiseStatement: Expected 'raise' but found {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("    return null;");
@@ -7789,7 +7789,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("GeneratedExpr fromExpr = null;");
             WriteLine();
             WriteLine("// Parse optional exception expression");
-            WriteLine("if (CurrentToken != null && CurrentToken.Type != GeneratedTokenType.NEWLINE)");
+            WriteLine("if (CurrentToken != null && CurrentToken.Type != TokenType.NEWLINE)");
             WriteLine("{");
             WriteLine("    var exprResult = Expression();");
             WriteLine("    exceptionExpr = (GeneratedExpr?)exprResult;");
@@ -7800,7 +7800,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    }");
             WriteLine();
             WriteLine("    // Check for optional 'from' clause");
-            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == \"from\")");
+            WriteLine("    if (CurrentToken?.Type == TokenType.NAME && CurrentToken?.Value == \"from\")");
             WriteLine("    {");
             WriteLine("        Advance(); // consume 'from'");
             WriteLine("        var fromResult = Expression();");
@@ -7833,7 +7833,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Console.WriteLine($\"[DEBUG] ParseWithStatement: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
             WriteLine();
             WriteLine("// Expect 'with' keyword");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != \"with\")");
+            WriteLine("if (CurrentToken?.Type != TokenType.NAME || CurrentToken?.Value != \"with\")");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseWithStatement: Expected 'with' but found {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("    return null;");
@@ -7842,7 +7842,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// Check for optional parentheses");
             WriteLine("bool hasParentheses = false;");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"(\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \"(\")");
             WriteLine("{");
             WriteLine("    hasParentheses = true;");
             WriteLine("    Advance(); // consume '('");
@@ -7862,10 +7862,10 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("    var asVar = \"\";");
             WriteLine("    // Parse optional 'as' target");
-            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == \"as\")");
+            WriteLine("    if (CurrentToken?.Type == TokenType.NAME && CurrentToken?.Value == \"as\")");
             WriteLine("    {");
             WriteLine("        Advance(); // consume 'as'");
-            WriteLine("        if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("        if (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("        {");
             WriteLine("            asVar = CurrentToken.Value;");
             WriteLine("            Advance();");
@@ -7875,7 +7875,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    withItems.Add(new { context = contextExpr, target = asVar });");
             WriteLine();
             WriteLine("    // Check for comma separator");
-            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \",\")");
+            WriteLine("    if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \",\")");
             WriteLine("    {");
             WriteLine("        Advance(); // consume ','");
             WriteLine("    }");
@@ -7888,7 +7888,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("// Check for closing parenthesis if we had opening one");
             WriteLine("if (hasParentheses)");
             WriteLine("{");
-            WriteLine("    if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != \")\")");
+            WriteLine("    if (CurrentToken?.Type != TokenType.OP || CurrentToken?.Value != \")\")");
             WriteLine("    {");
             WriteLine("        Console.WriteLine($\"[DEBUG] ParseWithStatement: Expected ')' but found {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("        return null;");
@@ -7897,7 +7897,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Expect ':'");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != \":\")");
+            WriteLine("if (CurrentToken?.Type != TokenType.OP || CurrentToken?.Value != \":\")");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseWithStatement: Expected ':' but found {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("    return null;");
@@ -7937,7 +7937,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Console.WriteLine($\"[DEBUG] ParseLambda: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
             WriteLine();
             WriteLine("// Expect 'lambda' keyword");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != \"lambda\")");
+            WriteLine("if (CurrentToken?.Type != TokenType.NAME || CurrentToken?.Value != \"lambda\")");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseLambda: Expected 'lambda' but found {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("    return null;");
@@ -7946,19 +7946,19 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// Parse optional parameters (simplified - no parameters for now)");
             WriteLine("var parameters = new List<string>();");
-            WriteLine("while (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value != \":\")");
+            WriteLine("while (CurrentToken?.Type == TokenType.NAME && CurrentToken?.Value != \":\")");
             WriteLine("{");
             WriteLine("    parameters.Add(CurrentToken.Value);");
             WriteLine("    Advance();");
             WriteLine("    // Skip comma if present");
-            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \",\")");
+            WriteLine("    if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \",\")");
             WriteLine("    {");
             WriteLine("        Advance();");
             WriteLine("    }");
             WriteLine("}");
             WriteLine();
             WriteLine("// Expect ':'");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != \":\")");
+            WriteLine("if (CurrentToken?.Type != TokenType.OP || CurrentToken?.Value != \":\")");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseLambda: Expected ':' but found {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("    return null;");
@@ -8005,7 +8005,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("SkipNL(); // skip newlines after opening bracket");
             WriteLine();
             WriteLine("// Handle empty list");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"]\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \"]\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume ']'");
             WriteLine("    return new GeneratedListExpr { Elements = new GeneratedExprSeq() };");
@@ -8016,14 +8016,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (firstExpr == null) return null;");
             WriteLine();
             WriteLine("// Check if this is a comprehension (look for 'for' keyword)");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == \"for\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME && CurrentToken?.Value == \"for\")");
             WriteLine("{");
             WriteLine("    // This is a list comprehension");
             WriteLine("    var forIfClauses = ParseForIfClauses();");
             WriteLine("    if (forIfClauses == null) return null;");
             WriteLine();
             WriteLine("    // Expect closing ']'");
-            WriteLine("    if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != \"]\")");
+            WriteLine("    if (CurrentToken?.Type != TokenType.OP || CurrentToken?.Value != \"]\")");
             WriteLine("        return null;");
             WriteLine("    Advance(); // consume ']'");
             WriteLine();
@@ -8035,12 +8035,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    var elements = new List<object> { firstExpr };");
             WriteLine();
             WriteLine("    // Parse remaining elements");
-            WriteLine("    while (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \",\")");
+            WriteLine("    while (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \",\")");
             WriteLine("    {");
             WriteLine("        Advance(); // consume ','");
             WriteLine("        SkipNL(); // skip newlines after comma");
             WriteLine("        // Allow trailing comma");
-            WriteLine("        if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"]\")");
+            WriteLine("        if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \"]\")");
             WriteLine("            break;");
             WriteLine("        var element = Expression();");
             WriteLine("        if (element != null)");
@@ -8049,7 +8049,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    }");
             WriteLine();
             WriteLine("    // Expect closing ']'");
-            WriteLine("    if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != \"]\")");
+            WriteLine("    if (CurrentToken?.Type != TokenType.OP || CurrentToken?.Value != \"]\")");
             WriteLine("        return null;");
             WriteLine("    Advance(); // consume ']'");
             WriteLine();
@@ -8158,7 +8158,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("public object Atom()");
             WriteLine("{");
             Indent();
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("{");
             WriteLine("    var name = CurrentToken.Value;");
             WriteLine("    Advance();");
@@ -8200,7 +8200,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("SkipNL(); // skip newlines after opening brace");
             WriteLine();
             WriteLine("// Handle empty dict");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"}\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \"}\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume '}'");
             WriteLine("    return new GeneratedDictExpr { Keys = new GeneratedExprSeq(), Values = new GeneratedExprSeq() };");
@@ -8211,7 +8211,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("if (firstExpr == null) return null;");
             WriteLine();
             WriteLine("// Check if this is a key-value pair (dict)");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \":\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \":\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume ':'");
             WriteLine("    SkipNL(); // skip newlines after colon");
@@ -8219,14 +8219,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    if (value == null) return null;");
             WriteLine();
             WriteLine("    // Check if this is a dict comprehension");
-            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == \"for\")");
+            WriteLine("    if (CurrentToken?.Type == TokenType.NAME && CurrentToken?.Value == \"for\")");
             WriteLine("    {");
             WriteLine("        // This is a dict comprehension");
             WriteLine("        var forIfClauses = ParseForIfClauses();");
             WriteLine("        if (forIfClauses == null) return null;");
             WriteLine();
             WriteLine("        // Expect closing '}'");
-            WriteLine("        if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != \"}\")");
+            WriteLine("        if (CurrentToken?.Type != TokenType.OP || CurrentToken?.Value != \"}\")");
             WriteLine("            return null;");
             WriteLine("        Advance(); // consume '}'");
             WriteLine();
@@ -8238,17 +8238,17 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        var pairs = new List<object> { new { key = firstExpr, value = value } };");
             WriteLine();
             WriteLine("        // Parse remaining pairs");
-            WriteLine("        while (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \",\")");
+            WriteLine("        while (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \",\")");
             WriteLine("        {");
             WriteLine("            Advance(); // consume ','");
             WriteLine("            SkipNL(); // skip newlines after comma");
             WriteLine("            // Allow trailing comma");
-            WriteLine("            if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"}\")");
+            WriteLine("            if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \"}\")");
             WriteLine("                break;");
             WriteLine("            var key = Expression();");
             WriteLine("            if (key == null) break;");
             WriteLine("            SkipNL(); // skip newlines after key");
-            WriteLine("            if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != \":\")");
+            WriteLine("            if (CurrentToken?.Type != TokenType.OP || CurrentToken?.Value != \":\")");
             WriteLine("                break;");
             WriteLine("            Advance(); // consume ':'");
             WriteLine("            SkipNL(); // skip newlines after colon");
@@ -8259,7 +8259,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        }");
             WriteLine();
             WriteLine("        // Expect closing '}'");
-            WriteLine("        if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != \"}\")");
+            WriteLine("        if (CurrentToken?.Type != TokenType.OP || CurrentToken?.Value != \"}\")");
             WriteLine("            return null;");
             WriteLine("        Advance(); // consume '}'");
             WriteLine();
@@ -8274,14 +8274,14 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("        return new GeneratedDictExpr { Keys = keys, Values = values };");
             WriteLine("    }");
             WriteLine("}");
-            WriteLine("else if (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == \"for\")");
+            WriteLine("else if (CurrentToken?.Type == TokenType.NAME && CurrentToken?.Value == \"for\")");
             WriteLine("{");
             WriteLine("    // This is a set comprehension");
             WriteLine("    var forIfClauses = ParseForIfClauses();");
             WriteLine("    if (forIfClauses == null) return null;");
             WriteLine();
             WriteLine("    // Expect closing '}'");
-            WriteLine("    if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != \"}\")");
+            WriteLine("    if (CurrentToken?.Type != TokenType.OP || CurrentToken?.Value != \"}\")");
             WriteLine("        return null;");
             WriteLine("    Advance(); // consume '}'");
             WriteLine();
@@ -8293,11 +8293,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    var elements = new List<object> { firstExpr };");
             WriteLine();
             WriteLine("    // Parse remaining elements");
-            WriteLine("    while (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \",\")");
+            WriteLine("    while (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \",\")");
             WriteLine("    {");
             WriteLine("        Advance(); // consume ','");
             WriteLine("        // Allow trailing comma");
-            WriteLine("        if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"}\")");
+            WriteLine("        if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \"}\")");
             WriteLine("            break;");
             WriteLine("        var element = Expression();");
             WriteLine("        if (element != null)");
@@ -8305,7 +8305,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    }");
             WriteLine();
             WriteLine("    // Expect closing '}'");
-            WriteLine("    if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != \"}\")");
+            WriteLine("    if (CurrentToken?.Type != TokenType.OP || CurrentToken?.Value != \"}\")");
             WriteLine("        return null;");
             WriteLine("    Advance(); // consume '}'");
             WriteLine();
@@ -8338,18 +8338,18 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("do");
             WriteLine("{");
             WriteLine("    // Expect 'for' keyword");
-            WriteLine("    if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != \"for\")");
+            WriteLine("    if (CurrentToken?.Type != TokenType.NAME || CurrentToken?.Value != \"for\")");
             WriteLine("        break;");
             WriteLine("    Advance(); // consume 'for'");
             WriteLine();
             WriteLine("    // Parse target variable");
-            WriteLine("    if (CurrentToken?.Type != GeneratedTokenType.NAME)");
+            WriteLine("    if (CurrentToken?.Type != TokenType.NAME)");
             WriteLine("        return null;");
             WriteLine("    var target = CurrentToken.Value;");
             WriteLine("    Advance();");
             WriteLine();
             WriteLine("    // Expect 'in' keyword");
-            WriteLine("    if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != \"in\")");
+            WriteLine("    if (CurrentToken?.Type != TokenType.NAME || CurrentToken?.Value != \"in\")");
             WriteLine("        return null;");
             WriteLine("    Advance(); // consume 'in'");
             WriteLine();
@@ -8359,7 +8359,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("    // Parse optional 'if' conditions");
             WriteLine("    var conditions = new List<object>();");
-            WriteLine("    while (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == \"if\")");
+            WriteLine("    while (CurrentToken?.Type == TokenType.NAME && CurrentToken?.Value == \"if\")");
             WriteLine("    {");
             WriteLine("        Advance(); // consume 'if'");
             WriteLine("        var condition = Expression();");
@@ -8368,7 +8368,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    }");
             WriteLine();
             WriteLine("    clauses.Add(new { target = target, iterable = iterable, conditions = conditions });");
-            WriteLine("} while (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken?.Value == \"for\");");
+            WriteLine("} while (CurrentToken?.Type == TokenType.NAME && CurrentToken?.Value == \"for\");");
             WriteLine();
             WriteLine("return clauses;");
             Dedent();
@@ -8393,7 +8393,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("var decorators = new GeneratedExprSeq();");
             WriteLine();
             WriteLine("// Parse one or more decorators");
-            WriteLine("while (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"@\")");
+            WriteLine("while (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \"@\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume '@'");
             WriteLine();
@@ -8405,7 +8405,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    decorators.Add(decoratorExpr);");
             WriteLine();
             WriteLine("    // Expect NEWLINE after decorator");
-            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.NEWLINE)");
+            WriteLine("    if (CurrentToken?.Type == TokenType.NEWLINE)");
             WriteLine("    {");
             WriteLine("        Advance(); // consume NEWLINE");
             WriteLine("    }");
@@ -8426,7 +8426,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Console.WriteLine($\"[DEBUG] ParseClassDefRaw: Starting at position {_position}, token: {CurrentToken?.Type} '{CurrentToken?.Value}'\");");
             WriteLine();
             WriteLine("// Expect 'class' keyword");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.NAME || CurrentToken?.Value != \"class\")");
+            WriteLine("if (CurrentToken?.Type != TokenType.NAME || CurrentToken?.Value != \"class\")");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseClassDefRaw: Expected 'class' but found {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("    return null;");
@@ -8434,7 +8434,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("Advance(); // consume 'class'");
             WriteLine();
             WriteLine("// Parse class name");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.NAME)");
+            WriteLine("if (CurrentToken?.Type != TokenType.NAME)");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseClassDefRaw: Expected class name but found {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("    return null;");
@@ -8444,37 +8444,37 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// Parse optional base classes '(' [arguments] ')'");
             WriteLine("var baseClasses = new GeneratedExprSeq();");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"(\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \"(\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume '('");
             WriteLine("    // Parse base class names");
-            WriteLine("    while (CurrentToken != null && !(CurrentToken.Type == GeneratedTokenType.OP && CurrentToken.Value == \")\"))");
+            WriteLine("    while (CurrentToken != null && !(CurrentToken.Type == TokenType.OP && CurrentToken.Value == \")\"))");
             WriteLine("    {");
-            WriteLine("        if (CurrentToken.Type == GeneratedTokenType.NAME)");
+            WriteLine("        if (CurrentToken.Type == TokenType.NAME)");
             WriteLine("        {");
             WriteLine("            var baseExpr = new GeneratedNameExpr { Id = CurrentToken.Value };");
             WriteLine("            baseClasses.Add(baseExpr);");
             WriteLine("            Advance();");
             WriteLine("        }");
             WriteLine("        // Handle comma separator");
-            WriteLine("        if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \",\")");
+            WriteLine("        if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \",\")");
             WriteLine("        {");
             WriteLine("            Advance(); // consume ','");
             WriteLine("        }");
-            WriteLine("        else if (!(CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \")\"))");
+            WriteLine("        else if (!(CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \")\"))");
             WriteLine("        {");
             WriteLine("            Console.WriteLine($\"[DEBUG] ParseClassDefRaw: Unexpected token in base classes: {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("            break;");
             WriteLine("        }");
             WriteLine("    }");
-            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \")\")");
+            WriteLine("    if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \")\")");
             WriteLine("    {");
             WriteLine("        Advance(); // consume ')'");
             WriteLine("    }");
             WriteLine("}");
             WriteLine();
             WriteLine("// Expect ':'");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != \":\")");
+            WriteLine("if (CurrentToken?.Type != TokenType.OP || CurrentToken?.Value != \":\")");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseClassDefRaw: Expected ':' but found {CurrentToken?.Type}:{CurrentToken?.Value}\");");
             WriteLine("    return null;");
@@ -8533,7 +8533,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("var subject = new GeneratedNameExpr { Id = subjectName };");
             WriteLine();
             WriteLine("// ':'");
-            WriteLine("if (ExpectToken(GeneratedTokenType.OP, \":\") == null)");
+            WriteLine("if (ExpectToken(TokenType.OP, \":\") == null)");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseMatchStatement: Failed to match ':' at position {_position}\");");
             WriteLine("    _position = startPos;");
@@ -8541,7 +8541,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// NEWLINE");
-            WriteLine("if (ExpectToken(GeneratedTokenType.NEWLINE) == null)");
+            WriteLine("if (ExpectToken(TokenType.NEWLINE) == null)");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseMatchStatement: Failed to match NEWLINE at position {_position}\");");
             WriteLine("    _position = startPos;");
@@ -8549,7 +8549,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// INDENT");
-            WriteLine("if (ExpectToken(GeneratedTokenType.INDENT) == null)");
+            WriteLine("if (ExpectToken(TokenType.INDENT) == null)");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseMatchStatement: Failed to match INDENT at position {_position}\");");
             WriteLine("    _position = startPos;");
@@ -8558,7 +8558,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// Parse case blocks");
             WriteLine("var cases = new List<object>();");
-            WriteLine("while (CurrentToken?.Type == GeneratedTokenType.NAME && CurrentToken.Value == \"case\")");
+            WriteLine("while (CurrentToken?.Type == TokenType.NAME && CurrentToken.Value == \"case\")");
             WriteLine("{");
             WriteLine("    var caseBlock = ParseCaseBlock();");
             WriteLine("    if (caseBlock != null)");
@@ -8573,7 +8573,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// DEDENT - consume all remaining DEDENTs to get back to match level");
             WriteLine("var dedentCount = 0;");
-            WriteLine("while (CurrentToken?.Type == GeneratedTokenType.DEDENT)");
+            WriteLine("while (CurrentToken?.Type == TokenType.DEDENT)");
             WriteLine("{");
             WriteLine("    dedentCount++;");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseMatchStatement: Consuming DEDENT #{dedentCount} at position {_position}\");");
@@ -8616,13 +8616,13 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// Parse pattern (support NAME, NUMBER, STRING literals)");
             WriteLine("GeneratedExpr pattern = null;");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.NAME)");
+            WriteLine("if (CurrentToken?.Type == TokenType.NAME)");
             WriteLine("{");
             WriteLine("    // Create a NAME expression object for pattern");
             WriteLine("    pattern = new GeneratedNameExpr { Id = CurrentToken.Value };");
             WriteLine("    Advance(); // consume NAME");
             WriteLine("}");
-            WriteLine("else if (CurrentToken?.Type == GeneratedTokenType.NUMBER)");
+            WriteLine("else if (CurrentToken?.Type == TokenType.NUMBER)");
             WriteLine("{");
             WriteLine("    // Create a NUMBER expression object for pattern - CPython 3.12");
             WriteLine("    var numStr = CurrentToken.Value;");
@@ -8631,7 +8631,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    pattern = new GeneratedConstantExpr { Value = numVal, Kind = \"number\" };");
             WriteLine("    Advance(); // consume NUMBER");
             WriteLine("}");
-            WriteLine("else if (CurrentToken?.Type == GeneratedTokenType.STRING)");
+            WriteLine("else if (CurrentToken?.Type == TokenType.STRING)");
             WriteLine("{");
             WriteLine("    // Create a STRING expression object for pattern - CPython 3.12");
             WriteLine("    pattern = new GeneratedConstantExpr");
@@ -8649,7 +8649,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// ':'");
-            WriteLine("if (ExpectToken(GeneratedTokenType.OP, \":\") == null)");
+            WriteLine("if (ExpectToken(TokenType.OP, \":\") == null)");
             WriteLine("{");
             WriteLine("    Console.WriteLine($\"[DEBUG] ParseCaseBlock: Failed to match ':' at position {_position}\");");
             WriteLine("    _position = startPos;");
@@ -8691,7 +8691,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("{");
             Indent();
             WriteLine("// Check for '[' - if not present, return null (no type parameters)");
-            WriteLine("if (CurrentToken?.Type != GeneratedTokenType.OP || CurrentToken?.Value != \"[\")");
+            WriteLine("if (CurrentToken?.Type != TokenType.OP || CurrentToken?.Value != \"[\")");
             WriteLine("{");
             WriteLine("    return null;");
             WriteLine("}");
@@ -8715,12 +8715,12 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("    typeParams.Add(typeParam);");
             WriteLine();
             WriteLine("    // Check for comma or end");
-            WriteLine("    if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \",\")");
+            WriteLine("    if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \",\")");
             WriteLine("    {");
             WriteLine("        Advance(); // consume ','");
             WriteLine("        continue;");
             WriteLine("    }");
-            WriteLine("    else if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"]\")");
+            WriteLine("    else if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \"]\")");
             WriteLine("    {");
             WriteLine("        break; // End of type parameters");
             WriteLine("    }");
@@ -8759,7 +8759,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("var _start_col_offset = _tokens[startPos].Column;");
             WriteLine();
             WriteLine("// Check for TypeVarTuple: '*' NAME");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"*\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \"*\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume '*'");
             WriteLine("    var nameToken = ExpectName();");
@@ -8778,7 +8778,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("}");
             WriteLine();
             WriteLine("// Check for ParamSpec: '**' NAME");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \"**\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \"**\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume '**'");
             WriteLine("    var nameToken = ExpectName();");
@@ -8809,7 +8809,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine();
             WriteLine("// Optional bound: ':' expression");
             WriteLine("GeneratedExpr? bound = null;");
-            WriteLine("if (CurrentToken?.Type == GeneratedTokenType.OP && CurrentToken?.Value == \":\")");
+            WriteLine("if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == \":\")");
             WriteLine("{");
             WriteLine("    Advance(); // consume ':'");
             WriteLine("    bound = Expression();");
