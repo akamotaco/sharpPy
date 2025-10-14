@@ -42,7 +42,7 @@
 
   <!-- Exclude build tools Program.cs and obj folders to avoid duplicate attributes -->
   <ItemGroup>
-    <Compile Remove="SharpPy.Tokenizer\**" />
+    <Compile Remove="SharpPy.Tokens\**" />
     <Compile Remove="SharpPy.PegGenerator\**" />
   </ItemGroup>
 
@@ -52,7 +52,7 @@
   <!-- Tokenizer Generation (Phase 1) -->
   <Target Name="GenerateTokenizer" BeforeTargets="GenerateParser">
     <Message Text="Generating tokenizer from Grammar/Tokens..." Importance="high" />
-    <Exec Command="dotnet run --project SharpPy.Tokenizer --tokens Grammar/Tokens --output Generated/PyTokenizer.cs"
+    <Exec Command="dotnet run --project SharpPy.Tokens --tokens Grammar/Tokens --output Generated/PyTokens.cs"
           ContinueOnError="false"
           WorkingDirectory="$(ProjectDir)" />
   </Target>

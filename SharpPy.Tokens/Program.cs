@@ -9,7 +9,7 @@ namespace SharpPy.Tokenizer
         {
             // Parse command line arguments
             string tokensFilePath = "Grammar/Tokens";
-            string outputPath = "Generated/PyTokenizer.cs";
+            string outputPath = "Generated/PyTokens.cs";
 
             for (int i = 0; i < args.Length; i++)
             {

@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+
 namespace SharpPy.Generated
 {
     /// <summary>
@@ -112,82 +113,6 @@ namespace SharpPy.Generated
     }
 
     /// <summary>
-    /// CPython 3.12 compatible token types
-    /// Explicit values to match CPython token indices
-    /// </summary>
-    public enum TokenType
-    {
-        ENDMARKER = 0,
-        NAME = 1,
-        NUMBER = 2,
-        STRING = 3,
-        NEWLINE = 4,
-        INDENT = 5,
-        DEDENT = 6,
-        LPAR = 7,
-        RPAR = 8,
-        LSQB = 9,
-        RSQB = 10,
-        COLON = 11,
-        COMMA = 12,
-        SEMI = 13,
-        PLUS = 14,
-        MINUS = 15,
-        STAR = 16,
-        SLASH = 17,
-        VBAR = 18,
-        AMPER = 19,
-        LESS = 20,
-        GREATER = 21,
-        EQUAL = 22,
-        DOT = 23,
-        PERCENT = 24,
-        LBRACE = 25,
-        RBRACE = 26,
-        EQEQUAL = 27,
-        NOTEQUAL = 28,
-        LESSEQUAL = 29,
-        GREATEREQUAL = 30,
-        TILDE = 31,
-        CIRCUMFLEX = 32,
-        LEFTSHIFT = 33,
-        RIGHTSHIFT = 34,
-        DOUBLESTAR = 35,
-        PLUSEQUAL = 36,
-        MINEQUAL = 37,
-        STAREQUAL = 38,
-        SLASHEQUAL = 39,
-        PERCENTEQUAL = 40,
-        AMPEREQUAL = 41,
-        VBAREQUAL = 42,
-        CIRCUMFLEXEQUAL = 43,
-        LEFTSHIFTEQUAL = 44,
-        RIGHTSHIFTEQUAL = 45,
-        DOUBLESTAREQUAL = 46,
-        DOUBLESLASH = 47,
-        DOUBLESLASHEQUAL = 48,
-        AT = 49,
-        ATEQUAL = 50,
-        RARROW = 51,
-        ELLIPSIS = 52,
-        COLONEQUAL = 53,
-        EXCLAMATION = 54,
-        OP = 55,
-        AWAIT = 56,
-        ASYNC = 57,
-        TYPE_IGNORE = 58,
-        TYPE_COMMENT = 59,
-        SOFT_KEYWORD = 60,
-        FSTRING_START = 61,
-        FSTRING_MIDDLE = 62,
-        FSTRING_END = 63,
-        COMMENT = 64,
-        NL = 65,
-        ERRORTOKEN = 66,
-        ENCODING = 67,
-    }
-
-    /// <summary>
     /// CPython 3.12: Memoization entry for PEG parser
     /// Equivalent to: typedef struct _memo { int type; void *node; int mark; struct _memo *next; } Memo;
     /// </summary>
@@ -207,7 +132,7 @@ namespace SharpPy.Generated
     /// </summary>
     public interface ITokenInfo
     {
-        TokenType Type { get; }
+        PyToken.Type Type { get; }
         string Value { get; }
         int Line { get; }
         int Column { get; }
@@ -220,7 +145,7 @@ namespace SharpPy.Generated
     /// </summary>
     public class GeneratedTokenInfo : GeneratedPtr, ITokenInfo
     {
-        public TokenType Type { get; set; }
+        public PyToken.Type Type { get; set; }
         public string Value { get; set; } = "";
         public int Line { get; set; }
         public int Column { get; set; }
@@ -233,7 +158,7 @@ namespace SharpPy.Generated
         /// </summary>
         public List<MemoEntry>? Memo { get; set; }
 
-        public GeneratedTokenInfo(TokenType type, string value, int line, int column, int endLine, int endColumn)
+        public GeneratedTokenInfo(PyToken.Type type, string value, int line, int column, int endLine, int endColumn)
         {
             Type = type;
             Value = value;
@@ -286,7 +211,7 @@ namespace SharpPy.Generated
     /// <summary>
     /// Generated tokenizer for Python 3.12 grammar
     /// </summary>
-    public class PyTokenizer
+    public class Tokenizer
     {
         private readonly string _source;
         private int _position;
@@ -310,71 +235,7 @@ namespace SharpPy.Generated
         // Rule: colon-followed-by-newline always generates NEWLINE token (not NL)
         private bool _lastTokenWasColon = false;
 
-        private static readonly List<(string name, TokenType type)> Literals = new()
-        {
-            ( "(", TokenType.LPAR ),
-            ( ")", TokenType.RPAR ),
-            ( "[", TokenType.LSQB ),
-            ( "]", TokenType.RSQB ),
-            ( ":", TokenType.COLON ),
-            ( ",", TokenType.COMMA ),
-            ( ";", TokenType.SEMI ),
-            ( "+", TokenType.PLUS ),
-            ( "-", TokenType.MINUS ),
-            ( "*", TokenType.STAR ),
-            ( "/", TokenType.SLASH ),
-            ( "|", TokenType.VBAR ),
-            ( "&", TokenType.AMPER ),
-            ( "<", TokenType.LESS ),
-            ( ">", TokenType.GREATER ),
-            ( "=", TokenType.EQUAL ),
-            ( ".", TokenType.DOT ),
-            ( "%", TokenType.PERCENT ),
-            ( "{", TokenType.LBRACE ),
-            ( "}", TokenType.RBRACE ),
-            ( "==", TokenType.EQEQUAL ),
-            ( "!=", TokenType.NOTEQUAL ),
-            ( "<=", TokenType.LESSEQUAL ),
-            ( ">=", TokenType.GREATEREQUAL ),
-            ( "~", TokenType.TILDE ),
-            ( "^", TokenType.CIRCUMFLEX ),
-            ( "<<", TokenType.LEFTSHIFT ),
-            ( ">>", TokenType.RIGHTSHIFT ),
-            ( "**", TokenType.DOUBLESTAR ),
-            ( "+=", TokenType.PLUSEQUAL ),
-            ( "-=", TokenType.MINEQUAL ),
-            ( "*=", TokenType.STAREQUAL ),
-            ( "/=", TokenType.SLASHEQUAL ),
-            ( "%=", TokenType.PERCENTEQUAL ),
-            ( "&=", TokenType.AMPEREQUAL ),
-            ( "|=", TokenType.VBAREQUAL ),
-            ( "^=", TokenType.CIRCUMFLEXEQUAL ),
-            ( "<<=", TokenType.LEFTSHIFTEQUAL ),
-            ( ">>=", TokenType.RIGHTSHIFTEQUAL ),
-            ( "**=", TokenType.DOUBLESTAREQUAL ),
-            ( "//", TokenType.DOUBLESLASH ),
-            ( "//=", TokenType.DOUBLESLASHEQUAL ),
-            ( "@", TokenType.AT ),
-            ( "@=", TokenType.ATEQUAL ),
-            ( "->", TokenType.RARROW ),
-            ( "...", TokenType.ELLIPSIS ),
-            ( ":=", TokenType.COLONEQUAL ),
-            ( "!", TokenType.EXCLAMATION ),
-        };
-
-        public int GetLiteralIndex(string srcString, int srcPosition)
-        {
-            int index = -1;
-            for(int i=0;i<Literals.Count;++i)
-            {
-                var lit = Literals[i];
-                if (string.Compare(srcString, srcPosition, lit.name, 0, lit.name.Length) == 0)
-                    index = i;
-            }
-            return index;
-        }
-
-        public PyTokenizer(string source)
+        public Tokenizer(string source)
         {
             _source = source ?? throw new ArgumentNullException(nameof(source));
             _position = 0;
@@ -399,7 +260,7 @@ namespace SharpPy.Generated
             #endif
 
             // Skip ENCODING token for compatibility with CPython generate_tokens()
-            // AddToken(TokenType.ENCODING, "utf-8", 0, 0);
+            // AddToken(PyToken.Type.ENCODING, "utf-8", 0, 0);
 
             #if DEBUG_TOKEN_LOG
             Console.WriteLine("[DEBUG] Starting main tokenization loop");
@@ -450,7 +311,7 @@ namespace SharpPy.Generated
                 else if(HandleLiteral()){}
                 else
                 {
-                    AddToken(TokenType.ERRORTOKEN, CurrentChar.ToString(), _line, _column);
+                    AddToken(PyToken.Type.ERRORTOKEN, CurrentChar.ToString(), _line, _column);
                     _currentLineHasRealTokens = true; // Mark line as having real tokens
                     Advance();
                 }
@@ -466,21 +327,21 @@ namespace SharpPy.Generated
             // Add final NEWLINE if file doesn't end with newline (BEFORE DEDENT for CPython compatibility)
             if (_position > 0 && _source[_position - 1] != '\n' && _source[_position - 1] != '\r')
             {
-                AddToken(TokenType.NEWLINE, "\n", _line, _column);
+                AddToken(PyToken.Type.NEWLINE, "\n", _line, _column);
             }
 
             // Generate remaining DEDENT tokens at EOF
             while (_indentStack.Count > 1)
             {
                 _indentStack.Pop();
-                _pendingTokens.Enqueue(new GeneratedTokenInfo(TokenType.DEDENT, "", _line + 1, 0, _line + 1, 1));
+                _pendingTokens.Enqueue(new GeneratedTokenInfo(PyToken.Type.DEDENT, "", _line + 1, 0, _line + 1, 1));
             }
 
             // Process any pending tokens at EOF
             ProcessPendingTokens();
 
             // Add ENDMARKER for compatibility with CPython generate_tokens()
-            AddToken(TokenType.ENDMARKER, "", _line, _column);
+            AddToken(PyToken.Type.ENDMARKER, "", _line, _column);
             return _tokens;
         }
 
@@ -528,7 +389,7 @@ namespace SharpPy.Generated
             }
         }
 
-        private void AddToken(TokenType type, string value, int startLine, int startColumn)
+        private void AddToken(PyToken.Type type, string value, int startLine, int startColumn)
         {
             _tokens.Add(new GeneratedTokenInfo(type, value, startLine, startColumn, startLine, startColumn + value.Length));
         }
@@ -565,7 +426,7 @@ namespace SharpPy.Generated
                         // CPython 3.12: Inside parentheses always NL, even after colon
                         if (IsInsideParentheses)
                         {
-                            AddToken(TokenType.NL, newlineValue, _line, newlineColumn);
+                            AddToken(PyToken.Type.NL, newlineValue, _line, newlineColumn);
                             // Process pending DEDENT tokens after NL
                             ProcessPendingTokens();
                             _lastTokenWasColon = false; // Reset after processing
@@ -576,7 +437,7 @@ namespace SharpPy.Generated
                             #if DEBUG_TOKEN_LOG
                             Console.WriteLine($"[DEBUG] Generating NEWLINE token after colon (standalone \r): value='{newlineValue}', line={_line}, col={newlineColumn}");
                             #endif
-                            AddToken(TokenType.NEWLINE, newlineValue, _line, newlineColumn);
+                            AddToken(PyToken.Type.NEWLINE, newlineValue, _line, newlineColumn);
                             _lastTokenWasColon = false; // Reset after processing
                         }
                         // Outside parentheses: check if blank line
@@ -585,13 +446,13 @@ namespace SharpPy.Generated
                             bool isBlankLine = IsBlankLine();
                             if (isBlankLine)
                             {
-                                AddToken(TokenType.NL, newlineValue, _line, newlineColumn);
+                                AddToken(PyToken.Type.NL, newlineValue, _line, newlineColumn);
                                 // Process pending DEDENT tokens after NL
                                 ProcessPendingTokens();
                             }
                             else
                             {
-                                AddToken(TokenType.NEWLINE, newlineValue, _line, newlineColumn);
+                                AddToken(PyToken.Type.NEWLINE, newlineValue, _line, newlineColumn);
                             }
                         }
                         _atLineStart = true;
@@ -621,7 +482,7 @@ namespace SharpPy.Generated
                     // CPython 3.12: Inside parentheses always NL, even after colon
                     if (IsInsideParentheses)
                     {
-                        AddToken(TokenType.NL, newlineValue, _line, newlineColumn);
+                        AddToken(PyToken.Type.NL, newlineValue, _line, newlineColumn);
                         // Process pending DEDENT tokens after NL
                         ProcessPendingTokens();
                         _lastTokenWasColon = false; // Reset after processing
@@ -632,7 +493,7 @@ namespace SharpPy.Generated
                         #if DEBUG_TOKEN_LOG
                         Console.WriteLine($"[DEBUG] Generating NEWLINE token after colon (\n processing): value='{newlineValue}', line={_line}, col={newlineColumn}");
                         #endif
-                        AddToken(TokenType.NEWLINE, newlineValue, _line, newlineColumn);
+                        AddToken(PyToken.Type.NEWLINE, newlineValue, _line, newlineColumn);
                         _lastTokenWasColon = false; // Reset after processing
                     }
                     // Outside parentheses: check if blank line
@@ -641,13 +502,13 @@ namespace SharpPy.Generated
                         bool isBlankLine = IsBlankLine();
                         if (isBlankLine)
                         {
-                            AddToken(TokenType.NL, newlineValue, _line, newlineColumn);
+                            AddToken(PyToken.Type.NL, newlineValue, _line, newlineColumn);
                             // Process pending DEDENT tokens after NL
                             ProcessPendingTokens();
                         }
                         else
                         {
-                            AddToken(TokenType.NEWLINE, newlineValue, _line, newlineColumn);
+                            AddToken(PyToken.Type.NEWLINE, newlineValue, _line, newlineColumn);
                         }
                     }
                     _atLineStart = true;
@@ -691,7 +552,7 @@ namespace SharpPy.Generated
                 Advance();
             }
             var comment = _source.Substring(start, _position - start);
-            AddToken(TokenType.COMMENT, comment, startLine, startColumn);
+            AddToken(PyToken.Type.COMMENT, comment, startLine, startColumn);
         }
 
         private void HandleName()
@@ -714,7 +575,7 @@ namespace SharpPy.Generated
             }
             var name = _source.Substring(start, _position - start);
 
-            TokenType tokenType = TokenType.NAME;;
+            PyToken.Type tokenType = PyToken.Type.NAME;
             AddToken(tokenType, name, startLine, startColumn);
             _currentLineHasRealTokens = true; // Mark line as having real tokens
         }
@@ -778,7 +639,7 @@ namespace SharpPy.Generated
             }
 
             var number = _source.Substring(start, _position - start);
-            AddToken(TokenType.NUMBER, number, startLine, startColumn);
+            AddToken(PyToken.Type.NUMBER, number, startLine, startColumn);
             _currentLineHasRealTokens = true; // Mark line as having real tokens
         }
 
@@ -840,8 +701,7 @@ namespace SharpPy.Generated
                     Advance();
                 }
                 var name = _source.Substring(start, _position - start);
-                var tokenType = TokenType.NAME;
-                AddToken(tokenType, name, startLine, startColumn);
+                AddToken(PyToken.Type.NAME, name, startLine, startColumn);
                 _currentLineHasRealTokens = true; // Mark line as having real tokens
                 return;
             }
@@ -875,7 +735,7 @@ namespace SharpPy.Generated
             }
 
             var str = _source.Substring(start, _position - start);
-            AddToken(TokenType.STRING, str, startLine, startColumn);
+            AddToken(PyToken.Type.STRING, str, startLine, startColumn);
             _currentLineHasRealTokens = true; // Mark line as having real tokens
         }
 
@@ -898,17 +758,17 @@ namespace SharpPy.Generated
             }
 
             var str = _source.Substring(start, _position - start);
-            AddToken(TokenType.STRING, str, startLine, startColumn);
+            AddToken(PyToken.Type.STRING, str, startLine, startColumn);
             _currentLineHasRealTokens = true; // Mark line as having real tokens
         }
 
         private bool HandleLiteral()
         {
-            var index = GetLiteralIndex(_source, _position);
+            var index = PyToken.GetLiteralIndex(_source, _position);
             if (index == -1)
                 return false;
 
-            var lit = Literals[index];
+            var lit = PyToken.Literals[index];
             AddToken(lit.type, lit.name, _line, _position);
             _position += lit.name.Length;
 
@@ -964,7 +824,7 @@ namespace SharpPy.Generated
                 // CPython 3.12: Only generate INDENT if we're actually increasing indentation
                 _indentStack.Push(indent);
                 var indentText = new string(' ', indent);
-                AddToken(TokenType.INDENT, indentText, _line, indentStartColumn);
+                AddToken(PyToken.Type.INDENT, indentText, _line, indentStartColumn);
                 #if DEBUG_TOKEN_LOG
                 Console.WriteLine($"[DEBUG] Generated INDENT token: level {currentLevel} -> {indent}");
                 #endif
@@ -977,7 +837,7 @@ namespace SharpPy.Generated
                     _indentStack.Pop();
                     // CPython 3.12: DEDENT position should point to current indentation level
                     // Use current position (start of current token) not previous position
-                    _pendingTokens.Enqueue(new GeneratedTokenInfo(TokenType.DEDENT, "", _line, indent, _line, indent + 1));
+                    _pendingTokens.Enqueue(new GeneratedTokenInfo(PyToken.Type.DEDENT, "", _line, indent, _line, indent + 1));
                 }
 
                 // Check for indentation error

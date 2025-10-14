@@ -77,9 +77,9 @@ namespace SharpPy.Generated
         {
             // CPython 3.12: Filter out COMMENT, NL, TYPE_COMMENT tokens before parsing
             _tokens = tokens.Where(t => 
-                t.Type != TokenType.COMMENT &&
-                t.Type != TokenType.NL &&
-                t.Type != TokenType.TYPE_COMMENT).ToList();
+                t.Type != PyToken.Type.COMMENT &&
+                t.Type != PyToken.Type.NL &&
+                t.Type != PyToken.Type.TYPE_COMMENT).ToList();
             _filename = filename;
         }
 
@@ -118,7 +118,7 @@ namespace SharpPy.Generated
             throw new NotImplementedException("ParseFile must be overridden");
         }
 
-        protected GeneratedTokenInfo ExpectToken(TokenType type)
+        protected GeneratedTokenInfo ExpectToken(PyToken.Type type)
         {
             var token = CurrentToken;
             if (token == null) return null;
@@ -126,7 +126,7 @@ namespace SharpPy.Generated
             // CPython 3.12: If token is NAME, check if it's a keyword
             // This implements initialize_token + _get_keyword_or_name_type logic
             int tokenTypeInt = (int)token.Type;
-            if (token.Type == TokenType.NAME)
+            if (token.Type == PyToken.Type.NAME)
             {
                 tokenTypeInt = GetKeywordOrNameType(token.Value, token.Value.Length);
             }
@@ -142,7 +142,7 @@ namespace SharpPy.Generated
             return null;
         }
 
-        protected GeneratedTokenInfo Expect(TokenType type, string value)
+        protected GeneratedTokenInfo Expect(PyToken.Type type, string value)
         {
             var token = CurrentToken;
             #if DEBUG_PARSE_LOG
@@ -159,7 +159,7 @@ namespace SharpPy.Generated
         protected GeneratedTokenInfo ExpectName()
         {
             var token = CurrentToken;
-            if (token != null && token.Type == TokenType.NAME)
+            if (token != null && token.Type == PyToken.Type.NAME)
             {
                 _position++;
                 return token;
@@ -176,7 +176,7 @@ namespace SharpPy.Generated
         {
             var token = CurrentToken;
             // CPython: t->type != NAME → return NULL
-            if (token == null || token.Type != TokenType.NAME)
+            if (token == null || token.Type != PyToken.Type.NAME)
             {
                 return null;
             }
@@ -194,7 +194,7 @@ namespace SharpPy.Generated
         /// Token *_PyPegen_expect_forced_token(Parser *p, int type, const char* expected)
         /// Forced token must match or raise syntax error immediately
         /// </summary>
-        protected GeneratedTokenInfo ExpectForcedToken(TokenType type, string expected)
+        protected GeneratedTokenInfo ExpectForcedToken(PyToken.Type type, string expected)
         {
             if (_pendingSyntaxError != null)
             {

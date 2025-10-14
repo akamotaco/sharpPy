@@ -144,7 +144,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[GetKeywordOrNameType] OUT OF BOUNDS or NULL, returning NAME");
                 #endif
-                return (int)TokenType.NAME;
+                return (int)PyToken.Type.NAME;
             }
 
             if (ReservedKeywords[nameLen].TryGetValue(name, out int keywordType))
@@ -158,7 +158,7 @@ namespace SharpPy.Generated
             #if DEBUG_PARSE_LOG
             Console.WriteLine($"[GetKeywordOrNameType] NOT FOUND '{name}', returning NAME");
             #endif
-            return (int)TokenType.NAME;
+            return (int)PyToken.Type.NAME;
         }
 
         // Helper for compile.cs to check if a string is a keyword
@@ -254,7 +254,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp0 = ExpectToken(TokenType.ENDMARKER);
+                var _tmp0 = ExpectToken(PyToken.Type.ENDMARKER);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -379,7 +379,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp1 = ExpectToken(TokenType.ENDMARKER);
+                var _tmp1 = ExpectToken(PyToken.Type.ENDMARKER);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -433,7 +433,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -476,7 +476,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Expect ')'
-                var _tmp1 = Expect(TokenType.OP, ")");
+                var _tmp1 = Expect(PyToken.Type.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -485,7 +485,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '->'
-                var _tmp2 = Expect(TokenType.OP, "->");
+                var _tmp2 = Expect(PyToken.Type.OP, "->");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -511,7 +511,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp4 = ExpectToken(TokenType.ENDMARKER);
+                var _tmp4 = ExpectToken(PyToken.Type.ENDMARKER);
                 if (_tmp4 == null)
                 {
                     _position = _mark;
@@ -713,7 +713,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp0 = ExpectToken(TokenType.NEWLINE);
+                var _tmp0 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -772,7 +772,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp0 = ExpectToken(TokenType.NEWLINE);
+                var _tmp0 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -803,7 +803,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(ENDMARKER): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp0 = ExpectToken(TokenType.ENDMARKER);
+                var _tmp0 = ExpectToken(PyToken.Type.ENDMARKER);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -883,7 +883,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp1 = ExpectToken(TokenType.NEWLINE);
+                var _tmp1 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -958,7 +958,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp1 = ExpectToken(TokenType.NEWLINE);
+                var _tmp1 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -1271,7 +1271,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'pass' (token type 504)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.PASS);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.PASS);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -1435,7 +1435,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'break' (token type 508)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.BREAK);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.BREAK);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -1464,7 +1464,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'continue' (token type 509)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.CONTINUE);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.CONTINUE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -1617,7 +1617,7 @@ namespace SharpPy.Generated
                     // Test if current token matches any alternative
                     if (CurrentToken?.Value == "def") { _lookahead_test_10 = true; }
                     if (CurrentToken?.Value == "@") { _lookahead_test_10 = true; }
-                    if (ExpectToken(TokenType.ASYNC) != null) { _lookahead_test_10 = true; }
+                    if (ExpectToken(PyToken.Type.ASYNC) != null) { _lookahead_test_10 = true; }
                 }
                 _position = _lookahead_mark_10; // Restore position after lookahead
                 if (!_lookahead_test_10)
@@ -1747,7 +1747,7 @@ namespace SharpPy.Generated
                 {
                     // Test if current token matches any alternative
                     if (CurrentToken?.Value == "with") { _lookahead_test_13 = true; }
-                    if (ExpectToken(TokenType.ASYNC) != null) { _lookahead_test_13 = true; }
+                    if (ExpectToken(PyToken.Type.ASYNC) != null) { _lookahead_test_13 = true; }
                 }
                 _position = _lookahead_mark_13; // Restore position after lookahead
                 if (!_lookahead_test_13)
@@ -1791,7 +1791,7 @@ namespace SharpPy.Generated
                 {
                     // Test if current token matches any alternative
                     if (CurrentToken?.Value == "for") { _lookahead_test_14 = true; }
-                    if (ExpectToken(TokenType.ASYNC) != null) { _lookahead_test_14 = true; }
+                    if (ExpectToken(PyToken.Type.ASYNC) != null) { _lookahead_test_14 = true; }
                 }
                 _position = _lookahead_mark_14; // Restore position after lookahead
                 if (!_lookahead_test_14)
@@ -1974,7 +1974,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -1987,7 +1987,7 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
                 // Expect ':'
-                var _tmp0 = Expect(TokenType.OP, ":");
+                var _tmp0 = Expect(PyToken.Type.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2119,7 +2119,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(TokenType.OP, ":");
+                var _tmp0 = Expect(PyToken.Type.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2265,7 +2265,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: TYPE_COMMENT
                 {
                     _position = _group_mark__opt_tc;
-                    GeneratedTokenInfo? _group_alt0__opt_tc_item0 = ExpectToken(TokenType.TYPE_COMMENT);
+                    GeneratedTokenInfo? _group_alt0__opt_tc_item0 = ExpectToken(PyToken.Type.TYPE_COMMENT);
                     if (_group_alt0__opt_tc_item0 != null)
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
@@ -2563,7 +2563,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '+='
-                var _tmp0 = Expect(TokenType.OP, "+=");
+                var _tmp0 = Expect(PyToken.Type.OP, "+=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2588,7 +2588,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '-='
-                var _tmp0 = Expect(TokenType.OP, "-=");
+                var _tmp0 = Expect(PyToken.Type.OP, "-=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2613,7 +2613,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*='
-                var _tmp0 = Expect(TokenType.OP, "*=");
+                var _tmp0 = Expect(PyToken.Type.OP, "*=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2638,7 +2638,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '@='
-                var _tmp0 = Expect(TokenType.OP, "@=");
+                var _tmp0 = Expect(PyToken.Type.OP, "@=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2663,7 +2663,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '/='
-                var _tmp0 = Expect(TokenType.OP, "/=");
+                var _tmp0 = Expect(PyToken.Type.OP, "/=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2688,7 +2688,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '%='
-                var _tmp0 = Expect(TokenType.OP, "%=");
+                var _tmp0 = Expect(PyToken.Type.OP, "%=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2713,7 +2713,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '&='
-                var _tmp0 = Expect(TokenType.OP, "&=");
+                var _tmp0 = Expect(PyToken.Type.OP, "&=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2738,7 +2738,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '|='
-                var _tmp0 = Expect(TokenType.OP, "|=");
+                var _tmp0 = Expect(PyToken.Type.OP, "|=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2763,7 +2763,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '^='
-                var _tmp0 = Expect(TokenType.OP, "^=");
+                var _tmp0 = Expect(PyToken.Type.OP, "^=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2788,7 +2788,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '<<='
-                var _tmp0 = Expect(TokenType.OP, "<<=");
+                var _tmp0 = Expect(PyToken.Type.OP, "<<=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2813,7 +2813,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '>>='
-                var _tmp0 = Expect(TokenType.OP, ">>=");
+                var _tmp0 = Expect(PyToken.Type.OP, ">>=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2838,7 +2838,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**='
-                var _tmp0 = Expect(TokenType.OP, "**=");
+                var _tmp0 = Expect(PyToken.Type.OP, "**=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2863,7 +2863,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '//='
-                var _tmp0 = Expect(TokenType.OP, "//=");
+                var _tmp0 = Expect(PyToken.Type.OP, "//=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -2914,7 +2914,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'return' (token type 500)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.RETURN);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.RETURN);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -3000,7 +3000,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'raise' (token type 503)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.RAISE);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.RAISE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -3076,7 +3076,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'raise' (token type 503)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.RAISE);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.RAISE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -3128,7 +3128,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'global' (token type 510)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.GLOBAL);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.GLOBAL);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -3190,7 +3190,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'nonlocal' (token type 511)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.NONLOCAL);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.NONLOCAL);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -3252,7 +3252,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'del' (token type 505)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.DEL);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.DEL);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -3278,7 +3278,7 @@ namespace SharpPy.Generated
                 {
                     // Test if current token matches any alternative
                     if (CurrentToken?.Value == ";") { _lookahead_test_18 = true; }
-                    if (ExpectToken(TokenType.NEWLINE) != null) { _lookahead_test_18 = true; }
+                    if (ExpectToken(PyToken.Type.NEWLINE) != null) { _lookahead_test_18 = true; }
                 }
                 _position = _lookahead_mark_18; // Restore position after lookahead
                 if (!_lookahead_test_18)
@@ -3445,7 +3445,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'assert' (token type 507)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.ASSERT);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.ASSERT);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -3687,7 +3687,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'import' (token type 501)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.IMPORT);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.IMPORT);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -3751,7 +3751,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'from' (token type 502)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.FROM);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.FROM);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -3774,7 +3774,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'import' (token type 501)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.IMPORT);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.IMPORT);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -3811,7 +3811,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'from' (token type 502)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.FROM);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.FROM);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -3829,7 +3829,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'import' (token type 501)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.IMPORT);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.IMPORT);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -3893,7 +3893,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -3948,7 +3948,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp1; // Reset position
                 }
                 // Expect ')'
-                var _tmp2 = Expect(TokenType.OP, ")");
+                var _tmp2 = Expect(PyToken.Type.OP, ")");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -4012,7 +4012,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -4176,7 +4176,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -4199,7 +4199,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__opt_b_item0 = Expect("as");
                     if (_group_alt0__opt_b_item0 != null)
                     {
-                        GeneratedTokenInfo? _group_alt0__opt_b_item1 = ExpectToken(TokenType.NAME);
+                        GeneratedTokenInfo? _group_alt0__opt_b_item1 = ExpectToken(PyToken.Type.NAME);
                         if (_group_alt0__opt_b_item1 != null)
                         {
                             _opt_b = _group_alt0__opt_b_item1;
@@ -4346,7 +4346,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__opt_b_item0 = Expect("as");
                     if (_group_alt0__opt_b_item0 != null)
                     {
-                        GeneratedTokenInfo? _group_alt0__opt_b_item1 = ExpectToken(TokenType.NAME);
+                        GeneratedTokenInfo? _group_alt0__opt_b_item1 = ExpectToken(PyToken.Type.NAME);
                         if (_group_alt0__opt_b_item1 != null)
                         {
                             _opt_b = _group_alt0__opt_b_item1;
@@ -4484,7 +4484,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '.'
-                var _tmp0 = Expect(TokenType.OP, ".");
+                var _tmp0 = Expect(PyToken.Type.OP, ".");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -4496,7 +4496,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_b = ExpectToken(TokenType.NAME);
+                var _token_b = ExpectToken(PyToken.Type.NAME);
                 if (_token_b == null)
                 {
                     _position = _mark;
@@ -4528,7 +4528,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token__tmp0 = ExpectToken(TokenType.NAME);
+                var _token__tmp0 = ExpectToken(PyToken.Type.NAME);
                 if (_token__tmp0 == null)
                 {
                     _position = _mark;
@@ -4594,7 +4594,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp0 = ExpectToken(TokenType.NEWLINE);
+                var _tmp0 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -4609,7 +4609,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(INDENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp1 = ExpectToken(TokenType.INDENT);
+                var _tmp1 = ExpectToken(PyToken.Type.INDENT);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -4636,7 +4636,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(DEDENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp2 = ExpectToken(TokenType.DEDENT);
+                var _tmp2 = ExpectToken(PyToken.Type.DEDENT);
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -4982,7 +4982,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'class' (token type 514)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.CLASS);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.CLASS);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -4994,7 +4994,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -5116,7 +5116,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_b; // Reset position
                 }
                 // Expect ':'
-                var _tmp1 = Expect(TokenType.OP, ":");
+                var _tmp1 = Expect(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -5336,7 +5336,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'def' (token type 512)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.DEF);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.DEF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -5348,7 +5348,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_n = ExpectToken(TokenType.NAME);
+                var _token_n = ExpectToken(PyToken.Type.NAME);
                 if (_token_n == null)
                 {
                     _position = _mark;
@@ -5395,7 +5395,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_t; // Reset position
                 }
                 // Forced token: &&'('
-                var _tmp1 = ExpectForcedToken(TokenType.OP, "(");
+                var _tmp1 = ExpectForcedToken(PyToken.Type.OP, "(");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -5437,7 +5437,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_params_; // Reset position
                 }
                 // Expect ')'
-                var _tmp2 = Expect(TokenType.OP, ")");
+                var _tmp2 = Expect(PyToken.Type.OP, ")");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -5484,7 +5484,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Forced token: &&':'
-                var _tmp3 = ExpectForcedToken(TokenType.OP, ":");
+                var _tmp3 = ExpectForcedToken(PyToken.Type.OP, ":");
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -5561,7 +5561,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp0 = ExpectToken(TokenType.ASYNC);
+                var _tmp0 = ExpectToken(PyToken.Type.ASYNC);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -5573,7 +5573,7 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
                 // Expect hard keyword: 'def' (token type 512)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.DEF);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.DEF);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -5585,7 +5585,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_n = ExpectToken(TokenType.NAME);
+                var _token_n = ExpectToken(PyToken.Type.NAME);
                 if (_token_n == null)
                 {
                     _position = _mark;
@@ -5632,7 +5632,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_t; // Reset position
                 }
                 // Forced token: &&'('
-                var _tmp2 = ExpectForcedToken(TokenType.OP, "(");
+                var _tmp2 = ExpectForcedToken(PyToken.Type.OP, "(");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -5674,7 +5674,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_params_; // Reset position
                 }
                 // Expect ')'
-                var _tmp3 = Expect(TokenType.OP, ")");
+                var _tmp3 = Expect(PyToken.Type.OP, ")");
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -5721,7 +5721,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Forced token: &&':'
-                var _tmp4 = ExpectForcedToken(TokenType.OP, ":");
+                var _tmp4 = ExpectForcedToken(PyToken.Type.OP, ":");
                 if (_tmp4 == null)
                 {
                     _position = _mark;
@@ -6254,7 +6254,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp0 = Expect(TokenType.OP, "/");
+                var _tmp0 = Expect(PyToken.Type.OP, "/");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -6263,7 +6263,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(TokenType.OP, ",");
+                var _tmp1 = Expect(PyToken.Type.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -6298,7 +6298,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp0 = Expect(TokenType.OP, "/");
+                var _tmp0 = Expect(PyToken.Type.OP, "/");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -6374,7 +6374,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp0 = Expect(TokenType.OP, "/");
+                var _tmp0 = Expect(PyToken.Type.OP, "/");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -6383,7 +6383,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(TokenType.OP, ",");
+                var _tmp1 = Expect(PyToken.Type.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -6419,7 +6419,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp0 = Expect(TokenType.OP, "/");
+                var _tmp0 = Expect(PyToken.Type.OP, "/");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -6542,7 +6542,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -6615,7 +6615,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -6688,7 +6688,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -6697,7 +6697,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(TokenType.OP, ",");
+                var _tmp1 = Expect(PyToken.Type.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -6877,7 +6877,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect(TokenType.OP, "**");
+                var _tmp0 = Expect(PyToken.Type.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -6952,7 +6952,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(TokenType.OP, ",");
+                var _tmp0 = Expect(PyToken.Type.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -6966,7 +6966,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _opt_tc = ExpectToken(TokenType.TYPE_COMMENT);
+                var _opt_tc = ExpectToken(PyToken.Type.TYPE_COMMENT);
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -7019,7 +7019,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _opt_tc = ExpectToken(TokenType.TYPE_COMMENT);
+                var _opt_tc = ExpectToken(PyToken.Type.TYPE_COMMENT);
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -7107,7 +7107,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(TokenType.OP, ",");
+                var _tmp0 = Expect(PyToken.Type.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -7121,7 +7121,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _opt_tc = ExpectToken(TokenType.TYPE_COMMENT);
+                var _opt_tc = ExpectToken(PyToken.Type.TYPE_COMMENT);
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -7174,7 +7174,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _opt_tc = ExpectToken(TokenType.TYPE_COMMENT);
+                var _opt_tc = ExpectToken(PyToken.Type.TYPE_COMMENT);
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -7274,7 +7274,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(TokenType.OP, ",");
+                var _tmp0 = Expect(PyToken.Type.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -7288,7 +7288,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _opt_tc = ExpectToken(TokenType.TYPE_COMMENT);
+                var _opt_tc = ExpectToken(PyToken.Type.TYPE_COMMENT);
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -7353,7 +7353,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _opt_tc = ExpectToken(TokenType.TYPE_COMMENT);
+                var _opt_tc = ExpectToken(PyToken.Type.TYPE_COMMENT);
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -7463,7 +7463,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_c; // Reset position
                 }
                 // Expect ','
-                var _tmp0 = Expect(TokenType.OP, ",");
+                var _tmp0 = Expect(PyToken.Type.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -7477,7 +7477,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _opt_tc = ExpectToken(TokenType.TYPE_COMMENT);
+                var _opt_tc = ExpectToken(PyToken.Type.TYPE_COMMENT);
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -7552,7 +7552,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _opt_tc = ExpectToken(TokenType.TYPE_COMMENT);
+                var _opt_tc = ExpectToken(PyToken.Type.TYPE_COMMENT);
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): result={(_opt_tc != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -7631,7 +7631,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -7711,7 +7711,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -7778,7 +7778,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect ':'
-                var _tmp0 = Expect(TokenType.OP, ":");
+                var _tmp0 = Expect(PyToken.Type.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -7841,7 +7841,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect ':'
-                var _tmp0 = Expect(TokenType.OP, ":");
+                var _tmp0 = Expect(PyToken.Type.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -7904,7 +7904,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '='
-                var _tmp0 = Expect(TokenType.OP, "=");
+                var _tmp0 = Expect(PyToken.Type.OP, "=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -8083,7 +8083,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'if' (token type 513)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.IF);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.IF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -8104,7 +8104,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(TokenType.OP, ":");
+                var _tmp1 = Expect(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -8154,7 +8154,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'if' (token type 513)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.IF);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.IF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -8175,7 +8175,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(TokenType.OP, ":");
+                var _tmp1 = Expect(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -8331,7 +8331,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'elif' (token type 520)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.ELIF);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.ELIF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -8352,7 +8352,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(TokenType.OP, ":");
+                var _tmp1 = Expect(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -8402,7 +8402,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'elif' (token type 520)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.ELIF);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.ELIF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -8423,7 +8423,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(TokenType.OP, ":");
+                var _tmp1 = Expect(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -8579,7 +8579,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'else' (token type 521)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.ELSE);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.ELSE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -8588,7 +8588,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Forced token: &&':'
-                var _tmp1 = ExpectForcedToken(TokenType.OP, ":");
+                var _tmp1 = ExpectForcedToken(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -8708,7 +8708,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'while' (token type 518)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.WHILE);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.WHILE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -8729,7 +8729,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(TokenType.OP, ":");
+                var _tmp1 = Expect(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -8885,7 +8885,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'for' (token type 516)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.FOR);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.FOR);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -8906,7 +8906,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'in' (token type 522)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.IN);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.IN);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -8929,7 +8929,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp2 = Expect(TokenType.OP, ":");
+                var _tmp2 = Expect(PyToken.Type.OP, ":");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -8945,7 +8945,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: TYPE_COMMENT
                 {
                     _position = _group_mark__opt_tc;
-                    GeneratedTokenInfo? _group_alt0__opt_tc_item0 = ExpectToken(TokenType.TYPE_COMMENT);
+                    GeneratedTokenInfo? _group_alt0__opt_tc_item0 = ExpectToken(PyToken.Type.TYPE_COMMENT);
                     if (_group_alt0__opt_tc_item0 != null)
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
@@ -9038,7 +9038,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp0 = ExpectToken(TokenType.ASYNC);
+                var _tmp0 = ExpectToken(PyToken.Type.ASYNC);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -9050,7 +9050,7 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
                 // Expect hard keyword: 'for' (token type 516)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.FOR);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.FOR);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -9071,7 +9071,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'in' (token type 522)
-                var _tmp2 = ExpectToken((TokenType)KeywordType.IN);
+                var _tmp2 = ExpectToken((PyToken.Type)KeywordType.IN);
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -9094,7 +9094,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp3 = Expect(TokenType.OP, ":");
+                var _tmp3 = Expect(PyToken.Type.OP, ":");
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -9110,7 +9110,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: TYPE_COMMENT
                 {
                     _position = _group_mark__opt_tc;
-                    GeneratedTokenInfo? _group_alt0__opt_tc_item0 = ExpectToken(TokenType.TYPE_COMMENT);
+                    GeneratedTokenInfo? _group_alt0__opt_tc_item0 = ExpectToken(PyToken.Type.TYPE_COMMENT);
                     if (_group_alt0__opt_tc_item0 != null)
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
@@ -9342,7 +9342,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'with' (token type 515)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.WITH);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.WITH);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -9351,7 +9351,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp1 = Expect(TokenType.OP, "(");
+                var _tmp1 = Expect(PyToken.Type.OP, "(");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -9372,7 +9372,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp2 = _position;
                 // Expect ','
-                var _opt__tmp2 = Expect(TokenType.OP, ",");
+                var _opt__tmp2 = Expect(PyToken.Type.OP, ",");
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp2 = _opt__tmp2;
                 if (_pendingSyntaxError != null)
@@ -9389,7 +9389,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp2; // Reset position
                 }
                 // Expect ')'
-                var _tmp3 = Expect(TokenType.OP, ")");
+                var _tmp3 = Expect(PyToken.Type.OP, ")");
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -9398,7 +9398,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp4 = Expect(TokenType.OP, ":");
+                var _tmp4 = Expect(PyToken.Type.OP, ":");
                 if (_tmp4 == null)
                 {
                     _position = _mark;
@@ -9436,7 +9436,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'with' (token type 515)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.WITH);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.WITH);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -9455,7 +9455,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(TokenType.OP, ":");
+                var _tmp1 = Expect(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -9471,7 +9471,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: TYPE_COMMENT
                 {
                     _position = _group_mark__opt_tc;
-                    GeneratedTokenInfo? _group_alt0__opt_tc_item0 = ExpectToken(TokenType.TYPE_COMMENT);
+                    GeneratedTokenInfo? _group_alt0__opt_tc_item0 = ExpectToken(PyToken.Type.TYPE_COMMENT);
                     if (_group_alt0__opt_tc_item0 != null)
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
@@ -9530,7 +9530,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp0 = ExpectToken(TokenType.ASYNC);
+                var _tmp0 = ExpectToken(PyToken.Type.ASYNC);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -9542,7 +9542,7 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
                 // Expect hard keyword: 'with' (token type 515)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.WITH);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.WITH);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -9551,7 +9551,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp2 = Expect(TokenType.OP, "(");
+                var _tmp2 = Expect(PyToken.Type.OP, "(");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -9572,7 +9572,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp3 = _position;
                 // Expect ','
-                var _opt__tmp3 = Expect(TokenType.OP, ",");
+                var _opt__tmp3 = Expect(PyToken.Type.OP, ",");
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp3 = _opt__tmp3;
                 if (_pendingSyntaxError != null)
@@ -9589,7 +9589,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp3; // Reset position
                 }
                 // Expect ')'
-                var _tmp4 = Expect(TokenType.OP, ")");
+                var _tmp4 = Expect(PyToken.Type.OP, ")");
                 if (_tmp4 == null)
                 {
                     _position = _mark;
@@ -9598,7 +9598,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp5 = Expect(TokenType.OP, ":");
+                var _tmp5 = Expect(PyToken.Type.OP, ":");
                 if (_tmp5 == null)
                 {
                     _position = _mark;
@@ -9639,7 +9639,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp0 = ExpectToken(TokenType.ASYNC);
+                var _tmp0 = ExpectToken(PyToken.Type.ASYNC);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -9651,7 +9651,7 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
                 // Expect hard keyword: 'with' (token type 515)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.WITH);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.WITH);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -9670,7 +9670,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp2 = Expect(TokenType.OP, ":");
+                var _tmp2 = Expect(PyToken.Type.OP, ":");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -9686,7 +9686,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: TYPE_COMMENT
                 {
                     _position = _group_mark__opt_tc;
-                    GeneratedTokenInfo? _group_alt0__opt_tc_item0 = ExpectToken(TokenType.TYPE_COMMENT);
+                    GeneratedTokenInfo? _group_alt0__opt_tc_item0 = ExpectToken(PyToken.Type.TYPE_COMMENT);
                     if (_group_alt0__opt_tc_item0 != null)
                     {
                         _opt_tc = _group_alt0__opt_tc_item0;
@@ -9838,7 +9838,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'as' (token type 519)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.AS);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.AS);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -10062,7 +10062,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'try' (token type 517)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.TRY);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.TRY);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -10071,7 +10071,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Forced token: &&':'
-                var _tmp1 = ExpectForcedToken(TokenType.OP, ":");
+                var _tmp1 = ExpectForcedToken(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -10120,7 +10120,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'try' (token type 517)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.TRY);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.TRY);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -10129,7 +10129,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Forced token: &&':'
-                var _tmp1 = ExpectForcedToken(TokenType.OP, ":");
+                var _tmp1 = ExpectForcedToken(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -10244,7 +10244,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'try' (token type 517)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.TRY);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.TRY);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -10253,7 +10253,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Forced token: &&':'
-                var _tmp1 = ExpectForcedToken(TokenType.OP, ":");
+                var _tmp1 = ExpectForcedToken(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -10454,7 +10454,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'except' (token type 523)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.EXCEPT);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.EXCEPT);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -10485,7 +10485,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__opt_t_item0 = Expect("as");
                     if (_group_alt0__opt_t_item0 != null)
                     {
-                        GeneratedTokenInfo? _group_alt0__opt_t_item1 = ExpectToken(TokenType.NAME);
+                        GeneratedTokenInfo? _group_alt0__opt_t_item1 = ExpectToken(PyToken.Type.NAME);
                         if (_group_alt0__opt_t_item1 != null)
                         {
                             _opt_t = _group_alt0__opt_t_item1;
@@ -10513,7 +10513,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_t; // Reset position
                 }
                 // Expect ':'
-                var _tmp1 = Expect(TokenType.OP, ":");
+                var _tmp1 = Expect(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -10550,7 +10550,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'except' (token type 523)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.EXCEPT);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.EXCEPT);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -10559,7 +10559,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(TokenType.OP, ":");
+                var _tmp1 = Expect(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -10738,7 +10738,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'except' (token type 523)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.EXCEPT);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.EXCEPT);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -10747,7 +10747,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '*'
-                var _tmp1 = Expect(TokenType.OP, "*");
+                var _tmp1 = Expect(PyToken.Type.OP, "*");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -10778,7 +10778,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__opt_t_item0 = Expect("as");
                     if (_group_alt0__opt_t_item0 != null)
                     {
-                        GeneratedTokenInfo? _group_alt0__opt_t_item1 = ExpectToken(TokenType.NAME);
+                        GeneratedTokenInfo? _group_alt0__opt_t_item1 = ExpectToken(PyToken.Type.NAME);
                         if (_group_alt0__opt_t_item1 != null)
                         {
                             _opt_t = _group_alt0__opt_t_item1;
@@ -10806,7 +10806,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_t; // Reset position
                 }
                 // Expect ':'
-                var _tmp2 = Expect(TokenType.OP, ":");
+                var _tmp2 = Expect(PyToken.Type.OP, ":");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -10985,7 +10985,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'finally' (token type 524)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.FINALLY);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.FINALLY);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -10994,7 +10994,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Forced token: &&':'
-                var _tmp1 = ExpectForcedToken(TokenType.OP, ":");
+                var _tmp1 = ExpectForcedToken(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -11077,7 +11077,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(TokenType.OP, ":");
+                var _tmp1 = Expect(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -11089,7 +11089,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp2 = ExpectToken(TokenType.NEWLINE);
+                var _tmp2 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -11104,7 +11104,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(INDENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp3 = ExpectToken(TokenType.INDENT);
+                var _tmp3 = ExpectToken(PyToken.Type.INDENT);
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -11129,7 +11129,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(DEDENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp4 = ExpectToken(TokenType.DEDENT);
+                var _tmp4 = ExpectToken(PyToken.Type.DEDENT);
                 if (_tmp4 == null)
                 {
                     _position = _mark;
@@ -11254,7 +11254,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(TokenType.OP, ",");
+                var _tmp0 = Expect(PyToken.Type.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -11457,7 +11457,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_guard; // Reset position
                 }
                 // Expect ':'
-                var _tmp1 = Expect(TokenType.OP, ":");
+                var _tmp1 = Expect(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -11520,7 +11520,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'if' (token type 513)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.IF);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.IF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -11759,7 +11759,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'as' (token type 519)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.AS);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.AS);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -12288,7 +12288,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'None' (token type 525)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.KW_NONE);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.KW_NONE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -12313,7 +12313,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'True' (token type 526)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.KW_TRUE);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.KW_TRUE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -12338,7 +12338,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'False' (token type 527)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.KW_FALSE);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.KW_FALSE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -12486,7 +12486,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'None' (token type 525)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.KW_NONE);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.KW_NONE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -12512,7 +12512,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'True' (token type 526)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.KW_TRUE);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.KW_TRUE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -12538,7 +12538,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'False' (token type 527)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.KW_FALSE);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.KW_FALSE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -12602,7 +12602,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '+'
-                var _tmp0 = Expect(TokenType.OP, "+");
+                var _tmp0 = Expect(PyToken.Type.OP, "+");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -12652,7 +12652,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '-'
-                var _tmp0 = Expect(TokenType.OP, "-");
+                var _tmp0 = Expect(PyToken.Type.OP, "-");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -12719,7 +12719,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token__tmp0 = ExpectToken(TokenType.NUMBER);
+                var _token__tmp0 = ExpectToken(PyToken.Type.NUMBER);
                 if (_token__tmp0 == null)
                 {
                     _position = _mark;
@@ -12749,7 +12749,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '-'
-                var _tmp0 = Expect(TokenType.OP, "-");
+                var _tmp0 = Expect(PyToken.Type.OP, "-");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -12761,7 +12761,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_number = ExpectToken(TokenType.NUMBER);
+                var _token_number = ExpectToken(PyToken.Type.NUMBER);
                 if (_token_number == null)
                 {
                     _position = _mark;
@@ -12845,7 +12845,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '-'
-                var _tmp0 = Expect(TokenType.OP, "-");
+                var _tmp0 = Expect(PyToken.Type.OP, "-");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -12912,7 +12912,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_real = ExpectToken(TokenType.NUMBER);
+                var _token_real = ExpectToken(PyToken.Type.NUMBER);
                 if (_token_real == null)
                 {
                     _position = _mark;
@@ -12970,7 +12970,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_imag = ExpectToken(TokenType.NUMBER);
+                var _token_imag = ExpectToken(PyToken.Type.NUMBER);
                 if (_token_imag == null)
                 {
                     _position = _mark;
@@ -13093,7 +13093,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_name = ExpectToken(TokenType.NAME);
+                var _token_name = ExpectToken(PyToken.Type.NAME);
                 if (_token_name == null)
                 {
                     _position = _mark;
@@ -13346,7 +13346,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '.'
-                var _tmp0 = Expect(TokenType.OP, ".");
+                var _tmp0 = Expect(PyToken.Type.OP, ".");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -13358,7 +13358,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_attr = ExpectToken(TokenType.NAME);
+                var _token_attr = ExpectToken(PyToken.Type.NAME);
                 if (_token_attr == null)
                 {
                     _position = _mark;
@@ -13445,7 +13445,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token__tmp0 = ExpectToken(TokenType.NAME);
+                var _token__tmp0 = ExpectToken(PyToken.Type.NAME);
                 if (_token__tmp0 == null)
                 {
                     _position = _mark;
@@ -13501,7 +13501,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -13522,7 +13522,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ')'
-                var _tmp1 = Expect(TokenType.OP, ")");
+                var _tmp1 = Expect(PyToken.Type.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -13573,7 +13573,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '['
-                var _tmp0 = Expect(TokenType.OP, "[");
+                var _tmp0 = Expect(PyToken.Type.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -13604,7 +13604,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_patterns; // Reset position
                 }
                 // Expect ']'
-                var _tmp1 = Expect(TokenType.OP, "]");
+                var _tmp1 = Expect(PyToken.Type.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -13629,7 +13629,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -13660,7 +13660,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_patterns; // Reset position
                 }
                 // Expect ')'
-                var _tmp1 = Expect(TokenType.OP, ")");
+                var _tmp1 = Expect(PyToken.Type.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -13723,7 +13723,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(TokenType.OP, ",");
+                var _tmp0 = Expect(PyToken.Type.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -13807,7 +13807,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp0 = _position;
                 // Expect ','
-                var _opt__tmp0 = Expect(TokenType.OP, ",");
+                var _opt__tmp0 = Expect(PyToken.Type.OP, ",");
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_pendingSyntaxError != null)
@@ -13955,7 +13955,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -13992,7 +13992,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -14057,7 +14057,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -14066,7 +14066,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '}'
-                var _tmp1 = Expect(TokenType.OP, "}");
+                var _tmp1 = Expect(PyToken.Type.OP, "}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -14091,7 +14091,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -14114,7 +14114,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp1 = _position;
                 // Expect ','
-                var _opt__tmp1 = Expect(TokenType.OP, ",");
+                var _opt__tmp1 = Expect(PyToken.Type.OP, ",");
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp1 = _opt__tmp1;
                 if (_pendingSyntaxError != null)
@@ -14131,7 +14131,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp1; // Reset position
                 }
                 // Expect '}'
-                var _tmp2 = Expect(TokenType.OP, "}");
+                var _tmp2 = Expect(PyToken.Type.OP, "}");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -14156,7 +14156,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -14177,7 +14177,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(TokenType.OP, ",");
+                var _tmp1 = Expect(PyToken.Type.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -14200,7 +14200,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp2 = _position;
                 // Expect ','
-                var _opt__tmp2 = Expect(TokenType.OP, ",");
+                var _opt__tmp2 = Expect(PyToken.Type.OP, ",");
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp2 = _opt__tmp2;
                 if (_pendingSyntaxError != null)
@@ -14217,7 +14217,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp2; // Reset position
                 }
                 // Expect '}'
-                var _tmp3 = Expect(TokenType.OP, "}");
+                var _tmp3 = Expect(PyToken.Type.OP, "}");
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -14247,7 +14247,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -14270,7 +14270,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp1 = _position;
                 // Expect ','
-                var _opt__tmp1 = Expect(TokenType.OP, ",");
+                var _opt__tmp1 = Expect(PyToken.Type.OP, ",");
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp1 = _opt__tmp1;
                 if (_pendingSyntaxError != null)
@@ -14287,7 +14287,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp1; // Reset position
                 }
                 // Expect '}'
-                var _tmp2 = Expect(TokenType.OP, "}");
+                var _tmp2 = Expect(PyToken.Type.OP, "}");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -14433,7 +14433,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(TokenType.OP, ":");
+                var _tmp0 = Expect(PyToken.Type.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -14496,7 +14496,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect(TokenType.OP, "**");
+                var _tmp0 = Expect(PyToken.Type.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -14571,7 +14571,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -14580,7 +14580,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ')'
-                var _tmp1 = Expect(TokenType.OP, ")");
+                var _tmp1 = Expect(PyToken.Type.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -14617,7 +14617,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -14640,7 +14640,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp1 = _position;
                 // Expect ','
-                var _opt__tmp1 = Expect(TokenType.OP, ",");
+                var _opt__tmp1 = Expect(PyToken.Type.OP, ",");
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp1 = _opt__tmp1;
                 if (_pendingSyntaxError != null)
@@ -14657,7 +14657,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp1; // Reset position
                 }
                 // Expect ')'
-                var _tmp2 = Expect(TokenType.OP, ")");
+                var _tmp2 = Expect(PyToken.Type.OP, ")");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -14694,7 +14694,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -14717,7 +14717,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp1 = _position;
                 // Expect ','
-                var _opt__tmp1 = Expect(TokenType.OP, ",");
+                var _opt__tmp1 = Expect(PyToken.Type.OP, ",");
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp1 = _opt__tmp1;
                 if (_pendingSyntaxError != null)
@@ -14734,7 +14734,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp1; // Reset position
                 }
                 // Expect ')'
-                var _tmp2 = Expect(TokenType.OP, ")");
+                var _tmp2 = Expect(PyToken.Type.OP, ")");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -14777,7 +14777,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -14798,7 +14798,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(TokenType.OP, ",");
+                var _tmp1 = Expect(PyToken.Type.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -14821,7 +14821,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp2 = _position;
                 // Expect ','
-                var _opt__tmp2 = Expect(TokenType.OP, ",");
+                var _opt__tmp2 = Expect(PyToken.Type.OP, ",");
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp2 = _opt__tmp2;
                 if (_pendingSyntaxError != null)
@@ -14838,7 +14838,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp2; // Reset position
                 }
                 // Expect ')'
-                var _tmp3 = Expect(TokenType.OP, ")");
+                var _tmp3 = Expect(PyToken.Type.OP, ")");
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -15060,7 +15060,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_arg = ExpectToken(TokenType.NAME);
+                var _token_arg = ExpectToken(PyToken.Type.NAME);
                 if (_token_arg == null)
                 {
                     _position = _mark;
@@ -15073,7 +15073,7 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(arg != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
                 // Expect '='
-                var _tmp0 = Expect(TokenType.OP, "=");
+                var _tmp0 = Expect(PyToken.Type.OP, "=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -15148,7 +15148,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_n = ExpectToken(TokenType.NAME);
+                var _token_n = ExpectToken(PyToken.Type.NAME);
                 if (_token_n == null)
                 {
                     _position = _mark;
@@ -15195,7 +15195,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_t; // Reset position
                 }
                 // Expect '='
-                var _tmp1 = Expect(TokenType.OP, "=");
+                var _tmp1 = Expect(PyToken.Type.OP, "=");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -15261,7 +15261,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '['
-                var _tmp0 = Expect(TokenType.OP, "[");
+                var _tmp0 = Expect(PyToken.Type.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -15282,7 +15282,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ']'
-                var _tmp1 = Expect(TokenType.OP, "]");
+                var _tmp1 = Expect(PyToken.Type.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -15430,7 +15430,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -15493,7 +15493,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -15505,7 +15505,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -15518,7 +15518,7 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
                 // Expect ':'
-                var colon = Expect(TokenType.OP, ":");
+                var colon = Expect(PyToken.Type.OP, ":");
                 if (colon == null)
                 {
                     _position = _mark;
@@ -15562,7 +15562,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -15574,7 +15574,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -15603,7 +15603,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect(TokenType.OP, "**");
+                var _tmp0 = Expect(PyToken.Type.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -15615,7 +15615,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -15628,7 +15628,7 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
                 // Expect ':'
-                var colon = Expect(TokenType.OP, ":");
+                var colon = Expect(PyToken.Type.OP, ":");
                 if (colon == null)
                 {
                     _position = _mark;
@@ -15672,7 +15672,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect(TokenType.OP, "**");
+                var _tmp0 = Expect(PyToken.Type.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -15684,7 +15684,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -15741,7 +15741,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect ':'
-                var _tmp0 = Expect(TokenType.OP, ":");
+                var _tmp0 = Expect(PyToken.Type.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -15888,7 +15888,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(TokenType.OP, ",");
+                var _tmp0 = Expect(PyToken.Type.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -16134,7 +16134,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'if' (token type 513)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.IF);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.IF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -16155,7 +16155,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'else' (token type 521)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.ELSE);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.ELSE);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -16298,7 +16298,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'yield' (token type 506)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.YIELD);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.YIELD);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -16307,7 +16307,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'from' (token type 502)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.FROM);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.FROM);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -16345,7 +16345,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'yield' (token type 506)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.YIELD);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.YIELD);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -16515,7 +16515,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(TokenType.OP, ",");
+                var _tmp0 = Expect(PyToken.Type.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -16602,7 +16602,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -16782,7 +16782,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -16877,7 +16877,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -16890,7 +16890,7 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
                 // Expect ':='
-                var _tmp0 = Expect(TokenType.OP, ":=");
+                var _tmp0 = Expect(PyToken.Type.OP, ":=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -17326,7 +17326,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'not' (token type 530)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.NOT);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.NOT);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -17823,7 +17823,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '=='
-                var _tmp0 = Expect(TokenType.OP, "==");
+                var _tmp0 = Expect(PyToken.Type.OP, "==");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -17964,7 +17964,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '<='
-                var _tmp0 = Expect(TokenType.OP, "<=");
+                var _tmp0 = Expect(PyToken.Type.OP, "<=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18027,7 +18027,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '<'
-                var _tmp0 = Expect(TokenType.OP, "<");
+                var _tmp0 = Expect(PyToken.Type.OP, "<");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18090,7 +18090,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '>='
-                var _tmp0 = Expect(TokenType.OP, ">=");
+                var _tmp0 = Expect(PyToken.Type.OP, ">=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18153,7 +18153,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '>'
-                var _tmp0 = Expect(TokenType.OP, ">");
+                var _tmp0 = Expect(PyToken.Type.OP, ">");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18216,7 +18216,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'not' (token type 530)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.NOT);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.NOT);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18225,7 +18225,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'in' (token type 522)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.IN);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.IN);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -18288,7 +18288,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'in' (token type 522)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.IN);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.IN);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18351,7 +18351,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'is' (token type 531)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.IS);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.IS);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18360,7 +18360,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'not' (token type 530)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.NOT);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.NOT);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -18423,7 +18423,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'is' (token type 531)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.IS);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.IS);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18551,7 +18551,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '|'
-                var _tmp0 = Expect(TokenType.OP, "|");
+                var _tmp0 = Expect(PyToken.Type.OP, "|");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18708,7 +18708,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '^'
-                var _tmp0 = Expect(TokenType.OP, "^");
+                var _tmp0 = Expect(PyToken.Type.OP, "^");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -18865,7 +18865,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '&'
-                var _tmp0 = Expect(TokenType.OP, "&");
+                var _tmp0 = Expect(PyToken.Type.OP, "&");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -19022,7 +19022,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '<<'
-                var _tmp0 = Expect(TokenType.OP, "<<");
+                var _tmp0 = Expect(PyToken.Type.OP, "<<");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -19072,7 +19072,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '>>'
-                var _tmp0 = Expect(TokenType.OP, ">>");
+                var _tmp0 = Expect(PyToken.Type.OP, ">>");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -19229,7 +19229,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '+'
-                var _tmp0 = Expect(TokenType.OP, "+");
+                var _tmp0 = Expect(PyToken.Type.OP, "+");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -19279,7 +19279,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '-'
-                var _tmp0 = Expect(TokenType.OP, "-");
+                var _tmp0 = Expect(PyToken.Type.OP, "-");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -19436,7 +19436,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -19486,7 +19486,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp0 = Expect(TokenType.OP, "/");
+                var _tmp0 = Expect(PyToken.Type.OP, "/");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -19536,7 +19536,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '//'
-                var _tmp0 = Expect(TokenType.OP, "//");
+                var _tmp0 = Expect(PyToken.Type.OP, "//");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -19586,7 +19586,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '%'
-                var _tmp0 = Expect(TokenType.OP, "%");
+                var _tmp0 = Expect(PyToken.Type.OP, "%");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -19636,7 +19636,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '@'
-                var _tmp0 = Expect(TokenType.OP, "@");
+                var _tmp0 = Expect(PyToken.Type.OP, "@");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -19735,7 +19735,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '+'
-                var _tmp0 = Expect(TokenType.OP, "+");
+                var _tmp0 = Expect(PyToken.Type.OP, "+");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -19773,7 +19773,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '-'
-                var _tmp0 = Expect(TokenType.OP, "-");
+                var _tmp0 = Expect(PyToken.Type.OP, "-");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -19811,7 +19811,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '~'
-                var _tmp0 = Expect(TokenType.OP, "~");
+                var _tmp0 = Expect(PyToken.Type.OP, "~");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -19917,7 +19917,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '**'
-                var _tmp0 = Expect(TokenType.OP, "**");
+                var _tmp0 = Expect(PyToken.Type.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -20019,7 +20019,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(AWAIT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp0 = ExpectToken(TokenType.AWAIT);
+                var _tmp0 = ExpectToken(PyToken.Type.AWAIT);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -20184,7 +20184,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '.'
-                var _tmp0 = Expect(TokenType.OP, ".");
+                var _tmp0 = Expect(PyToken.Type.OP, ".");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -20196,7 +20196,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_b = ExpectToken(TokenType.NAME);
+                var _token_b = ExpectToken(PyToken.Type.NAME);
                 if (_token_b == null)
                 {
                     _position = _mark;
@@ -20291,7 +20291,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -20334,7 +20334,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_b; // Reset position
                 }
                 // Expect ')'
-                var _tmp1 = Expect(TokenType.OP, ")");
+                var _tmp1 = Expect(PyToken.Type.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -20382,7 +20382,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '['
-                var _tmp0 = Expect(TokenType.OP, "[");
+                var _tmp0 = Expect(PyToken.Type.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -20403,7 +20403,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ']'
-                var _tmp1 = Expect(TokenType.OP, "]");
+                var _tmp1 = Expect(PyToken.Type.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -20652,7 +20652,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Expect ':'
-                var _tmp0 = Expect(TokenType.OP, ":");
+                var _tmp0 = Expect(PyToken.Type.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -20840,7 +20840,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token__tmp0 = ExpectToken(TokenType.NAME);
+                var _token__tmp0 = ExpectToken(PyToken.Type.NAME);
                 if (_token__tmp0 == null)
                 {
                     _position = _mark;
@@ -20870,7 +20870,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'True' (token type 526)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.KW_TRUE);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.KW_TRUE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -20896,7 +20896,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'False' (token type 527)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.KW_FALSE);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.KW_FALSE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -20922,7 +20922,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'None' (token type 525)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.KW_NONE);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.KW_NONE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -20952,8 +20952,8 @@ namespace SharpPy.Generated
                 bool _lookahead_test_34 = false;
                 {
                     // Test if current token matches any alternative
-                    if (ExpectToken(TokenType.STRING) != null) { _lookahead_test_34 = true; }
-                    if (ExpectToken(TokenType.FSTRING_START) != null) { _lookahead_test_34 = true; }
+                    if (ExpectToken(PyToken.Type.STRING) != null) { _lookahead_test_34 = true; }
+                    if (ExpectToken(PyToken.Type.FSTRING_START) != null) { _lookahead_test_34 = true; }
                 }
                 _position = _lookahead_mark_34; // Restore position after lookahead
                 if (!_lookahead_test_34)
@@ -20995,7 +20995,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NUMBER): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token__tmp0 = ExpectToken(TokenType.NUMBER);
+                var _token__tmp0 = ExpectToken(PyToken.Type.NUMBER);
                 if (_token__tmp0 == null)
                 {
                     _position = _mark;
@@ -21277,7 +21277,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '...'
-                var _tmp0 = Expect(TokenType.OP, "...");
+                var _tmp0 = Expect(PyToken.Type.OP, "...");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -21329,7 +21329,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -21377,7 +21377,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ')'
-                var _tmp1 = Expect(TokenType.OP, ")");
+                var _tmp1 = Expect(PyToken.Type.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -21486,7 +21486,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'lambda' (token type 532)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.LAMBDA);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.LAMBDA);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -21529,7 +21529,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Expect ':'
-                var _tmp1 = Expect(TokenType.OP, ":");
+                var _tmp1 = Expect(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -22021,7 +22021,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp0 = Expect(TokenType.OP, "/");
+                var _tmp0 = Expect(PyToken.Type.OP, "/");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -22030,7 +22030,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(TokenType.OP, ",");
+                var _tmp1 = Expect(PyToken.Type.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -22065,7 +22065,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp0 = Expect(TokenType.OP, "/");
+                var _tmp0 = Expect(PyToken.Type.OP, "/");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -22141,7 +22141,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp0 = Expect(TokenType.OP, "/");
+                var _tmp0 = Expect(PyToken.Type.OP, "/");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -22150,7 +22150,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(TokenType.OP, ",");
+                var _tmp1 = Expect(PyToken.Type.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -22186,7 +22186,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp0 = Expect(TokenType.OP, "/");
+                var _tmp0 = Expect(PyToken.Type.OP, "/");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -22309,7 +22309,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -22382,7 +22382,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -22391,7 +22391,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(TokenType.OP, ",");
+                var _tmp1 = Expect(PyToken.Type.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -22571,7 +22571,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect(TokenType.OP, "**");
+                var _tmp0 = Expect(PyToken.Type.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -22646,7 +22646,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(TokenType.OP, ",");
+                var _tmp0 = Expect(PyToken.Type.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -22763,7 +22763,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(TokenType.OP, ",");
+                var _tmp0 = Expect(PyToken.Type.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -22902,7 +22902,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_c; // Reset position
                 }
                 // Expect ','
-                var _tmp0 = Expect(TokenType.OP, ",");
+                var _tmp0 = Expect(PyToken.Type.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -23020,7 +23020,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -23115,7 +23115,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_MIDDLE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var t = ExpectToken(TokenType.FSTRING_MIDDLE);
+                var t = ExpectToken(PyToken.Type.FSTRING_MIDDLE);
                 if (t == null)
                 {
                     _position = _mark;
@@ -23175,7 +23175,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -23225,7 +23225,7 @@ namespace SharpPy.Generated
                 // Optional: ['=']
                 int _opt_mark_debug_expr = _position;
                 // Expect '='
-                var _opt_debug_expr = Expect(TokenType.OP, "=");
+                var _opt_debug_expr = Expect(PyToken.Type.OP, "=");
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? debug_expr = _opt_debug_expr;
                 if (_pendingSyntaxError != null)
@@ -23314,7 +23314,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_format; // Reset position
                 }
                 // Expect '}'
-                var rbrace = Expect(TokenType.OP, "}");
+                var rbrace = Expect(PyToken.Type.OP, "}");
                 if (rbrace == null)
                 {
                     _position = _mark;
@@ -23438,7 +23438,7 @@ namespace SharpPy.Generated
                 #if DEBUG_FSTRING_LOG
                 Console.WriteLine($"[FSTRING-EXPECT-!] pos={_position}, CurrentToken={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var conv_token = Expect(TokenType.OP, "!");
+                var conv_token = Expect(PyToken.Type.OP, "!");
                 #if DEBUG_FSTRING_LOG
                 Console.WriteLine($"[FSTRING-EXPECT-!] result={(conv_token != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -23453,7 +23453,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_conv = ExpectToken(TokenType.NAME);
+                var _token_conv = ExpectToken(PyToken.Type.NAME);
                 if (_token_conv == null)
                 {
                     _position = _mark;
@@ -23514,7 +23514,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect ':'
-                var colon = Expect(TokenType.OP, ":");
+                var colon = Expect(PyToken.Type.OP, ":");
                 if (colon == null)
                 {
                     _position = _mark;
@@ -23573,7 +23573,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_MIDDLE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var t = ExpectToken(TokenType.FSTRING_MIDDLE);
+                var t = ExpectToken(PyToken.Type.FSTRING_MIDDLE);
                 if (t == null)
                 {
                     _position = _mark;
@@ -23661,7 +23661,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_START): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var a = ExpectToken(TokenType.FSTRING_START);
+                var a = ExpectToken(PyToken.Type.FSTRING_START);
                 if (a == null)
                 {
                     _position = _mark;
@@ -23678,7 +23678,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(FSTRING_END): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var c = ExpectToken(TokenType.FSTRING_END);
+                var c = ExpectToken(PyToken.Type.FSTRING_END);
                 if (c == null)
                 {
                     _position = _mark;
@@ -23738,7 +23738,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(STRING): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_s = ExpectToken(TokenType.STRING);
+                var _token_s = ExpectToken(PyToken.Type.STRING);
                 if (_token_s == null)
                 {
                     _position = _mark;
@@ -23854,7 +23854,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '['
-                var _tmp0 = Expect(TokenType.OP, "[");
+                var _tmp0 = Expect(PyToken.Type.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -23897,7 +23897,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Expect ']'
-                var _tmp1 = Expect(TokenType.OP, "]");
+                var _tmp1 = Expect(PyToken.Type.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -23949,7 +23949,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -24033,7 +24033,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Expect ')'
-                var _tmp1 = Expect(TokenType.OP, ")");
+                var _tmp1 = Expect(PyToken.Type.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -24085,7 +24085,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -24106,7 +24106,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '}'
-                var _tmp1 = Expect(TokenType.OP, "}");
+                var _tmp1 = Expect(PyToken.Type.OP, "}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -24158,7 +24158,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -24201,7 +24201,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Expect '}'
-                var _tmp1 = Expect(TokenType.OP, "}");
+                var _tmp1 = Expect(PyToken.Type.OP, "}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -24231,7 +24231,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -24274,7 +24274,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '}'
-                var _tmp2 = Expect(TokenType.OP, "}");
+                var _tmp2 = Expect(PyToken.Type.OP, "}");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -24418,7 +24418,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect(TokenType.OP, "**");
+                var _tmp0 = Expect(PyToken.Type.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -24521,7 +24521,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(TokenType.OP, ":");
+                var _tmp0 = Expect(PyToken.Type.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -24639,7 +24639,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp0 = ExpectToken(TokenType.ASYNC);
+                var _tmp0 = ExpectToken(PyToken.Type.ASYNC);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -24651,7 +24651,7 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
                 // Expect hard keyword: 'for' (token type 516)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.FOR);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.FOR);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -24672,7 +24672,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'in' (token type 522)
-                var _tmp2 = ExpectToken((TokenType)KeywordType.IN);
+                var _tmp2 = ExpectToken((PyToken.Type)KeywordType.IN);
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -24714,7 +24714,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'for' (token type 516)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.FOR);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.FOR);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -24735,7 +24735,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'in' (token type 522)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.IN);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.IN);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -24861,7 +24861,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '['
-                var _tmp0 = Expect(TokenType.OP, "[");
+                var _tmp0 = Expect(PyToken.Type.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -24894,7 +24894,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ']'
-                var _tmp1 = Expect(TokenType.OP, "]");
+                var _tmp1 = Expect(PyToken.Type.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -25004,7 +25004,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -25037,7 +25037,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '}'
-                var _tmp1 = Expect(TokenType.OP, "}");
+                var _tmp1 = Expect(PyToken.Type.OP, "}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -25147,7 +25147,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -25210,7 +25210,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ')'
-                var _tmp1 = Expect(TokenType.OP, ")");
+                var _tmp1 = Expect(PyToken.Type.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -25320,7 +25320,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -25353,7 +25353,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '}'
-                var _tmp1 = Expect(TokenType.OP, "}");
+                var _tmp1 = Expect(PyToken.Type.OP, "}");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -25776,7 +25776,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(TokenType.OP, ",");
+                var _tmp0 = Expect(PyToken.Type.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -25944,7 +25944,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -25982,7 +25982,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -26097,7 +26097,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -26110,7 +26110,7 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
                 // Expect '='
-                var _tmp0 = Expect(TokenType.OP, "=");
+                var _tmp0 = Expect(PyToken.Type.OP, "=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -26262,7 +26262,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -26275,7 +26275,7 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
                 // Expect '='
-                var _tmp0 = Expect(TokenType.OP, "=");
+                var _tmp0 = Expect(PyToken.Type.OP, "=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -26312,7 +26312,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect(TokenType.OP, "**");
+                var _tmp0 = Expect(PyToken.Type.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -26674,7 +26674,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(TokenType.OP, ",");
+                var _tmp0 = Expect(PyToken.Type.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -26732,7 +26732,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -26860,7 +26860,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '.'
-                var _tmp0 = Expect(TokenType.OP, ".");
+                var _tmp0 = Expect(PyToken.Type.OP, ".");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -26872,7 +26872,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_b = ExpectToken(TokenType.NAME);
+                var _token_b = ExpectToken(PyToken.Type.NAME);
                 if (_token_b == null)
                 {
                     _position = _mark;
@@ -26928,7 +26928,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '['
-                var _tmp0 = Expect(TokenType.OP, "[");
+                var _tmp0 = Expect(PyToken.Type.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -26949,7 +26949,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ']'
-                var _tmp1 = Expect(TokenType.OP, "]");
+                var _tmp1 = Expect(PyToken.Type.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -27048,7 +27048,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -27077,7 +27077,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -27098,7 +27098,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ')'
-                var _tmp1 = Expect(TokenType.OP, ")");
+                var _tmp1 = Expect(PyToken.Type.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -27123,7 +27123,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -27166,7 +27166,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Expect ')'
-                var _tmp1 = Expect(TokenType.OP, ")");
+                var _tmp1 = Expect(PyToken.Type.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -27192,7 +27192,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '['
-                var _tmp0 = Expect(TokenType.OP, "[");
+                var _tmp0 = Expect(PyToken.Type.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -27235,7 +27235,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Expect ']'
-                var _tmp1 = Expect(TokenType.OP, "]");
+                var _tmp1 = Expect(PyToken.Type.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -27318,7 +27318,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -27347,7 +27347,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -27368,7 +27368,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ')'
-                var _tmp1 = Expect(TokenType.OP, ")");
+                var _tmp1 = Expect(PyToken.Type.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -27431,7 +27431,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '.'
-                var _tmp0 = Expect(TokenType.OP, ".");
+                var _tmp0 = Expect(PyToken.Type.OP, ".");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -27443,7 +27443,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_b = ExpectToken(TokenType.NAME);
+                var _token_b = ExpectToken(PyToken.Type.NAME);
                 if (_token_b == null)
                 {
                     _position = _mark;
@@ -27499,7 +27499,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '['
-                var _tmp0 = Expect(TokenType.OP, "[");
+                var _tmp0 = Expect(PyToken.Type.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -27520,7 +27520,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ']'
-                var _tmp1 = Expect(TokenType.OP, "]");
+                var _tmp1 = Expect(PyToken.Type.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -27651,7 +27651,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '.'
-                var _tmp0 = Expect(TokenType.OP, ".");
+                var _tmp0 = Expect(PyToken.Type.OP, ".");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -27663,7 +27663,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_b = ExpectToken(TokenType.NAME);
+                var _token_b = ExpectToken(PyToken.Type.NAME);
                 if (_token_b == null)
                 {
                     _position = _mark;
@@ -27719,7 +27719,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '['
-                var _tmp0 = Expect(TokenType.OP, "[");
+                var _tmp0 = Expect(PyToken.Type.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -27740,7 +27740,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ']'
-                var _tmp1 = Expect(TokenType.OP, "]");
+                var _tmp1 = Expect(PyToken.Type.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -27847,7 +27847,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -27890,7 +27890,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_b; // Reset position
                 }
                 // Expect ')'
-                var _tmp1 = Expect(TokenType.OP, ")");
+                var _tmp1 = Expect(PyToken.Type.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -28002,7 +28002,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -28027,7 +28027,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '['
-                var _tmp0 = Expect(TokenType.OP, "[");
+                var _tmp0 = Expect(PyToken.Type.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -28052,7 +28052,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '.'
-                var _tmp0 = Expect(TokenType.OP, ".");
+                var _tmp0 = Expect(PyToken.Type.OP, ".");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -28208,7 +28208,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '.'
-                var _tmp0 = Expect(TokenType.OP, ".");
+                var _tmp0 = Expect(PyToken.Type.OP, ".");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -28220,7 +28220,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_b = ExpectToken(TokenType.NAME);
+                var _token_b = ExpectToken(PyToken.Type.NAME);
                 if (_token_b == null)
                 {
                     _position = _mark;
@@ -28276,7 +28276,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '['
-                var _tmp0 = Expect(TokenType.OP, "[");
+                var _tmp0 = Expect(PyToken.Type.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -28297,7 +28297,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ']'
-                var _tmp1 = Expect(TokenType.OP, "]");
+                var _tmp1 = Expect(PyToken.Type.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -28396,7 +28396,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -28425,7 +28425,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -28446,7 +28446,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ')'
-                var _tmp1 = Expect(TokenType.OP, ")");
+                var _tmp1 = Expect(PyToken.Type.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -28471,7 +28471,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -28514,7 +28514,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Expect ')'
-                var _tmp1 = Expect(TokenType.OP, ")");
+                var _tmp1 = Expect(PyToken.Type.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -28540,7 +28540,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '['
-                var _tmp0 = Expect(TokenType.OP, "[");
+                var _tmp0 = Expect(PyToken.Type.OP, "[");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -28583,7 +28583,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_a; // Reset position
                 }
                 // Expect ']'
-                var _tmp1 = Expect(TokenType.OP, "]");
+                var _tmp1 = Expect(PyToken.Type.OP, "]");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -28644,7 +28644,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(TokenType.OP, ",");
+                var _tmp0 = Expect(PyToken.Type.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -28653,7 +28653,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '*'
-                var _tmp1 = Expect(TokenType.OP, "*");
+                var _tmp1 = Expect(PyToken.Type.OP, "*");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -28674,7 +28674,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp2 = Expect(TokenType.OP, ",");
+                var _tmp2 = Expect(PyToken.Type.OP, ",");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -28683,7 +28683,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '**'
-                var _tmp3 = Expect(TokenType.OP, "**");
+                var _tmp3 = Expect(PyToken.Type.OP, "**");
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -28732,7 +28732,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(TokenType.OP, ",");
+                var _tmp0 = Expect(PyToken.Type.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -28741,7 +28741,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '*'
-                var _tmp1 = Expect(TokenType.OP, "*");
+                var _tmp1 = Expect(PyToken.Type.OP, "*");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -28787,7 +28787,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(TokenType.OP, ",");
+                var _tmp0 = Expect(PyToken.Type.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -28796,7 +28796,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '**'
-                var _tmp1 = Expect(TokenType.OP, "**");
+                var _tmp1 = Expect(PyToken.Type.OP, "**");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -28833,7 +28833,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -28854,7 +28854,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(TokenType.OP, ",");
+                var _tmp1 = Expect(PyToken.Type.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -28863,7 +28863,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '**'
-                var _tmp2 = Expect(TokenType.OP, "**");
+                var _tmp2 = Expect(PyToken.Type.OP, "**");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -28903,7 +28903,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -28940,7 +28940,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect(TokenType.OP, "**");
+                var _tmp0 = Expect(PyToken.Type.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -29032,7 +29032,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp0 = ExpectToken(TokenType.NEWLINE);
+                var _tmp0 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -29047,7 +29047,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var t = ExpectToken(TokenType.TYPE_COMMENT);
+                var t = ExpectToken(PyToken.Type.TYPE_COMMENT);
                 if (t == null)
                 {
                     _position = _mark;
@@ -29151,7 +29151,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp0 = ExpectToken(TokenType.TYPE_COMMENT);
+                var _tmp0 = ExpectToken(PyToken.Type.TYPE_COMMENT);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -29276,7 +29276,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var a = Expect(TokenType.OP, ",");
+                var a = Expect(PyToken.Type.OP, ",");
                 if (a == null)
                 {
                     _position = _mark;
@@ -29337,7 +29337,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(TokenType.OP, ",");
+                var _tmp0 = Expect(PyToken.Type.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -29402,7 +29402,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -29415,7 +29415,7 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
                 // Expect '='
-                var b = Expect(TokenType.OP, "=");
+                var b = Expect(PyToken.Type.OP, "=");
                 if (b == null)
                 {
                     _position = _mark;
@@ -29506,7 +29506,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -29519,7 +29519,7 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
                 // Expect '='
-                var b = Expect(TokenType.OP, "=");
+                var b = Expect(PyToken.Type.OP, "=");
                 if (b == null)
                 {
                     _position = _mark;
@@ -29613,7 +29613,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(TokenType.OP, ",");
+                var _tmp1 = Expect(PyToken.Type.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -29677,7 +29677,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(TokenType.OP, ",");
+                var _tmp0 = Expect(PyToken.Type.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -29794,7 +29794,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '='
-                var b = Expect(TokenType.OP, "=");
+                var b = Expect(PyToken.Type.OP, "=");
                 if (b == null)
                 {
                     _position = _mark;
@@ -29823,7 +29823,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -29836,7 +29836,7 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
                 // Expect '='
-                var b = Expect(TokenType.OP, "=");
+                var b = Expect(PyToken.Type.OP, "=");
                 if (b == null)
                 {
                     _position = _mark;
@@ -29890,8 +29890,8 @@ namespace SharpPy.Generated
                 // Test if current token matches: (NAME '=')
                 int _nla_mark = _position;
                 {
-                    var _nla_check_0 = ExpectToken(TokenType.NAME);
-                    var _nla_check_1 = Expect(TokenType.OP, "=");
+                    var _nla_check_0 = ExpectToken(PyToken.Type.NAME);
+                    var _nla_check_1 = Expect(PyToken.Type.OP, "=");
                     if (_nla_check_0 != null && _nla_check_1 != null) { _lookahead_test_58 = CurrentToken; }
                 }
                 _position = _nla_mark;  // Restore position after lookahead
@@ -29916,7 +29916,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '='
-                var b = Expect(TokenType.OP, "=");
+                var b = Expect(PyToken.Type.OP, "=");
                 if (b == null)
                 {
                     _position = _mark;
@@ -29946,7 +29946,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var a = Expect(TokenType.OP, "**");
+                var a = Expect(PyToken.Type.OP, "**");
                 if (a == null)
                 {
                     _position = _mark;
@@ -29967,7 +29967,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '='
-                var _tmp1 = Expect(TokenType.OP, "=");
+                var _tmp1 = Expect(PyToken.Type.OP, "=");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -30047,7 +30047,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'if' (token type 513)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.IF);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.IF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -30068,7 +30068,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'else' (token type 521)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.ELSE);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.ELSE);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -30192,7 +30192,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -30339,7 +30339,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'if' (token type 513)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.IF);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.IF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -30390,7 +30390,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'lambda' (token type 532)
-                var a = ExpectToken((TokenType)KeywordType.LAMBDA);
+                var a = ExpectToken((PyToken.Type)KeywordType.LAMBDA);
                 if (a == null)
                 {
                     _position = _mark;
@@ -30433,7 +30433,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                 }
                 // Expect ':'
-                var b = Expect(TokenType.OP, ":");
+                var b = Expect(PyToken.Type.OP, ":");
                 if (b == null)
                 {
                     _position = _mark;
@@ -30445,7 +30445,7 @@ namespace SharpPy.Generated
                 int _lookahead_mark_62 = _position;
                 bool _lookahead_test_62 = false;
                 {
-                    if (ExpectToken(TokenType.FSTRING_MIDDLE) != null) { _lookahead_test_62 = true; }
+                    if (ExpectToken(PyToken.Type.FSTRING_MIDDLE) != null) { _lookahead_test_62 = true; }
                 }
                 _position = _lookahead_mark_62; // Restore position after lookahead
                 if (!_lookahead_test_62)
@@ -30518,7 +30518,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':='
-                var _tmp0 = Expect(TokenType.OP, ":=");
+                var _tmp0 = Expect(PyToken.Type.OP, ":=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -30563,7 +30563,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_a = ExpectToken(TokenType.NAME);
+                var _token_a = ExpectToken(PyToken.Type.NAME);
                 if (_token_a == null)
                 {
                     _position = _mark;
@@ -30576,7 +30576,7 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
                 // Expect '='
-                var _tmp0 = Expect(TokenType.OP, "=");
+                var _tmp0 = Expect(PyToken.Type.OP, "=");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -30653,7 +30653,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '='
-                var b = Expect(TokenType.OP, "=");
+                var b = Expect(PyToken.Type.OP, "=");
                 if (b == null)
                 {
                     _position = _mark;
@@ -30770,7 +30770,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(TokenType.OP, ":");
+                var _tmp0 = Expect(PyToken.Type.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -30827,7 +30827,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(TokenType.OP, ",");
+                var _tmp0 = Expect(PyToken.Type.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -30838,7 +30838,7 @@ namespace SharpPy.Generated
                 // Zero or more: star_named_expressions* (CPython: _Loop0_N rule)
                 var _tmp1 = _Loop0_76();
                 // Expect ':'
-                var _tmp2 = Expect(TokenType.OP, ":");
+                var _tmp2 = Expect(PyToken.Type.OP, ":");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -30890,7 +30890,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(TokenType.OP, ":");
+                var _tmp0 = Expect(PyToken.Type.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -30944,7 +30944,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '='
-                var _tmp1 = Expect(TokenType.OP, "=");
+                var _tmp1 = Expect(PyToken.Type.OP, "=");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -30986,7 +30986,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '='
-                var _tmp1 = Expect(TokenType.OP, "=");
+                var _tmp1 = Expect(PyToken.Type.OP, "=");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -31183,7 +31183,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -31226,7 +31226,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ')'
-                var _tmp1 = Expect(TokenType.OP, ")");
+                var _tmp1 = Expect(PyToken.Type.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -31277,7 +31277,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'del' (token type 505)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.DEL);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.DEL);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -31346,7 +31346,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp0 = ExpectToken(TokenType.NEWLINE);
+                var _tmp0 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -31361,7 +31361,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _lookahead_test_66 = null;
                 // Negative lookahead: !INDENT
                 int _nla_mark = _position;
-                _lookahead_test_66 = ExpectToken(TokenType.INDENT);
+                _lookahead_test_66 = ExpectToken(PyToken.Type.INDENT);
                 _position = _nla_mark;  // Restore position after lookahead
                 if (_lookahead_test_66 != null)
                 {
@@ -31565,7 +31565,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(TokenType.OP, ",");
+                var _tmp1 = Expect(PyToken.Type.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -31670,7 +31670,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var b = Expect(TokenType.OP, ",");
+                var b = Expect(PyToken.Type.OP, ",");
                 if (b == null)
                 {
                     _position = _mark;
@@ -31734,7 +31734,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -31743,7 +31743,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '**'
-                var a = Expect(TokenType.OP, "**");
+                var a = Expect(PyToken.Type.OP, "**");
                 if (a == null)
                 {
                     _position = _mark;
@@ -31776,7 +31776,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '}'
-                var _tmp3 = Expect(TokenType.OP, "}");
+                var _tmp3 = Expect(PyToken.Type.OP, "}");
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -31830,7 +31830,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '/'
-                var a = Expect(TokenType.OP, "/");
+                var a = Expect(PyToken.Type.OP, "/");
                 if (a == null)
                 {
                     _position = _mark;
@@ -31839,7 +31839,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(TokenType.OP, ",");
+                var _tmp0 = Expect(PyToken.Type.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -31910,7 +31910,7 @@ namespace SharpPy.Generated
                 // Zero or more: param_maybe_default* (CPython: _Loop0_N rule)
                 var _tmp1 = _Loop0_18();
                 // Expect '/'
-                var a = Expect(TokenType.OP, "/");
+                var a = Expect(PyToken.Type.OP, "/");
                 if (a == null)
                 {
                     _position = _mark;
@@ -32029,7 +32029,7 @@ namespace SharpPy.Generated
                 // Zero or more: param_no_default* (CPython: _Loop0_N rule)
                 var _tmp0 = _Loop0_14();
                 // Expect '('
-                var a = Expect(TokenType.OP, "(");
+                var a = Expect(PyToken.Type.OP, "(");
                 if (a == null)
                 {
                     _position = _mark;
@@ -32049,7 +32049,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp2 = _position;
                 // Expect ','
-                var _opt__tmp2 = Expect(TokenType.OP, ",");
+                var _opt__tmp2 = Expect(PyToken.Type.OP, ",");
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp2 = _opt__tmp2;
                 if (_pendingSyntaxError != null)
@@ -32066,7 +32066,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp2; // Reset position
                 }
                 // Expect ')'
-                var b = Expect(TokenType.OP, ")");
+                var b = Expect(PyToken.Type.OP, ")");
                 if (b == null)
                 {
                     _position = _mark;
@@ -32145,7 +32145,7 @@ namespace SharpPy.Generated
                 // Zero or more: param_maybe_default* (CPython: _Loop0_N rule)
                 var _tmp1 = _Loop0_18();
                 // Expect '*'
-                var _tmp2 = Expect(TokenType.OP, "*");
+                var _tmp2 = Expect(PyToken.Type.OP, "*");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -32197,7 +32197,7 @@ namespace SharpPy.Generated
                 // Zero or more: param_maybe_default* (CPython: _Loop0_N rule)
                 var _tmp4 = _Loop0_18();
                 // Expect '/'
-                var a = Expect(TokenType.OP, "/");
+                var a = Expect(PyToken.Type.OP, "/");
                 if (a == null)
                 {
                     _position = _mark;
@@ -32234,7 +32234,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp1 = Expect(TokenType.OP, "/");
+                var _tmp1 = Expect(PyToken.Type.OP, "/");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -32243,7 +32243,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '*'
-                var a = Expect(TokenType.OP, "*");
+                var a = Expect(PyToken.Type.OP, "*");
                 if (a == null)
                 {
                     _position = _mark;
@@ -32297,7 +32297,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '='
-                var a = Expect(TokenType.OP, "=");
+                var a = Expect(PyToken.Type.OP, "=");
                 if (a == null)
                 {
                     _position = _mark;
@@ -32367,7 +32367,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var a = Expect(TokenType.OP, "*");
+                var a = Expect(PyToken.Type.OP, "*");
                 if (a == null)
                 {
                     _position = _mark;
@@ -32469,7 +32469,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -32478,7 +32478,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(TokenType.OP, ",");
+                var _tmp1 = Expect(PyToken.Type.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -32490,7 +32490,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp2 = ExpectToken(TokenType.TYPE_COMMENT);
+                var _tmp2 = ExpectToken(PyToken.Type.TYPE_COMMENT);
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -32521,7 +32521,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -32542,7 +32542,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '='
-                var a = Expect(TokenType.OP, "=");
+                var a = Expect(PyToken.Type.OP, "=");
                 if (a == null)
                 {
                     _position = _mark;
@@ -32570,7 +32570,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -32622,7 +32622,7 @@ namespace SharpPy.Generated
                 // Zero or more: param_maybe_default* (CPython: _Loop0_N rule)
                 var _tmp2 = _Loop0_18();
                 // Expect '*'
-                var a = Expect(TokenType.OP, "*");
+                var a = Expect(PyToken.Type.OP, "*");
                 if (a == null)
                 {
                     _position = _mark;
@@ -32717,7 +32717,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect(TokenType.OP, "**");
+                var _tmp0 = Expect(PyToken.Type.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -32738,7 +32738,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '='
-                var a = Expect(TokenType.OP, "=");
+                var a = Expect(PyToken.Type.OP, "=");
                 if (a == null)
                 {
                     _position = _mark;
@@ -32766,7 +32766,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect(TokenType.OP, "**");
+                var _tmp0 = Expect(PyToken.Type.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -32787,7 +32787,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp2 = Expect(TokenType.OP, ",");
+                var _tmp2 = Expect(PyToken.Type.OP, ",");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -32827,7 +32827,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect(TokenType.OP, "**");
+                var _tmp0 = Expect(PyToken.Type.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -32848,7 +32848,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp2 = Expect(TokenType.OP, ",");
+                var _tmp2 = Expect(PyToken.Type.OP, ",");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -33035,7 +33035,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '/'
-                var a = Expect(TokenType.OP, "/");
+                var a = Expect(PyToken.Type.OP, "/");
                 if (a == null)
                 {
                     _position = _mark;
@@ -33044,7 +33044,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp0 = Expect(TokenType.OP, ",");
+                var _tmp0 = Expect(PyToken.Type.OP, ",");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -33115,7 +33115,7 @@ namespace SharpPy.Generated
                 // Zero or more: lambda_param_maybe_default* (CPython: _Loop0_N rule)
                 var _tmp1 = _Loop0_50();
                 // Expect '/'
-                var a = Expect(TokenType.OP, "/");
+                var a = Expect(PyToken.Type.OP, "/");
                 if (a == null)
                 {
                     _position = _mark;
@@ -33234,7 +33234,7 @@ namespace SharpPy.Generated
                 // Zero or more: lambda_param_no_default* (CPython: _Loop0_N rule)
                 var _tmp0 = _Loop0_46();
                 // Expect '('
-                var a = Expect(TokenType.OP, "(");
+                var a = Expect(PyToken.Type.OP, "(");
                 if (a == null)
                 {
                     _position = _mark;
@@ -33254,7 +33254,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp2 = _position;
                 // Expect ','
-                var _opt__tmp2 = Expect(TokenType.OP, ",");
+                var _opt__tmp2 = Expect(PyToken.Type.OP, ",");
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp2 = _opt__tmp2;
                 if (_pendingSyntaxError != null)
@@ -33271,7 +33271,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp2; // Reset position
                 }
                 // Expect ')'
-                var b = Expect(TokenType.OP, ")");
+                var b = Expect(PyToken.Type.OP, ")");
                 if (b == null)
                 {
                     _position = _mark;
@@ -33350,7 +33350,7 @@ namespace SharpPy.Generated
                 // Zero or more: lambda_param_maybe_default* (CPython: _Loop0_N rule)
                 var _tmp1 = _Loop0_50();
                 // Expect '*'
-                var _tmp2 = Expect(TokenType.OP, "*");
+                var _tmp2 = Expect(PyToken.Type.OP, "*");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -33402,7 +33402,7 @@ namespace SharpPy.Generated
                 // Zero or more: lambda_param_maybe_default* (CPython: _Loop0_N rule)
                 var _tmp4 = _Loop0_50();
                 // Expect '/'
-                var a = Expect(TokenType.OP, "/");
+                var a = Expect(PyToken.Type.OP, "/");
                 if (a == null)
                 {
                     _position = _mark;
@@ -33439,7 +33439,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '/'
-                var _tmp1 = Expect(TokenType.OP, "/");
+                var _tmp1 = Expect(PyToken.Type.OP, "/");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -33448,7 +33448,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '*'
-                var a = Expect(TokenType.OP, "*");
+                var a = Expect(PyToken.Type.OP, "*");
                 if (a == null)
                 {
                     _position = _mark;
@@ -33581,7 +33581,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -33683,7 +33683,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -33704,7 +33704,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '='
-                var a = Expect(TokenType.OP, "=");
+                var a = Expect(PyToken.Type.OP, "=");
                 if (a == null)
                 {
                     _position = _mark;
@@ -33732,7 +33732,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -33784,7 +33784,7 @@ namespace SharpPy.Generated
                 // Zero or more: lambda_param_maybe_default* (CPython: _Loop0_N rule)
                 var _tmp2 = _Loop0_50();
                 // Expect '*'
-                var a = Expect(TokenType.OP, "*");
+                var a = Expect(PyToken.Type.OP, "*");
                 if (a == null)
                 {
                     _position = _mark;
@@ -33879,7 +33879,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect(TokenType.OP, "**");
+                var _tmp0 = Expect(PyToken.Type.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -33900,7 +33900,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '='
-                var a = Expect(TokenType.OP, "=");
+                var a = Expect(PyToken.Type.OP, "=");
                 if (a == null)
                 {
                     _position = _mark;
@@ -33928,7 +33928,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect(TokenType.OP, "**");
+                var _tmp0 = Expect(PyToken.Type.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -33949,7 +33949,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp2 = Expect(TokenType.OP, ",");
+                var _tmp2 = Expect(PyToken.Type.OP, ",");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -33989,7 +33989,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '**'
-                var _tmp0 = Expect(TokenType.OP, "**");
+                var _tmp0 = Expect(PyToken.Type.OP, "**");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -34010,7 +34010,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp2 = Expect(TokenType.OP, ",");
+                var _tmp2 = Expect(PyToken.Type.OP, ",");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -34121,7 +34121,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp0 = ExpectToken(TokenType.TYPE_COMMENT);
+                var _tmp0 = ExpectToken(PyToken.Type.TYPE_COMMENT);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -34136,7 +34136,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp1 = ExpectToken(TokenType.NEWLINE);
+                var _tmp1 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -34151,7 +34151,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(TYPE_COMMENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp2 = ExpectToken(TokenType.TYPE_COMMENT);
+                var _tmp2 = ExpectToken(PyToken.Type.TYPE_COMMENT);
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -34166,7 +34166,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp3 = ExpectToken(TokenType.NEWLINE);
+                var _tmp3 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -34181,7 +34181,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(INDENT): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp4 = ExpectToken(TokenType.INDENT);
+                var _tmp4 = ExpectToken(PyToken.Type.INDENT);
                 if (_tmp4 == null)
                 {
                     _position = _mark;
@@ -34250,7 +34250,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'as' (token type 519)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.AS);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.AS);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -34338,7 +34338,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _opt__tmp0 = ExpectToken(TokenType.ASYNC);
+                var _opt__tmp0 = ExpectToken(PyToken.Type.ASYNC);
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(ASYNC): result={(_opt__tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -34358,7 +34358,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                 }
                 // Expect hard keyword: 'for' (token type 516)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.FOR);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.FOR);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -34424,7 +34424,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -34445,7 +34445,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ')'
-                var _tmp1 = Expect(TokenType.OP, ")");
+                var _tmp1 = Expect(PyToken.Type.OP, ")");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -34473,7 +34473,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '('
-                var _tmp0 = Expect(TokenType.OP, "(");
+                var _tmp0 = Expect(PyToken.Type.OP, "(");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -34482,7 +34482,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '**'
-                var a = Expect(TokenType.OP, "**");
+                var a = Expect(PyToken.Type.OP, "**");
                 if (a == null)
                 {
                     _position = _mark;
@@ -34503,7 +34503,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ')'
-                var _tmp2 = Expect(TokenType.OP, ")");
+                var _tmp2 = Expect(PyToken.Type.OP, ")");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -34557,7 +34557,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'import' (token type 501)
-                var a = ExpectToken((TokenType)KeywordType.IMPORT);
+                var a = ExpectToken((PyToken.Type)KeywordType.IMPORT);
                 if (a == null)
                 {
                     _position = _mark;
@@ -34575,7 +34575,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'from' (token type 502)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.FROM);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.FROM);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -34653,7 +34653,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(TokenType.OP, ",");
+                var _tmp1 = Expect(PyToken.Type.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -34665,7 +34665,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp2 = ExpectToken(TokenType.NEWLINE);
+                var _tmp2 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -34729,7 +34729,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ASYNC
                 {
                     _position = _group_mark__opt__tmp0;
-                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = ExpectToken(TokenType.ASYNC);
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = ExpectToken(PyToken.Type.ASYNC);
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -34756,7 +34756,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                 }
                 // Expect hard keyword: 'with' (token type 515)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.WITH);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.WITH);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -34777,7 +34777,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp3 = ExpectToken(TokenType.NEWLINE);
+                var _tmp3 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -34815,7 +34815,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ASYNC
                 {
                     _position = _group_mark__opt__tmp0;
-                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = ExpectToken(TokenType.ASYNC);
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = ExpectToken(PyToken.Type.ASYNC);
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -34842,7 +34842,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                 }
                 // Expect hard keyword: 'with' (token type 515)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.WITH);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.WITH);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -34851,7 +34851,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp2 = Expect(TokenType.OP, "(");
+                var _tmp2 = Expect(PyToken.Type.OP, "(");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -34871,7 +34871,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp4 = _position;
                 // Expect ','
-                var _opt__tmp4 = Expect(TokenType.OP, ",");
+                var _opt__tmp4 = Expect(PyToken.Type.OP, ",");
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp4 = _opt__tmp4;
                 if (_pendingSyntaxError != null)
@@ -34888,7 +34888,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp4; // Reset position
                 }
                 // Expect ')'
-                var _tmp5 = Expect(TokenType.OP, ")");
+                var _tmp5 = Expect(PyToken.Type.OP, ")");
                 if (_tmp5 == null)
                 {
                     _position = _mark;
@@ -34900,7 +34900,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp6 = ExpectToken(TokenType.NEWLINE);
+                var _tmp6 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp6 == null)
                 {
                     _position = _mark;
@@ -34964,7 +34964,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ASYNC
                 {
                     _position = _group_mark__opt__tmp0;
-                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = ExpectToken(TokenType.ASYNC);
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = ExpectToken(PyToken.Type.ASYNC);
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -34991,7 +34991,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                 }
                 // Expect hard keyword: 'with' (token type 515)
-                var a = ExpectToken((TokenType)KeywordType.WITH);
+                var a = ExpectToken((PyToken.Type)KeywordType.WITH);
                 if (a == null)
                 {
                     _position = _mark;
@@ -35009,7 +35009,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp2 = Expect(TokenType.OP, ":");
+                var _tmp2 = Expect(PyToken.Type.OP, ":");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -35021,7 +35021,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp3 = ExpectToken(TokenType.NEWLINE);
+                var _tmp3 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -35036,7 +35036,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _lookahead_test_69 = null;
                 // Negative lookahead: !INDENT
                 int _nla_mark = _position;
-                _lookahead_test_69 = ExpectToken(TokenType.INDENT);
+                _lookahead_test_69 = ExpectToken(PyToken.Type.INDENT);
                 _position = _nla_mark;  // Restore position after lookahead
                 if (_lookahead_test_69 != null)
                 {
@@ -35073,7 +35073,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ASYNC
                 {
                     _position = _group_mark__opt__tmp0;
-                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = ExpectToken(TokenType.ASYNC);
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = ExpectToken(PyToken.Type.ASYNC);
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -35100,7 +35100,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                 }
                 // Expect hard keyword: 'with' (token type 515)
-                var a = ExpectToken((TokenType)KeywordType.WITH);
+                var a = ExpectToken((PyToken.Type)KeywordType.WITH);
                 if (a == null)
                 {
                     _position = _mark;
@@ -35109,7 +35109,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp1 = Expect(TokenType.OP, "(");
+                var _tmp1 = Expect(PyToken.Type.OP, "(");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -35129,7 +35129,7 @@ namespace SharpPy.Generated
                 // Optional: [',']
                 int _opt_mark__tmp3 = _position;
                 // Expect ','
-                var _opt__tmp3 = Expect(TokenType.OP, ",");
+                var _opt__tmp3 = Expect(PyToken.Type.OP, ",");
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp3 = _opt__tmp3;
                 if (_pendingSyntaxError != null)
@@ -35146,7 +35146,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp3; // Reset position
                 }
                 // Expect ')'
-                var _tmp4 = Expect(TokenType.OP, ")");
+                var _tmp4 = Expect(PyToken.Type.OP, ")");
                 if (_tmp4 == null)
                 {
                     _position = _mark;
@@ -35155,7 +35155,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp5 = Expect(TokenType.OP, ":");
+                var _tmp5 = Expect(PyToken.Type.OP, ":");
                 if (_tmp5 == null)
                 {
                     _position = _mark;
@@ -35167,7 +35167,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp6 = ExpectToken(TokenType.NEWLINE);
+                var _tmp6 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp6 == null)
                 {
                     _position = _mark;
@@ -35182,7 +35182,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _lookahead_test_70 = null;
                 // Negative lookahead: !INDENT
                 int _nla_mark = _position;
-                _lookahead_test_70 = ExpectToken(TokenType.INDENT);
+                _lookahead_test_70 = ExpectToken(PyToken.Type.INDENT);
                 _position = _nla_mark;  // Restore position after lookahead
                 if (_lookahead_test_70 != null)
                 {
@@ -35238,7 +35238,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'try' (token type 517)
-                var a = ExpectToken((TokenType)KeywordType.TRY);
+                var a = ExpectToken((PyToken.Type)KeywordType.TRY);
                 if (a == null)
                 {
                     _position = _mark;
@@ -35247,7 +35247,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(TokenType.OP, ":");
+                var _tmp0 = Expect(PyToken.Type.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -35259,7 +35259,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp1 = ExpectToken(TokenType.NEWLINE);
+                var _tmp1 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -35274,7 +35274,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _lookahead_test_71 = null;
                 // Negative lookahead: !INDENT
                 int _nla_mark = _position;
-                _lookahead_test_71 = ExpectToken(TokenType.INDENT);
+                _lookahead_test_71 = ExpectToken(PyToken.Type.INDENT);
                 _position = _nla_mark;  // Restore position after lookahead
                 if (_lookahead_test_71 != null)
                 {
@@ -35304,7 +35304,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'try' (token type 517)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.TRY);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.TRY);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -35313,7 +35313,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(TokenType.OP, ":");
+                var _tmp1 = Expect(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -35366,7 +35366,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'try' (token type 517)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.TRY);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.TRY);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -35375,7 +35375,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(TokenType.OP, ":");
+                var _tmp1 = Expect(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -35395,7 +35395,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'except' (token type 523)
-                var a = ExpectToken((TokenType)KeywordType.EXCEPT);
+                var a = ExpectToken((PyToken.Type)KeywordType.EXCEPT);
                 if (a == null)
                 {
                     _position = _mark;
@@ -35404,7 +35404,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '*'
-                var b = Expect(TokenType.OP, "*");
+                var b = Expect(PyToken.Type.OP, "*");
                 if (b == null)
                 {
                     _position = _mark;
@@ -35413,7 +35413,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var expression = Expect(TokenType.OP, ":");
+                var expression = Expect(PyToken.Type.OP, ":");
                 if (expression == null)
                 {
                     _position = _mark;
@@ -35439,7 +35439,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'try' (token type 517)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.TRY);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.TRY);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -35448,7 +35448,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(TokenType.OP, ":");
+                var _tmp1 = Expect(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -35468,7 +35468,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'except' (token type 523)
-                var a = ExpectToken((TokenType)KeywordType.EXCEPT);
+                var a = ExpectToken((PyToken.Type)KeywordType.EXCEPT);
                 if (a == null)
                 {
                     _position = _mark;
@@ -35501,7 +35501,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp4; // Reset position
                 }
                 // Expect ':'
-                var _tmp5 = Expect(TokenType.OP, ":");
+                var _tmp5 = Expect(PyToken.Type.OP, ":");
                 if (_tmp5 == null)
                 {
                     _position = _mark;
@@ -35555,7 +35555,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'except' (token type 523)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.EXCEPT);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.EXCEPT);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -35566,7 +35566,7 @@ namespace SharpPy.Generated
                 // Optional: ['*']
                 int _opt_mark__tmp1 = _position;
                 // Expect '*'
-                var _opt__tmp1 = Expect(TokenType.OP, "*");
+                var _opt__tmp1 = Expect(PyToken.Type.OP, "*");
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp1 = _opt__tmp1;
                 if (_pendingSyntaxError != null)
@@ -35595,7 +35595,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp2 = Expect(TokenType.OP, ",");
+                var _tmp2 = Expect(PyToken.Type.OP, ",");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -35604,7 +35604,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var expressions = Expect(TokenType.OP, ":");
+                var expressions = Expect(PyToken.Type.OP, ":");
                 if (expressions == null)
                 {
                     _position = _mark;
@@ -35632,7 +35632,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'except' (token type 523)
-                var a = ExpectToken((TokenType)KeywordType.EXCEPT);
+                var a = ExpectToken((PyToken.Type)KeywordType.EXCEPT);
                 if (a == null)
                 {
                     _position = _mark;
@@ -35643,7 +35643,7 @@ namespace SharpPy.Generated
                 // Optional: ['*']
                 int _opt_mark__tmp0 = _position;
                 // Expect '*'
-                var _opt__tmp0 = Expect(TokenType.OP, "*");
+                var _opt__tmp0 = Expect(PyToken.Type.OP, "*");
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp0 = _opt__tmp0;
                 if (_pendingSyntaxError != null)
@@ -35663,7 +35663,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var expression = ExpectToken(TokenType.NEWLINE);
+                var expression = ExpectToken(PyToken.Type.NEWLINE);
                 if (expression == null)
                 {
                     _position = _mark;
@@ -35694,7 +35694,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'except' (token type 523)
-                var a = ExpectToken((TokenType)KeywordType.EXCEPT);
+                var a = ExpectToken((PyToken.Type)KeywordType.EXCEPT);
                 if (a == null)
                 {
                     _position = _mark;
@@ -35706,7 +35706,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp0 = ExpectToken(TokenType.NEWLINE);
+                var _tmp0 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -35737,7 +35737,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'except' (token type 523)
-                var a = ExpectToken((TokenType)KeywordType.EXCEPT);
+                var a = ExpectToken((PyToken.Type)KeywordType.EXCEPT);
                 if (a == null)
                 {
                     _position = _mark;
@@ -35746,7 +35746,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -35760,7 +35760,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: NEWLINE
                 {
                     _position = _group_mark__tmp1;
-                    GeneratedTokenInfo? _group_alt0__tmp1_item0 = ExpectToken(TokenType.NEWLINE);
+                    GeneratedTokenInfo? _group_alt0__tmp1_item0 = ExpectToken(PyToken.Type.NEWLINE);
                     if (_group_alt0__tmp1_item0 != null)
                     {
                         _tmp1 = _group_alt0__tmp1_item0;
@@ -35839,7 +35839,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'finally' (token type 524)
-                var a = ExpectToken((TokenType)KeywordType.FINALLY);
+                var a = ExpectToken((PyToken.Type)KeywordType.FINALLY);
                 if (a == null)
                 {
                     _position = _mark;
@@ -35848,7 +35848,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(TokenType.OP, ":");
+                var _tmp0 = Expect(PyToken.Type.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -35860,7 +35860,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp1 = ExpectToken(TokenType.NEWLINE);
+                var _tmp1 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -35875,7 +35875,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _lookahead_test_73 = null;
                 // Negative lookahead: !INDENT
                 int _nla_mark = _position;
-                _lookahead_test_73 = ExpectToken(TokenType.INDENT);
+                _lookahead_test_73 = ExpectToken(PyToken.Type.INDENT);
                 _position = _nla_mark;  // Restore position after lookahead
                 if (_lookahead_test_73 != null)
                 {
@@ -35931,7 +35931,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'except' (token type 523)
-                var a = ExpectToken((TokenType)KeywordType.EXCEPT);
+                var a = ExpectToken((PyToken.Type)KeywordType.EXCEPT);
                 if (a == null)
                 {
                     _position = _mark;
@@ -35940,7 +35940,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var expression = Expect(TokenType.OP, ":");
+                var expression = Expect(PyToken.Type.OP, ":");
                 if (expression == null)
                 {
                     _position = _mark;
@@ -35952,7 +35952,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp0 = ExpectToken(TokenType.NEWLINE);
+                var _tmp0 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -35967,7 +35967,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _lookahead_test_74 = null;
                 // Negative lookahead: !INDENT
                 int _nla_mark = _position;
-                _lookahead_test_74 = ExpectToken(TokenType.INDENT);
+                _lookahead_test_74 = ExpectToken(PyToken.Type.INDENT);
                 _position = _nla_mark;  // Restore position after lookahead
                 if (_lookahead_test_74 != null)
                 {
@@ -35997,7 +35997,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'except' (token type 523)
-                var a = ExpectToken((TokenType)KeywordType.EXCEPT);
+                var a = ExpectToken((PyToken.Type)KeywordType.EXCEPT);
                 if (a == null)
                 {
                     _position = _mark;
@@ -36006,7 +36006,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(TokenType.OP, ":");
+                var _tmp0 = Expect(PyToken.Type.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -36018,7 +36018,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp1 = ExpectToken(TokenType.NEWLINE);
+                var _tmp1 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -36033,7 +36033,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _lookahead_test_75 = null;
                 // Negative lookahead: !INDENT
                 int _nla_mark = _position;
-                _lookahead_test_75 = ExpectToken(TokenType.INDENT);
+                _lookahead_test_75 = ExpectToken(PyToken.Type.INDENT);
                 _position = _nla_mark;  // Restore position after lookahead
                 if (_lookahead_test_75 != null)
                 {
@@ -36089,7 +36089,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'except' (token type 523)
-                var a = ExpectToken((TokenType)KeywordType.EXCEPT);
+                var a = ExpectToken((PyToken.Type)KeywordType.EXCEPT);
                 if (a == null)
                 {
                     _position = _mark;
@@ -36098,7 +36098,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '*'
-                var _tmp0 = Expect(TokenType.OP, "*");
+                var _tmp0 = Expect(PyToken.Type.OP, "*");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -36107,7 +36107,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var expression = Expect(TokenType.OP, ":");
+                var expression = Expect(PyToken.Type.OP, ":");
                 if (expression == null)
                 {
                     _position = _mark;
@@ -36119,7 +36119,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp1 = ExpectToken(TokenType.NEWLINE);
+                var _tmp1 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -36134,7 +36134,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _lookahead_test_76 = null;
                 // Negative lookahead: !INDENT
                 int _nla_mark = _position;
-                _lookahead_test_76 = ExpectToken(TokenType.INDENT);
+                _lookahead_test_76 = ExpectToken(PyToken.Type.INDENT);
                 _position = _nla_mark;  // Restore position after lookahead
                 if (_lookahead_test_76 != null)
                 {
@@ -36214,7 +36214,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp2 = ExpectToken(TokenType.NEWLINE);
+                var _tmp2 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -36266,7 +36266,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(TokenType.OP, ":");
+                var _tmp0 = Expect(PyToken.Type.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -36278,7 +36278,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp1 = ExpectToken(TokenType.NEWLINE);
+                var _tmp1 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -36293,7 +36293,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _lookahead_test_77 = null;
                 // Negative lookahead: !INDENT
                 int _nla_mark = _position;
-                _lookahead_test_77 = ExpectToken(TokenType.INDENT);
+                _lookahead_test_77 = ExpectToken(PyToken.Type.INDENT);
                 _position = _nla_mark;  // Restore position after lookahead
                 if (_lookahead_test_77 != null)
                 {
@@ -36395,7 +36395,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp3 = ExpectToken(TokenType.NEWLINE);
+                var _tmp3 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -36469,7 +36469,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp1; // Reset position
                 }
                 // Expect ':'
-                var _tmp2 = Expect(TokenType.OP, ":");
+                var _tmp2 = Expect(PyToken.Type.OP, ":");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -36481,7 +36481,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp3 = ExpectToken(TokenType.NEWLINE);
+                var _tmp3 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -36496,7 +36496,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _lookahead_test_78 = null;
                 // Negative lookahead: !INDENT
                 int _nla_mark = _position;
-                _lookahead_test_78 = ExpectToken(TokenType.INDENT);
+                _lookahead_test_78 = ExpectToken(PyToken.Type.INDENT);
                 _position = _nla_mark;  // Restore position after lookahead
                 if (_lookahead_test_78 != null)
                 {
@@ -36564,7 +36564,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'as' (token type 519)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.AS);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.AS);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -36613,7 +36613,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'as' (token type 519)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.AS);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.AS);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -36625,7 +36625,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _lookahead_test_79 = null;
                 // Negative lookahead: !NAME
                 int _nla_mark = _position;
-                _lookahead_test_79 = ExpectToken(TokenType.NAME);
+                _lookahead_test_79 = ExpectToken(PyToken.Type.NAME);
                 _position = _nla_mark;  // Restore position after lookahead
                 if (_lookahead_test_79 != null)
                 {
@@ -36705,7 +36705,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '('
-                var _tmp1 = Expect(TokenType.OP, "(");
+                var _tmp1 = Expect(PyToken.Type.OP, "(");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -36847,7 +36847,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp2 = Expect(TokenType.OP, ",");
+                var _tmp2 = Expect(PyToken.Type.OP, ",");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -36910,7 +36910,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'if' (token type 513)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.IF);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.IF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -36934,7 +36934,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp2 = ExpectToken(TokenType.NEWLINE);
+                var _tmp2 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -36965,7 +36965,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'if' (token type 513)
-                var a = ExpectToken((TokenType)KeywordType.IF);
+                var a = ExpectToken((PyToken.Type)KeywordType.IF);
                 if (a == null)
                 {
                     _position = _mark;
@@ -36986,7 +36986,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(TokenType.OP, ":");
+                var _tmp0 = Expect(PyToken.Type.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -36998,7 +36998,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp1 = ExpectToken(TokenType.NEWLINE);
+                var _tmp1 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -37013,7 +37013,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _lookahead_test_80 = null;
                 // Negative lookahead: !INDENT
                 int _nla_mark = _position;
-                _lookahead_test_80 = ExpectToken(TokenType.INDENT);
+                _lookahead_test_80 = ExpectToken(PyToken.Type.INDENT);
                 _position = _nla_mark;  // Restore position after lookahead
                 if (_lookahead_test_80 != null)
                 {
@@ -37069,7 +37069,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'elif' (token type 520)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.ELIF);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.ELIF);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -37093,7 +37093,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp2 = ExpectToken(TokenType.NEWLINE);
+                var _tmp2 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -37124,7 +37124,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'elif' (token type 520)
-                var a = ExpectToken((TokenType)KeywordType.ELIF);
+                var a = ExpectToken((PyToken.Type)KeywordType.ELIF);
                 if (a == null)
                 {
                     _position = _mark;
@@ -37145,7 +37145,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(TokenType.OP, ":");
+                var _tmp1 = Expect(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -37157,7 +37157,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp2 = ExpectToken(TokenType.NEWLINE);
+                var _tmp2 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -37172,7 +37172,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _lookahead_test_81 = null;
                 // Negative lookahead: !INDENT
                 int _nla_mark = _position;
-                _lookahead_test_81 = ExpectToken(TokenType.INDENT);
+                _lookahead_test_81 = ExpectToken(PyToken.Type.INDENT);
                 _position = _nla_mark;  // Restore position after lookahead
                 if (_lookahead_test_81 != null)
                 {
@@ -37228,7 +37228,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'else' (token type 521)
-                var a = ExpectToken((TokenType)KeywordType.ELSE);
+                var a = ExpectToken((PyToken.Type)KeywordType.ELSE);
                 if (a == null)
                 {
                     _position = _mark;
@@ -37237,7 +37237,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp0 = Expect(TokenType.OP, ":");
+                var _tmp0 = Expect(PyToken.Type.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -37249,7 +37249,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp1 = ExpectToken(TokenType.NEWLINE);
+                var _tmp1 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -37264,7 +37264,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _lookahead_test_82 = null;
                 // Negative lookahead: !INDENT
                 int _nla_mark = _position;
-                _lookahead_test_82 = ExpectToken(TokenType.INDENT);
+                _lookahead_test_82 = ExpectToken(PyToken.Type.INDENT);
                 _position = _nla_mark;  // Restore position after lookahead
                 if (_lookahead_test_82 != null)
                 {
@@ -37320,7 +37320,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'while' (token type 518)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.WHILE);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.WHILE);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -37344,7 +37344,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp2 = ExpectToken(TokenType.NEWLINE);
+                var _tmp2 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -37375,7 +37375,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'while' (token type 518)
-                var a = ExpectToken((TokenType)KeywordType.WHILE);
+                var a = ExpectToken((PyToken.Type)KeywordType.WHILE);
                 if (a == null)
                 {
                     _position = _mark;
@@ -37396,7 +37396,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(TokenType.OP, ":");
+                var _tmp1 = Expect(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -37408,7 +37408,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp2 = ExpectToken(TokenType.NEWLINE);
+                var _tmp2 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -37423,7 +37423,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _lookahead_test_83 = null;
                 // Negative lookahead: !INDENT
                 int _nla_mark = _position;
-                _lookahead_test_83 = ExpectToken(TokenType.INDENT);
+                _lookahead_test_83 = ExpectToken(PyToken.Type.INDENT);
                 _position = _nla_mark;  // Restore position after lookahead
                 if (_lookahead_test_83 != null)
                 {
@@ -37486,7 +37486,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ASYNC
                 {
                     _position = _group_mark__opt__tmp0;
-                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = ExpectToken(TokenType.ASYNC);
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = ExpectToken(PyToken.Type.ASYNC);
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -37513,7 +37513,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                 }
                 // Expect hard keyword: 'for' (token type 516)
-                var _tmp1 = ExpectToken((TokenType)KeywordType.FOR);
+                var _tmp1 = ExpectToken((PyToken.Type)KeywordType.FOR);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -37534,7 +37534,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'in' (token type 522)
-                var _tmp3 = ExpectToken((TokenType)KeywordType.IN);
+                var _tmp3 = ExpectToken((PyToken.Type)KeywordType.IN);
                 if (_tmp3 == null)
                 {
                     _position = _mark;
@@ -37558,7 +37558,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp5 = ExpectToken(TokenType.NEWLINE);
+                var _tmp5 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp5 == null)
                 {
                     _position = _mark;
@@ -37596,7 +37596,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ASYNC
                 {
                     _position = _group_mark__opt__tmp0;
-                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = ExpectToken(TokenType.ASYNC);
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = ExpectToken(PyToken.Type.ASYNC);
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -37623,7 +37623,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                 }
                 // Expect hard keyword: 'for' (token type 516)
-                var a = ExpectToken((TokenType)KeywordType.FOR);
+                var a = ExpectToken((PyToken.Type)KeywordType.FOR);
                 if (a == null)
                 {
                     _position = _mark;
@@ -37644,7 +37644,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect hard keyword: 'in' (token type 522)
-                var _tmp2 = ExpectToken((TokenType)KeywordType.IN);
+                var _tmp2 = ExpectToken((PyToken.Type)KeywordType.IN);
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -37665,7 +37665,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp4 = Expect(TokenType.OP, ":");
+                var _tmp4 = Expect(PyToken.Type.OP, ":");
                 if (_tmp4 == null)
                 {
                     _position = _mark;
@@ -37677,7 +37677,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp5 = ExpectToken(TokenType.NEWLINE);
+                var _tmp5 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp5 == null)
                 {
                     _position = _mark;
@@ -37692,7 +37692,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _lookahead_test_84 = null;
                 // Negative lookahead: !INDENT
                 int _nla_mark = _position;
-                _lookahead_test_84 = ExpectToken(TokenType.INDENT);
+                _lookahead_test_84 = ExpectToken(PyToken.Type.INDENT);
                 _position = _nla_mark;  // Restore position after lookahead
                 if (_lookahead_test_84 != null)
                 {
@@ -37755,7 +37755,7 @@ namespace SharpPy.Generated
                 // Try group alternative 1: ASYNC
                 {
                     _position = _group_mark__opt__tmp0;
-                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = ExpectToken(TokenType.ASYNC);
+                    GeneratedTokenInfo? _group_alt0__opt__tmp0_item0 = ExpectToken(PyToken.Type.ASYNC);
                     if (_group_alt0__opt__tmp0_item0 != null)
                     {
                         _opt__tmp0 = _group_alt0__opt__tmp0_item0;
@@ -37782,7 +37782,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp0; // Reset position
                 }
                 // Expect hard keyword: 'def' (token type 512)
-                var a = ExpectToken((TokenType)KeywordType.DEF);
+                var a = ExpectToken((PyToken.Type)KeywordType.DEF);
                 if (a == null)
                 {
                     _position = _mark;
@@ -37791,7 +37791,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '('
-                var NAME = Expect(TokenType.OP, "(");
+                var NAME = Expect(PyToken.Type.OP, "(");
                 if (NAME == null)
                 {
                     _position = _mark;
@@ -37834,7 +37834,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp1; // Reset position
                 }
                 // Expect ')'
-                var _tmp2 = Expect(TokenType.OP, ")");
+                var _tmp2 = Expect(PyToken.Type.OP, ")");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -37881,7 +37881,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp3; // Reset position
                 }
                 // Expect ':'
-                var _tmp4 = Expect(TokenType.OP, ":");
+                var _tmp4 = Expect(PyToken.Type.OP, ":");
                 if (_tmp4 == null)
                 {
                     _position = _mark;
@@ -37893,7 +37893,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp5 = ExpectToken(TokenType.NEWLINE);
+                var _tmp5 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp5 == null)
                 {
                     _position = _mark;
@@ -37908,7 +37908,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _lookahead_test_85 = null;
                 // Negative lookahead: !INDENT
                 int _nla_mark = _position;
-                _lookahead_test_85 = ExpectToken(TokenType.INDENT);
+                _lookahead_test_85 = ExpectToken(PyToken.Type.INDENT);
                 _position = _nla_mark;  // Restore position after lookahead
                 if (_lookahead_test_85 != null)
                 {
@@ -37964,7 +37964,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'class' (token type 514)
-                var _tmp0 = ExpectToken((TokenType)KeywordType.CLASS);
+                var _tmp0 = ExpectToken((PyToken.Type)KeywordType.CLASS);
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -38051,7 +38051,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp1 = ExpectToken(TokenType.NEWLINE);
+                var _tmp1 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -38082,7 +38082,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect hard keyword: 'class' (token type 514)
-                var a = ExpectToken((TokenType)KeywordType.CLASS);
+                var a = ExpectToken((PyToken.Type)KeywordType.CLASS);
                 if (a == null)
                 {
                     _position = _mark;
@@ -38166,7 +38166,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark_NAME; // Reset position
                 }
                 // Expect ':'
-                var _tmp0 = Expect(TokenType.OP, ":");
+                var _tmp0 = Expect(PyToken.Type.OP, ":");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -38178,7 +38178,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp1 = ExpectToken(TokenType.NEWLINE);
+                var _tmp1 = ExpectToken(PyToken.Type.NEWLINE);
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -38193,7 +38193,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _lookahead_test_86 = null;
                 // Negative lookahead: !INDENT
                 int _nla_mark = _position;
-                _lookahead_test_86 = ExpectToken(TokenType.INDENT);
+                _lookahead_test_86 = ExpectToken(PyToken.Type.INDENT);
                 _position = _nla_mark;  // Restore position after lookahead
                 if (_lookahead_test_86 != null)
                 {
@@ -38258,7 +38258,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ','
-                var _tmp1 = Expect(TokenType.OP, ",");
+                var _tmp1 = Expect(PyToken.Type.OP, ",");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -38337,7 +38337,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(TokenType.OP, ":");
+                var _tmp1 = Expect(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -38346,7 +38346,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '*'
-                var a = Expect(TokenType.OP, "*");
+                var a = Expect(PyToken.Type.OP, "*");
                 if (a == null)
                 {
                     _position = _mark;
@@ -38398,7 +38398,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var a = Expect(TokenType.OP, ":");
+                var a = Expect(PyToken.Type.OP, ":");
                 if (a == null)
                 {
                     _position = _mark;
@@ -38523,7 +38523,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var _tmp1 = Expect(TokenType.OP, ":");
+                var _tmp1 = Expect(PyToken.Type.OP, ":");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -38532,7 +38532,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '*'
-                var a = Expect(TokenType.OP, "*");
+                var a = Expect(PyToken.Type.OP, "*");
                 if (a == null)
                 {
                     _position = _mark;
@@ -38584,7 +38584,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var a = Expect(TokenType.OP, ":");
+                var a = Expect(PyToken.Type.OP, ":");
                 if (a == null)
                 {
                     _position = _mark;
@@ -38654,7 +38654,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '*'
-                var a = Expect(TokenType.OP, "*");
+                var a = Expect(PyToken.Type.OP, "*");
                 if (a == null)
                 {
                     _position = _mark;
@@ -38675,7 +38675,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '='
-                var _tmp1 = Expect(TokenType.OP, "=");
+                var _tmp1 = Expect(PyToken.Type.OP, "=");
                 if (_tmp1 == null)
                 {
                     _position = _mark;
@@ -38739,7 +38739,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -38748,7 +38748,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '='
-                var a = Expect(TokenType.OP, "=");
+                var a = Expect(PyToken.Type.OP, "=");
                 if (a == null)
                 {
                     _position = _mark;
@@ -38776,7 +38776,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -38788,7 +38788,7 @@ namespace SharpPy.Generated
                 #if DEBUG_FSTRING_LOG
                 Console.WriteLine($"[FSTRING-EXPECT-!] pos={_position}, CurrentToken={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var a = Expect(TokenType.OP, "!");
+                var a = Expect(PyToken.Type.OP, "!");
                 #if DEBUG_FSTRING_LOG
                 Console.WriteLine($"[FSTRING-EXPECT-!] result={(a != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -38819,7 +38819,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -38828,7 +38828,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect ':'
-                var a = Expect(TokenType.OP, ":");
+                var a = Expect(PyToken.Type.OP, ":");
                 if (a == null)
                 {
                     _position = _mark;
@@ -38856,7 +38856,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -38865,7 +38865,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '}'
-                var a = Expect(TokenType.OP, "}");
+                var a = Expect(PyToken.Type.OP, "}");
                 if (a == null)
                 {
                     _position = _mark;
@@ -38893,7 +38893,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -38932,7 +38932,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -39014,7 +39014,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -39062,7 +39062,7 @@ namespace SharpPy.Generated
                     goto done;  // Exit this alternative
                 }
                 // Expect '='
-                var _tmp2 = Expect(TokenType.OP, "=");
+                var _tmp2 = Expect(PyToken.Type.OP, "=");
                 if (_tmp2 == null)
                 {
                     _position = _mark;
@@ -39104,7 +39104,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -39154,7 +39154,7 @@ namespace SharpPy.Generated
                 // Optional: ['=']
                 int _opt_mark__tmp2 = _position;
                 // Expect '='
-                var _opt__tmp2 = Expect(TokenType.OP, "=");
+                var _opt__tmp2 = Expect(PyToken.Type.OP, "=");
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp2 = _opt__tmp2;
                 if (_pendingSyntaxError != null)
@@ -39229,7 +39229,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -39279,7 +39279,7 @@ namespace SharpPy.Generated
                 // Optional: ['=']
                 int _opt_mark__tmp2 = _position;
                 // Expect '='
-                var _opt__tmp2 = Expect(TokenType.OP, "=");
+                var _opt__tmp2 = Expect(PyToken.Type.OP, "=");
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp2 = _opt__tmp2;
                 if (_pendingSyntaxError != null)
@@ -39306,7 +39306,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__opt__tmp3_item0 = Expect("!");
                     if (_group_alt0__opt__tmp3_item0 != null)
                     {
-                        GeneratedTokenInfo? _group_alt0__opt__tmp3_item1 = ExpectToken(TokenType.NAME);
+                        GeneratedTokenInfo? _group_alt0__opt__tmp3_item1 = ExpectToken(PyToken.Type.NAME);
                         if (_group_alt0__opt__tmp3_item1 != null)
                         {
                             _opt__tmp3 = _group_alt0__opt__tmp3_item1;
@@ -39366,7 +39366,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -39416,7 +39416,7 @@ namespace SharpPy.Generated
                 // Optional: ['=']
                 int _opt_mark__tmp2 = _position;
                 // Expect '='
-                var _opt__tmp2 = Expect(TokenType.OP, "=");
+                var _opt__tmp2 = Expect(PyToken.Type.OP, "=");
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp2 = _opt__tmp2;
                 if (_pendingSyntaxError != null)
@@ -39443,7 +39443,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__opt__tmp3_item0 = Expect("!");
                     if (_group_alt0__opt__tmp3_item0 != null)
                     {
-                        GeneratedTokenInfo? _group_alt0__opt__tmp3_item1 = ExpectToken(TokenType.NAME);
+                        GeneratedTokenInfo? _group_alt0__opt__tmp3_item1 = ExpectToken(PyToken.Type.NAME);
                         if (_group_alt0__opt__tmp3_item1 != null)
                         {
                             _opt__tmp3 = _group_alt0__opt__tmp3_item1;
@@ -39471,7 +39471,7 @@ namespace SharpPy.Generated
                     _position = _opt_mark__tmp3; // Reset position
                 }
                 // Expect ':'
-                var _tmp4 = Expect(TokenType.OP, ":");
+                var _tmp4 = Expect(PyToken.Type.OP, ":");
                 if (_tmp4 == null)
                 {
                     _position = _mark;
@@ -39512,7 +39512,7 @@ namespace SharpPy.Generated
                 }
 
                 // Expect '{'
-                var _tmp0 = Expect(TokenType.OP, "{");
+                var _tmp0 = Expect(PyToken.Type.OP, "{");
                 if (_tmp0 == null)
                 {
                     _position = _mark;
@@ -39562,7 +39562,7 @@ namespace SharpPy.Generated
                 // Optional: ['=']
                 int _opt_mark__tmp2 = _position;
                 // Expect '='
-                var _opt__tmp2 = Expect(TokenType.OP, "=");
+                var _opt__tmp2 = Expect(PyToken.Type.OP, "=");
                 // CPython: (a = expr, !p->error_indicator) - check error after optional
                 GeneratedTokenInfo? _tmp2 = _opt__tmp2;
                 if (_pendingSyntaxError != null)
@@ -39589,7 +39589,7 @@ namespace SharpPy.Generated
                     GeneratedTokenInfo? _group_alt0__opt__tmp3_item0 = Expect("!");
                     if (_group_alt0__opt__tmp3_item0 != null)
                     {
-                        GeneratedTokenInfo? _group_alt0__opt__tmp3_item1 = ExpectToken(TokenType.NAME);
+                        GeneratedTokenInfo? _group_alt0__opt__tmp3_item1 = ExpectToken(PyToken.Type.NAME);
                         if (_group_alt0__opt__tmp3_item1 != null)
                         {
                             _opt__tmp3 = _group_alt0__opt__tmp3_item1;
@@ -39676,7 +39676,7 @@ namespace SharpPy.Generated
                 #if DEBUG_FSTRING_LOG
                 Console.WriteLine($"[FSTRING-EXPECT-!] pos={_position}, CurrentToken={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp0 = Expect(TokenType.OP, "!");
+                var _tmp0 = Expect(PyToken.Type.OP, "!");
                 #if DEBUG_FSTRING_LOG
                 Console.WriteLine($"[FSTRING-EXPECT-!] result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -39726,7 +39726,7 @@ namespace SharpPy.Generated
                 #if DEBUG_FSTRING_LOG
                 Console.WriteLine($"[FSTRING-EXPECT-!] pos={_position}, CurrentToken={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _tmp0 = Expect(TokenType.OP, "!");
+                var _tmp0 = Expect(PyToken.Type.OP, "!");
                 #if DEBUG_FSTRING_LOG
                 Console.WriteLine($"[FSTRING-EXPECT-!] result={(_tmp0 != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -39741,7 +39741,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _lookahead_test_97 = null;
                 // Negative lookahead: !NAME
                 int _nla_mark = _position;
-                _lookahead_test_97 = ExpectToken(TokenType.NAME);
+                _lookahead_test_97 = ExpectToken(PyToken.Type.NAME);
                 _position = _nla_mark;  // Restore position after lookahead
                 if (_lookahead_test_97 != null)
                 {
@@ -39787,7 +39787,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _item = ExpectToken(TokenType.NEWLINE);
+                var _item = ExpectToken(PyToken.Type.NEWLINE);
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NEWLINE): result={(_item != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -40060,7 +40060,7 @@ namespace SharpPy.Generated
                     GeneratedExpr? _group_alt0__first_item1 = NamedExpression();
                     if (_group_alt0__first_item1 != null)
                     {
-                        GeneratedTokenInfo? _group_alt0__first_item2 = ExpectToken(TokenType.NEWLINE);
+                        GeneratedTokenInfo? _group_alt0__first_item2 = ExpectToken(PyToken.Type.NEWLINE);
                         if (_group_alt0__first_item2 != null)
                         {
                             _first = _group_alt0__first_item1;
@@ -40090,7 +40090,7 @@ namespace SharpPy.Generated
                         GeneratedExpr? _group_alt0__item_item1 = NamedExpression();
                         if (_group_alt0__item_item1 != null)
                         {
-                            GeneratedTokenInfo? _group_alt0__item_item2 = ExpectToken(TokenType.NEWLINE);
+                            GeneratedTokenInfo? _group_alt0__item_item2 = ExpectToken(PyToken.Type.NEWLINE);
                             if (_group_alt0__item_item2 != null)
                             {
                                 _item = _group_alt0__item_item1;
@@ -41376,7 +41376,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ';'
-                var _item = Expect(TokenType.OP, ";");
+                var _item = Expect(PyToken.Type.OP, ";");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -41454,7 +41454,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -41464,7 +41464,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var elem = ExpectToken(TokenType.NAME);
+                var elem = ExpectToken(PyToken.Type.NAME);
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): result={(elem != null ? "SUCCESS" : "FAIL")}, newPos={_position}");
                 #endif
@@ -41500,7 +41500,7 @@ namespace SharpPy.Generated
                 #if DEBUG_PARSE_LOG
                 Console.WriteLine($"[DEBUG] ExpectToken(NAME): pos={_position}, token={CurrentToken?.Type}:'{CurrentToken?.Value}'");
                 #endif
-                var _token_elem = ExpectToken(TokenType.NAME);
+                var _token_elem = ExpectToken(PyToken.Type.NAME);
                 if (_token_elem == null)
                 {
                     _position = _mark;
@@ -41539,7 +41539,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -41617,7 +41617,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -41695,7 +41695,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -41773,7 +41773,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect '|'
-                var _item = Expect(TokenType.OP, "|");
+                var _item = Expect(PyToken.Type.OP, "|");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -41851,7 +41851,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -41929,7 +41929,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -42007,7 +42007,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -42085,7 +42085,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -42163,7 +42163,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -42241,7 +42241,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -42319,7 +42319,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -42451,7 +42451,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -42529,7 +42529,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -42747,7 +42747,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -42825,7 +42825,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -42903,7 +42903,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -42981,7 +42981,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -43059,7 +43059,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -43137,7 +43137,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -43245,7 +43245,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -43323,7 +43323,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -43401,7 +43401,7 @@ namespace SharpPy.Generated
             while (true)
             {
                 // Expect ','
-                var _item = Expect(TokenType.OP, ",");
+                var _item = Expect(PyToken.Type.OP, ",");
                 if (_item == null)
                 {
                     _position = _loop_mark;
@@ -43500,7 +43500,7 @@ namespace SharpPy.Generated
         /// </summary>
         private void SkipNL()
         {
-            while (CurrentToken?.Type == TokenType.NL)
+            while (CurrentToken?.Type == PyToken.Type.NL)
             {
                 Advance(); // skip NL token
             }
@@ -43736,7 +43736,7 @@ public GeneratedMod ParseFuncType()
         public List<GeneratedTypeParam>? ParseTypeParams()
         {
             // Check for '[' - if not present, return null (no type parameters)
-            if (CurrentToken?.Type != TokenType.OP || CurrentToken?.Value != "[")
+            if (CurrentToken?.Type != PyToken.Type.OP || CurrentToken?.Value != "[")
             {
                 return null;
             }
@@ -43760,12 +43760,12 @@ public GeneratedMod ParseFuncType()
                 typeParams.Add(typeParam);
 
                 // Check for comma or end
-                if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == ",")
+                if (CurrentToken?.Type == PyToken.Type.OP && CurrentToken?.Value == ",")
                 {
                     Advance(); // consume ','
                     continue;
                 }
-                else if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == "]")
+                else if (CurrentToken?.Type == PyToken.Type.OP && CurrentToken?.Value == "]")
                 {
                     break; // End of type parameters
                 }
@@ -43800,7 +43800,7 @@ public GeneratedMod ParseFuncType()
             var _start_col_offset = _tokens[startPos].Column;
 
             // Check for TypeVarTuple: '*' NAME
-            if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == "*")
+            if (CurrentToken?.Type == PyToken.Type.OP && CurrentToken?.Value == "*")
             {
                 Advance(); // consume '*'
                 var nameToken = ExpectName();
@@ -43819,7 +43819,7 @@ public GeneratedMod ParseFuncType()
             }
 
             // Check for ParamSpec: '**' NAME
-            if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == "**")
+            if (CurrentToken?.Type == PyToken.Type.OP && CurrentToken?.Value == "**")
             {
                 Advance(); // consume '**'
                 var nameToken = ExpectName();
@@ -43850,7 +43850,7 @@ public GeneratedMod ParseFuncType()
 
             // Optional bound: ':' expression
             GeneratedExpr? bound = null;
-            if (CurrentToken?.Type == TokenType.OP && CurrentToken?.Value == ":")
+            if (CurrentToken?.Type == PyToken.Type.OP && CurrentToken?.Value == ":")
             {
                 Advance(); // consume ':'
                 bound = Expression();

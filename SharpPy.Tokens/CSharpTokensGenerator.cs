@@ -54,14 +54,59 @@ namespace SharpPy.Tokenizer
             WriteLine("namespace SharpPy.Generated");
             WriteLine("{");
             Indent();
-
-            GenerateGeneratedPtrClass(); // CPython 3.12: void* equivalent base class
+            WriteLine("public static class PyToken");
+            WriteLine("{");
+            Indent();
+            // GenerateGeneratedPtrClass(); // CPython 3.12: void* equivalent base class
             GenerateTokenTypeEnum(); // Generate enum from Grammar/Tokens
-            GenerateTokenInfoClass();
-            GenerateGeneratedTokenizerClass();
+            // GenerateTokenInfoClass();
+            // GenerateGeneratedTokenizerClass()
+            GenerateLiteralslist();
+            Dedent();
+
+            WriteLine("static public int GetLiteralIndex(string srcString, int srcPosition)");
+            WriteLine("{");
+            WriteLine("    int index = -1;");
+            WriteLine("    for(int i=0;i<Literals.Count;++i)");
+            WriteLine("    {");
+            WriteLine("        var lit = Literals[i];");
+            WriteLine("        if (string.Compare(srcString, srcPosition, lit.name, 0, lit.name.Length) == 0)");
+            WriteLine("            index = i;");
+            WriteLine("    }");
+            WriteLine("    return index;");
+            WriteLine("}");
+            WriteLine("");
+
+            WriteLine("}"); // Close class
 
             Dedent();
             WriteLine("}"); // Close namespace
+        }
+
+        void GenerateLiteralslist()
+        {
+            
+            // Generate operator map
+            var literals = _tokens.Where(t => t.IsLiteral).ToList();
+            if (literals.Any())
+            {
+                WriteLine("public static readonly List<(string name, Type type)> Literals = new()");
+                WriteLine("{");
+                Indent();
+
+                // Sort by length (longer first) to match properly
+                // var sortedOperators = operators.OrderByDescending(op => op.Value.Length);
+                // foreach (var op in sortedOperators)
+                foreach (var op in literals)
+                {
+                    WriteLine($"( \"{EscapeString(op.Value)}\", Type.{op.Name} ),");
+                }
+
+                Dedent();
+                WriteLine("};");
+                WriteLine();
+            }
+
         }
 
         private void GenerateGeneratedPtrClass()
@@ -198,7 +243,7 @@ namespace SharpPy.Tokenizer
             WriteLine("/// CPython 3.12 compatible token types");
             WriteLine("/// Explicit values to match CPython token indices");
             WriteLine("/// </summary>");
-            WriteLine("public enum TokenType");
+            WriteLine("public enum Type");
             WriteLine("{");
             Indent();
 

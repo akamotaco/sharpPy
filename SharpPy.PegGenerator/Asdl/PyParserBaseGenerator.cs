@@ -135,9 +135,9 @@ namespace SharpPy.PegGenerator.Asdl
             _indentLevel++;
             WriteLine("// CPython 3.12: Filter out COMMENT, NL, TYPE_COMMENT tokens before parsing");
             WriteLine("_tokens = tokens.Where(t => ");
-            WriteLine("    t.Type != TokenType.COMMENT &&");
-            WriteLine("    t.Type != TokenType.NL &&");
-            WriteLine("    t.Type != TokenType.TYPE_COMMENT).ToList();");
+            WriteLine("    t.Type != PyToken.Type.COMMENT &&");
+            WriteLine("    t.Type != PyToken.Type.NL &&");
+            WriteLine("    t.Type != PyToken.Type.TYPE_COMMENT).ToList();");
             WriteLine("_filename = filename;");
             _indentLevel--;
             WriteLine("}");
@@ -202,7 +202,7 @@ namespace SharpPy.PegGenerator.Asdl
 
             // ExpectToken method
             // CPython 3.12: _PyPegen_expect_token equivalent
-            WriteLine("protected GeneratedTokenInfo ExpectToken(TokenType type)");
+            WriteLine("protected GeneratedTokenInfo ExpectToken(PyToken.Type type)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("var token = CurrentToken;");
@@ -211,7 +211,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("// CPython 3.12: If token is NAME, check if it's a keyword");
             WriteLine("// This implements initialize_token + _get_keyword_or_name_type logic");
             WriteLine("int tokenTypeInt = (int)token.Type;");
-            WriteLine("if (token.Type == TokenType.NAME)");
+            WriteLine("if (token.Type == PyToken.Type.NAME)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("tokenTypeInt = GetKeywordOrNameType(token.Value, token.Value.Length);");
@@ -234,7 +234,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine();
 
             // Expect method (with value)
-            WriteLine("protected GeneratedTokenInfo Expect(TokenType type, string value)");
+            WriteLine("protected GeneratedTokenInfo Expect(PyToken.Type type, string value)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("var token = CurrentToken;");
@@ -258,7 +258,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("{");
             _indentLevel++;
             WriteLine("var token = CurrentToken;");
-            WriteLine("if (token != null && token.Type == TokenType.NAME)");
+            WriteLine("if (token != null && token.Type == PyToken.Type.NAME)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("_position++;");
@@ -281,7 +281,7 @@ namespace SharpPy.PegGenerator.Asdl
             _indentLevel++;
             WriteLine("var token = CurrentToken;");
             WriteLine("// CPython: t->type != NAME → return NULL");
-            WriteLine("if (token == null || token.Type != TokenType.NAME)");
+            WriteLine("if (token == null || token.Type != PyToken.Type.NAME)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("return null;");
@@ -306,7 +306,7 @@ namespace SharpPy.PegGenerator.Asdl
             WriteLine("/// Token *_PyPegen_expect_forced_token(Parser *p, int type, const char* expected)");
             WriteLine("/// Forced token must match or raise syntax error immediately");
             WriteLine("/// </summary>");
-            WriteLine("protected GeneratedTokenInfo ExpectForcedToken(TokenType type, string expected)");
+            WriteLine("protected GeneratedTokenInfo ExpectForcedToken(PyToken.Type type, string expected)");
             WriteLine("{");
             _indentLevel++;
             WriteLine("if (_pendingSyntaxError != null)");

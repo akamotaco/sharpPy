@@ -28,7 +28,7 @@ namespace SharpPy
             Console.WriteLine("[DEBUG] Creating tokenizer...");
 #endif
             // Use generated tokenizer
-            var tokenizer = new PyTokenizer(source);
+            var tokenizer = new Tokenizer(source);
 #if DEBUG_AST_LOG
             Console.WriteLine("[DEBUG] Calling tokenizer.Tokenize()...");
 #endif
