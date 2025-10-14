@@ -32,7 +32,7 @@ namespace SharpPy.Tokenizer
                 Console.WriteLine($"[TOKENIZER] Loaded {tokens.Count} tokens");
 
                 Console.WriteLine($"[TOKENIZER] Generating tokenizer to {outputPath}");
-                var generator = new CSharpTokenizerGenerator(tokens);
+                var generator = new CSharpTokenGenerator(tokens);
                 var code = generator.GenerateTokenizer();
 
                 // Ensure output directory exists
