@@ -19,7 +19,7 @@ namespace SharpPy.PegGenerator
                 var grammarPath = Path.Combine("..", "Grammar", "python_cs.gram");
                 var tokensPath = Path.Combine("..", "Grammar", "Tokens");
                 var asdlPath = Path.Combine("..", "Grammar", "Python.asdl");
-                var parserOutputPath = Path.Combine("..", "Generated", "PyParser.cs");
+                var parserOutputPath = Path.Combine("..", "Generated", "Pypegen.cs");
                 var astTypesOutputPath = Path.Combine("..", "Generated", "PyAstTypes.cs");
                 var parserBaseOutputPath = Path.Combine("..", "Generated", "PyParserBase.cs");
 
@@ -206,7 +206,7 @@ namespace SharpPy.PegGenerator
             Console.WriteLine("  --grammar <path>        Path to python_cs.gram file (default: ../Grammar/python_cs.gram)");
             Console.WriteLine("  --tokens <path>         Path to Tokens file (default: ../Grammar/Tokens)");
             Console.WriteLine("  --ast-output <path>     AST types output C# file path (default: ../Generated/GeneratedAstTypes.cs)");
-            Console.WriteLine("  --parser-output <path>  Parser output C# file path (default: ../Generated/PyParser.cs)");
+            Console.WriteLine("  --parser-output <path>  Parser output C# file path (default: ../Generated/PyPegen.cs)");
             Console.WriteLine("  --help                  Show this help message");
             Console.WriteLine();
             Console.WriteLine("Examples:");

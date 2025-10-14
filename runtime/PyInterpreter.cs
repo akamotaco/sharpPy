@@ -75,14 +75,27 @@ namespace SharpPy
 
                 if(showTokenize)
                 {
-                    for(int i=0;i<tokens.Count;++i)
+                    Console.WriteLine("[===== tokenize ====]");
+                    for (int i = 0; i < tokens.Count; ++i)
                     {
                         var t = tokens[i];
                         Console.WriteLine($"{i}:(lines: {t.Line}-{t.EndLine}/ cols: {t.Column}-{t.EndColumn})\t{t.Value}\t[{t.Type}]");
                     }
+                    Console.WriteLine("[===== tokenize end ====]");
                 }
 
                 var statements = GeneratedParserBridge.ParseSource(tokens, sourceCode, fileName ?? "<string>");
+
+                if(showAst)
+                {
+                    Console.WriteLine("[===== ast ====]");
+                    for (int i = 0; i < statements.Count; ++i)
+                    {
+                        var stmt = statements[i];
+                        Console.WriteLine($"{i}:(lines: {stmt.LineNo}-{stmt.EndLineNo}/ cols: {stmt.ColOffset}-{stmt.EndColOffset})\t{stmt.NodeType} ({stmt.Parent})");
+                    }
+                    Console.WriteLine("[===== ast end ====]");
+                }
                 
                 // 2단계: 컴파일 (AST → 바이트코드)
 #if DEBUG_LOG

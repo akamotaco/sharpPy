@@ -241,7 +241,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
                         _parent.WriteLine("_position = _mark;");
                         _parent.WriteLine("_pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails");
                         _parent.WriteLine("_res = null;");
-                        _parent.WriteLine("break;  // Exit this alternative");
+                        // _parent.WriteLine("break;  // Exit this alternative");
+                        _parent.WriteLine("goto done;  // Exit this alternative");
                         _parent.Dedent();
                         _parent.WriteLine("}");
                     }
@@ -336,7 +337,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
                         _parent.WriteLine("{");
                         _parent.Indent();
                         _parent.WriteLine("_res = null;");
-                        _parent.WriteLine("break;  // Exit with error set");
+                        // _parent.WriteLine("break;  // Exit with error set");
+                        _parent.WriteLine("goto done;  // Exit with error set");
                         _parent.Dedent();
                         _parent.WriteLine("}");
                     }
@@ -346,7 +348,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
                     }
 
                     _parent.WriteLine("_res = null;");
-                    _parent.WriteLine("break;  // Exit this alternative");
+                    // _parent.WriteLine("break;  // Exit this alternative");
+                    _parent.WriteLine("goto done;  // Exit this alternative");
                     _parent.Dedent();
                     _parent.WriteLine("}");
                 }
@@ -388,7 +391,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             _parent.WriteLine("// This causes the entire alternative to fail (like && short-circuit in C)");
             _parent.WriteLine("_position = _mark;");
             _parent.WriteLine("_res = null;");
-            _parent.WriteLine("break;  // Exit alternative with error preserved");
+            // _parent.WriteLine("break;  // Exit alternative with error preserved");
+            _parent.WriteLine("goto done;  // Exit alternative with error preserved");
             _parent.Dedent();
             _parent.WriteLine("}");
             _parent.WriteLine($"else if ({_varName} == null)");
@@ -475,7 +479,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             _parent.WriteLine($"_position = _mark;");
                 _parent.WriteLine("_pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails");
             _parent.WriteLine($"_res = null;");
-            _parent.WriteLine("break;  // Exit this alternative");
+            // _parent.WriteLine("break;  // Exit this alternative");
+            _parent.WriteLine("goto done;  // Exit this alternative");
             _parent.Dedent();
             _parent.WriteLine("}");
         }
@@ -519,7 +524,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 _parent.WriteLine($"_position = {_contextMark};");
                 _parent.WriteLine("_pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails");
                 _parent.WriteLine($"_res = null;");
-                _parent.WriteLine("break;  // Exit this alternative");
+                // _parent.WriteLine("break;  // Exit this alternative");
+                _parent.WriteLine("goto done;  // Exit this alternative");
                 _parent.Dedent();
                 _parent.WriteLine("}");
             }
@@ -648,7 +654,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 _parent.WriteLine($"_position = {_contextMark};");  // Use context mark
                 _parent.WriteLine("_pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails");
                 _parent.WriteLine($"_res = null;");
-                _parent.WriteLine("break;  // Exit this alternative");
+                // _parent.WriteLine("break;  // Exit this alternative");
+                _parent.WriteLine("goto done;  // Exit this alternative");
                 _parent.Dedent();
                 _parent.WriteLine("}");
             }
@@ -1231,7 +1238,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             if (!_insideGroup)
             {
                 _parent.WriteLine($"_res = null;");
-                _parent.WriteLine($"break;  // Exit this alternative");
+                // _parent.WriteLine($"break;  // Exit this alternative");
+                _parent.WriteLine($"goto done;  // Exit this alternative");
             }
             _parent.Dedent();
             _parent.WriteLine($"}}");
@@ -1365,7 +1373,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             if (!_insideGroup)
             {
                 _parent.WriteLine($"_res = null;");
-                _parent.WriteLine($"break;  // Exit this alternative");
+                // _parent.WriteLine($"break;  // Exit this alternative");
+                _parent.WriteLine($"goto done;  // Exit this alternative");
             }
             _parent.Dedent();
             _parent.WriteLine("}");
@@ -1499,7 +1508,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 _parent.WriteLine($"_res = null;");
                 if (!_insideGroup)
                 {
-                    _parent.WriteLine($"break;  // Exit this alternative");
+                    // _parent.WriteLine($"break;  // Exit this alternative");
+                    _parent.WriteLine($"goto done;  // Exit this alternative");
                 }
                 _parent.Dedent();
                 _parent.WriteLine("}");
@@ -1524,7 +1534,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
                 _parent.WriteLine($"_res = null;");
                 if (!_insideGroup)
                 {
-                    _parent.WriteLine($"break;  // Exit this alternative");
+                    // _parent.WriteLine($"break;  // Exit this alternative");
+                    _parent.WriteLine($"goto done;  // Exit this alternative");
                 }
                 _parent.Dedent();
                 _parent.WriteLine("}");

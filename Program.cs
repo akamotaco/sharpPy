@@ -2,6 +2,7 @@ using System;
 using SharpPy.Core;
 using SharpPy.Tools;
 using SharpPy.Modules;
+using SharpPy.Generated;
 
 namespace SharpPy
 {
@@ -31,15 +32,16 @@ namespace SharpPy
                     // new BytecodeDisassembler().RunDirectDisassembly(pythonFile);
                     showBytecode = true;
                 }
-                else if (parsedArgs.ContainsKey("--ast"))
+                if (parsedArgs.ContainsKey("--ast"))
                 {
                     showAst = true;
                 }
-                else if (parsedArgs.ContainsKey("--tokens"))
+                if (parsedArgs.ContainsKey("--tokens"))
                 {
                     // new TokenDebugger().OutputTokens(pythonFile);
                     showTokenize = true;
                 }
+
                 // else if (parsedArgs.ContainsKey("--compare-parsers"))
                 // {
                 //     RunParserComparison(pythonFile);

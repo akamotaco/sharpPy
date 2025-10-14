@@ -1,5 +1,5 @@
 # PEG grammar for Python
-# 괄호로 묶어야 pyparser.cs 파일 생성시 인식함 : (생성할 내용물)
+# 괄호로 묶어야 pypegen.cs 파일 생성시 인식함 : (생성할 내용물)
 
 @trailer '''
 // CPython 3.12: Entry point for file parsing

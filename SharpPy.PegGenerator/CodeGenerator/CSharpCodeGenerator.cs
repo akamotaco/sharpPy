@@ -538,7 +538,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("/// Generated PEG parser for Python 3.12 grammar");
             WriteLine("/// Inherits from PyParserBase for common parsing logic");
             WriteLine("/// </summary>");
-            WriteLine("public partial class GeneratedPyParser : PyParserBase<GeneratedMod>");
+            WriteLine("public partial class PyPegen : PyParserBase<GeneratedMod>");
             WriteLine("{");
             Indent();
 
@@ -700,7 +700,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GenerateParserConstructor()
         {
             // CPython 3.12: Generated parser is independent - no interpreter needed
-            WriteLine("public GeneratedPyParser(List<GeneratedTokenInfo> tokens, string filename = \"<string>\")");
+            WriteLine("public PyPegen(List<GeneratedTokenInfo> tokens, string filename = \"<string>\")");
             WriteLine("    : base(tokens, filename)");
             WriteLine("{");
             WriteLine("    // CPython 3.12: Compiled parser - no runtime interpreter");
@@ -709,7 +709,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             // CPython 3.12: Constructor with source code for error reporting
             WriteLine("// CPython 3.12: Constructor with source code for error reporting");
-            WriteLine("public GeneratedPyParser(List<GeneratedTokenInfo> tokens, string filename, string source)");
+            WriteLine("public PyPegen(List<GeneratedTokenInfo> tokens, string filename, string source)");
             WriteLine("    : base(tokens, filename, source)");
             WriteLine("{");
             WriteLine("    // CPython 3.12: Source code available for detailed error messages");
@@ -2781,7 +2781,8 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("_position = _mark;");
             WriteLine("_pendingSyntaxError = null;  // CPython 3.12: Clear error when alternative fails");
             WriteLine("_res = null;");
-            WriteLine("break;  // Exit this alternative");
+            // WriteLine("break;  // Exit this alternative");
+            WriteLine("goto done;  // Exit this alternative");
         }
 
         private string EscapeForCSharp(string value)
@@ -3195,7 +3196,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         {
             WriteLine("// ========================================");
             WriteLine("// Embedded PEG Interpreter - Complete Copy");
-            WriteLine("// This makes PyParser.cs independent from SharpPy.PegGenerator");
+            WriteLine("// This makes PyPegen.cs independent from SharpPy.PegGenerator");
             WriteLine("// ========================================");
             WriteLine();
 
@@ -3712,11 +3713,11 @@ namespace SharpPy.PegGenerator.CodeGenerator
             Indent();
             WriteLine("private readonly EmbeddedGrammar _grammar;");
             WriteLine("private readonly List<IEmbeddedTokenInfo> _tokens;");
-            WriteLine("private readonly GeneratedPyParser _parser;");
+            WriteLine("private readonly PyPegen _parser;");
             WriteLine("private bool _isFirstPass = true;");
             WriteLine("private int _firstPassFailurePosition = -1;");
             WriteLine();
-            WriteLine("public EmbeddedPegInterpreter(EmbeddedGrammar grammar, List<IEmbeddedTokenInfo> tokens, GeneratedPyParser parser)");
+            WriteLine("public EmbeddedPegInterpreter(EmbeddedGrammar grammar, List<IEmbeddedTokenInfo> tokens, Pypegen parser)");
             WriteLine("{");
             Indent();
             WriteLine("_grammar = grammar;");
@@ -5284,7 +5285,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // GenerateBasicMethods();
 
             // CPython 3.12: Generate embedded types (PegInterpreter, EmbeddedGrammar, etc.)
-            // This makes PyParser.cs completely independent from SharpPy.PegGenerator
+            // This makes PyPegen.cs completely independent from SharpPy.PegGenerator
             Console.WriteLine("[CODEGEN] Generating embedded types (PegInterpreter, Grammar, etc.)");
             GenerateEmbeddedTypes();
         }
