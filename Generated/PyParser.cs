@@ -34,7 +34,7 @@ namespace SharpPy.Generated
     /// Generated PEG parser for Python 3.12 grammar
     /// Inherits from PyParserBase for common parsing logic
     /// </summary>
-    public partial class PyPegen : PyParserBase<GeneratedMod>
+    public partial class PyParser : PyParserBase<GeneratedMod>
     {
         // CPython 3.12: Keyword token types as enum
         // C# improvement: Type-safe keyword types
@@ -172,14 +172,14 @@ namespace SharpPy.Generated
             return ReservedKeywords[nameLen].ContainsKey(name);
         }
 
-        public PyPegen(List<GeneratedTokenInfo> tokens, string filename = "<string>")
+        public PyParser(List<GeneratedTokenInfo> tokens, string filename = "<string>")
             : base(tokens, filename)
         {
             // CPython 3.12: Compiled parser - no runtime interpreter
         }
 
         // CPython 3.12: Constructor with source code for error reporting
-        public PyPegen(List<GeneratedTokenInfo> tokens, string filename, string source)
+        public PyParser(List<GeneratedTokenInfo> tokens, string filename, string source)
             : base(tokens, filename, source)
         {
             // CPython 3.12: Source code available for detailed error messages
@@ -43726,7 +43726,7 @@ public GeneratedMod ParseFuncType()
 
         // ========================================
         // Embedded PEG Interpreter - Complete Copy
-        // This makes PyPegen.cs independent from SharpPy.PegGenerator
+        // This makes PyParser.cs independent from SharpPy.PegGenerator
         // ========================================
 
         /// <summary>

@@ -47,7 +47,7 @@
   </ItemGroup>
 
   <!-- Tokenizer and PegGenerator are build-time tools only, not runtime dependencies -->
-  <!-- They generate PyTokenizer.cs and PyPegen.cs which are directly included in the build -->
+  <!-- They generate PyTokenizer.cs and PyParser.cs which are directly included in the build -->
 
   <!-- Tokenizer Generation (Phase 1) -->
   <Target Name="GenerateTokenizer" BeforeTargets="GenerateParser">
@@ -60,7 +60,7 @@
   <!-- ASDL + PEG Parser Generation (Phase 2) -->
   <Target Name="GenerateParser" BeforeTargets="BeforeBuild">
     <Message Text="Generating AST types and PEG parser from ASDL + Grammar..." Importance="high" />
-    <Exec Command="dotnet run --project SharpPy.PegGenerator --asdl Grammar/Python.asdl --grammar Grammar/python_cs.gram --tokens Grammar/Tokens --ast-output Generated/AstTypes.cs --parser-base-output Generated/PyParserBase.cs --parser-output Generated/PyPegen.cs"
+    <Exec Command="dotnet run --project SharpPy.PegGenerator --asdl Grammar/Python.asdl --grammar Grammar/python_cs.gram --tokens Grammar/Tokens --ast-output Generated/AstTypes.cs --parser-base-output Generated/PyParserBase.cs --parser-output Generated/PyParser.cs"
           ContinueOnError="false"
           WorkingDirectory="$(ProjectDir)" />
   </Target>

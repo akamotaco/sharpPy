@@ -538,7 +538,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             WriteLine("/// Generated PEG parser for Python 3.12 grammar");
             WriteLine("/// Inherits from PyParserBase for common parsing logic");
             WriteLine("/// </summary>");
-            WriteLine("public partial class PyPegen : PyParserBase<GeneratedMod>");
+            WriteLine("public partial class PyParser : PyParserBase<GeneratedMod>");
             WriteLine("{");
             Indent();
 
@@ -700,7 +700,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         private void GenerateParserConstructor()
         {
             // CPython 3.12: Generated parser is independent - no interpreter needed
-            WriteLine("public PyPegen(List<GeneratedTokenInfo> tokens, string filename = \"<string>\")");
+            WriteLine("public PyParser(List<GeneratedTokenInfo> tokens, string filename = \"<string>\")");
             WriteLine("    : base(tokens, filename)");
             WriteLine("{");
             WriteLine("    // CPython 3.12: Compiled parser - no runtime interpreter");
@@ -709,7 +709,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
 
             // CPython 3.12: Constructor with source code for error reporting
             WriteLine("// CPython 3.12: Constructor with source code for error reporting");
-            WriteLine("public PyPegen(List<GeneratedTokenInfo> tokens, string filename, string source)");
+            WriteLine("public PyParser(List<GeneratedTokenInfo> tokens, string filename, string source)");
             WriteLine("    : base(tokens, filename, source)");
             WriteLine("{");
             WriteLine("    // CPython 3.12: Source code available for detailed error messages");
@@ -3196,7 +3196,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
         {
             WriteLine("// ========================================");
             WriteLine("// Embedded PEG Interpreter - Complete Copy");
-            WriteLine("// This makes PyPegen.cs independent from SharpPy.PegGenerator");
+            WriteLine("// This makes PyParser.cs independent from SharpPy.PegGenerator");
             WriteLine("// ========================================");
             WriteLine();
 
@@ -5285,7 +5285,7 @@ namespace SharpPy.PegGenerator.CodeGenerator
             // GenerateBasicMethods();
 
             // CPython 3.12: Generate embedded types (PegInterpreter, EmbeddedGrammar, etc.)
-            // This makes PyPegen.cs completely independent from SharpPy.PegGenerator
+            // This makes PyParser.cs completely independent from SharpPy.PegGenerator
             Console.WriteLine("[CODEGEN] Generating embedded types (PegInterpreter, Grammar, etc.)");
             GenerateEmbeddedTypes();
         }

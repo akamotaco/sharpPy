@@ -46,7 +46,7 @@ namespace SharpPy
             Console.WriteLine("[DEBUG] Creating parser...");
 #endif
             // Use generated parser
-            var parser = new PyPegen(generatedTokens, filename, source);
+            var parser = new PyParser(generatedTokens, filename, source);
 #if DEBUG_AST_LOG
             Console.WriteLine("[DEBUG] Calling parser.ParseFile()...");
 #endif
