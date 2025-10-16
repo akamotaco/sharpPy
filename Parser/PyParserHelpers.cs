@@ -1,5 +1,6 @@
-// Generated PyParserBase from Python.asdl
-// CPython 3.12 compatible - Auto-generated, DO NOT EDIT
+// PyParserHelpers - Helper functions for PEG parser
+// CPython 3.12 compatible - Manual implementation (not generated)
+// This file provides AST factory functions and PEG parser helper utilities
 
 using System;
 using System.Collections.Generic;
@@ -7,7 +8,6 @@ using System.Linq;
 using static SharpPy.GeneratedParserBridge;
 
 // CPython 3.12: Type aliases for grammar compatibility
-// Allows python_cs.gram to use C type names directly
 using mod_ty = SharpPy.Generated.GeneratedMod;
 using stmt_ty = SharpPy.Generated.GeneratedStmt;
 using expr_ty = SharpPy.Generated.GeneratedExpr;
@@ -18,529 +18,13 @@ using asdl_expr_seq = SharpPy.Generated.GeneratedExprSeq;
 using asdl_arg_seq = SharpPy.Generated.GeneratedArgSeq;
 using asdl_identifier_seq = SharpPy.Generated.GeneratedIdentifierSeq;
 using asdl_pattern_seq = SharpPy.Generated.GeneratedPatternSeq;
-using asdl_int_seq = SharpPy.Generated.GeneratedCmpopSeq;  // CPython: int sequence used for comparison operators
+using asdl_int_seq = SharpPy.Generated.GeneratedCmpopSeq;
 using asdl_keyword_seq = SharpPy.Generated.GeneratedKeywordSeq;
 using asdl_seq = SharpPy.Generated.GeneratedSeq;
 using keyword_ty = SharpPy.Generated.GeneratedKeyword;
 
 namespace SharpPy.Generated
 {
-    // ============================================================
-    // PyParserBase - Base parser class
-    // ============================================================
-
-    /// <summary>
-    /// Base class for generated parser - provides common parsing logic
-    /// CPython 3.12: Parser/pegen.c equivalent
-    /// </summary>
-    public abstract class PyParserBase<TResult>
-    {
-        protected List<GeneratedTokenInfo> _tokens;
-        protected int _position = 0;  // CPython: mark
-        protected string _filename;
-        protected string? _source = null;  // CPython 3.12: Source code for error reporting
-        protected string[]? _sourceLines = null;  // CPython 3.12: Source lines for error reporting
-        protected string? _pendingSyntaxError = null;
-        protected int _pendingErrorPosition = -1;
-        protected bool _callInvalidRules = true;
-        // CPython 3.12: Memo cache uses (position, rule_name) tuple keys
-        protected Dictionary<(int, string), GeneratedAstNode> _memoCache = new();
-
-        // CPython Parser fields for recursion and error tracking
-        protected int _level = 0;  // Nesting depth for recursion limit
-        protected GeneratedTokenInfo _knownErrToken = null;  // Error location tracking
-        protected int _errorIndicator = 0;  // Error state flag
-        protected const int MAX_RECURSION_DEPTH = 1000;  // Python's recursion limit
-
-        // Left-recursion handling (Warth et al. algorithm)
-        protected class LREntry
-        {
-            public GeneratedPtr Result { get; set; }
-            public int EndPos { get; set; }
-            public bool IsGrowing { get; set; }
-        }
-        protected Dictionary<(int, string), LREntry> _lrCache = new();
-
-        // CPython 3.12: ResultTokenWithMetadata for f-string conversions/formats
-        // Must inherit from GeneratedPtr to be used as optional rule result
-        protected class ResultTokenWithMetadata : GeneratedPtr
-        {
-            public GeneratedTokenInfo Token { get; set; }
-            public object Metadata { get; set; }
-        }
-
-        // CPython 3.12: Token-based memoization
-        // Each Token owns its Memo list - no global cache needed
-        // MemoEntry is defined in GeneratedTokenInfo (PyTokenizer.cs)
-
-        protected PyParserBase(List<GeneratedTokenInfo> tokens, string filename)
-        {
-            // CPython 3.12: Filter out COMMENT, NL, TYPE_COMMENT tokens before parsing
-            _tokens = tokens.Where(t => 
-                t.Type != PyToken.Type.COMMENT &&
-                t.Type != PyToken.Type.NL &&
-                t.Type != PyToken.Type.TYPE_COMMENT).ToList();
-            _filename = filename;
-        }
-
-        // CPython 3.12: Constructor with source code for error reporting
-        protected PyParserBase(List<GeneratedTokenInfo> tokens, string filename, string source)
-            : this(tokens, filename)
-        {
-            _source = source;
-            // CPython 3.12: Use universal newlines (like Python's str.splitlines)
-            _sourceLines = source.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
-        }
-
-        protected GeneratedTokenInfo CurrentToken
-        {
-            get => _position < _tokens.Count ? _tokens[_position] : null;
-        }
-
-        public abstract TResult Parse();
-
-        // CPython 3.12: _get_keyword_or_name_type - Must be implemented by generated parser
-        protected abstract int GetKeywordOrNameType(string name, int nameLen);
-
-        // CPython 3.12: Get source line for error reporting (like CPython's _PyPegen_get_source_line)
-        protected string? GetSourceLine(int lineNumber)
-        {
-            if (_sourceLines == null || lineNumber <= 0 || lineNumber > _sourceLines.Length)
-            {
-                return null;
-            }
-            return _sourceLines[lineNumber - 1];  // Convert 1-based to 0-based index
-        }
-
-        protected virtual GeneratedModule ParseFile()
-        {
-            // Override in generated parser
-            throw new NotImplementedException("ParseFile must be overridden");
-        }
-
-        protected GeneratedTokenInfo ExpectToken(PyToken.Type type)
-        {
-            var token = CurrentToken;
-            if (token == null) return null;
-
-            // CPython 3.12: If token is NAME, check if it's a keyword
-            // This implements initialize_token + _get_keyword_or_name_type logic
-            int tokenTypeInt = (int)token.Type;
-            if (token.Type == PyToken.Type.NAME)
-            {
-                tokenTypeInt = GetKeywordOrNameType(token.Value, token.Value.Length);
-            }
-
-            #if DEBUG_PARSE_LOG
-            Console.WriteLine($"[ExpectToken] type={(int)type}, tokenTypeInt={tokenTypeInt}, match={tokenTypeInt == (int)type}");
-            #endif
-            if (tokenTypeInt == (int)type)
-            {
-                _position++;
-                return token;
-            }
-            return null;
-        }
-
-        protected GeneratedTokenInfo Expect(PyToken.Type type, string value)
-        {
-            var token = CurrentToken;
-            #if DEBUG_PARSE_LOG
-            Console.WriteLine($"[Expect] type={(int)type}, value='{value}', token={(token != null ? $"{(int)token.Type}:'{token.Value}'" : "null")}, match={token != null && token.Type == type && token.Value == value}");
-            #endif
-            if (token != null && token.Type == type && token.Value == value)
-            {
-                _position++;
-                return token;
-            }
-            return null;
-        }
-
-        protected GeneratedTokenInfo ExpectName()
-        {
-            var token = CurrentToken;
-            if (token != null && token.Type == PyToken.Type.NAME)
-            {
-                _position++;
-                return token;
-            }
-            return null;
-        }
-
-        /// <summary>
-        /// CPython 3.12: _PyPegen_expect_soft_keyword
-        /// Soft keywords: _, case, match, type
-        /// These are NAME tokens that are treated as keywords only in specific contexts
-        /// </summary>
-        protected GeneratedTokenInfo ExpectSoftKeyword(string keyword)
-        {
-            var token = CurrentToken;
-            // CPython: t->type != NAME → return NULL
-            if (token == null || token.Type != PyToken.Type.NAME)
-            {
-                return null;
-            }
-            // CPython: strcmp(keyword, the_token) == 0
-            if (token.Value == keyword)
-            {
-                _position++;
-                return token;
-            }
-            return null;
-        }
-
-        /// <summary>
-        /// CPython 3.12: _PyPegen_expect_forced_token
-        /// Token *_PyPegen_expect_forced_token(Parser *p, int type, const char* expected)
-        /// Forced token must match or raise syntax error immediately
-        /// </summary>
-        protected GeneratedTokenInfo ExpectForcedToken(PyToken.Type type, string expected)
-        {
-            if (_pendingSyntaxError != null)
-            {
-                return null;
-            }
-
-            var token = CurrentToken;
-            if (token == null || token.Type != type || token.Value != expected)
-            {
-                // CPython: RAISE_SYNTAX_ERROR_KNOWN_LOCATION(t, "expected '%s'", expected)
-                _pendingSyntaxError = $"expected '{expected}'";
-                _pendingErrorPosition = _position;
-                return null;
-            }
-            _position++;
-            return token;
-        }
-
-        /// <summary>
-        /// CPython 3.12: _PyPegen_expect_forced_result
-        /// void*_PyPegen_expect_forced_result(Parser *p, void* result, const char* expected)
-        /// Forced result must be non-null or raise syntax error immediately
-        /// </summary>
-        protected T ExpectForcedResult<T>(T result, string expected) where T : class
-        {
-            if (_pendingSyntaxError != null)
-            {
-                return null;
-            }
-
-            if (result == null)
-            {
-                // CPython: RAISE_SYNTAX_ERROR("expected (%s)", expected)
-                _pendingSyntaxError = $"expected ({expected})";
-                _pendingErrorPosition = _position;
-                return null;
-            }
-            return result;
-        }
-
-        /// <summary>
-        /// Handle left-recursive rules using memoization
-        /// CPython 3.12: Implements Warth et al. 'Packrat Parsers Can Support Left Recursion'
-        /// Algorithm: SEED (FAIL) → BASE CASE → GROW → TERMINATE
-        /// </summary>
-        protected GeneratedPtr TryLeftRecursive(string ruleName, Func<GeneratedPtr> ruleFunc)
-        {
-            // Check recursion depth
-            if (_level >= MAX_RECURSION_DEPTH)
-            {
-                throw new StackOverflowException($"Maximum recursion depth exceeded in rule {ruleName}");
-            }
-
-            // CPython 3.12: Check memoization first (like _PyPegen_is_memoized)
-            var key = (_position, ruleName);
-            if (_lrCache.TryGetValue(key, out var lrEntry))
-            {
-                #if DEBUG_PARSE_LOG
-                Console.WriteLine($"[LR] {ruleName}: Memo HIT at pos={_position}, returning cached result, newPos={lrEntry.EndPos}");
-                #endif
-                _position = lrEntry.EndPos;
-                return lrEntry.Result;
-            }
-
-            _level++;
-            int _mark = _position;
-            int _resmark = _position;
-            GeneratedPtr _res = null;
-
-            try
-            {
-                // CPython 3.12: Growth loop
-                while (true)
-                {
-                    // Update memo with current result (like _PyPegen_update_memo)
-                    // Use _resmark (previous iteration's end position), not _position
-                    _lrCache[key] = new LREntry { Result = _res, EndPos = _resmark, IsGrowing = false };
-
-                    #if DEBUG_PARSE_LOG
-                    Console.WriteLine($"[LR] {ruleName}: Loop iteration, _mark={_mark}, _resmark={_resmark}");
-                    #endif
-
-                    // Reset position and try to parse (like primary_raw)
-                    _position = _mark;
-                    var _raw = ruleFunc();
-
-                    // Check for progress
-                    if (_raw == null || _position <= _resmark)
-                    {
-                        #if DEBUG_PARSE_LOG
-                        Console.WriteLine($"[LR] {ruleName}: No progress, terminating. _raw={((_raw == null) ? "null" : "non-null")}, pos={_position}, _resmark={_resmark}");
-                        #endif
-                        break;
-                    }
-
-                    // Made progress - update and continue
-                    #if DEBUG_PARSE_LOG
-                    Console.WriteLine($"[LR] {ruleName}: Progress made, _resmark {_resmark} -> {_position}");
-                    #endif
-                    _resmark = _position;
-                    _res = _raw;
-                }
-
-                // Restore final position
-                _position = _resmark;
-                #if DEBUG_PARSE_LOG
-                Console.WriteLine($"[LR] {ruleName}: Returning _res at pos={_position}");
-                #endif
-                return _res;
-            }
-            finally
-            {
-                _level--;
-            }
-        }
-
-        /// <summary>
-        /// Handle memoized (non-left-recursive) rules with token-based caching
-        /// CPython 3.12: Implements _PyPegen_is_memoized() + _PyPegen_update_memo() pattern
-        /// Pattern:
-        ///   1. Get current token: Token *t = p->tokens[p->mark]
-        ///   2. Check cache: for (Memo *m = t->memo; m != NULL; m = m->next)
-        ///   3. If hit: p->mark = m->mark; return m->node
-        ///   4. If miss: parse, then update token's memo list
-        /// </summary>
-        protected GeneratedPtr TryMemoized(string ruleName, Func<GeneratedPtr> ruleFunc)
-        {
-            #if DEBUG_PARSE_LOG
-            Console.WriteLine($"[MEMO] {ruleName} at pos={_position}");
-            #endif
-            // STEP 1: Get current token (CPython: Token *t = p->tokens[p->mark])
-            if (_position >= _tokens.Count)
-            {
-                #if DEBUG_PARSE_LOG
-                Console.WriteLine($"[MEMO] {ruleName}: Beyond token count, parsing directly");
-                #endif
-                // ENDMARKER or beyond - don't memoize, just parse
-                return ruleFunc();
-            }
-
-            var token = _tokens[_position];
-            int startMark = _position;
-
-            // STEP 2: CHECK CACHE - _PyPegen_is_memoized(p, type, &res)
-            // CPython 3.12: Cache key must include call_invalid_rules state for expression rules
-            if (token.Memo != null)
-            {
-                // CPython: for (Memo *m = t->memo; m != NULL; m = m->next)
-                // CPython: Cache key is m->type (rule type), NOT affected by call_invalid_rules
-                var cached = token.Memo.FirstOrDefault(m => m.RuleType == ruleName);
-                if (cached != null)
-                {
-                    #if DEBUG_PARSE_LOG
-                    Console.WriteLine($"[MEMO] {ruleName}: Cache HIT at pos={_position}, returning cached result (null={cached.Node == null}), newPos={cached.Mark}");
-                    #endif
-                    // Cache HIT - restore mark and return cached result
-                    // CPython: p->mark = m->mark; *(void**)(pres) = m->node; return 1;
-                    _position = cached.Mark;
-                    return cached.Node as GeneratedPtr;
-                }
-            }
-            #if DEBUG_PARSE_LOG
-            Console.WriteLine($"[MEMO] {ruleName}: Cache MISS at pos={_position}, parsing...");
-            #endif
-
-            // STEP 3: Cache MISS - parse the rule
-            var result = ruleFunc();
-            int endMark = _position;
-            #if DEBUG_PARSE_LOG
-            Console.WriteLine($"[MEMO] {ruleName}: Parse completed, result={(result == null ? "null" : "not-null")}, pos={startMark}->{endMark}");
-            #endif
-
-            // STEP 4: UPDATE CACHE - _PyPegen_update_memo(p, mark, type, node)
-            if (token.Memo == null)
-            {
-                token.Memo = new List<MemoEntry>();
-            }
-
-            // CPython: Search for existing entry and update, or insert new
-            // CPython: Cache key is just rule name, independent of call_invalid_rules
-            var existing = token.Memo.FirstOrDefault(m => m.RuleType == ruleName);
-            if (existing != null)
-            {
-                #if DEBUG_PARSE_LOG
-                Console.WriteLine($"[MEMO] {ruleName}: Updating existing cache entry");
-                #endif
-                // Update existing entry (shouldn't happen in normal flow, but CPython does this)
-                existing.Node = result;
-                existing.Mark = endMark;
-            }
-            else
-            {
-                #if DEBUG_PARSE_LOG
-                Console.WriteLine($"[MEMO] {ruleName}: Adding new cache entry");
-                #endif
-                // Insert new memo entry
-                // CPython: _PyPegen_insert_memo() adds to front of linked list
-                // CPython: Cache key is just rule name, independent of call_invalid_rules
-                token.Memo.Add(new MemoEntry
-                {
-                    RuleType = ruleName,
-                    Node = result,
-                    Mark = endMark  // Position AFTER parsing (can be same as start if failed)
-                });
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// CPython 3.12: _PyPegen_is_memoized - Check if rule result is memoized
-        /// Used by left-recursive wrapper for growth loop
-        /// </summary>
-        protected bool TryGetMemoized(string ruleName, out GeneratedPtr result)
-        {
-            #if DEBUG_PARSE_LOG
-            Console.WriteLine($"[MEMO-GET] {ruleName} at pos={_position}");
-            #endif
-            var key = (_position, ruleName);
-            if (_lrCache.TryGetValue(key, out var entry))
-            {
-                #if DEBUG_PARSE_LOG
-                Console.WriteLine($"[MEMO-GET] {ruleName} HIT: result={(entry.Result != null ? "non-null" : "null")}, endPos={entry.EndPos}");
-                #endif
-                _position = entry.EndPos;
-                result = entry.Result;
-                return true;
-            }
-            #if DEBUG_PARSE_LOG
-            Console.WriteLine($"[MEMO-GET] {ruleName} MISS");
-            #endif
-            result = null;
-            return false;
-        }
-
-        /// <summary>
-        /// CPython 3.12: _PyPegen_update_memo - Update memoization for left-recursive growth
-        /// </summary>
-        protected void UpdateMemoized(string ruleName, int mark, GeneratedPtr result, int endPos)
-        {
-            #if DEBUG_PARSE_LOG
-            Console.WriteLine($"[MEMO-UPDATE] {ruleName} at mark={mark}: result={(result != null ? "non-null" : "null")}, endPos={endPos}");
-            #endif
-            var key = (mark, ruleName);
-            _lrCache[key] = new LREntry { Result = result, EndPos = endPos, IsGrowing = false };
-        }
-
-        /// <summary>
-        /// Convert NAME token to AST Name expression
-        /// CPython 3.12: Used in grammar actions
-        /// </summary>
-        protected GeneratedName NameToken(GeneratedTokenInfo token)
-        {
-            if (token == null) return null;
-            var name = new GeneratedName();
-            name.Id = token.Value ?? "";
-            name.Ctx = GeneratedLoad.Instance;  // Default context
-            name.LineNo = token.Line;
-            name.ColOffset = token.Column;
-            name.EndLineNo = token.EndLine;
-            name.EndColOffset = token.EndColumn;
-            return name;
-        }
-
-        /// <summary>
-        /// Convert NUMBER token to AST Constant expression
-        /// CPython 3.12: Numbers are represented as Constant nodes
-        /// </summary>
-        protected GeneratedConstant NumberToken(GeneratedTokenInfo token)
-        {
-            if (token == null) return null;
-            var constant = new GeneratedConstant();
-            // CPython 3.12: Parse number value (decimal, hex, octal, binary, float)
-            string value = token.Value;
-
-            // Check for complex numbers (j suffix) - TODO: implement PyComplex
-            if (value.EndsWith("j", StringComparison.OrdinalIgnoreCase) || value.EndsWith("J"))
-            {
-                // For now, treat as comment/unsupported
-                throw new System.NotImplementedException("Complex numbers not yet supported");
-            }
-            // Check for floating point
-            else if (value.Contains(".") || value.Contains("e", StringComparison.OrdinalIgnoreCase))
-            {
-                constant.Value = new GeneratedPyConstantFloat(double.Parse(value));
-            }
-            // Check for hexadecimal (0x or 0X)
-            else if (value.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
-            {
-                constant.Value = new GeneratedPyConstantInt(Convert.ToInt64(value, 16));
-            }
-            // Check for octal (0o or 0O)
-            else if (value.StartsWith("0o", StringComparison.OrdinalIgnoreCase))
-            {
-                constant.Value = new GeneratedPyConstantInt(Convert.ToInt64(value.Substring(2), 8));
-            }
-            // Check for binary (0b or 0B)
-            else if (value.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
-            {
-                constant.Value = new GeneratedPyConstantInt(Convert.ToInt64(value.Substring(2), 2));
-            }
-            // Decimal integer
-            else
-            {
-                constant.Value = new GeneratedPyConstantInt(long.Parse(value));
-            }
-
-            constant.LineNo = token.Line;
-            constant.ColOffset = token.Column;
-            constant.EndLineNo = token.EndLine;
-            constant.EndColOffset = token.EndColumn;
-            return constant;
-        }
-
-        /// <summary>
-        /// Convert STRING token to token wrapper for _PyPegen_constant_from_string
-        /// CPython 3.12: Token is passed to string_parser.c for decoding
-        /// Note: Returns GeneratedTokenInfo directly to trigger DecodeStringLiteral
-        /// </summary>
-        protected GeneratedTokenInfo StringToken(GeneratedTokenInfo token)
-        {
-            // Return token as-is so _PyPegen_constant_from_string can decode it
-            return token;
-        }
-
-        /// <summary>
-        /// CPython 3.12: Raise syntax error at known token location
-        /// Uses PySyntaxErrorException with location info for parsing errors
-        /// </summary>
-        protected void RaiseErrorKnownLocation(GeneratedTokenInfo token, string message)
-        {
-            if (token == null)
-            {
-                _errorIndicator = 1;
-                throw new PySyntaxErrorException(message);
-            }
-
-            // Mark error and throw exception with location
-            _errorIndicator = 1;
-            _knownErrToken = token;
-            var locationMsg = $"  File \"{_filename}\", line {token.Line}\n    {message}";
-            throw new PySyntaxErrorException(locationMsg);
-        }
-
-    }
-
     // ============================================================
     // _PyAST_* Helper Functions
     // ============================================================
@@ -2685,6 +2169,145 @@ namespace SharpPy.Generated
             return tok.Value != "!=";
         }
 
+    }
+
+    // ============================================================
+    // PyAst - C# Style AST Factory Functions
+    // ============================================================
+
+    /// <summary>
+    /// C# style AST factory - wraps AstFactory._PyAST_* functions
+    /// Usage in python_cs.gram: PyAst.Interactive(a) instead of _PyAST_Interactive(a)
+    /// </summary>
+    public static class PyAst
+    {
+        /// <summary>
+        /// CPython: _PyAST_Interactive
+        /// Creates Interactive mode AST (REPL)
+        /// </summary>
+        public static GeneratedMod Interactive(GeneratedStmtSeq statements)
+        {
+            return AstFactory._PyAST_Interactive(statements);
+        }
+
+        /// <summary>
+        /// CPython: _PyAST_Expression
+        /// Creates Expression mode AST (eval)
+        /// </summary>
+        public static GeneratedMod Expression(GeneratedExpr expr)
+        {
+            return AstFactory._PyAST_Expression(expr);
+        }
+
+        /// <summary>
+        /// CPython: _PyAST_FunctionType
+        /// Creates FunctionType mode AST (function type comment)
+        /// </summary>
+        public static GeneratedMod FunctionType(GeneratedExprSeq? argTypes, GeneratedExpr returnType)
+        {
+            var args = argTypes ?? new GeneratedExprSeq();
+            return AstFactory._PyAST_FunctionType(args, returnType);
+        }
+
+        /// <summary>
+        /// CPython: _PyAST_Pass
+        /// Creates Pass statement
+        /// </summary>
+        public static GeneratedStmt Pass(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Pass(lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        /// <summary>
+        /// CPython: _PyAST_Break
+        /// Creates Break statement
+        /// </summary>
+        public static GeneratedStmt Break(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Break(lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        /// <summary>
+        /// CPython: _PyAST_Continue
+        /// Creates Continue statement
+        /// </summary>
+        public static GeneratedStmt Continue(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Continue(lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        // TODO: Add more AST factory methods as needed during grammar rewriting
+    }
+
+    // ============================================================
+    // PyParserHelpers - C# Style Parser Helper Functions
+    // ============================================================
+
+    /// <summary>
+    /// C# style parser helpers - wraps PegenHelpers._PyPegen_* functions
+    /// Usage in python_cs.gram: PyParserHelpers.MakeModule(a) instead of _PyPegen_make_module(a)
+    /// </summary>
+    public static class PyParserHelpers
+    {
+        /// <summary>
+        /// CPython: _PyPegen_make_module
+        /// Creates a Module with optional statements
+        /// </summary>
+        public static GeneratedMod MakeModule(GeneratedStmtSeq? statements)
+        {
+            var body = statements ?? new GeneratedStmtSeq();
+            var typeIgnores = new GeneratedTypeIgnoreSeq();
+            return AstFactory._PyAST_Module(body, typeIgnores);
+        }
+
+        /// <summary>
+        /// CPython: _PyPegen_seq_flatten
+        /// Flattens nested statement sequences
+        /// </summary>
+        public static GeneratedStmtSeq FlattenStatementSequence(List<GeneratedStmtSeq> sequences)
+        {
+            return PegenHelpers._PyPegen_seq_flatten(sequences);
+        }
+
+        /// <summary>
+        /// CPython: _PyPegen_singleton_seq
+        /// Creates a sequence with a single item
+        /// </summary>
+        public static GeneratedStmtSeq SingletonSequence(GeneratedStmt item)
+        {
+            return PegenHelpers._PyPegen_singleton_seq(item);
+        }
+
+        /// <summary>
+        /// CPython: _PyPegen_seq_insert_in_front
+        /// Inserts item at the front of sequence
+        /// </summary>
+        public static GeneratedExprSeq InsertInFront(GeneratedExpr item, GeneratedExprSeq? seq)
+        {
+            return PegenHelpers._PyPegen_seq_insert_in_front(item, seq);
+        }
+
+        /// <summary>
+        /// CPython: _PyPegen_set_expr_context
+        /// Sets the context of an expression (Load, Store, Del)
+        /// </summary>
+        public static GeneratedExpr SetExprContext(GeneratedExpr expr, GeneratedExprContext ctx)
+        {
+            return PegenHelpers._PyPegen_set_expr_context(expr, ctx);
+        }
+
+        /// <summary>
+        /// CPython: _PyPegen_interactive_exit
+        /// Returns empty statement sequence for interactive mode exit (ENDMARKER)
+        /// Used in statement_newline rule when encountering ENDMARKER
+        /// </summary>
+        public static GeneratedStmtSeq InteractiveExit()
+        {
+            // CPython: Returns empty sequence to signal end of interactive input
+            return PegenHelpers._PyPegen_interactive_exit();
+        }
+
+        // TODO: Add more helper methods as needed during grammar rewriting
     }
 
 }

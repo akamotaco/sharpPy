@@ -7,18 +7,4 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <!-- Include Generated tokenizer for PegGenerator to use -->
-  <!-- PegGenerator only needs Tokenizer, NOT Parser (Parser is what we generate!) -->
-  <ItemGroup>
-    <Compile Include="..\Generated\PyTokens.cs" Link="Generated\PyTokens.cs" />
-  </ItemGroup>
-
-  <!-- Tokenizer Generation before PegGenerator build -->
-  <Target Name="GenerateTokenizerForPeg" BeforeTargets="BeforeBuild">
-    <Message Text="[PEG] Generating tokenizer from Grammar/Tokens..." Importance="high" />
-    <Exec Command="dotnet run --project $(ProjectDir)..\SharpPy.Tokens\SharpPy.Tokens.csproj --tokens $(ProjectDir)..\Grammar\Tokens --output $(ProjectDir)..\Generated\PyTokens.cs"
-          ContinueOnError="false"
-          WorkingDirectory="$(ProjectDir).." />
-  </Target>
-
 </Project>
