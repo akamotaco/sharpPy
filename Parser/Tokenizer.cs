@@ -235,6 +235,12 @@ namespace SharpPy.Generated
         // Rule: colon-followed-by-newline always generates NEWLINE token (not NL)
         private bool _lastTokenWasColon = false;
 
+        // F-string state tracking for PEP 701 (Python 3.12)
+        private bool _insideFString = false;
+        private int _fstringBraceDepth = 0;
+        private char _fstringQuoteChar = '\0';
+        private int _fstringQuoteSize = 0;
+
         public Tokenizer(string source)
         {
             _source = source ?? throw new ArgumentNullException(nameof(source));
@@ -686,7 +692,27 @@ namespace SharpPy.Generated
             var startLine = _line;
             var startColumn = _column;
 
-            // Skip any string prefix (r, b, rb, br, f, fr, rf)
+            // Check for f-string prefix (f, F, rf, fr, RF, FR)
+            bool isFString = false;
+            int prefixEnd = _position;
+            while (prefixEnd < _source.Length && char.IsLetter(_source[prefixEnd]))
+            {
+                char c = char.ToLower(_source[prefixEnd]);
+                if (c == 'f')
+                {
+                    isFString = true;
+                }
+                prefixEnd++;
+            }
+
+            // If this is an f-string, delegate to HandleFString
+            if (isFString && prefixEnd < _source.Length && (_source[prefixEnd] == '\"' || _source[prefixEnd] == '\''))
+            {
+                HandleFString();
+                return;
+            }
+
+            // Skip any string prefix (r, b, rb, br)
             while (_position < _source.Length && char.IsLetter(CurrentChar))
             {
                 Advance();
@@ -770,8 +796,9 @@ namespace SharpPy.Generated
                 return false;
 
             var lit = PyToken.Literals[index];
-            AddToken(lit.type, lit.name, _line, _position);
+            AddToken(lit.type, lit.name, _line, _column);
             _position += lit.name.Length;
+            _column += lit.name.Length;
 
             return true;
         }
@@ -891,6 +918,277 @@ namespace SharpPy.Generated
                 }
             }
             return false;
+        }
+
+        /// <summary>
+        /// CPython 3.12 PEP 701: F-string tokenization
+        /// F-strings are tokenized into: FSTRING_START, expression tokens, FSTRING_MIDDLE, FSTRING_END
+        /// </summary>
+        private void HandleFString()
+        {
+            var start = _position;
+            var startLine = _line;
+            var startColumn = _column;
+
+            // Skip prefix (f, F, rf, fr, RF, FR)
+            bool isRawFString = false;
+            while (_position < _source.Length && char.IsLetter(CurrentChar))
+            {
+                char c = char.ToLower(CurrentChar);
+                if (c == 'r') isRawFString = true;
+                Advance();
+            }
+
+            // Now we should be at the quote
+            if (_position >= _source.Length || (CurrentChar != '\"' && CurrentChar != '\''))
+            {
+                throw new InvalidOperationException($"F-string format error at line {_line}, column {_column}");
+            }
+
+            _fstringQuoteChar = CurrentChar;
+            Advance(); // Skip opening quote
+
+            // Check for triple-quoted f-string
+            _fstringQuoteSize = 1;
+            if (_position + 1 < _source.Length && _source[_position] == _fstringQuoteChar && _source[_position + 1] == _fstringQuoteChar)
+            {
+                _fstringQuoteSize = 3;
+                Advance(); // Skip second quote
+                Advance(); // Skip third quote
+            }
+
+            // Emit FSTRING_START token
+            var fstringStart = _source.Substring(start, _position - start);
+            AddToken(PyToken.Type.FSTRING_START, fstringStart, startLine, startColumn);
+            _currentLineHasRealTokens = true;
+
+            // Enter f-string mode
+            _insideFString = true;
+            _fstringBraceDepth = 0;
+
+            // Process f-string content
+            HandleFStringContent(isRawFString);
+
+            // Reset _atLineStart flag that might have been set during f-string processing
+            _atLineStart = false;
+        }
+
+        /// <summary>
+        /// Process f-string content: literals and expressions
+        /// </summary>
+        private void HandleFStringContent(bool isRawFString)
+        {
+            var literalStart = _position;
+            var literalStartLine = _line;
+            var literalStartColumn = _column;
+
+            while (_position < _source.Length)
+            {
+                // Check for closing quotes
+                if (IsAtFStringEnd())
+                {
+                    // Emit any pending FSTRING_MIDDLE before ending
+                    if (_position > literalStart)
+                    {
+                        var middleContent = _source.Substring(literalStart, _position - literalStart);
+                        AddToken(PyToken.Type.FSTRING_MIDDLE, middleContent, literalStartLine, literalStartColumn);
+                        _currentLineHasRealTokens = true;
+                    }
+
+                    // Emit FSTRING_END token
+                    var endStart = _position;
+                    var endLine = _line;
+                    var endColumn = _column;
+                    for (int i = 0; i < _fstringQuoteSize; i++)
+                    {
+                        Advance();
+                    }
+                    var fstringEnd = _source.Substring(endStart, _position - endStart);
+                    AddToken(PyToken.Type.FSTRING_END, fstringEnd, endLine, endColumn);
+                    _currentLineHasRealTokens = true;
+
+                    // Exit f-string mode
+                    _insideFString = false;
+                    return;
+                }
+
+                char c = CurrentChar;
+
+                // Handle opening brace (expression start)
+                if (c == '{')
+                {
+                    var braceColumn = _column;
+                    Advance();
+
+                    // Check for escaped brace {{
+                    if (_position < _source.Length && CurrentChar == '{')
+                    {
+                        // This is an escaped {{, include in FSTRING_MIDDLE
+                        Advance();
+                        continue;
+                    }
+                    else
+                    {
+                        // Emit FSTRING_MIDDLE for content before expression
+                        if (_position - 1 > literalStart)
+                        {
+                            var middleContent = _source.Substring(literalStart, _position - 1 - literalStart);
+                            AddToken(PyToken.Type.FSTRING_MIDDLE, middleContent, literalStartLine, literalStartColumn);
+                            _currentLineHasRealTokens = true;
+                        }
+
+                        // Emit { as OP token
+                        AddToken(PyToken.Type.LBRACE, "{", _line, braceColumn);
+                        _currentLineHasRealTokens = true;
+                        _fstringBraceDepth++;
+
+                        // Tokenize expression content until matching }
+                        HandleFStringExpression();
+
+                        // After expression, reset literal start
+                        literalStart = _position;
+                        literalStartLine = _line;
+                        literalStartColumn = _column;
+                        continue;
+                    }
+                }
+
+                // Handle closing brace (expression end)
+                if (c == '}')
+                {
+                    Advance();
+
+                    // Check for escaped brace }}
+                    if (_position < _source.Length && CurrentChar == '}')
+                    {
+                        // This is an escaped }}, include in FSTRING_MIDDLE
+                        Advance();
+                        continue;
+                    }
+                    else
+                    {
+                        // Unmatched closing brace outside expression
+                        throw new InvalidOperationException($"F-string: single '}}' is not allowed at line {_line}, column {_column}");
+                    }
+                }
+
+                // Regular character, continue accumulating
+                Advance();
+            }
+
+            // Unterminated f-string
+            throw new InvalidOperationException($"Unterminated f-string literal at line {_line}, column {_column}");
+        }
+
+        /// <summary>
+        /// Emit FSTRING_MIDDLE token for literal content between expressions
+        /// </summary>
+        private void EmitFStringMiddle(int start, int startLine, int startColumn)
+        {
+            if (_position > start)
+            {
+                var middleContent = _source.Substring(start, _position - start);
+                AddToken(PyToken.Type.FSTRING_MIDDLE, middleContent, startLine, startColumn);
+                _currentLineHasRealTokens = true;
+            }
+        }
+
+        /// <summary>
+        /// Check if we're at the end of the f-string
+        /// </summary>
+        private bool IsAtFStringEnd()
+        {
+            if (_position + _fstringQuoteSize > _source.Length)
+                return false;
+
+            for (int i = 0; i < _fstringQuoteSize; i++)
+            {
+                if (_source[_position + i] != _fstringQuoteChar)
+                    return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Tokenize expression inside f-string braces
+        /// </summary>
+        private void HandleFStringExpression()
+        {
+            while (_position < _source.Length)
+            {
+                char c = CurrentChar;
+
+                // Check for closing brace
+                if (c == '}' && _fstringBraceDepth > 0)
+                {
+                    // Emit } as OP token
+                    AddToken(PyToken.Type.RBRACE, "}", _line, _column);
+                    _currentLineHasRealTokens = true;
+                    _fstringBraceDepth--;
+                    Advance();
+                    return;
+                }
+
+                // Handle nested braces (like in dict literals inside f-string)
+                if (c == '{')
+                {
+                    AddToken(PyToken.Type.LBRACE, "{", _line, _column);
+                    _currentLineHasRealTokens = true;
+                    _fstringBraceDepth++;
+                    Advance();
+                    continue;
+                }
+
+                // Tokenize expression content normally
+                if (char.IsWhiteSpace(c) && c != '\n' && c != '\r')
+                {
+                    Advance();
+                }
+                else if (c == '\n' || c == '\r')
+                {
+                    // Newlines inside f-string expressions are not allowed (for single-quoted f-strings)
+                    if (_fstringQuoteSize == 1)
+                    {
+                        throw new InvalidOperationException($"F-string expression: unterminated string at line {_line}, column {_column}");
+                    }
+                    Advance();
+                }
+                else if (c == '#')
+                {
+                    HandleComment();
+                }
+                else if (char.IsLetter(c) || c == '_')
+                {
+                    HandleName();
+                }
+                else if (char.IsDigit(c))
+                {
+                    HandleNumber();
+                }
+                else if (c == '\"' || c == '\'')
+                {
+                    // Check if this quote is the f-string closing quote
+                    // If so, it's a syntax error (expression not closed)
+                    if (c == _fstringQuoteChar && IsAtFStringEnd())
+                    {
+                        throw new InvalidOperationException($"F-string expression: unterminated expression at line {_line}, column {_column}");
+                    }
+                    HandleString();
+                }
+                else if (HandleLiteral())
+                {
+                    // Literal handled
+                }
+                else
+                {
+                    AddToken(PyToken.Type.ERRORTOKEN, c.ToString(), _line, _column);
+                    _currentLineHasRealTokens = true;
+                    Advance();
+                }
+            }
+
+            throw new InvalidOperationException($"Unterminated f-string expression at line {_line}, column {_column}");
         }
     }
 }
