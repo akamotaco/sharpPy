@@ -17,10 +17,12 @@ namespace SharpPy.Modules
 
             // CPython 3.12: Use actual type metaclass with methods
             var typeMetaclass = PyTypeMetaclass.Instance;
+#if DEBUG_VM_LOG
             Console.WriteLine($"[BUILTINS] PyTypeMetaclass.Instance: {typeMetaclass.GetType().Name}");
             Console.WriteLine($"[BUILTINS] PyTypeMetaclass.ClassDict count: {typeMetaclass.ClassDict.Count}");
             Console.WriteLine($"[BUILTINS] PyTypeMetaclass.ClassDict keys: {string.Join(", ", typeMetaclass.ClassDict.Keys)}");
             Console.WriteLine($"[BUILTINS] Has __repr__: {typeMetaclass.ClassDict.ContainsKey("__repr__")}");
+#endif
             module.ModuleDict["type"] = typeMetaclass;
             module.ModuleDict["int"] = PyType.IntType;
             module.ModuleDict["float"] = PyType.FloatType;

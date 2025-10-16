@@ -75,7 +75,7 @@ namespace SharpPy
 
                 if(showTokenize)
                 {
-                    Console.WriteLine("[===== tokenize ====]");
+                    Console.WriteLine("[===== tokenize log ====]");
                     for (int i = 0; i < tokens.Count; ++i)
                     {
                         var t = tokens[i];
@@ -88,7 +88,7 @@ namespace SharpPy
 
                 if(showAst)
                 {
-                    Console.WriteLine("[===== ast ====]");
+                    Console.WriteLine("[===== ast log ====]");
                     for (int i = 0; i < statements.Count; ++i)
                     {
                         var stmt = statements[i];

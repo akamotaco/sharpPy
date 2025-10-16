@@ -1,4 +1,9 @@
 """
 multiple lines comments.
 """
-# print('Hello world!')
+
+h = 'Hello'
+w = 'world!'
+hw = f'{h} {w}'
+
+print(hw)

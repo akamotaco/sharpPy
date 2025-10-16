@@ -319,8 +319,9 @@ namespace SharpPy.Generated
                 // CRITICAL: Infinite loop protection
                 if (_position == startPosition)
                 {
-                    Console.WriteLine($"[ERROR] Tokenizer infinite loop detected at position {_position}, char: '{CurrentChar}'. Forcing advance.");
-                    Advance(); // Force advance to prevent infinite loop
+                    // Console.WriteLine($"[ERROR] Tokenizer infinite loop detected at position {_position}, char: '{CurrentChar}'. Forcing advance.");
+                    // Advance(); // Force advance to prevent infinite loop
+                    throw new InvalidOperationException($"Tokenizer infinite loop detected at position {_position}, char: '{CurrentChar}'");
                 }
             }
 
