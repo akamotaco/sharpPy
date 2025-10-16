@@ -272,14 +272,14 @@ simple_stmt[GeneratedStmt] (memo):
 # CPython: compound_stmt[stmt_ty]: ...
 # C#: function_def, if_stmt, class_def 등 compound statement 반환
 compound_stmt[GeneratedStmt]:
-    | &('def' | '@' | ASYNC) function_def
-    | &'if' if_stmt
-    | &('class' | '@') class_def
-    | &('with' | ASYNC) with_stmt
-    | &('for' | ASYNC) for_stmt
-    | &'try' try_stmt
-    | &'while' while_stmt
-    | match_stmt
+    | &('def' | '@' | ASYNC) a=function_def { a }
+    | &'if' a=if_stmt { a }
+    | &('class' | '@') a=class_def { a }
+    | &('with' | ASYNC) a=with_stmt { a }
+    | &('for' | ASYNC) a=for_stmt { a }
+    | &'try' a=try_stmt { a }
+    | &'while' a=while_stmt { a }
+    | a=match_stmt { a }
 
 # SIMPLE STATEMENTS
 # =================
@@ -317,7 +317,7 @@ assignment[GeneratedStmt]:
 
 # CPython: annotated_rhs[expr_ty]: yield_expr | star_expressions
 # C#: RHS of annotated assignment can be yield expression or star expressions
-annotated_rhs[GeneratedExpr]: yield_expr | star_expressions
+annotated_rhs[GeneratedExpr]: a=yield_expr { a } | a=star_expressions { a }
 
 # CPython: augassign[AugOperator*]: ...
 # C#: Augmented assignment operators (+=, -=, *=, etc.)
@@ -494,16 +494,16 @@ function_def[GeneratedStmt]:
 # C#: Function definition body - name, params, body, decorators, returns, type_comment, type_params
 function_def_raw[GeneratedStmt]:
     | invalid_def_raw
-    | 'def' n=NAME t=[type_params] &&'(' params=[params] ')' a=['->' z=expression { z }] &&':' tc=[func_type_comment] b=block {
+    | 'def' n=NAME t=[type_params] &&'(' params_=[params] ')' a=['->' z=expression { z }] &&':' tc=[func_type_comment] b=block {
         PyAst.FunctionDef(n.Id,
-                        (params) ? params : Check<GeneratedArguments>(PyParserHelpers.EmptyArguments()),
+                        (params_) ? params_ : Check<GeneratedArguments>(PyParserHelpers.EmptyArguments()),
                         b, null, a, tc?.Value, t, EXTRA) }
-    | ASYNC 'def' n=NAME t=[type_params] &&'(' params=[params] ')' a=['->' z=expression { z }] &&':' tc=[func_type_comment] b=block {
+    | ASYNC 'def' n=NAME t=[type_params] &&'(' params_=[params] ')' a=['->' z=expression { z }] &&':' tc=[func_type_comment] b=block {
         CheckVersion(
             5,
             "Async functions are",
             PyAst.AsyncFunctionDef(n.Id,
-                            (params) ? params : Check<GeneratedArguments>(PyParserHelpers.EmptyArguments()),
+                            (params_) ? params_ : Check<GeneratedArguments>(PyParserHelpers.EmptyArguments()),
                             b, null, a, tc?.Value, t, EXTRA)
         ) }
 
@@ -513,8 +513,8 @@ function_def_raw[GeneratedStmt]:
 # CPython: params[arguments_ty]: invalid_parameters | parameters
 # C#: Function parameters wrapper
 params[GeneratedArguments]:
-    | invalid_parameters
-    | parameters
+    | a=invalid_parameters { a }
+    | a=parameters { a }
 
 # CPython: parameters[arguments_ty]: ...
 # C#: Function parameter combinations (positional-only, regular, keyword-only, *args, **kwargs)
@@ -786,14 +786,14 @@ or_pattern[GeneratedPattern]:
 # CPython: closed_pattern[pattern_ty] (memo): ...
 # C#: closed pattern (non-or pattern)
 closed_pattern[GeneratedPattern] (memo):
-    | literal_pattern
-    | capture_pattern
-    | wildcard_pattern
-    | value_pattern
-    | group_pattern
-    | sequence_pattern
-    | mapping_pattern
-    | class_pattern
+    | a=literal_pattern { a }
+    | a=capture_pattern { a }
+    | a=wildcard_pattern { a }
+    | a=value_pattern { a }
+    | a=group_pattern { a }
+    | a=sequence_pattern { a }
+    | a=mapping_pattern { a }
+    | a=class_pattern { a }
 
 # Literal patterns are used for equality and identity constraints
 # CPython: literal_pattern[pattern_ty]: ...
@@ -1018,14 +1018,12 @@ type_param_seq[GeneratedTypeParamSeq]: a[GeneratedTypeParamSeq]=','.type_param+ 
 type_param[GeneratedTypeParam] (memo):
     | a=NAME b=[type_param_bound] { PyAst.TypeVar(a.Id, b, EXTRA) }
     | '*' a=NAME colon=':' e=expression {
-            // CPython: e->kind == Tuple_kind
             RaiseSyntaxErrorStartingFrom(colon, e is GeneratedTuple
                 ? "cannot use constraints with TypeVarTuple"
                 : "cannot use bound with TypeVarTuple")
         }
     | '*' a=NAME { PyAst.TypeVarTuple(a.Id, EXTRA) }
     | '**' a=NAME colon=':' e=expression {
-            // CPython: e->kind == Tuple_kind
             RaiseSyntaxErrorStartingFrom(colon, e is GeneratedTuple
                 ? "cannot use constraints with ParamSpec"
                 : "cannot use bound with ParamSpec")
@@ -1302,8 +1300,8 @@ lambdef[GeneratedExpr]:
 # CPython: lambda_params[arguments_ty]: invalid_lambda_parameters | lambda_parameters
 # C#: Lambda parameters
 lambda_params[GeneratedArguments]:
-    | invalid_lambda_parameters
-    | lambda_parameters
+    | a=invalid_lambda_parameters { a }
+    | a=lambda_parameters { a }
 
 # lambda_parameters etc. duplicates parameters but without annotations
 # or type comments, and if there's no comma after a parameter, we expect
@@ -1704,8 +1702,8 @@ invalid_arguments:
         RaiseSyntaxErrorKnownRange(a, _PyPegen_get_last_comprehension_item(PyPegen_last_item(b, comprehension_ty)), "Generator expression must be parenthesized") }
     | a=args ',' args { _PyPegen_arguments_parsing_error(a) }
 invalid_kwarg:
-    | a[Token*]=('True'|'False'|'None') b='=' {
-        RaiseSyntaxErrorKnownRange(a, b, $"cannot assign to %s")) }
+    | a[GeneratedTokenInfo]=('True'|'False'|'None') b='=' {
+        RaiseSyntaxErrorKnownRange(a, b, $"cannot assign to %s") }
     | a=NAME b='=' expression for_if_clauses {
         RaiseSyntaxErrorKnownRange(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?")}
     | !(NAME '=') a=expression b='=' {
@@ -1807,7 +1805,7 @@ invalid_star_etc:
 invalid_kwds:
     | '**' param a='=' { RaiseSyntaxErrorKnownLocation(a, "var-keyword argument cannot have default value") }
     | '**' param ',' a=param { RaiseSyntaxErrorKnownLocation(a, "arguments cannot follow var-keyword argument") }
-    | '**' param ',' a[Token*]=('*'|'**'|'/') { RaiseSyntaxErrorKnownLocation(a, "arguments cannot follow var-keyword argument") }
+    | '**' param ',' a[GeneratedTokenInfo]=('*'|'**'|'/') { RaiseSyntaxErrorKnownLocation(a, "arguments cannot follow var-keyword argument") }
 invalid_parameters_helper: # This is only there to avoid type errors
     | a=slash_with_default { _PyPegen_singleton_seq(a) }
     | param_with_default+
@@ -1835,7 +1833,7 @@ invalid_lambda_star_etc:
 invalid_lambda_kwds:
     | '**' lambda_param a='=' { RaiseSyntaxErrorKnownLocation(a, "var-keyword argument cannot have default value") }
     | '**' lambda_param ',' a=lambda_param { RaiseSyntaxErrorKnownLocation(a, "arguments cannot follow var-keyword argument") }
-    | '**' lambda_param ',' a[Token*]=('*'|'**'|'/') { RaiseSyntaxErrorKnownLocation(a, "arguments cannot follow var-keyword argument") }
+    | '**' lambda_param ',' a[GeneratedTokenInfo]=('*'|'**'|'/') { RaiseSyntaxErrorKnownLocation(a, "arguments cannot follow var-keyword argument") }
 invalid_double_type_comments:
     | TYPE_COMMENT NEWLINE TYPE_COMMENT NEWLINE INDENT {
         RaiseSyntaxError("Cannot have two type comments on def") }
@@ -1894,7 +1892,7 @@ invalid_except_star_stmt_indent:
     | a='except' '*' expression ['as' NAME ] ':' NEWLINE !INDENT {
         RaiseIndentationError("expected an indented block after 'except*' statement on line %d", a.LineNo) }
 invalid_match_stmt:
-    | "match" subject_expr NEWLINE { CHECK_VERSION(void*, 10, "Pattern matching is", RaiseSyntaxError("expected ':'") ) }
+    | "match" subject_expr NEWLINE { CheckVersion(10, "Pattern matching is", RaiseSyntaxError("expected ':'")) }
     | a="match" subject=subject_expr ':' NEWLINE !INDENT {
         RaiseIndentationError("expected an indented block after 'match' statement on line %d", a.LineNo) }
 invalid_case_block:

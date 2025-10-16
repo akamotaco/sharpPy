@@ -109,7 +109,8 @@ public class ParserGenerator
         GenerateGetKeywordOrNameType();
 
         // Invalid rules (for error reporting)
-        GenerateInvalidRules();
+        // NOTE: Invalid rules are now generated from python_cs.gram (244 rules include ~50 invalid_* rules)
+        // No need to generate placeholder invalid_default rule anymore
 
         // Helper methods
         GenerateHelperMethods();
@@ -185,7 +186,9 @@ public class ParserGenerator
 
         foreach (var item in namedItems)
         {
-            WriteLine($"GeneratedPtr? {item.Name} = null;");
+            // Use type annotation if provided, otherwise default to GeneratedPtr
+            var varType = !string.IsNullOrEmpty(item.Type) ? item.Type : "GeneratedPtr";
+            WriteLine($"{varType}? {item.Name} = null;");
         }
 
         // Generate parsing code for each item
@@ -210,13 +213,58 @@ public class ParserGenerator
         {
             // User-defined action code from python_cs.gram
             WriteLine($"// Action code from grammar");
-            WriteLine($"return {alt.ActionCode};");
+
+            // CPython 3.12: Expand EXTRA macro
+            // C: #define EXTRA _start_lineno, _start_col_offset, _end_lineno, _end_col_offset, p->arena
+            // C#: Replace EXTRA with four comma-separated arguments
+            var expandedCode = alt.ActionCode.Replace("EXTRA", "_start_lineno, _start_col_offset, _end_lineno, _end_col_offset");
+
+            // CPython 3.12: Expand enum-like singleton references
+            // In CPython's python.gram: Store, Load, Add, Sub, etc. are enum VALUES
+            // In C# SharpPy: These are singleton Instance properties
+            // Pattern: Replace bare words that match singleton class names with ClassName.Instance
+            expandedCode = ExpandSingletons(expandedCode);
+
+            // Check if action code is a void statement (doesn't return a value)
+            // CPython: Some alternatives call RaiseSyntaxError* which throws exceptions
+            var trimmedCode = expandedCode.Trim();
+            if (trimmedCode.StartsWith("RaiseSyntaxError", StringComparison.Ordinal) ||
+                trimmedCode.StartsWith("RAISE_SYNTAX_ERROR", StringComparison.Ordinal))
+            {
+                // Don't add return - this code throws an exception
+                WriteLine($"{expandedCode};");
+            }
+            else
+            {
+                // Normal case: add return statement
+                WriteLine($"return {expandedCode};");
+            }
         }
         else
         {
-            // Placeholder for rules without action code (python_py.gram)
-            WriteLine($"// TODO: Return appropriate AST node for {ruleName}");
-            WriteLine("return GeneratedPlaceholder.Instance; // Placeholder");
+            // CPython 3.12: Default action for alternatives without action code
+            // See: cpython-3.12/Tools/peg_generator/pegen/c_generator.py - emit_default_action()
+            // Pattern: Return captured variables automatically
+
+            if (namedItems.Count == 0)
+            {
+                // No captured variables: shouldn't happen in valid grammar, use placeholder
+                WriteLine($"// Default action: no captures (unexpected)");
+                WriteLine("return GeneratedPlaceholder.Instance;");
+            }
+            else if (namedItems.Count == 1)
+            {
+                // Single variable: return it directly (CPython pattern)
+                WriteLine($"// Default action: return single capture");
+                WriteLine($"return {namedItems[0].Name};");
+            }
+            else
+            {
+                // Multiple variables: return first non-null (CPython _PyPegen_dummy_name pattern)
+                WriteLine($"// Default action: return first non-null of {namedItems.Count} captures");
+                var nullCoalescing = string.Join(" ?? ", namedItems.Select(i => i.Name));
+                WriteLine($"return {nullCoalescing};");
+            }
         }
     }
 
@@ -423,6 +471,47 @@ public class ParserGenerator
     private string EscapeString(string s)
     {
         return s.Replace("\\", "\\\\").Replace("\"", "\\\"");
+    }
+
+    /// <summary>
+    /// Expand singleton enum-like references in action code
+    /// CPython: Store, Load, Add, Sub, etc. are used as enum values
+    /// C#: These must be Instance properties (Store → GeneratedStore.Instance)
+    /// Uses regex word boundaries to avoid replacing parts of identifiers
+    /// </summary>
+    private string ExpandSingletons(string code)
+    {
+        // CPython 3.12: List of all singleton enum-like types
+        // expr_context: Load, Store, Del
+        // operator: Add, Sub, Mult, MatMult, Div, Mod, Pow, LShift, RShift, BitOr, BitXor, BitAnd, FloorDiv
+        // unaryop: Invert, Not, UAdd, USub
+        // boolop: And, Or
+        // cmpop: Eq, NotEq, Lt, LtE, Gt, GtE, Is, IsNot, In, NotIn
+
+        var singletons = new[] {
+            // expr_context
+            "Load", "Store", "Del",
+            // operator
+            "Add", "Sub", "Mult", "MatMult", "Div", "Mod", "Pow",
+            "LShift", "RShift", "BitOr", "BitXor", "BitAnd", "FloorDiv",
+            // unaryop
+            "Invert", "Not", "UAdd", "USub",
+            // boolop
+            "And", "Or",
+            // cmpop
+            "Eq", "NotEq", "Lt", "LtE", "Gt", "GtE", "Is", "IsNot", "In", "NotIn"
+        };
+
+        foreach (var singleton in singletons)
+        {
+            // Use regex word boundary to match only whole words
+            // Avoid replacing "NotEq" when processing "Not" by using longer names first
+            var pattern = $"\\b{singleton}\\b";
+            var replacement = singleton == "Mod" ? "GeneratedMod_.Instance" : $"Generated{singleton}.Instance";
+            code = System.Text.RegularExpressions.Regex.Replace(code, pattern, replacement);
+        }
+
+        return code;
     }
 
     private string ToPascalCase(string name)

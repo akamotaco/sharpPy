@@ -26,11 +26,12 @@ public class Alternative
 
 /// <summary>
 /// PEG Item (순차 매칭 항목)
-/// 예: a=expr, expr, 'if'
+/// 예: a=expr, a[GeneratedStmt]=expr, expr, 'if'
 /// </summary>
 public class Item
 {
     public string? Name { get; set; }  // a=expr의 'a' (선택적)
+    public string? Type { get; set; }  // a[GeneratedStmt]=expr의 'GeneratedStmt' (선택적)
     public Atom Atom { get; set; } = null!;
 }
 

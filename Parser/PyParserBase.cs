@@ -712,6 +712,57 @@ namespace SharpPy.Generated
             return _lastToken?.EndColumn ?? _startToken?.EndColumn ?? 0;
         }
 
+        // ============================================================
+        // EXTRA Macro Implementation (CPython 3.12)
+        // ============================================================
+
+        /// <summary>
+        /// CPython 3.12: EXTRA macro - Expands to position parameters for AST nodes
+        /// C: #define EXTRA _start_lineno, _start_col_offset, _end_lineno, _end_col_offset, p->arena
+        /// C#: Individual properties that can be used in grammar action code
+        /// Usage in python_cs.gram: PyAst.Pass(EXTRA) → PyAst.Pass(_start_lineno, _start_col_offset, _end_lineno, _end_col_offset)
+        /// </summary>
+        protected int _start_lineno => GetStartLine();
+        protected int _start_col_offset => GetStartColumn();
+        protected int _end_lineno => GetEndLine();
+        protected int _end_col_offset => GetEndColumn();
+
+        // ============================================================
+        // CHECK and CheckVersion Macros (CPython 3.12)
+        // ============================================================
+
+        /// <summary>
+        /// CPython 3.12: CHECK macro - Null check for parser results
+        /// C: #define CHECK(type, result) ((type) CHECK_CALL(p, result))
+        /// Usage: CHECK(GeneratedStmt, result) - returns result or null if failed
+        /// </summary>
+        protected T? Check<T>(T? result) where T : class
+        {
+            return result; // In C#, null propagation is automatic
+        }
+
+        /// <summary>
+        /// CPython 3.12: CHECK_VERSION macro - Version-gated feature check
+        /// C: #define CHECK_VERSION(type, version, msg, node) \
+        ///     ((type) INVALID_VERSION_CHECK(p, version, msg, node))
+        /// Usage: CheckVersion(GeneratedStmt, 6, "feature", node)
+        /// </summary>
+        protected T? CheckVersion<T>(int version, string message, T? node) where T : class
+        {
+            // Python 3.12 uses version 6 (PY_MINOR_VERSION = 12, internal version = 6)
+            // SharpPy targets Python 3.12, so all features are enabled
+            // In CPython, this would raise RAISE_SYNTAX_ERROR_STARTING_FROM for older versions
+            const int CURRENT_VERSION = 6; // Python 3.12
+
+            if (version > CURRENT_VERSION)
+            {
+                // Feature requires a newer Python version
+                throw new SyntaxErrorException($"{message} requires Python 3.{version + 6} or newer");
+            }
+
+            return node;
+        }
+
         /// <summary>
         /// Expect an operator token
         /// CPython 3.12: Operators use OP token type with specific values

@@ -2304,7 +2304,7 @@ namespace SharpPy.Generated
         public static GeneratedStmtSeq InteractiveExit()
         {
             // CPython: Returns empty sequence to signal end of interactive input
-            return PegenHelpers._PyPegen_interactive_exit();
+            return GeneratedParserBridge._PyPegen_interactive_exit();
         }
 
         // TODO: Add more helper methods as needed during grammar rewriting

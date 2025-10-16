@@ -51,6 +51,7 @@ public class GrammarReaderV2
                 break;
 
             // Parse rule
+            Console.WriteLine($"[DEBUG-MAIN] Attempting to parse next rule at position {_position}, token: {token?.Type} '{token?.Value}' at line {token?.Line}");
             var rule = ParseRule();
             if (rule != null)
             {
@@ -59,6 +60,16 @@ public class GrammarReaderV2
             }
             else
             {
+                Console.WriteLine($"[ERROR-MAIN] Failed to parse rule at position {_position}");
+                Console.WriteLine($"[ERROR-MAIN] Stopping parser. Current token: {Current()?.Type} '{Current()?.Value}' at line {Current()?.Line}");
+                // Print surrounding tokens for debugging
+                Console.WriteLine($"[ERROR-MAIN] Token context (10 tokens before and after):");
+                for (int i = Math.Max(0, _position - 10); i < Math.Min(_tokens.Count, _position + 10); i++)
+                {
+                    var t = _tokens[i];
+                    string marker = i == _position ? " <<< HERE" : "";
+                    Console.WriteLine($"  [{i}] {t.Type,-12} '{t.Value}' (line {t.Line}){marker}");
+                }
                 break;
             }
         }
@@ -69,7 +80,7 @@ public class GrammarReaderV2
 
     private PegRule? ParseRule()
     {
-        // rule: NAME ':' alts NEWLINE
+        // rule: NAME [return_type] ['(' 'memo' ')'] ':' alts NEWLINE
 
         var nameToken = Expect(TokenType.NAME);
         if (nameToken == null)
@@ -82,9 +93,13 @@ public class GrammarReaderV2
             return null;
         }
 
+        Console.WriteLine($"[DEBUG] Parsing rule '{nameToken.Value}' at line {nameToken.Line}");
+        Console.WriteLine($"[DEBUG] Next token: {Current()?.Type} '{Current()?.Value}'");
+
         // Optional [return_type]
         if (Current()?.Type == TokenType.OP && Current()?.Value == "[")
         {
+            Console.WriteLine($"[DEBUG] Found return type annotation for rule '{nameToken.Value}'");
             Advance();  // Skip '['
             // Skip until ']'
             while (Current() != null && !(Current()!.Type == TokenType.OP && Current()!.Value == "]"))
@@ -95,13 +110,66 @@ public class GrammarReaderV2
             {
                 Advance();  // Skip ']'
             }
+            Console.WriteLine($"[DEBUG] After return type, next token: {Current()?.Type} '{Current()?.Value}'");
+        }
+
+        // Optional (memo) annotation
+        if (Current()?.Type == TokenType.OP && Current()?.Value == "(")
+        {
+            int mark = _position;
+            Advance();  // Skip '('
+
+            // Check if this is (memo)
+            if (Current()?.Type == TokenType.NAME && Current()?.Value == "memo")
+            {
+                Console.WriteLine($"[DEBUG] Found (memo) annotation for rule '{nameToken.Value}'");
+                Advance();  // Skip 'memo'
+
+                if (Current()?.Type == TokenType.OP && Current()?.Value == ")")
+                {
+                    Advance();  // Skip ')'
+                    Console.WriteLine($"[DEBUG] After (memo), next token: {Current()?.Type} '{Current()?.Value}'");
+                }
+                else
+                {
+                    Console.WriteLine($"[WARNING] Expected ')' after 'memo', got {Current()?.Type} '{Current()?.Value}' - restoring position");
+                    _position = mark;  // Not a valid (memo), restore
+                }
+            }
+            else
+            {
+                // Not (memo), restore position
+                Console.WriteLine($"[DEBUG] '(' found but not (memo) - restoring position");
+                _position = mark;
+            }
         }
 
         var colonToken = ExpectOp(":");
         if (colonToken == null)
         {
+            var current = Current();
             Console.WriteLine($"[ERROR] Expected ':' after rule name '{nameToken.Value}'");
+            Console.WriteLine($"[ERROR] Current position: {_position}, Token: {current?.Type} '{current?.Value}' at line {current?.Line}");
+            // Print surrounding tokens for context
+            Console.WriteLine($"[ERROR] Context (5 tokens before and after):");
+            for (int i = Math.Max(0, _position - 5); i < Math.Min(_tokens.Count, _position + 5); i++)
+            {
+                var t = _tokens[i];
+                string marker = i == _position ? " <<< HERE" : "";
+                Console.WriteLine($"  [{i}] {t.Type} '{t.Value}' (line {t.Line}){marker}");
+            }
             return null;
+        }
+
+        // CPython metagrammar.gram:55 - Handle ":" NEWLINE INDENT more_alts pattern
+        // Skip NEWLINEs after ':' to handle rules like:
+        //   invalid_expression:
+        //      # comment
+        //      | alt1
+        //      | alt2
+        while (Current()?.Type == TokenType.NEWLINE)
+        {
+            Advance();
         }
 
         var alternatives = ParseAlternatives();
@@ -195,6 +263,14 @@ public class GrammarReaderV2
 
         while (true)
         {
+            // Skip commit operator '~' between items
+            if (Current()?.Type == TokenType.OP && Current()?.Value == "~")
+            {
+                Console.WriteLine($"[DEBUG-ALT] Found commit operator '~' between items at position {_position}, skipping");
+                Advance();
+                continue;  // Continue parsing next item
+            }
+
             // Stop at '{', '|', NEWLINE, or ENDMARKER
             var token = Current();
             if (token == null ||
@@ -229,14 +305,17 @@ public class GrammarReaderV2
     {
         // Parse action code block: { ... }
         // Returns the code inside braces without the braces themselves
+        // CPython pegen: target_atoms → target_atom + " " + target_atoms
+        // All tokens are joined with a single space, except for consecutive OPs
 
         if (Current()?.Type != TokenType.OP || Current()?.Value != "{")
             return null;
 
         Advance(); // Skip '{'
 
-        var code = new System.Text.StringBuilder();
+        var result = new System.Text.StringBuilder();
         int braceDepth = 1;
+        TokenType? prevType = null;
 
         while (braceDepth > 0 && Current() != null)
         {
@@ -259,40 +338,97 @@ public class GrammarReaderV2
                 }
             }
 
-            // Append token value with appropriate spacing
-            if (code.Length > 0 && token.Type != TokenType.OP)
+            // Skip NEWLINE tokens to match CPython behavior (tokenizer filters NL/COMMENT)
+            if (token.Type != TokenType.NEWLINE)
             {
-                code.Append(' ');
+                // Add space before token, except:
+                // - At the start (result.Length == 0)
+                // - Between consecutive OP tokens (to preserve //, ->, ::, etc.)
+                if (result.Length > 0 && !(prevType == TokenType.OP && token.Type == TokenType.OP))
+                {
+                    result.Append(' ');
+                }
+
+                result.Append(token.Value);
+                prevType = token.Type;
             }
-            code.Append(token.Value);
 
             Advance();
         }
 
-        return code.ToString().Trim();
+        return result.ToString();
     }
 
     private Item? ParseItem()
     {
-        // item: [NAME '='] atom
+        // item: [NAME ['[' type ']'] '='] atom
+        // Examples:
+        //   a=NAME                  (named item)
+        //   a[GeneratedExpr]=expr   (named item with type annotation)
+        //   NAME                    (unnamed item)
 
-        // Check for named item (name=atom)
+        // Check for named item (name[type]=atom or name=atom)
         if (Current()?.Type == TokenType.NAME)
         {
             int mark = _position;
             var nameToken = Advance();
+            string? variableType = null;
 
+            // Optional type annotation: [type]
+            if (Current()?.Type == TokenType.OP && Current()?.Value == "[")
+            {
+                Console.WriteLine($"[DEBUG-ITEM] Found type annotation for variable '{nameToken.Value}'");
+                Advance();  // Skip '['
+
+                // Capture type annotation content
+                var typeTokens = new List<string>();
+                int bracketDepth = 1;
+                while (Current() != null && bracketDepth > 0)
+                {
+                    if (Current()!.Type == TokenType.OP)
+                    {
+                        if (Current()!.Value == "[") bracketDepth++;
+                        else if (Current()!.Value == "]") bracketDepth--;
+                    }
+
+                    if (bracketDepth > 0)
+                    {
+                        typeTokens.Add(Current()!.Value);
+                        Advance();
+                    }
+                }
+
+                // Join type tokens to form type string
+                variableType = string.Join("", typeTokens);
+
+                if (Current()?.Type == TokenType.OP && Current()?.Value == "]")
+                {
+                    Advance();  // Skip ']'
+                    Console.WriteLine($"[DEBUG-ITEM] After type annotation '{variableType}', next token: {Current()?.Type} '{Current()?.Value}'");
+                }
+            }
+
+            // Check for '='
             if (Current()?.Type == TokenType.OP && Current()?.Value == "=")
             {
+                Console.WriteLine($"[DEBUG-ITEM] Found named item: {nameToken.Value}" + (variableType != null ? $" with type {variableType}" : ""));
+                Console.WriteLine($"[DEBUG-ITEM] After '=', next token: {Current()?.Type} '{Current()?.Value}' at position {_position}");
                 Advance();  // Skip '='
+                Console.WriteLine($"[DEBUG-ITEM] Before ParseAtom, current token: {Current()?.Type} '{Current()?.Value}' at position {_position}");
                 var atom = ParseAtom();
                 if (atom != null)
                 {
-                    return new Item { Name = nameToken!.Value, Atom = atom };
+                    Console.WriteLine($"[DEBUG-ITEM] Successfully parsed atom for {nameToken.Value}, current position: {_position}");
+                    return new Item { Name = nameToken!.Value, Type = variableType, Atom = atom };
+                }
+                else
+                {
+                    Console.WriteLine($"[DEBUG-ITEM] Failed to parse atom for {nameToken.Value}, current position: {_position}");
                 }
             }
 
             // Not a named item, restore
+            Console.WriteLine($"[DEBUG-ITEM] Not a named item, restoring position");
             _position = mark;
         }
 
@@ -356,23 +492,26 @@ public class GrammarReaderV2
         }
 
         // Optional: '[' items ']'
+        // CPython metagrammar.gram:101 - '[' ~ alts ']' {Opt(alts)}
         if (token.Type == TokenType.OP && token.Value == "[")
         {
             Advance();  // Skip '['
-            var alt = ParseAlternative();
+            var alternatives = ParseAlternatives();  // Parse multiple alternatives (CPython way)
             ExpectOp("]");
 
             Atom inner;
-            if (alt != null && alt.Items.Count == 1 && alt.Items[0].Name == null)
+            // Simple case: [item] → Optional(item)
+            if (alternatives.Count == 1 &&
+                alternatives[0].Items.Count == 1 &&
+                alternatives[0].Items[0].Name == null &&
+                string.IsNullOrEmpty(alternatives[0].ActionCode))
             {
-                inner = alt.Items[0].Atom;
+                inner = alternatives[0].Items[0].Atom;
             }
+            // Complex case: [a | b] → Optional(Group(a, b))
             else
             {
-                inner = new PegGroup
-                {
-                    Alternatives = alt != null ? new List<Alternative> { alt } : new()
-                };
+                inner = new PegGroup { Alternatives = alternatives };
             }
 
             return new Optional { Inner = inner };
@@ -395,14 +534,6 @@ public class GrammarReaderV2
             if (inner == null)
                 throw new Exception($"Expected atom after '!' at line {token.Line}");
             return new NegativeLookahead { Inner = inner };
-        }
-
-        // Commit: '~'
-        if (token.Type == TokenType.OP && token.Value == "~")
-        {
-            Advance();
-            // Skip commit operator, parse next atom
-            return ParseAtom();
         }
 
         // NAME: token or rule reference
@@ -468,23 +599,26 @@ public class GrammarReaderV2
         }
 
         // Optional: '[' items ']'
+        // CPython metagrammar.gram:101 - '[' ~ alts ']' {Opt(alts)}
         if (token.Type == TokenType.OP && token.Value == "[")
         {
             Advance();
-            var alt = ParseAlternative();
+            var alternatives = ParseAlternatives();  // Parse multiple alternatives (CPython way)
             ExpectOp("]");
 
             Atom inner;
-            if (alt != null && alt.Items.Count == 1 && alt.Items[0].Name == null)
+            // Simple case: [item] → Optional(item)
+            if (alternatives.Count == 1 &&
+                alternatives[0].Items.Count == 1 &&
+                alternatives[0].Items[0].Name == null &&
+                string.IsNullOrEmpty(alternatives[0].ActionCode))
             {
-                inner = alt.Items[0].Atom;
+                inner = alternatives[0].Items[0].Atom;
             }
+            // Complex case: [a | b] → Optional(Group(a, b))
             else
             {
-                inner = new PegGroup
-                {
-                    Alternatives = alt != null ? new List<Alternative> { alt } : new()
-                };
+                inner = new PegGroup { Alternatives = alternatives };
             }
             return new Optional { Inner = inner };
         }

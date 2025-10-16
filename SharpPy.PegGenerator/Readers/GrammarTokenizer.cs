@@ -17,6 +17,7 @@ public class GrammarTokenizer
     public enum TokenType
     {
         NAME,           // identifier (rule name, token name)
+        NUMBER,         // numeric literal (e.g., 5, 6, 3.14)
         STRING,         // 'keyword' or "soft_keyword"
         OP,             // operators: : | * + ? & ! ~ . ( ) [ ]
         NEWLINE,
@@ -98,6 +99,13 @@ public class GrammarTokenizer
                 AddToken(TokenType.OP, c.ToString());
                 _position++;
                 _column++;
+                continue;
+            }
+
+            // Number (numeric literal)
+            if (char.IsDigit(c))
+            {
+                TokenizeNumber();
                 continue;
             }
 
@@ -213,9 +221,26 @@ public class GrammarTokenizer
 
             while (_position < _source.Length && _source[_position] != quoteChar)
             {
-                sb.Append(_source[_position]);
-                _position++;
-                _column++;
+                // Handle escape sequences: \", \\, \n, etc.
+                if (_source[_position] == '\\' && _position + 1 < _source.Length)
+                {
+                    sb.Append(_source[_position]);  // Append '\'
+                    _position++;
+                    _column++;
+
+                    if (_position < _source.Length)
+                    {
+                        sb.Append(_source[_position]);  // Append escaped character
+                        _position++;
+                        _column++;
+                    }
+                }
+                else
+                {
+                    sb.Append(_source[_position]);
+                    _position++;
+                    _column++;
+                }
             }
 
             if (_position < _source.Length && _source[_position] == quoteChar)
@@ -251,6 +276,70 @@ public class GrammarTokenizer
         }
 
         AddToken(TokenType.NAME, sb.ToString(), startLine, startColumn);
+    }
+
+    private void TokenizeNumber()
+    {
+        // Tokenize numeric literals (integers and floats)
+        // Examples: 5, 6, 3.14, 1e10
+        int startLine = _line;
+        int startColumn = _column;
+
+        var sb = new StringBuilder();
+
+        // Read integer part
+        while (_position < _source.Length && char.IsDigit(_source[_position]))
+        {
+            sb.Append(_source[_position]);
+            _position++;
+            _column++;
+        }
+
+        // Check for decimal point
+        if (_position < _source.Length && _source[_position] == '.')
+        {
+            // Lookahead: only consume '.' if followed by digit (not for gather patterns like "5.foo")
+            if (_position + 1 < _source.Length && char.IsDigit(_source[_position + 1]))
+            {
+                sb.Append(_source[_position]);
+                _position++;
+                _column++;
+
+                // Read fractional part
+                while (_position < _source.Length && char.IsDigit(_source[_position]))
+                {
+                    sb.Append(_source[_position]);
+                    _position++;
+                    _column++;
+                }
+            }
+        }
+
+        // Check for exponent (e or E)
+        if (_position < _source.Length && (_source[_position] == 'e' || _source[_position] == 'E'))
+        {
+            sb.Append(_source[_position]);
+            _position++;
+            _column++;
+
+            // Optional sign
+            if (_position < _source.Length && (_source[_position] == '+' || _source[_position] == '-'))
+            {
+                sb.Append(_source[_position]);
+                _position++;
+                _column++;
+            }
+
+            // Exponent digits
+            while (_position < _source.Length && char.IsDigit(_source[_position]))
+            {
+                sb.Append(_source[_position]);
+                _position++;
+                _column++;
+            }
+        }
+
+        AddToken(TokenType.NUMBER, sb.ToString(), startLine, startColumn);
     }
 
     private void AddToken(TokenType type, string value, int? line = null, int? column = null)

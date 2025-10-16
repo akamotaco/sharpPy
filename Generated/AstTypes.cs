@@ -10,7 +10,8 @@ namespace SharpPy.Generated
     // Base Types
     // ============================================================
 
-    // GeneratedPtr is defined in GeneratedPtr.cs
+    // Note: GeneratedPtr and GeneratedSeq are defined in Parser/Tokenizer.cs
+    // They are fundamental types used by tokenizer, parser, and AST
 
     /// <summary>
     /// Base class for all AST nodes
@@ -983,11 +984,8 @@ namespace SharpPy.Generated
     // Sequence Types (GC optimized)
     // ============================================================
 
-    // Note: GeneratedSeq base class is defined in PyTokenizer.cs
-
     /// <summary>
     /// Sequence of alias - CPython: asdl_alias_seq
-    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
     public class GeneratedAliasSeq : GeneratedSeq
     {
@@ -1000,21 +998,16 @@ namespace SharpPy.Generated
             foreach (var item in collection) Add(item);
         }
 
-        // Type-constrained wrappers
         public new void Add(GeneratedAlias item) => base.Add(item);
         public new GeneratedAlias this[int index]
         {
             get => (GeneratedAlias)base[index];
             set => base[index] = value;
         }
-
-        // Typed enumeration
-        public new System.Collections.Generic.IEnumerable<GeneratedAlias> ToEnumerable() => base.ToEnumerable<GeneratedAlias>();
     }
 
     /// <summary>
     /// Sequence of arg - CPython: asdl_arg_seq
-    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
     public class GeneratedArgSeq : GeneratedSeq
     {
@@ -1027,21 +1020,16 @@ namespace SharpPy.Generated
             foreach (var item in collection) Add(item);
         }
 
-        // Type-constrained wrappers
         public new void Add(GeneratedArg item) => base.Add(item);
         public new GeneratedArg this[int index]
         {
             get => (GeneratedArg)base[index];
             set => base[index] = value;
         }
-
-        // Typed enumeration
-        public new System.Collections.Generic.IEnumerable<GeneratedArg> ToEnumerable() => base.ToEnumerable<GeneratedArg>();
     }
 
     /// <summary>
     /// Sequence of arguments - CPython: asdl_arguments_seq
-    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
     public class GeneratedArgumentsSeq : GeneratedSeq
     {
@@ -1054,21 +1042,16 @@ namespace SharpPy.Generated
             foreach (var item in collection) Add(item);
         }
 
-        // Type-constrained wrappers
         public new void Add(GeneratedArguments item) => base.Add(item);
         public new GeneratedArguments this[int index]
         {
             get => (GeneratedArguments)base[index];
             set => base[index] = value;
         }
-
-        // Typed enumeration
-        public new System.Collections.Generic.IEnumerable<GeneratedArguments> ToEnumerable() => base.ToEnumerable<GeneratedArguments>();
     }
 
     /// <summary>
     /// Sequence of boolop - CPython: asdl_boolop_seq
-    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
     public class GeneratedBoolopSeq : GeneratedSeq
     {
@@ -1081,21 +1064,16 @@ namespace SharpPy.Generated
             foreach (var item in collection) Add(item);
         }
 
-        // Type-constrained wrappers
         public new void Add(GeneratedBoolop item) => base.Add(item);
         public new GeneratedBoolop this[int index]
         {
             get => (GeneratedBoolop)base[index];
             set => base[index] = value;
         }
-
-        // Typed enumeration
-        public new System.Collections.Generic.IEnumerable<GeneratedBoolop> ToEnumerable() => base.ToEnumerable<GeneratedBoolop>();
     }
 
     /// <summary>
     /// Sequence of cmpop - CPython: asdl_cmpop_seq
-    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
     public class GeneratedCmpopSeq : GeneratedSeq
     {
@@ -1108,21 +1086,16 @@ namespace SharpPy.Generated
             foreach (var item in collection) Add(item);
         }
 
-        // Type-constrained wrappers
         public new void Add(GeneratedCmpop item) => base.Add(item);
         public new GeneratedCmpop this[int index]
         {
             get => (GeneratedCmpop)base[index];
             set => base[index] = value;
         }
-
-        // Typed enumeration
-        public new System.Collections.Generic.IEnumerable<GeneratedCmpop> ToEnumerable() => base.ToEnumerable<GeneratedCmpop>();
     }
 
     /// <summary>
     /// Sequence of comprehension - CPython: asdl_comprehension_seq
-    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
     public class GeneratedComprehensionSeq : GeneratedSeq
     {
@@ -1135,21 +1108,16 @@ namespace SharpPy.Generated
             foreach (var item in collection) Add(item);
         }
 
-        // Type-constrained wrappers
         public new void Add(GeneratedComprehension item) => base.Add(item);
         public new GeneratedComprehension this[int index]
         {
             get => (GeneratedComprehension)base[index];
             set => base[index] = value;
         }
-
-        // Typed enumeration
-        public new System.Collections.Generic.IEnumerable<GeneratedComprehension> ToEnumerable() => base.ToEnumerable<GeneratedComprehension>();
     }
 
     /// <summary>
     /// Sequence of excepthandler - CPython: asdl_excepthandler_seq
-    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
     public class GeneratedExcepthandlerSeq : GeneratedSeq
     {
@@ -1162,21 +1130,16 @@ namespace SharpPy.Generated
             foreach (var item in collection) Add(item);
         }
 
-        // Type-constrained wrappers
         public new void Add(GeneratedExcepthandler item) => base.Add(item);
         public new GeneratedExcepthandler this[int index]
         {
             get => (GeneratedExcepthandler)base[index];
             set => base[index] = value;
         }
-
-        // Typed enumeration
-        public new System.Collections.Generic.IEnumerable<GeneratedExcepthandler> ToEnumerable() => base.ToEnumerable<GeneratedExcepthandler>();
     }
 
     /// <summary>
     /// Sequence of expr - CPython: asdl_expr_seq
-    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
     public class GeneratedExprSeq : GeneratedSeq
     {
@@ -1189,21 +1152,16 @@ namespace SharpPy.Generated
             foreach (var item in collection) Add(item);
         }
 
-        // Type-constrained wrappers
         public new void Add(GeneratedExpr item) => base.Add(item);
         public new GeneratedExpr this[int index]
         {
             get => (GeneratedExpr)base[index];
             set => base[index] = value;
         }
-
-        // Typed enumeration
-        public new System.Collections.Generic.IEnumerable<GeneratedExpr> ToEnumerable() => base.ToEnumerable<GeneratedExpr>();
     }
 
     /// <summary>
     /// Sequence of expr_context - CPython: asdl_expr_context_seq
-    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
     public class GeneratedExprContextSeq : GeneratedSeq
     {
@@ -1216,21 +1174,16 @@ namespace SharpPy.Generated
             foreach (var item in collection) Add(item);
         }
 
-        // Type-constrained wrappers
         public new void Add(GeneratedExprContext item) => base.Add(item);
         public new GeneratedExprContext this[int index]
         {
             get => (GeneratedExprContext)base[index];
             set => base[index] = value;
         }
-
-        // Typed enumeration
-        public new System.Collections.Generic.IEnumerable<GeneratedExprContext> ToEnumerable() => base.ToEnumerable<GeneratedExprContext>();
     }
 
     /// <summary>
     /// Sequence of identifier - CPython: asdl_identifier_seq
-    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
     public class GeneratedIdentifierSeq : GeneratedSeq
     {
@@ -1243,21 +1196,16 @@ namespace SharpPy.Generated
             foreach (var item in collection) Add(item);
         }
 
-        // Type-constrained wrappers
         public new void Add(GeneratedIdentifier item) => base.Add(item);
         public new GeneratedIdentifier this[int index]
         {
             get => (GeneratedIdentifier)base[index];
             set => base[index] = value;
         }
-
-        // Typed enumeration
-        public new System.Collections.Generic.IEnumerable<GeneratedIdentifier> ToEnumerable() => base.ToEnumerable<GeneratedIdentifier>();
     }
 
     /// <summary>
     /// Sequence of keyword - CPython: asdl_keyword_seq
-    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
     public class GeneratedKeywordSeq : GeneratedSeq
     {
@@ -1270,21 +1218,16 @@ namespace SharpPy.Generated
             foreach (var item in collection) Add(item);
         }
 
-        // Type-constrained wrappers
         public new void Add(GeneratedKeyword item) => base.Add(item);
         public new GeneratedKeyword this[int index]
         {
             get => (GeneratedKeyword)base[index];
             set => base[index] = value;
         }
-
-        // Typed enumeration
-        public new System.Collections.Generic.IEnumerable<GeneratedKeyword> ToEnumerable() => base.ToEnumerable<GeneratedKeyword>();
     }
 
     /// <summary>
     /// Sequence of match_case - CPython: asdl_match_case_seq
-    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
     public class GeneratedMatchCaseSeq : GeneratedSeq
     {
@@ -1297,21 +1240,16 @@ namespace SharpPy.Generated
             foreach (var item in collection) Add(item);
         }
 
-        // Type-constrained wrappers
         public new void Add(GeneratedMatchCase item) => base.Add(item);
         public new GeneratedMatchCase this[int index]
         {
             get => (GeneratedMatchCase)base[index];
             set => base[index] = value;
         }
-
-        // Typed enumeration
-        public new System.Collections.Generic.IEnumerable<GeneratedMatchCase> ToEnumerable() => base.ToEnumerable<GeneratedMatchCase>();
     }
 
     /// <summary>
     /// Sequence of mod - CPython: asdl_mod_seq
-    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
     public class GeneratedModSeq : GeneratedSeq
     {
@@ -1324,21 +1262,16 @@ namespace SharpPy.Generated
             foreach (var item in collection) Add(item);
         }
 
-        // Type-constrained wrappers
         public new void Add(GeneratedMod item) => base.Add(item);
         public new GeneratedMod this[int index]
         {
             get => (GeneratedMod)base[index];
             set => base[index] = value;
         }
-
-        // Typed enumeration
-        public new System.Collections.Generic.IEnumerable<GeneratedMod> ToEnumerable() => base.ToEnumerable<GeneratedMod>();
     }
 
     /// <summary>
     /// Sequence of operator - CPython: asdl_operator_seq
-    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
     public class GeneratedOperatorSeq : GeneratedSeq
     {
@@ -1351,21 +1284,16 @@ namespace SharpPy.Generated
             foreach (var item in collection) Add(item);
         }
 
-        // Type-constrained wrappers
         public new void Add(GeneratedOperator item) => base.Add(item);
         public new GeneratedOperator this[int index]
         {
             get => (GeneratedOperator)base[index];
             set => base[index] = value;
         }
-
-        // Typed enumeration
-        public new System.Collections.Generic.IEnumerable<GeneratedOperator> ToEnumerable() => base.ToEnumerable<GeneratedOperator>();
     }
 
     /// <summary>
     /// Sequence of pattern - CPython: asdl_pattern_seq
-    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
     public class GeneratedPatternSeq : GeneratedSeq
     {
@@ -1378,21 +1306,16 @@ namespace SharpPy.Generated
             foreach (var item in collection) Add(item);
         }
 
-        // Type-constrained wrappers
         public new void Add(GeneratedPattern item) => base.Add(item);
         public new GeneratedPattern this[int index]
         {
             get => (GeneratedPattern)base[index];
             set => base[index] = value;
         }
-
-        // Typed enumeration
-        public new System.Collections.Generic.IEnumerable<GeneratedPattern> ToEnumerable() => base.ToEnumerable<GeneratedPattern>();
     }
 
     /// <summary>
     /// Sequence of stmt - CPython: asdl_stmt_seq
-    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
     public class GeneratedStmtSeq : GeneratedSeq
     {
@@ -1405,21 +1328,16 @@ namespace SharpPy.Generated
             foreach (var item in collection) Add(item);
         }
 
-        // Type-constrained wrappers
         public new void Add(GeneratedStmt item) => base.Add(item);
         public new GeneratedStmt this[int index]
         {
             get => (GeneratedStmt)base[index];
             set => base[index] = value;
         }
-
-        // Typed enumeration
-        public new System.Collections.Generic.IEnumerable<GeneratedStmt> ToEnumerable() => base.ToEnumerable<GeneratedStmt>();
     }
 
     /// <summary>
     /// Sequence of type_ignore - CPython: asdl_type_ignore_seq
-    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
     public class GeneratedTypeIgnoreSeq : GeneratedSeq
     {
@@ -1432,21 +1350,16 @@ namespace SharpPy.Generated
             foreach (var item in collection) Add(item);
         }
 
-        // Type-constrained wrappers
         public new void Add(GeneratedTypeIgnore item) => base.Add(item);
         public new GeneratedTypeIgnore this[int index]
         {
             get => (GeneratedTypeIgnore)base[index];
             set => base[index] = value;
         }
-
-        // Typed enumeration
-        public new System.Collections.Generic.IEnumerable<GeneratedTypeIgnore> ToEnumerable() => base.ToEnumerable<GeneratedTypeIgnore>();
     }
 
     /// <summary>
     /// Sequence of type_param - CPython: asdl_type_param_seq
-    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
     public class GeneratedTypeParamSeq : GeneratedSeq
     {
@@ -1459,21 +1372,16 @@ namespace SharpPy.Generated
             foreach (var item in collection) Add(item);
         }
 
-        // Type-constrained wrappers
         public new void Add(GeneratedTypeParam item) => base.Add(item);
         public new GeneratedTypeParam this[int index]
         {
             get => (GeneratedTypeParam)base[index];
             set => base[index] = value;
         }
-
-        // Typed enumeration
-        public new System.Collections.Generic.IEnumerable<GeneratedTypeParam> ToEnumerable() => base.ToEnumerable<GeneratedTypeParam>();
     }
 
     /// <summary>
     /// Sequence of unaryop - CPython: asdl_unaryop_seq
-    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
     public class GeneratedUnaryopSeq : GeneratedSeq
     {
@@ -1486,21 +1394,16 @@ namespace SharpPy.Generated
             foreach (var item in collection) Add(item);
         }
 
-        // Type-constrained wrappers
         public new void Add(GeneratedUnaryop item) => base.Add(item);
         public new GeneratedUnaryop this[int index]
         {
             get => (GeneratedUnaryop)base[index];
             set => base[index] = value;
         }
-
-        // Typed enumeration
-        public new System.Collections.Generic.IEnumerable<GeneratedUnaryop> ToEnumerable() => base.ToEnumerable<GeneratedUnaryop>();
     }
 
     /// <summary>
     /// Sequence of withitem - CPython: asdl_withitem_seq
-    /// Simple wrapper over GeneratedSeq with type constraints
     /// </summary>
     public class GeneratedWithitemSeq : GeneratedSeq
     {
@@ -1513,16 +1416,55 @@ namespace SharpPy.Generated
             foreach (var item in collection) Add(item);
         }
 
-        // Type-constrained wrappers
         public new void Add(GeneratedWithitem item) => base.Add(item);
         public new GeneratedWithitem this[int index]
         {
             get => (GeneratedWithitem)base[index];
             set => base[index] = value;
         }
+    }
 
-        // Typed enumeration
-        public new System.Collections.Generic.IEnumerable<GeneratedWithitem> ToEnumerable() => base.ToEnumerable<GeneratedWithitem>();
+    // ============================================================
+    // Additional Parser Helper Sequence Types
+    // ============================================================
+
+    /// <summary>
+    /// Sequence of mixed AST nodes - CPython: asdl_seq*
+    /// Used for intermediate parser results (CmpopExprPair, etc.)
+    /// </summary>
+    public class GeneratedAstNodeSeq : GeneratedSeq
+    {
+        public static readonly GeneratedAstNodeSeq Empty = new();
+
+        public GeneratedAstNodeSeq() { }
+        public GeneratedAstNodeSeq(int capacity) : base(capacity) { }
+        public GeneratedAstNodeSeq(IEnumerable<GeneratedPtr> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
+    }
+
+    /// <summary>
+    /// Sequence of KeywordOrStarred - CPython: asdl_seq*
+    /// Used for parsing function call arguments
+    /// </summary>
+    public class GeneratedKeywordOrStarredSeq : GeneratedSeq
+    {
+        public static readonly GeneratedKeywordOrStarredSeq Empty = new();
+
+        public GeneratedKeywordOrStarredSeq() { }
+        public GeneratedKeywordOrStarredSeq(int capacity) : base(capacity) { }
+        public GeneratedKeywordOrStarredSeq(IEnumerable<GeneratedKeywordOrStarred> collection)
+        {
+            foreach (var item in collection) Add(item);
+        }
+
+        public new void Add(GeneratedKeywordOrStarred item) => base.Add(item);
+        public new GeneratedKeywordOrStarred this[int index]
+        {
+            get => (GeneratedKeywordOrStarred)base[index];
+            set => base[index] = value;
+        }
     }
 
     // ============================================================
@@ -1531,7 +1473,6 @@ namespace SharpPy.Generated
 
     /// <summary>
     /// Wrapper for Python identifier (ASDL builtin)
-    /// CPython 3.12: PyObject* string, wrapped for type consistency
     /// </summary>
     public class GeneratedIdentifier : GeneratedPtr
     {
@@ -1545,38 +1486,22 @@ namespace SharpPy.Generated
         public override string ToString() => Value;
     }
 
-    // GeneratedTokenInfo is defined in PyTokenizer.cs
-
     // ============================================================
     // Parser Intermediate Types
-    // CPython 3.12: pegen.c에서 사용하는 임시 타입들
     // ============================================================
 
-    /// <summary>
-    /// Intermediate type for slash_with_default rule in python.gram
-    /// CPython 3.12: void* compatible via GeneratedPtr inheritance
-    /// </summary>
     public class GeneratedSlashWithDefault : GeneratedPtr
     {
         public GeneratedArgSeq Args { get; set; } = new();
         public GeneratedExprSeq Defaults { get; set; } = new();
     }
 
-    /// <summary>
-    /// Intermediate type for kvpair rule in python.gram
-    /// CPython 3.12: Inherits from GeneratedAstNode for compatibility with mixed sequences
-    /// </summary>
     public class GeneratedKeyValuePair : GeneratedAstNode
     {
         public GeneratedExpr Key { get; set; } = null!;
         public GeneratedExpr Value { get; set; } = null!;
     }
 
-    /// <summary>
-    /// Represents Python constant values at AST level
-    /// CPython 3.12: Maps to 'constant' type in Python.asdl
-    /// Stores: None, True, False, integers, floats, strings, bytes, Ellipsis
-    /// </summary>
     public abstract class GeneratedPyConstant
     {
         public static readonly GeneratedPyConstantNone None = new();
@@ -1625,10 +1550,6 @@ namespace SharpPy.Generated
         internal GeneratedPyConstantEllipsis() { }
     }
 
-    /// <summary>
-    /// Intermediate type for star_etc rule in python.gram
-    /// CPython 3.12: void* compatible via GeneratedPtr inheritance
-    /// </summary>
     public class GeneratedStarEtc : GeneratedPtr
     {
         public GeneratedArg? Vararg { get; set; }
@@ -1637,101 +1558,24 @@ namespace SharpPy.Generated
         public GeneratedArg? Kwarg { get; set; }
     }
 
-    /// <summary>
-    /// Intermediate type for keyword_or_starred rule in python.gram
-    /// CPython 3.12: void* compatible via GeneratedPtr inheritance
-    /// </summary>
     public class GeneratedKeywordOrStarred : GeneratedPtr
     {
         public GeneratedKeyword? Keyword { get; set; }
         public GeneratedExpr? Starred { get; set; }
     }
 
-    /// <summary>
-    /// Sequence type for GeneratedSlashWithDefault
-    /// CPython 3.12: Used in arguments parsing (slash_with_default*)
-    /// Simple wrapper over GeneratedSeq with type constraints
-    /// </summary>
-    public class GeneratedSlashWithDefaultSeq : GeneratedSeq
-    {
-        public new void Add(GeneratedSlashWithDefault item) => base.Add(item);
-        public new GeneratedSlashWithDefault this[int index]
-        {
-            get => (GeneratedSlashWithDefault)base[index];
-            set => base[index] = value;
-        }
-    }
+    // ============================================================
+    // Placeholder Type for incomplete AST generation
+    // ============================================================
 
     /// <summary>
-    /// Sequence type for GeneratedStarEtc
-    /// CPython 3.12: Used in arguments parsing (star_etc*)
-    /// Simple wrapper over GeneratedSeq with type constraints
+    /// Placeholder for rules that don't yet generate proper AST nodes
+    /// TODO: Replace with actual AST node generation
     /// </summary>
-    public class GeneratedStarEtcSeq : GeneratedSeq
+    public class GeneratedPlaceholder : GeneratedPtr
     {
-        public new void Add(GeneratedStarEtc item) => base.Add(item);
-        public new GeneratedStarEtc this[int index]
-        {
-            get => (GeneratedStarEtc)base[index];
-            set => base[index] = value;
-        }
-    }
-
-    /// <summary>
-    /// Sequence type for GeneratedKeywordOrStarred
-    /// CPython 3.12: Used in call arguments parsing (','.kwarg_or_starred+)
-    /// Simple wrapper over GeneratedSeq with type constraints
-    /// </summary>
-    public class GeneratedKeywordOrStarredSeq : GeneratedSeq
-    {
-        public new void Add(GeneratedKeywordOrStarred item) => base.Add(item);
-        public new GeneratedKeywordOrStarred this[int index]
-        {
-            get => (GeneratedKeywordOrStarred)base[index];
-            set => base[index] = value;
-        }
-    }
-
-    /// <summary>
-    /// Generic sequence wrapper for parser intermediate results
-    /// </summary>
-    public class GeneratedSeq<T> : List<T>
-    {
-        public GeneratedSeq() { }
-        public GeneratedSeq(int capacity) : base(capacity) { }
-        public GeneratedSeq(IEnumerable<T> collection) : base(collection) { }
-    }
-
-    /// <summary>
-    /// Sequence of GeneratedAstNode for mixed AST types
-    /// CPython 3.12: Used for sequences that can contain any AST node type
-    /// </summary>
-    public class GeneratedAstNodeSeq : GeneratedSeq, System.Collections.Generic.IList<GeneratedAstNode>
-    {
-        private readonly List<GeneratedAstNode> _items = new();
-        public static readonly GeneratedAstNodeSeq Empty = new();
-
-        public GeneratedAstNodeSeq() { }
-        public GeneratedAstNodeSeq(int capacity) { _items = new List<GeneratedAstNode>(capacity); }
-        public GeneratedAstNodeSeq(IEnumerable<GeneratedAstNode> collection) { _items = new List<GeneratedAstNode>(collection); }
-
-        // IList<GeneratedAstNode> implementation
-        public GeneratedAstNode this[int index] { get => _items[index]; set => _items[index] = value; }
-        public int Count => _items.Count;
-        public bool IsReadOnly => false;
-        public void Add(GeneratedAstNode item) => _items.Add(item);
-        public void Clear() => _items.Clear();
-        public bool Contains(GeneratedAstNode item) => _items.Contains(item);
-        public void CopyTo(GeneratedAstNode[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
-        public System.Collections.Generic.IEnumerator<GeneratedAstNode> GetEnumerator() => _items.GetEnumerator();
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _items.GetEnumerator();
-        public int IndexOf(GeneratedAstNode item) => _items.IndexOf(item);
-        public void Insert(int index, GeneratedAstNode item) => _items.Insert(index, item);
-        public bool Remove(GeneratedAstNode item) => _items.Remove(item);
-        public void RemoveAt(int index) => _items.RemoveAt(index);
-
-        // Additional List<T> methods for compatibility
-        public void AddRange(System.Collections.Generic.IEnumerable<GeneratedAstNode> collection) => _items.AddRange(collection);
+        public static readonly GeneratedPlaceholder Instance = new();
+        private GeneratedPlaceholder() { }
     }
 
 }
