@@ -642,6 +642,238 @@ namespace SharpPy
             };
         }
 
+        /// <summary>
+        /// CPython: asdl_seq *_PyPegen_singleton_seq(Parser *p, void *a)
+        /// Creates a single-element asdl_seq* that contains a
+        /// </summary>
+        public static GeneratedSeq _PyPegen_singleton_seq(GeneratedPtr item)
+        {
+            if (item == null) return null;
+            var seq = new GeneratedSeq(1);
+            seq.Add(item);
+            return seq;
+        }
+
+        /// <summary>
+        /// CPython: asdl_seq *_PyPegen_seq_insert_in_front(Parser *p, void *a, asdl_seq *seq)
+        /// Creates a copy of seq and prepends a to it
+        /// </summary>
+        public static GeneratedSeq _PyPegen_seq_insert_in_front(GeneratedPtr item, GeneratedSeq seq)
+        {
+            if (item == null) return seq;
+            if (seq == null) return _PyPegen_singleton_seq(item);
+
+            var new_seq = new GeneratedSeq(seq.Count + 1);
+            new_seq.Add(item);
+            new_seq.AddRange(seq);
+            return new_seq;
+        }
+
+        /// <summary>
+        /// CPython: CmpopExprPair *_PyPegen_cmpop_expr_pair(Parser *p, cmpop_ty cmpop, expr_ty expr)
+        /// Constructs a CmpopExprPair
+        /// </summary>
+        public static GeneratedCmpopExprPair _PyPegen_cmpop_expr_pair(GeneratedCmpop cmpop, GeneratedExpr expr)
+        {
+            if (expr == null) return null;
+            return new GeneratedCmpopExprPair
+            {
+                Cmpop = cmpop,
+                Expr = expr
+            };
+        }
+
+        /// <summary>
+        /// CPython: asdl_int_seq *_PyPegen_get_cmpops(Parser *p, asdl_seq *seq)
+        /// Extracts comparison operators from CmpopExprPair sequence
+        /// </summary>
+        public static GeneratedCmpopSeq _PyPegen_get_cmpops(GeneratedSeq seq)
+        {
+            if (seq == null || seq.Count == 0) return new GeneratedCmpopSeq();
+
+            var result = new GeneratedCmpopSeq(seq.Count);
+            foreach (var item in seq)
+            {
+                if (item is GeneratedCmpopExprPair pair)
+                {
+                    result.Add(pair.Cmpop);
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// CPython: asdl_expr_seq *_PyPegen_get_exprs(Parser *p, asdl_seq *seq)
+        /// Extracts expressions from CmpopExprPair sequence
+        /// </summary>
+        public static GeneratedExprSeq _PyPegen_get_exprs(GeneratedSeq seq)
+        {
+            if (seq == null || seq.Count == 0) return new GeneratedExprSeq();
+
+            var result = new GeneratedExprSeq(seq.Count);
+            foreach (var item in seq)
+            {
+                if (item is GeneratedCmpopExprPair pair)
+                {
+                    result.Add(pair.Expr);
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// CPython: int _PyPegen_seq_count_dots(asdl_seq *seq)
+        /// Counts the total number of dots in seq's tokens
+        /// </summary>
+        public static int _PyPegen_seq_count_dots(GeneratedSeq seq)
+        {
+            int number_of_dots = 0;
+            if (seq == null) return 0;
+
+            foreach (var item in seq)
+            {
+                // CPython checks token type: ELLIPSIS = 3 dots, DOT = 1 dot
+                // In SharpPy, we check if item is a token info
+                if (item is GeneratedTokenInfo token)
+                {
+                    if (token.Type == PyToken.Type.ELLIPSIS || token.Value == "...")
+                    {
+                        number_of_dots += 3;
+                    }
+                    else if (token.Type == PyToken.Type.DOT || token.Value == ".")
+                    {
+                        number_of_dots += 1;
+                    }
+                }
+            }
+            return number_of_dots;
+        }
+
+        /// <summary>
+        /// CPython: alias_ty _PyPegen_alias_for_star(Parser *p, int lineno, int col_offset, int end_lineno, int end_col_offset, PyArena *arena)
+        /// Creates an alias with '*' as the identifier name
+        /// </summary>
+        public static GeneratedAlias _PyPegen_alias_for_star(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return new GeneratedAlias
+            {
+                Name = new GeneratedIdentifier("*"),
+                Asname = null,
+                LineNo = lineno,
+                ColOffset = col_offset,
+                EndLineNo = end_lineno ?? lineno,
+                EndColOffset = end_col_offset ?? col_offset
+            };
+        }
+
+        /// <summary>
+        /// CPython: asdl_identifier_seq *_PyPegen_map_names_to_ids(Parser *p, asdl_expr_seq *seq)
+        /// Creates a new asdl_seq* with the identifiers of all the names in seq
+        /// </summary>
+        public static GeneratedIdentifierSeq _PyPegen_map_names_to_ids(GeneratedExprSeq seq)
+        {
+            if (seq == null || seq.Count == 0) return new GeneratedIdentifierSeq();
+
+            var result = new GeneratedIdentifierSeq(seq.Count);
+            foreach (var item in seq)
+            {
+                if (item is GeneratedName name)
+                {
+                    result.Add(name.Id);
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// CPython: arguments_ty _PyPegen_empty_arguments(Parser *p)
+        /// Constructs an empty arguments_ty object, that gets used when a function accepts no arguments
+        /// </summary>
+        public static GeneratedArguments _PyPegen_empty_arguments()
+        {
+            return new GeneratedArguments
+            {
+                Posonlyargs = new GeneratedArgSeq(),
+                Args = new GeneratedArgSeq(),
+                Vararg = null,
+                Kwonlyargs = new GeneratedArgSeq(),
+                KwDefaults = new GeneratedExprSeq(),
+                Kwarg = null,
+                Defaults = new GeneratedExprSeq()
+            };
+        }
+
+        /// <summary>
+        /// CPython: void *_PyPegen_dummy_name(Parser *p, ...)
+        /// Returns a placeholder/dummy name for temporary use
+        /// </summary>
+        public static GeneratedName _PyPegen_dummy_name()
+        {
+            return new GeneratedName
+            {
+                Id = new GeneratedIdentifier("<dummy>"),
+                Ctx = GeneratedLoad.Instance
+            };
+        }
+
+        /// <summary>
+        /// CPython: expr_ty _PyPegen_set_expr_context(Parser *p, expr_ty expr, expr_context_ty ctx)
+        /// Creates an `expr_ty` equivalent to `expr` but with `ctx` as context
+        /// </summary>
+        public static GeneratedExpr _PyPegen_set_expr_context(GeneratedExpr expr, GeneratedExprContext ctx)
+        {
+            if (expr == null) return null;
+
+            // CPython logic: Set context for Name, Tuple, List, Subscript, Attribute, Starred
+            switch (expr)
+            {
+                case GeneratedName name:
+                    return new GeneratedName { Id = name.Id, Ctx = ctx };
+
+                case GeneratedTuple tuple:
+                    var tuple_elts = new GeneratedExprSeq(tuple.Elts.Count);
+                    foreach (var elt in tuple.Elts)
+                    {
+                        tuple_elts.Add(_PyPegen_set_expr_context((GeneratedExpr)elt, ctx));
+                    }
+                    return new GeneratedTuple { Elts = tuple_elts, Ctx = ctx };
+
+                case GeneratedList list:
+                    var list_elts = new GeneratedExprSeq(list.Elts.Count);
+                    foreach (var elt in list.Elts)
+                    {
+                        list_elts.Add(_PyPegen_set_expr_context((GeneratedExpr)elt, ctx));
+                    }
+                    return new GeneratedList { Elts = list_elts, Ctx = ctx };
+
+                case GeneratedSubscript subscript:
+                    return new GeneratedSubscript
+                    {
+                        Value = subscript.Value,
+                        Slice = subscript.Slice,
+                        Ctx = ctx
+                    };
+
+                case GeneratedAttribute attribute:
+                    return new GeneratedAttribute
+                    {
+                        Value = attribute.Value,
+                        Attr = attribute.Attr,
+                        Ctx = ctx
+                    };
+
+                case GeneratedStarred starred:
+                    return new GeneratedStarred
+                    {
+                        Value = _PyPegen_set_expr_context(starred.Value, ctx),
+                        Ctx = ctx
+                    };
+
+                default:
+                    return expr;
+            }
+        }
+
         // Helper: Decode string literal
         private static string DecodeStringLiteral(string literal)
         {

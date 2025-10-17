@@ -97,20 +97,28 @@ public class GrammarReaderV2
         Console.WriteLine($"[DEBUG] Next token: {Current()?.Type} '{Current()?.Value}'");
 
         // Optional [return_type]
+        string? returnType = null;
         if (Current()?.Type == TokenType.OP && Current()?.Value == "[")
         {
             Console.WriteLine($"[DEBUG] Found return type annotation for rule '{nameToken.Value}'");
             Advance();  // Skip '['
-            // Skip until ']'
+
+            // Capture type annotation content
+            var typeTokens = new List<string>();
             while (Current() != null && !(Current()!.Type == TokenType.OP && Current()!.Value == "]"))
             {
+                typeTokens.Add(Current()!.Value);
                 Advance();
             }
+
+            // Join type tokens to form type string (e.g., "GeneratedMod", "GeneratedExpr?")
+            returnType = string.Join("", typeTokens);
+
             if (Current()?.Type == TokenType.OP && Current()?.Value == "]")
             {
                 Advance();  // Skip ']'
             }
-            Console.WriteLine($"[DEBUG] After return type, next token: {Current()?.Type} '{Current()?.Value}'");
+            Console.WriteLine($"[DEBUG] Captured return type '{returnType}' for rule '{nameToken.Value}', next token: {Current()?.Type} '{Current()?.Value}'");
         }
 
         // Optional (memo) annotation
@@ -184,6 +192,7 @@ public class GrammarReaderV2
         return new PegRule
         {
             Name = nameToken.Value,
+            ReturnType = returnType,
             Alternatives = alternatives
         };
     }

@@ -2060,6 +2060,115 @@ namespace SharpPy.Generated
             return value;
         }
 
+        // ==================== F-string Helper Methods ====================
+        // CPython: _PyPegen_constant_from_token
+        public static GeneratedExpr _PyPegen_constant_from_token(GeneratedTokenInfo tok)
+        {
+            return GeneratedParserBridge._PyPegen_constant_from_token(tok);
+        }
+
+        // CPython: _PyPegen_formatted_value
+        public static GeneratedExpr _PyPegen_formatted_value(
+            GeneratedExpr expr,
+            GeneratedTokenInfo? debug_expr,
+            GeneratedTokenInfo? conversion,
+            GeneratedExpr? format_spec,
+            GeneratedTokenInfo rbrace,
+            int lineno, int col_offset, int end_lineno, int end_col_offset)
+        {
+            // Conversion: 's' = str(), 'r' = repr(), 'a' = ascii(), -1 = no conversion
+            int conv = -1;
+            if (conversion != null)
+            {
+                var convStr = conversion.GetStringValue();
+                if (convStr == "s") conv = (int)'s';
+                else if (convStr == "r") conv = (int)'r';
+                else if (convStr == "a") conv = (int)'a';
+            }
+
+            return PyAst.FormattedValue(expr, conv, format_spec, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        // ==================== Sequence Item Access Helpers ====================
+        // CPython: macro-like helpers for accessing sequence items
+
+        // CPython: #define PyPegen_last_item(seq, type) ((type) asdl_seq_GET(seq, asdl_seq_LEN(seq)-1))
+        public static T PyPegen_last_item<T>(GeneratedSeq seq) where T : GeneratedPtr
+        {
+            if (seq == null || seq.Count == 0)
+                throw new InvalidOperationException("Cannot get last item from empty sequence");
+            return (T)seq[seq.Count - 1];
+        }
+
+        // CPython: #define PyPegen_first_item(seq, type) ((type) asdl_seq_GET(seq, 0))
+        public static T PyPegen_first_item<T>(GeneratedSeq seq) where T : GeneratedPtr
+        {
+            if (seq == null || seq.Count == 0)
+                throw new InvalidOperationException("Cannot get first item from empty sequence");
+            return (T)seq[0];
+        }
+
+        // ==================== Expression Name Helpers ====================
+        // CPython: _PyPegen_get_expr_name - Gets a string representation of expression for error messages
+        public static string _PyPegen_get_expr_name(GeneratedExpr expr)
+        {
+            // CPython logic: Returns name representation based on expression type
+            // For now, return a generic name - TODO: implement full logic
+            if (expr is GeneratedName nameExpr)
+            {
+                return nameExpr.Id;
+            }
+            else if (expr is GeneratedAttribute attrExpr)
+            {
+                return "attribute";
+            }
+            else if (expr is GeneratedSubscript)
+            {
+                return "subscript";
+            }
+            else if (expr is GeneratedStarred)
+            {
+                return "starred";
+            }
+            else if (expr is GeneratedList)
+            {
+                return "list";
+            }
+            else if (expr is GeneratedTuple)
+            {
+                return "tuple";
+            }
+            else if (expr is GeneratedCall)
+            {
+                return "function call";
+            }
+            return "expression";
+        }
+
+        // ==================== Comprehension Helpers ====================
+        // CPython: _PyPegen_get_last_comprehension_item
+        public static GeneratedComprehension _PyPegen_get_last_comprehension_item(GeneratedComprehension comp)
+        {
+            return comp; // Just returns the same item (used for error location tracking)
+        }
+
+        // ==================== Error Raising Helpers ====================
+        // CPython: _PyPegen_nonparen_genexp_in_call - Raise error for non-parenthesized generator expression in call
+        public static GeneratedArguments? _PyPegen_nonparen_genexp_in_call(GeneratedExprSeq? args, GeneratedSeq for_if_clauses)
+        {
+            // TODO: Raise proper syntax error
+            // RaiseSyntaxError("Generator expression must be parenthesized");
+            return null;
+        }
+
+        // CPython: _PyPegen_arguments_parsing_error - Raise error for invalid arguments
+        public static GeneratedArguments? _PyPegen_arguments_parsing_error(GeneratedExprSeq args)
+        {
+            // TODO: Raise proper syntax error
+            // RaiseSyntaxError("Invalid arguments");
+            return null;
+        }
+
     }
 
 
@@ -2084,6 +2193,12 @@ namespace SharpPy.Generated
 
     public class GeneratedKeyPatternPairSeq : GeneratedSeq
     {
+    }
+
+    public class GeneratedNameDefaultPairSeq : GeneratedSeq
+    {
+        public GeneratedNameDefaultPairSeq() { }
+        public GeneratedNameDefaultPairSeq(int capacity) : base(capacity) { }
     }
 
     public class GeneratedCmpopExprPair : GeneratedPtr
@@ -2169,6 +2284,163 @@ namespace SharpPy.Generated
             return tok.Value != "!=";
         }
 
+        // ============================================================
+        // Sequence Helper Functions
+        // ============================================================
+
+        // CPython action_helpers.c:97
+        // void *_PyPegen_seq_last_item(asdl_seq *seq)
+        public static GeneratedPtr _PyPegen_seq_last_item<T>(T seq) where T : List<GeneratedPtr>
+        {
+            if (seq == null || seq.Count == 0) return null!;
+            return seq[seq.Count - 1];
+        }
+
+        // CPython action_helpers.c:102
+        // void *_PyPegen_seq_first_item(asdl_seq *seq)
+        public static GeneratedPtr _PyPegen_seq_first_item<T>(T seq) where T : List<GeneratedPtr>
+        {
+            if (seq == null || seq.Count == 0) return null!;
+            return seq[0];
+        }
+
+        // CPython pegen.h:253
+        // #define PyPegen_last_item(seq, type) ((type)_PyPegen_seq_last_item((asdl_seq*)seq))
+        public static TResult PyPegen_last_item<TSeq, TResult>(TSeq seq)
+            where TSeq : List<GeneratedPtr>
+            where TResult : GeneratedPtr
+        {
+            return (TResult)_PyPegen_seq_last_item(seq);
+        }
+
+        // CPython pegen.h:255
+        // #define PyPegen_first_item(seq, type) ((type)_PyPegen_seq_first_item((asdl_seq*)seq))
+        public static TResult PyPegen_first_item<TSeq, TResult>(TSeq seq)
+            where TSeq : List<GeneratedPtr>
+            where TResult : GeneratedPtr
+        {
+            return (TResult)_PyPegen_seq_first_item(seq);
+        }
+
+        // ============================================================
+        // Expression Name Helper
+        // ============================================================
+
+        // CPython action_helpers.c:945
+        // const char *_PyPegen_get_expr_name(expr_ty e)
+        public static string _PyPegen_get_expr_name(GeneratedExpr e)
+        {
+            if (e == null) return "expression";
+
+            return e switch
+            {
+                GeneratedAttribute => "attribute",
+                GeneratedSubscript => "subscript",
+                GeneratedStarred => "starred",
+                GeneratedName => "name",
+                GeneratedList => "list",
+                GeneratedTuple => "tuple",
+                GeneratedLambda => "lambda",
+                GeneratedCall => "function call",
+                GeneratedBoolOp => "expression",
+                GeneratedBinOp => "expression",
+                GeneratedUnaryOp => "expression",
+                GeneratedGeneratorExp => "generator expression",
+                GeneratedYield => "yield expression",
+                GeneratedYieldFrom => "yield expression",
+                GeneratedAwait => "await expression",
+                GeneratedListComp => "list comprehension",
+                GeneratedSetComp => "set comprehension",
+                GeneratedDictComp => "dict comprehension",
+                GeneratedDict => "dict literal",
+                GeneratedSet => "set display",
+                GeneratedJoinedStr => "f-string expression",
+                GeneratedFormattedValue => "f-string expression",
+                GeneratedConstant c => GetConstantName(c),
+                _ => "expression"
+            };
+        }
+
+        private static string GetConstantName(GeneratedConstant c)
+        {
+            if (c.Value == null) return "None";
+            var pyConstant = c.Value as GeneratedPyConstant;
+            if (pyConstant is GeneratedPyConstantBool b)
+            {
+                return b.Value ? "True" : "False";
+            }
+            if (pyConstant is GeneratedPyConstantEllipsis) return "ellipsis";
+            return "literal";
+        }
+
+        // ============================================================
+        // Comprehension Helpers
+        // ============================================================
+
+        // CPython action_helpers.c:1018
+        // expr_ty _PyPegen_get_last_comprehension_item(comprehension_ty comprehension)
+        public static GeneratedExpr _PyPegen_get_last_comprehension_item(GeneratedComprehension comprehension)
+        {
+            if (comprehension == null) return null!;
+            if (comprehension.Ifs == null || comprehension.Ifs.Count == 0)
+            {
+                return comprehension.Iter;
+            }
+            return (GeneratedExpr)comprehension.Ifs[comprehension.Ifs.Count - 1];
+        }
+
+        // ============================================================
+        // Error Handling Functions
+        // ============================================================
+
+        // CPython action_helpers.c:1118
+        // void *_PyPegen_arguments_parsing_error(Parser *p, expr_ty e)
+        // Note: Made internal so PyParser can access it
+        internal static GeneratedPtr _PyPegen_arguments_parsing_error(dynamic p, GeneratedExpr e)
+        {
+            if (e == null || !(e is GeneratedCall call)) return null!;
+
+            bool kwarg_unpacking = false;
+            if (call.Keywords != null)
+            {
+                foreach (var keyword in call.Keywords)
+                {
+                    var kw = keyword as GeneratedKeyword;
+                    if (kw != null && kw.Arg == null)
+                    {
+                        kwarg_unpacking = true;
+                        break;
+                    }
+                }
+            }
+
+            string msg = kwarg_unpacking
+                ? "positional argument follows keyword argument unpacking"
+                : "positional argument follows keyword argument";
+
+            return p.RaiseSyntaxError(msg);
+        }
+
+        // CPython action_helpers.c:1137
+        // void *_PyPegen_nonparen_genexp_in_call(Parser *p, expr_ty args, asdl_comprehension_seq *comprehensions)
+        // Note: Made internal so PyParser can access it
+        internal static GeneratedPtr _PyPegen_nonparen_genexp_in_call(dynamic p, GeneratedExpr args,
+                                                                      GeneratedComprehensionSeq comprehensions)
+        {
+            if (!(args is GeneratedCall call)) return null!;
+            if (call.Args == null) return null!;
+
+            int len = call.Args.Count;
+            if (len <= 1) return null!;
+
+            var last_comprehension = (GeneratedComprehension)comprehensions[comprehensions.Count - 1];
+            var lastArg = (GeneratedExpr)call.Args[len - 1];
+            var lastItem = _PyPegen_get_last_comprehension_item(last_comprehension);
+
+            return p.RaiseSyntaxErrorKnownRange(lastArg, lastItem,
+                "Generator expression must be parenthesized");
+        }
+
     }
 
     // ============================================================
@@ -2236,6 +2508,437 @@ namespace SharpPy.Generated
             return AstFactory._PyAST_Continue(lineno, col_offset, end_lineno, end_col_offset);
         }
 
+        // ============================================================
+        // Expression Node Wrappers
+        // ============================================================
+
+        public static GeneratedExpr BinOp(GeneratedExpr left, GeneratedOperator op, GeneratedExpr right,
+                                          int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_BinOp(left, op, right, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr UnaryOp(GeneratedUnaryop op, GeneratedExpr operand,
+                                            int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_UnaryOp(op, operand, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr BoolOp(GeneratedBoolop op, GeneratedExprSeq values,
+                                           int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_BoolOp(op, values, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr Compare(GeneratedExpr left, GeneratedCmpopSeq ops, GeneratedExprSeq comparators,
+                                            int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Compare(left, ops, comparators, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr Call(GeneratedExpr func, GeneratedExprSeq args, GeneratedKeywordSeq keywords,
+                                         int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Call(func, args, keywords, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr Constant(GeneratedPyConstant value, string? kind,
+                                             int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Constant(value, kind, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr Attribute(GeneratedExpr value, GeneratedIdentifier attr, GeneratedExprContext ctx,
+                                              int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Attribute(value, attr, ctx, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr Subscript(GeneratedExpr value, GeneratedExpr slice, GeneratedExprContext ctx,
+                                              int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Subscript(value, slice, ctx, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr Starred(GeneratedExpr value, GeneratedExprContext ctx,
+                                            int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Starred(value, ctx, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr List(GeneratedExprSeq elts, GeneratedExprContext ctx,
+                                         int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_List(elts, ctx, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr Tuple(GeneratedExprSeq elts, GeneratedExprContext ctx,
+                                          int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Tuple(elts, ctx, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr Dict(GeneratedExprSeq keys, GeneratedExprSeq values,
+                                         int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Dict(keys, values, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr Set(GeneratedExprSeq elts,
+                                        int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Set(elts, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr NamedExpr(GeneratedExpr target, GeneratedExpr value,
+                                              int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_NamedExpr(target, value, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr Lambda(GeneratedArguments args, GeneratedExpr body,
+                                           int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Lambda(args, body, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr IfExp(GeneratedExpr test, GeneratedExpr body, GeneratedExpr orelse,
+                                          int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_IfExp(test, body, orelse, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr ListComp(GeneratedExpr elt, GeneratedComprehensionSeq generators,
+                                             int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_ListComp(elt, generators, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr SetComp(GeneratedExpr elt, GeneratedComprehensionSeq generators,
+                                            int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_SetComp(elt, generators, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr DictComp(GeneratedExpr key, GeneratedExpr value, GeneratedComprehensionSeq generators,
+                                             int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_DictComp(key, value, generators, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr GeneratorExp(GeneratedExpr elt, GeneratedComprehensionSeq generators,
+                                                 int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_GeneratorExp(elt, generators, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr Await(GeneratedExpr value,
+                                          int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Await(value, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr Yield(GeneratedExpr value,
+                                          int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Yield(value, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr YieldFrom(GeneratedExpr value,
+                                              int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_YieldFrom(value, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr Slice(GeneratedExpr lower, GeneratedExpr upper, GeneratedExpr step,
+                                          int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Slice(lower, upper, step, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr FormattedValue(GeneratedExpr value, int conversion, GeneratedExpr format_spec,
+                                                   int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_FormattedValue(value, conversion, format_spec, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedExpr JoinedStr(GeneratedExprSeq values,
+                                              int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_JoinedStr(values, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        // ============================================================
+        // Statement Node Wrappers
+        // ============================================================
+
+        public static GeneratedStmt Expr(GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Expr(value, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt Assign(GeneratedExprSeq targets, GeneratedExpr value, string? type_comment,
+                                           int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Assign(targets, value, type_comment, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt AnnAssign(GeneratedExpr target, GeneratedExpr annotation, GeneratedExpr value, int simple,
+                                              int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_AnnAssign(target, annotation, value, simple, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt AugAssign(GeneratedExpr target, GeneratedOperator op, GeneratedExpr value,
+                                              int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_AugAssign(target, op, value, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt Return(GeneratedExpr value,
+                                           int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Return(value, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt Raise(GeneratedExpr exc, GeneratedExpr cause,
+                                          int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Raise(exc, cause, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt Delete(GeneratedExprSeq targets,
+                                           int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Delete(targets, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt If(GeneratedExpr test, GeneratedStmtSeq body, GeneratedStmtSeq orelse,
+                                       int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_If(test, body, orelse, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt While(GeneratedExpr test, GeneratedStmtSeq body, GeneratedStmtSeq orelse,
+                                          int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_While(test, body, orelse, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt For(GeneratedExpr target, GeneratedExpr iter, GeneratedStmtSeq body, GeneratedStmtSeq orelse, string? type_comment,
+                                        int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_For(target, iter, body, orelse, type_comment, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt AsyncFor(GeneratedExpr target, GeneratedExpr iter, GeneratedStmtSeq body, GeneratedStmtSeq orelse, string? type_comment,
+                                             int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_AsyncFor(target, iter, body, orelse, type_comment, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt With(GeneratedWithitemSeq items, GeneratedStmtSeq body, string? type_comment,
+                                         int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_With(items, body, type_comment, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt AsyncWith(GeneratedWithitemSeq items, GeneratedStmtSeq body, string? type_comment,
+                                              int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_AsyncWith(items, body, type_comment, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt FunctionDef(GeneratedIdentifier name, GeneratedArguments args, GeneratedStmtSeq body,
+                                                GeneratedExprSeq decorator_list, GeneratedExpr returns, string? type_comment, GeneratedTypeParamSeq type_params,
+                                                int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_FunctionDef(name, args, body, decorator_list, returns, type_comment, type_params, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt AsyncFunctionDef(GeneratedIdentifier name, GeneratedArguments args, GeneratedStmtSeq body,
+                                                     GeneratedExprSeq decorator_list, GeneratedExpr returns, string? type_comment, GeneratedTypeParamSeq type_params,
+                                                     int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_AsyncFunctionDef(name, args, body, decorator_list, returns, type_comment, type_params, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt ClassDef(GeneratedIdentifier name, GeneratedExprSeq bases, GeneratedKeywordSeq keywords, GeneratedStmtSeq body,
+                                             GeneratedExprSeq decorator_list, GeneratedTypeParamSeq type_params,
+                                             int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_ClassDef(name, bases, keywords, body, decorator_list, type_params, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt Try(GeneratedStmtSeq body, GeneratedExcepthandlerSeq handlers, GeneratedStmtSeq orelse, GeneratedStmtSeq finalbody,
+                                        int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Try(body, handlers, orelse, finalbody, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt TryStar(GeneratedStmtSeq body, GeneratedExcepthandlerSeq handlers, GeneratedStmtSeq orelse, GeneratedStmtSeq finalbody,
+                                            int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_TryStar(body, handlers, orelse, finalbody, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt Assert(GeneratedExpr test, GeneratedExpr msg,
+                                           int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Assert(test, msg, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt Import(GeneratedAliasSeq names,
+                                           int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Import(names, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt ImportFrom(GeneratedIdentifier module, GeneratedAliasSeq names, int level,
+                                               int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_ImportFrom(module, names, level, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt Global(GeneratedIdentifierSeq names,
+                                           int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Global(names, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt Nonlocal(GeneratedIdentifierSeq names,
+                                             int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Nonlocal(names, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt Match(GeneratedExpr subject, GeneratedMatchCaseSeq cases,
+                                          int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_Match(subject, cases, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedStmt TypeAlias(GeneratedExpr name, GeneratedTypeParamSeq type_params, GeneratedExpr value,
+                                              int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_TypeAlias(name, type_params, value, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        // ============================================================
+        // Other Node Type Wrappers
+        // ============================================================
+
+        public static GeneratedAlias Alias(GeneratedIdentifier name, GeneratedIdentifier asname,
+                                           int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_alias(name, asname, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedWithitem Withitem(GeneratedExpr context_expr, GeneratedExpr optional_vars)
+        {
+            return AstFactory._PyAST_withitem(context_expr, optional_vars);
+        }
+
+        public static GeneratedMatchCase MatchCase(GeneratedPattern pattern, GeneratedExpr guard, GeneratedStmtSeq body)
+        {
+            return AstFactory._PyAST_match_case(pattern, guard, body);
+        }
+
+        public static GeneratedPattern MatchValue(GeneratedExpr value,
+                                                  int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_MatchValue(value, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedPattern MatchSingleton(GeneratedPyConstant value,
+                                                      int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_MatchSingleton(value, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedPattern MatchSequence(GeneratedPatternSeq patterns,
+                                                     int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_MatchSequence(patterns, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedPattern MatchMapping(GeneratedExprSeq keys, GeneratedPatternSeq patterns, GeneratedIdentifier rest,
+                                                    int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_MatchMapping(keys, patterns, rest, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedPattern MatchClass(GeneratedExpr cls, GeneratedPatternSeq patterns, GeneratedIdentifierSeq kwd_attrs, GeneratedPatternSeq kwd_patterns,
+                                                  int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_MatchClass(cls, patterns, kwd_attrs, kwd_patterns, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedPattern MatchStar(GeneratedIdentifier name,
+                                                 int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_MatchStar(name, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedPattern MatchAs(GeneratedPattern pattern, GeneratedIdentifier name,
+                                               int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_MatchAs(pattern, name, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedPattern MatchOr(GeneratedPatternSeq patterns,
+                                               int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_MatchOr(patterns, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedArg Arg(GeneratedIdentifier arg, GeneratedExpr annotation, string? type_comment,
+                                       int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_arg(arg, annotation, type_comment, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedKeyword Keyword(GeneratedIdentifier arg, GeneratedExpr value,
+                                               int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_keyword(arg, value, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedComprehension Comprehension(GeneratedExpr target, GeneratedExpr iter, GeneratedExprSeq ifs, int is_async)
+        {
+            return AstFactory._PyAST_comprehension(target, iter, ifs, is_async);
+        }
+
+        public static GeneratedExcepthandler ExceptHandler(GeneratedExpr type, GeneratedIdentifier name, GeneratedStmtSeq body,
+                                                           int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_ExceptHandler(type, name, body, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedArguments Arguments(GeneratedArgSeq posonlyargs, GeneratedArgSeq args, GeneratedArg vararg,
+                                                   GeneratedArgSeq kwonlyargs, GeneratedExprSeq kw_defaults, GeneratedArg kwarg, GeneratedExprSeq defaults)
+        {
+            return AstFactory._PyAST_arguments(posonlyargs, args, vararg, kwonlyargs, kw_defaults, kwarg, defaults);
+        }
+
+        public static GeneratedTypeParam TypeVar(GeneratedIdentifier name, GeneratedExpr bound,
+                                                 int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_TypeVar(name, bound, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedTypeParam ParamSpec(GeneratedIdentifier name,
+                                                   int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_ParamSpec(name, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        public static GeneratedTypeParam TypeVarTuple(GeneratedIdentifier name,
+                                                      int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return AstFactory._PyAST_TypeVarTuple(name, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
         // TODO: Add more AST factory methods as needed during grammar rewriting
     }
 
@@ -2264,9 +2967,11 @@ namespace SharpPy.Generated
         /// CPython: _PyPegen_seq_flatten
         /// Flattens nested statement sequences
         /// </summary>
-        public static GeneratedStmtSeq FlattenStatementSequence(List<GeneratedStmtSeq> sequences)
+        public static GeneratedStmtSeq FlattenStatementSequence(GeneratedSeq sequences)
         {
-            return PegenHelpers._PyPegen_seq_flatten(sequences);
+            return PegenHelpers._PyPegen_seq_flatten(
+                sequences.ToCastList<GeneratedStmtSeq>()
+            );
         }
 
         /// <summary>
@@ -2305,6 +3010,458 @@ namespace SharpPy.Generated
         {
             // CPython: Returns empty sequence to signal end of interactive input
             return GeneratedParserBridge._PyPegen_interactive_exit();
+        }
+
+        /// <summary>
+        /// CPython: Maps augmented assignment operator token to GeneratedOperator
+        /// Used in augassign rule: augassign[GeneratedOperator]: '+=' { AugOperator(Add) }
+        /// </summary>
+        public static GeneratedOperator AugOperator(GeneratedOperator op)
+        {
+            return op;
+        }
+
+        /// <summary>
+        /// CPython: _PyPegen_make_arguments
+        /// Creates function arguments from parsed parameter components
+        /// </summary>
+        public static GeneratedArguments MakeArguments(
+            GeneratedArgSeq? posonly,
+            GeneratedSlashWithDefault? posonly_with_default,
+            GeneratedArgSeq? args,
+            GeneratedNameDefaultPairSeq? args_with_default,
+            GeneratedStarEtc? star_etc)
+        {
+            return GeneratedParserBridge._PyPegen_make_arguments(
+                posonly, posonly_with_default, args, args_with_default, star_etc);
+        }
+
+        /// <summary>
+        /// CPython: _PyPegen_empty_arguments
+        /// Creates empty arguments for function with no parameters
+        /// </summary>
+        public static GeneratedArguments EmptyArguments()
+        {
+            return GeneratedParserBridge._PyPegen_empty_arguments();
+        }
+
+        /// <summary>
+        /// CPython: SlashWithDefault helper structure
+        /// Represents positional-only parameters with defaults
+        /// </summary>
+        public static GeneratedSlashWithDefault SlashWithDefault(
+            GeneratedArgSeq? plain_names,
+            GeneratedNameDefaultPairSeq names_with_defaults)
+        {
+            return GeneratedParserBridge._PyPegen_slash_with_default(plain_names, names_with_defaults);
+        }
+
+        /// <summary>
+        /// CPython: StarEtc helper structure
+        /// Represents *args and **kwargs parameters
+        /// </summary>
+        public static GeneratedStarEtc StarEtc(
+            GeneratedArg? vararg,
+            GeneratedNameDefaultPairSeq? kwonly_args,
+            GeneratedArg? kwarg)
+        {
+            return GeneratedParserBridge._PyPegen_star_etc(vararg, kwonly_args, kwarg);
+        }
+
+        /// <summary>
+        /// CPython: _PyPegen_seq_count_dots
+        /// Counts dots in import from statement (for relative imports)
+        /// </summary>
+        public static int SeqCountDots(List<GeneratedPtr> seq)
+        {
+            // Convert List<GeneratedPtr> to GeneratedSeq
+            GeneratedSeq seq_wrapper = null;
+            if (seq != null && seq.Count > 0)
+            {
+                seq_wrapper = new GeneratedSeq(seq.Count);
+                foreach (var item in seq)
+                {
+                    seq_wrapper.Add(item);
+                }
+            }
+
+            return GeneratedParserBridge._PyPegen_seq_count_dots(seq_wrapper);
+        }
+
+        /// <summary>
+        /// CPython: _PyPegen_alias_for_star
+        /// Creates alias for 'from module import *'
+        /// </summary>
+        public static GeneratedAlias AliasForStar(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return GeneratedParserBridge._PyPegen_alias_for_star(lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        /// <summary>
+        /// CPython: _PyPegen_check_future_import
+        /// Validates and creates __future__ import
+        /// </summary>
+        public static GeneratedStmt CheckedFutureImport(
+            GeneratedIdentifier module_name,
+            GeneratedAliasSeq names,
+            int level,
+            int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        {
+            return GeneratedParserBridge._PyPegen_checked_future_import(
+                module_name, names, level, lineno, col_offset, end_lineno ?? lineno, end_col_offset ?? col_offset);
+        }
+
+        /// <summary>
+        /// CPython: _PyPegen_join_names_with_dot
+        /// Joins dotted name components (for import statements)
+        /// </summary>
+        public static GeneratedExpr JoinNamesWithDot(GeneratedExpr a, GeneratedExpr b)
+        {
+            return GeneratedParserBridge._PyPegen_join_names_with_dot(a, b);
+        }
+
+        /// <summary>
+        /// CPython: _PyPegen_seq_extract_starred_exprs
+        /// Extracts NAME nodes from expression sequence and converts to identifier sequence
+        /// </summary>
+        public static GeneratedIdentifierSeq MapNamesToIds(GeneratedExprSeq exprs)
+        {
+            return GeneratedParserBridge._PyPegen_map_names_to_ids(exprs);
+        }
+
+        /// <summary>
+        /// CPython: _PyPegen_class_def_decorators
+        /// Applies decorators to class definition
+        /// </summary>
+        public static GeneratedStmt ClassDefDecorators(GeneratedExprSeq decorators, GeneratedStmt class_def)
+        {
+            return GeneratedParserBridge._PyPegen_class_def_decorators(decorators, class_def);
+        }
+
+        /// <summary>
+        /// CPython: _PyPegen_function_def_decorators
+        /// Applies decorators to function definition
+        /// </summary>
+        public static GeneratedStmt FunctionDefDecorators(GeneratedExprSeq decorators, GeneratedStmt function_def)
+        {
+            return GeneratedParserBridge._PyPegen_function_def_decorators(decorators, function_def);
+        }
+
+        /// <summary>
+        /// CPython: NameDefaultPair helper structure
+        /// Represents parameter with optional default value
+        /// </summary>
+        public static GeneratedNameDefaultPair NameDefaultPair(
+            GeneratedArg arg,
+            GeneratedExpr? default_value,
+            string? type_comment)
+        {
+            GeneratedTokenInfo? type_comment_token = null;
+            if (type_comment != null)
+            {
+                type_comment_token = new GeneratedTokenInfo(PyToken.Type.TYPE_COMMENT, type_comment, 0, 0, 0, 0);
+            }
+            return GeneratedParserBridge._PyPegen_name_default_pair(arg, default_value, type_comment_token);
+        }
+
+        /// <summary>
+        /// CPython: arg_ty _PyPegen_add_type_comment_to_arg(Parser *p, arg_ty arg, Token *tc)
+        /// Adds type comment to argument
+        /// </summary>
+        public static GeneratedArg AddTypeCommentToArg(GeneratedArg arg, GeneratedTokenInfo? type_comment)
+        {
+            return GeneratedParserBridge._PyPegen_add_type_comment_to_arg(arg, type_comment);
+        }
+
+        /// <summary>
+        /// CPython: _PyPegen_cmpop_expr_pair
+        /// Creates comparison operator-expression pair for Compare node
+        /// </summary>
+        public static GeneratedCmpopExprPair CmpopExprPair(GeneratedCmpop cmpop, GeneratedExpr expr)
+        {
+            return GeneratedParserBridge._PyPegen_cmpop_expr_pair(cmpop, expr);
+        }
+
+        /// <summary>
+        /// CPython: _PyPegen_get_cmpops / _PyPegen_get_exprs
+        /// Extracts operators and expressions from CmpopExprPair list
+        /// </summary>
+        public static GeneratedCmpopSeq GetCmpops(GeneratedSeq pairs)
+        {
+            return GeneratedParserBridge._PyPegen_get_cmpops(pairs);
+        }
+
+        public static GeneratedExprSeq GetExprs(GeneratedSeq pairs)
+        {
+            return GeneratedParserBridge._PyPegen_get_exprs(pairs);
+        }
+
+        /// <summary>
+        /// CPython: KeyPatternPair for match statement patterns
+        /// </summary>
+        public static GeneratedKeyPatternPair KeyPatternPair(GeneratedExpr key, GeneratedPattern pattern)
+        {
+            return GeneratedParserBridge._PyPegen_key_pattern_pair(key, pattern);
+        }
+
+        public static GeneratedExprSeq GetPatternKeys(GeneratedSeq pairs)
+        {
+            return GeneratedParserBridge._PyPegen_get_pattern_keys(pairs);
+        }
+
+        public static GeneratedPatternSeq GetPatterns(GeneratedSeq pairs)
+        {
+            return GeneratedParserBridge._PyPegen_get_patterns(pairs);
+        }
+
+        /// <summary>
+        /// CPython: Generic SeqInsertInFront for various sequence types
+        /// </summary>
+        public static GeneratedSeq SeqInsertInFront(GeneratedPtr item, GeneratedSeq? seq)
+        {
+            return GeneratedParserBridge._PyPegen_seq_insert_in_front(item, seq);
+        }
+
+        public static GeneratedSeq SeqInsertInFront(GeneratedExpr item, GeneratedSeq? seq)
+        {
+            return GeneratedParserBridge._PyPegen_seq_insert_in_front(item, seq);
+        }
+
+        public static GeneratedSeq SeqInsertInFront(GeneratedPattern item, GeneratedSeq? seq)
+        {
+            return GeneratedParserBridge._PyPegen_seq_insert_in_front(item, seq);
+        }
+
+        /// <summary>
+        /// CPython: Generic SingletonSequence for various types
+        /// </summary>
+        public static GeneratedSeq SingletonSequence(GeneratedPtr item)
+        {
+            return GeneratedParserBridge._PyPegen_singleton_seq(item);
+        }
+
+        public static GeneratedSeq SingletonSequence(GeneratedExpr item)
+        {
+            return GeneratedParserBridge._PyPegen_singleton_seq(item);
+        }
+
+        /// <summary>
+        /// CPython: _PyPegen_dummy_name for temporary/placeholder names
+        /// </summary>
+        public static GeneratedName DummyName()
+        {
+            return GeneratedParserBridge._PyPegen_dummy_name();
+        }
+
+        /// <summary>
+        /// CPython: _PyPegen_ensure_real / _PyPegen_ensure_imaginary
+        /// Validates number token types for complex number literals
+        /// </summary>
+        public static GeneratedExpr EnsureReal(GeneratedExpr number)
+        {
+            return GeneratedParserBridge._PyPegen_ensure_real(number);
+        }
+
+        public static GeneratedExpr EnsureImaginary(GeneratedExpr number)
+        {
+            return GeneratedParserBridge._PyPegen_ensure_imaginary(number);
+        }
+
+        /// <summary>
+        /// CPython: _PyPegen_singleton_seq - Generic singleton sequence wrapper
+        /// Grammar uses: PyParserHelpers.SingletonSeq(...)
+        /// </summary>
+        public static GeneratedSeq SingletonSeq(GeneratedPtr item)
+        {
+            return GeneratedParserBridge._PyPegen_singleton_seq(item);
+        }
+
+        /// <summary>
+        /// CPython: _PyPegen_seq_insert_in_front - Append to end wrapper
+        /// Grammar uses: PyParserHelpers.SeqAppendToEnd(seq, item)
+        /// Implementation: Insert at end by iterating and adding
+        /// </summary>
+        public static GeneratedSeq SeqAppendToEnd(GeneratedSeq seq, GeneratedPtr item)
+        {
+            if (seq == null) return GeneratedParserBridge._PyPegen_singleton_seq(item);
+            seq.Add(item);
+            return seq;
+        }
+
+        /// <summary>
+        /// CPython: _PyPegen_keyword_or_starred
+        /// Grammar uses: PyParserHelpers.KeywordOrStarred(element, is_keyword)
+        /// </summary>
+        public static GeneratedKeywordOrStarred KeywordOrStarred(GeneratedPtr element, int is_keyword)
+        {
+            return GeneratedParserBridge._PyPegen_keyword_or_starred(element, is_keyword);
+        }
+
+        // ==================== Dictionary Helper Methods ====================
+        // CPython: _PyPegen_get_keys - Extracts all keys from KeyValuePair sequence
+        public static GeneratedExprSeq GetKeys(GeneratedSeq seq)
+        {
+            var keys = new List<GeneratedPtr>();
+            foreach (var item in seq)
+            {
+                var pair = (GeneratedKeyValuePair)item;
+                keys.Add(pair.Key);
+            }
+            return GeneratedSeq.FromList(keys).Cast<GeneratedExprSeq>();
+        }
+
+        // CPython: _PyPegen_get_values - Extracts all values from KeyValuePair sequence
+        public static GeneratedExprSeq GetValues(GeneratedSeq seq)
+        {
+            var values = new List<GeneratedPtr>();
+            foreach (var item in seq)
+            {
+                var pair = (GeneratedKeyValuePair)item;
+                values.Add(pair.Value);
+            }
+            return GeneratedSeq.FromList(values).Cast<GeneratedExprSeq>();
+        }
+
+        // CPython: _PyPegen_key_value_pair - Creates a KeyValuePair
+        public static GeneratedKeyValuePair KeyValuePair(GeneratedExpr key, GeneratedExpr value)
+        {
+            return new GeneratedKeyValuePair { Key = key, Value = value };
+        }
+
+        // ==================== Sequence Helper Methods ====================
+        // CPython: _PyPegen_join_sequences - Joins two sequences
+        public static GeneratedSeq JoinSequences(GeneratedSeq a, GeneratedSeq b)
+        {
+            var result = new List<GeneratedPtr>(a);
+            result.AddRange(b);
+            return new GeneratedSeq(result);
+        }
+
+        // CPython: _PyPegen_seq_extract_starred_exprs - Extract starred expressions
+        public static GeneratedExprSeq? SeqExtractStarredExprs(GeneratedSeq seq)
+        {
+            var starred = new List<GeneratedPtr>();
+            foreach (var item in seq)
+            {
+                var kws = (GeneratedKeywordOrStarred)item;
+                if (kws.Starred != null) // Starred property is set for starred expressions
+                {
+                    starred.Add(kws.Starred);
+                }
+            }
+            return starred.Count > 0 ? GeneratedSeq.FromList(starred).Cast<GeneratedExprSeq>() : null;
+        }
+
+        // CPython: _PyPegen_seq_delete_starred_exprs - Delete starred expressions, keep keywords
+        public static GeneratedKeywordSeq? SeqDeleteStarredExprs(GeneratedSeq seq)
+        {
+            var keywords = new List<GeneratedPtr>();
+            foreach (var item in seq)
+            {
+                var kws = (GeneratedKeywordOrStarred)item;
+                if (kws.Keyword != null) // Keyword property is set for keyword arguments
+                {
+                    keywords.Add(kws.Keyword);
+                }
+            }
+            return keywords.Count > 0 ? GeneratedSeq.FromList(keywords).Cast<GeneratedKeywordSeq>() : null;
+        }
+
+        // CPython: expr_ty _PyPegen_collect_call_seqs(Parser *p, asdl_expr_seq *a, asdl_seq *b, ...)
+        // Returns a Call expression with combined args and keywords
+        public static GeneratedExpr CollectCallSeqs(GeneratedExprSeq? a, GeneratedSeq? b,
+                                                     int lineno, int col_offset, int end_lineno, int end_col_offset)
+        {
+            // CPython: If b is NULL, return Call with just 'a' as args
+            if (b == null)
+            {
+                return PyAst.Call(DummyName(), a, null, lineno, col_offset, end_lineno, end_col_offset);
+            }
+
+            // CPython: Extract starred expressions and keywords from b
+            var starreds = SeqExtractStarredExprs(b);
+            var keywords = SeqDeleteStarredExprs(b);
+
+            // CPython: Combine 'a' and 'starreds' into new args sequence
+            var args_len = a?.Count ?? 0;
+            var total_len = args_len + (starreds?.Count ?? 0);
+
+            var combined_args = new GeneratedExprSeq(total_len);
+
+            // Copy args from 'a'
+            if (a != null)
+            {
+                foreach (var arg in a)
+                {
+                    combined_args.Add((GeneratedExpr)arg);
+                }
+            }
+
+            // Append starred expressions
+            if (starreds != null)
+            {
+                foreach (var starred in starreds)
+                {
+                    combined_args.Add((GeneratedExpr)starred);
+                }
+            }
+
+            // CPython: Return Call with combined args and keywords
+            return PyAst.Call(DummyName(), combined_args, keywords, lineno, col_offset, end_lineno, end_col_offset);
+        }
+
+        // ==================== F-string Helper Methods ====================
+        // CPython: _PyPegen_constant_from_token - Creates a Constant from a string token
+        public static GeneratedExpr ConstantFromString(GeneratedTokenInfo tok)
+        {
+            return GeneratedParserBridge._PyPegen_constant_from_token(tok);
+        }
+
+        // CPython: _PyPegen_decoded_constant_from_token - Decode constant from token
+        public static GeneratedExpr DecodedConstantFromToken(GeneratedTokenInfo tok)
+        {
+            return GeneratedParserBridge._PyPegen_decoded_constant_from_token(tok);
+        }
+
+        // CPython: _PyPegen_concatenate_strings - Concatenate string expressions
+        public static GeneratedExpr ConcatenateStrings(GeneratedExprSeq strings,
+                                                       int lineno, int col_offset, int end_lineno, int end_col_offset)
+        {
+            // TODO: Implement string concatenation - for now return first string
+            if (strings == null || strings.Count == 0)
+                return PyAst.Constant(new GeneratedPyConstantString(""), null, lineno, col_offset, end_lineno, end_col_offset);
+            return (GeneratedExpr)strings[0];
+        }
+
+        // CPython: _PyPegen_joined_str - Create a JoinedStr (f-string)
+        public static GeneratedExpr JoinedStr(GeneratedExprSeq parts)
+        {
+            return PyAst.JoinedStr(parts, 0, 0, 0, 0);
+        }
+
+        // CPython: _PyPegen_check_fstring_conversion - Check f-string conversion specifier
+        public static GeneratedTokenInfo? CheckFstringConversion(GeneratedTokenInfo? conv)
+        {
+            if (conv == null) return null;
+
+            var text = conv.GetStringValue();
+            if (text != "s" && text != "r" && text != "a")
+            {
+                // TODO: Raise proper syntax error
+                return null;
+            }
+            return conv;
+        }
+
+        // CPython: _PyPegen_setup_full_format_spec - Setup format spec for f-string
+        public static GeneratedExpr? SetupFullFormatSpec(GeneratedTokenInfo? colon, GeneratedExprSeq? spec)
+        {
+            if (colon == null) return null;
+            if (spec == null || spec.Count == 0)
+            {
+                return PyAst.Constant(new GeneratedPyConstantString(""), null, 0, 0, 0, 0);
+            }
+            return JoinedStr(spec);
         }
 
         // TODO: Add more helper methods as needed during grammar rewriting

@@ -396,6 +396,215 @@ public static GeneratedStmt CreatePassStatement(...)
 
 ---
 
+---
+
+## Q6: CPython을 얼마나 추종해야 하는가?
+
+### ✅ 반드시 추종해야 할 것 (MUST Follow)
+
+1. **동작 (Behavior)**
+   - 파싱 결과: 동일한 입력에 대해 동일한 AST 구조
+   - 바이트코드: `python -m dis`와 동일한 바이트코드 생성
+   - 실행 결과: 동일한 Python 코드에 대해 동일한 실행 결과
+
+2. **의미론 (Semantics)**
+   - Python 3.12 언어 명세 완전 준수
+   - 연산자 우선순위, 스코프 규칙, 타입 시스템
+   - 예외 처리, 제너레이터, 코루틴 동작
+
+3. **알고리즘 (Core Algorithms)**
+   - PEG 파싱 알고리즘 (left recursion, memoization)
+   - 바이트코드 생성 로직
+   - 심볼 테이블 구축 방식
+
+### ❌ 추종할 필요 없는 것 (MAY Differ)
+
+1. **C 문법 (C Syntax)**
+   ```c
+   // CPython (C)
+   typedef struct _mod *mod_ty;
+   void *ptr = malloc(sizeof(struct _mod));
+   ```
+   ```csharp
+   // SharpPy (C#) - C 문법 따를 필요 없음
+   public class GeneratedMod { ... }  // typedef 불필요
+   var ptr = new GeneratedMod();      // malloc 불필요
+   ```
+
+2. **구현 패턴 (Implementation Patterns)**
+   ```c
+   // CPython (C)
+   #define EXTRA p->start_lineno, p->start_col_offset, ...
+   stmt_ty result = _PyAST_Pass(EXTRA);
+   ```
+   ```csharp
+   // SharpPy (C#) - C 매크로 따를 필요 없음
+   var result = PyAst.Pass(
+       startLine: GetStartLine(),
+       startCol: GetStartColumn(),
+       ...
+   );  // 명명된 인자로 명확하게
+   ```
+
+3. **코드 구조 (Code Structure)**
+   ```c
+   // CPython (C) - Grammar action
+   | a=NAME b=['as' z=NAME { z }] {
+       _PyAST_alias(a->v.Name.id, b ? b->v.Name.id : NULL, p->arena)
+   }
+   ```
+   ```csharp
+   // SharpPy (C#) - Extension method로 더 간결하게
+   | a=NAME b=['as' z=NAME { z }] {
+       PyAst.Alias(a.GetNameValue(), b.GetNameValue(), EXTRA)
+   }
+   ```
+
+4. **명명 규칙 (Naming Conventions)**
+   - C 스타일 `_PyAST_Pass` vs C# 스타일 `PyAstPass`
+   - **둘 다 무방** - 중요한 것은 일관성과 동작
+
+### 💡 설계 원칙
+
+1. **결과 우선 (Result First)**
+   - CPython과 **동일한 바이트코드**를 생성하는 것이 목표
+   - 과정은 다르더라도 결과가 같으면 성공
+
+2. **C# Idiomatic (Language Best Practices)**
+   - C# 언어의 관례와 베스트 프랙티스 적극 활용
+   - Extension methods, LINQ, nullable reference types 등
+   - C 스타일보다 C# 가독성 우선
+
+3. **가독성 (Readability)**
+   - C 코드를 기계적으로 직역하지 않음
+   - **의도**를 이해하고 C#답게 표현
+   - 복잡한 캐스팅보다 Extension method
+
+4. **유지보수성 (Maintainability)**
+   - 코드 중복 제거
+   - 적절한 추상화 사용
+   - 중앙화된 타입 변환 로직
+
+### 📝 실전 예시
+
+#### 예시 1: Property 접근
+
+**CPython (C):**
+```c
+// Grammar/python.gram
+import_from_as_name[alias_ty]:
+    | a=NAME b=['as' z=NAME { z }] {
+        _PyAST_alias(a->v.Name.id, b ? b->v.Name.id : NULL, p->arena)
+    }
+```
+
+**SharpPy (Bad - C 직역):**
+```csharp
+// Grammar/python_cs.gram
+import_from_as_name[GeneratedAlias]:
+    | a=NAME b=['as' z=NAME { z }] {
+        PyAst.Alias(((GeneratedTokenInfo)a).Value,
+                    ((GeneratedTokenInfo?)b)?.Value,
+                    EXTRA)
+    }
+```
+→ **문제:** 복잡한 캐스팅 반복, 가독성 저하
+
+**SharpPy (Good - C# Idiomatic):**
+```csharp
+// Extension method 정의 (한 번만)
+public static string GetNameValue(this GeneratedPtr ptr)
+    => ((GeneratedTokenInfo)ptr).Value;
+
+// Grammar/python_cs.gram
+import_from_as_name[GeneratedAlias]:
+    | a=NAME b=['as' z=NAME { z }] {
+        PyAst.Alias(a.GetNameValue(), b.GetNameValue(), EXTRA)
+    }
+```
+→ **장점:** 간결, 중앙화된 타입 변환, C# fluent API 스타일
+
+#### 예시 2: 함수 시그니처
+
+**CPython (C):**
+```c
+// Python-ast.c
+alias_ty _PyAST_alias(identifier name, identifier asname, PyArena *arena) {
+    alias_ty p = PyArena_Malloc(arena, sizeof(*p));
+    p->name = name;
+    p->asname = asname;
+    return p;
+}
+```
+
+**SharpPy (유지):**
+```csharp
+// Parser/AstFactory.cs
+public static GeneratedAlias _PyAST_alias(string name, string? asname, ...) {
+    return new GeneratedAlias {
+        Name = name,
+        Asname = asname
+    };
+}
+```
+→ **동작 동일, 메모리 관리만 C#답게 (GC 사용)**
+
+#### 예시 3: 복잡한 로직
+
+**CPython (C):**
+```c
+// Parser/pegen.c
+asdl_seq *_PyPegen_seq_flatten(Parser *p, asdl_seq *seqs) {
+    Py_ssize_t total_size = 0;
+    for (Py_ssize_t i = 0; i < asdl_seq_LEN(seqs); i++) {
+        asdl_seq *inner = asdl_seq_GET(seqs, i);
+        total_size += asdl_seq_LEN(inner);
+    }
+    asdl_seq *res = _Py_asdl_generic_seq_new(total_size, p->arena);
+    // ... flatten logic
+    return res;
+}
+```
+
+**SharpPy (C#답게 구현):**
+```csharp
+// Parser/GeneratedParserBridge.cs
+public static GeneratedStmtSeq _PyPegen_seq_flatten(List<GeneratedStmtSeq> sequences) {
+    var result = new GeneratedStmtSeq();
+    foreach (var seq in sequences)
+        result.AddRange(seq);  // LINQ-like, 간결
+    return result;
+}
+```
+→ **동일한 동작, C# 컬렉션 API 활용**
+
+### ⚖️ 판단 기준
+
+**이렇게 자문하세요:**
+
+1. ❓ "이 코드가 CPython과 다른 결과를 만드는가?"
+   - **YES** → ❌ 수정 필요
+   - **NO** → ✅ C#답게 작성해도 무방
+
+2. ❓ "C 스타일을 따르면 더 명확해지는가?"
+   - **YES** → ⚠️ C 스타일 허용 (예: `_PyAST_*` 함수명)
+   - **NO** → ✅ C# 스타일 우선
+
+3. ❓ "이 추상화가 유지보수에 도움이 되는가?"
+   - **YES** → ✅ Extension method, Helper 사용
+   - **NO** → ⚠️ 과도한 추상화 지양
+
+### 🎯 결론
+
+**"CPython의 정신을 따르되, C의 형식을 강요하지 말라"**
+
+- ✅ 동작, 결과, 알고리즘 = 완벽히 추종
+- ✅ 문법, 구현, 스타일 = C#답게 변형
+- ✅ 의도 파악 후 최선의 C# 코드 작성
+- ❌ 기계적 C→C# 번역 지양
+
+---
+
 ## 핵심 교훈
 
 1. **KeywordExtractor**: 답을 갖고 있지 말고, grammar에서 **발견**하라
@@ -403,3 +612,4 @@ public static GeneratedStmt CreatePassStatement(...)
 3. **PyParserHelpers**: C 스타일 흉내를 내지 말고, **C# 스타일로 직접 작성**하라
 4. **문제 해결**: 빠른 수정보다 **근본 원인 분석**을 우선하라
 5. **개발 순서**: 행동보다 **생각**을 우선하라
+6. **CPython 추종**: 결과를 추종하되, 구현은 **C#답게** 작성하라

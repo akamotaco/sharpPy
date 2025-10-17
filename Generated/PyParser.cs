@@ -61,8 +61,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: file
         /// Alternatives: 1
+        /// Return Type: GeneratedMod
         /// </summary>
-        private GeneratedPtr? Parse_File()
+        private GeneratedMod? Parse_File()
         {
             int _mark = Mark();
 
@@ -70,13 +71,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedStmtSeq? a = null;
 
-                if ((a = ParseOptional(() => Parse_Statements())) == null) return null;
+                if ((a = (GeneratedStmtSeq)ParseOptional(() => Parse_Statements())) == null) return null;
                 if (Expect(PyToken.Type.ENDMARKER, "ENDMARKER") == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . MakeModule ( a );
+                return ( GeneratedMod ) PyParserHelpers . MakeModule (( GeneratedStmtSeq ?) a );
             }
 
             Reset(_mark);
@@ -86,8 +87,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: interactive
         /// Alternatives: 1
+        /// Return Type: GeneratedMod
         /// </summary>
-        private GeneratedPtr? Parse_Interactive()
+        private GeneratedMod? Parse_Interactive()
         {
             int _mark = Mark();
 
@@ -95,12 +97,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedStmtSeq? a = null;
 
                 if ((a = Parse_StatementNewline()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Interactive ( a );
+                return ( GeneratedMod ) PyAst . Interactive (( GeneratedStmtSeq ) a );
             }
 
             Reset(_mark);
@@ -110,8 +112,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: eval
         /// Alternatives: 1
+        /// Return Type: GeneratedMod
         /// </summary>
-        private GeneratedPtr? Parse_Eval()
+        private GeneratedMod? Parse_Eval()
         {
             int _mark = Mark();
 
@@ -119,14 +122,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if ((a = Parse_Expressions()) == null) return null;
                 if (ParseZeroOrMore(() => Expect(PyToken.Type.NEWLINE, "NEWLINE")) == null) return null;
                 if (Expect(PyToken.Type.ENDMARKER, "ENDMARKER") == null) return null;
 
                 // Action code from grammar
-                return PyAst . Expression ( a );
+                return ( GeneratedMod ) PyAst . Expression (( GeneratedExpr ) a );
             }
 
             Reset(_mark);
@@ -136,8 +139,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: func_type
         /// Alternatives: 1
+        /// Return Type: GeneratedMod
         /// </summary>
-        private GeneratedPtr? Parse_FuncType()
+        private GeneratedMod? Parse_FuncType()
         {
             int _mark = Mark();
 
@@ -145,11 +149,11 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExprSeq? a = null;
+                GeneratedExpr? b = null;
 
                 if (ExpectOp("(") == null) return null;
-                if ((a = ParseOptional(() => Parse_TypeExpressions())) == null) return null;
+                if ((a = (GeneratedExprSeq)ParseOptional(() => Parse_TypeExpressions())) == null) return null;
                 if (ExpectOp(")") == null) return null;
                 if (ExpectOp("->") == null) return null;
                 if ((b = Parse_Expression()) == null) return null;
@@ -157,7 +161,7 @@ namespace SharpPy.Generated
                 if (Expect(PyToken.Type.ENDMARKER, "ENDMARKER") == null) return null;
 
                 // Action code from grammar
-                return PyAst . FunctionType ( a , b );
+                return ( GeneratedMod ) PyAst . FunctionType (( GeneratedExprSeq ?) a ,( GeneratedExpr ) b );
             }
 
             Reset(_mark);
@@ -167,8 +171,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: statements
         /// Alternatives: 1
+        /// Return Type: GeneratedStmtSeq
         /// </summary>
-        private GeneratedPtr? Parse_Statements()
+        private GeneratedStmtSeq? Parse_Statements()
         {
             int _mark = Mark();
 
@@ -176,12 +181,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedSeq? a = null;
 
                 if ((a = ParseOneOrMore(() => Parse_Statement())) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . FlattenStatementSequence ( a );
+                return PyParserHelpers . FlattenStatementSequence ( a ). Cast < GeneratedStmtSeq >();
             }
 
             Reset(_mark);
@@ -191,8 +196,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: statement
         /// Alternatives: 2
+        /// Return Type: GeneratedStmtSeq
         /// </summary>
-        private GeneratedPtr? Parse_Statement()
+        private GeneratedStmtSeq? Parse_Statement()
         {
             int _mark = Mark();
 
@@ -200,12 +206,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedStmt? a = null;
 
                 if ((a = Parse_CompoundStmt()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SingletonSequence ( a );
+                return PyParserHelpers . SingletonSequence (( GeneratedStmt ) a ). Cast < GeneratedStmtSeq >();
             }
 
             // Alternative 2
@@ -213,7 +219,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedStmtSeq? a = null;
 
                 if ((a = Parse_SimpleStmts()) == null) return null;
 
@@ -228,8 +234,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: statement_newline
         /// Alternatives: 4
+        /// Return Type: GeneratedStmtSeq
         /// </summary>
-        private GeneratedPtr? Parse_StatementNewline()
+        private GeneratedStmtSeq? Parse_StatementNewline()
         {
             int _mark = Mark();
 
@@ -237,13 +244,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedStmt? a = null;
 
                 if ((a = Parse_CompoundStmt()) == null) return null;
                 if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SingletonSequence ( a );
+                return PyParserHelpers . SingletonSequence (( GeneratedStmt ) a ). Cast < GeneratedStmtSeq >();
             }
 
             // Alternative 2
@@ -255,7 +262,7 @@ namespace SharpPy.Generated
                 if (Parse_SimpleStmts() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 3
@@ -267,7 +274,7 @@ namespace SharpPy.Generated
                 if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SingletonSequence ( Check < GeneratedStmt >( PyAst . Pass ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset )));
+                return PyParserHelpers . SingletonSequence ( Check < GeneratedStmt >( PyAst . Pass ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ))). Cast < GeneratedStmtSeq >();
             }
 
             // Alternative 4
@@ -289,8 +296,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: simple_stmts
         /// Alternatives: 2
+        /// Return Type: GeneratedStmtSeq
         /// </summary>
-        private GeneratedPtr? Parse_SimpleStmts()
+        private GeneratedStmtSeq? Parse_SimpleStmts()
         {
             int _mark = Mark();
 
@@ -298,14 +306,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedStmt? a = null;
 
                 if ((a = Parse_SimpleStmt()) == null) return null;
                 if (NegativeLookahead(() => ExpectOp(";")) == null) return null;
                 if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SingletonSequence ( a );
+                return PyParserHelpers . SingletonSequence (( GeneratedStmt ) a ). Cast < GeneratedStmtSeq >();
             }
 
             // Alternative 2
@@ -313,14 +321,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedSeq? a = null;
 
                 if ((a = ParseGatherPlus(() => ExpectOp(";"), () => Parse_SimpleStmt())) == null) return null;
                 if (ParseOptional(() => ExpectOp(";")) == null) return null;
                 if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
 
                 // Action code from grammar
-                return a;
+                return ( GeneratedStmtSeq ) a;
             }
 
             Reset(_mark);
@@ -330,8 +338,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: simple_stmt
         /// Alternatives: 14
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_SimpleStmt()
+        private GeneratedStmt? Parse_SimpleStmt()
         {
             int _mark = Mark();
 
@@ -343,7 +352,7 @@ namespace SharpPy.Generated
                 if (Parse_Assignment() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -356,7 +365,7 @@ namespace SharpPy.Generated
                 if (Parse_TypeAlias() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 3
@@ -364,12 +373,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? e = null;
+                GeneratedExpr? e = null;
 
                 if ((e = Parse_StarExpressions()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Expr ( e , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Expr (( GeneratedExpr ) e , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 4
@@ -382,7 +391,7 @@ namespace SharpPy.Generated
                 if (Parse_ReturnStmt() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 5
@@ -395,7 +404,7 @@ namespace SharpPy.Generated
                 if (Parse_ImportStmt() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 6
@@ -408,7 +417,7 @@ namespace SharpPy.Generated
                 if (Parse_RaiseStmt() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 7
@@ -433,7 +442,7 @@ namespace SharpPy.Generated
                 if (Parse_DelStmt() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 9
@@ -446,7 +455,7 @@ namespace SharpPy.Generated
                 if (Parse_YieldStmt() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 10
@@ -459,7 +468,7 @@ namespace SharpPy.Generated
                 if (Parse_AssertStmt() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 11
@@ -496,7 +505,7 @@ namespace SharpPy.Generated
                 if (Parse_GlobalStmt() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 14
@@ -509,7 +518,7 @@ namespace SharpPy.Generated
                 if (Parse_NonlocalStmt() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -519,8 +528,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: compound_stmt
         /// Alternatives: 8
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_CompoundStmt()
+        private GeneratedStmt? Parse_CompoundStmt()
         {
             int _mark = Mark();
 
@@ -528,7 +538,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedStmt? a = null;
 
                 if (PositiveLookahead(() => ParseGroup()) == null) return null;
                 if ((a = Parse_FunctionDef()) == null) return null;
@@ -542,7 +552,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedStmt? a = null;
 
                 if (PositiveLookahead(() => ExpectKeyword("if")) == null) return null;
                 if ((a = Parse_IfStmt()) == null) return null;
@@ -556,7 +566,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedStmt? a = null;
 
                 if (PositiveLookahead(() => ParseGroup()) == null) return null;
                 if ((a = Parse_ClassDef()) == null) return null;
@@ -570,7 +580,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedStmt? a = null;
 
                 if (PositiveLookahead(() => ParseGroup()) == null) return null;
                 if ((a = Parse_WithStmt()) == null) return null;
@@ -584,7 +594,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedStmt? a = null;
 
                 if (PositiveLookahead(() => ParseGroup()) == null) return null;
                 if ((a = Parse_ForStmt()) == null) return null;
@@ -598,7 +608,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedStmt? a = null;
 
                 if (PositiveLookahead(() => ExpectKeyword("try")) == null) return null;
                 if ((a = Parse_TryStmt()) == null) return null;
@@ -612,7 +622,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedStmt? a = null;
 
                 if (PositiveLookahead(() => ExpectKeyword("while")) == null) return null;
                 if ((a = Parse_WhileStmt()) == null) return null;
@@ -626,7 +636,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedStmt? a = null;
 
                 if ((a = Parse_MatchStmt()) == null) return null;
 
@@ -641,8 +651,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: assignment
         /// Alternatives: 5
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_Assignment()
+        private GeneratedStmt? Parse_Assignment()
         {
             int _mark = Mark();
 
@@ -650,8 +661,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedExpr? b = null;
                 GeneratedPtr? c = null;
 
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
@@ -660,7 +671,7 @@ namespace SharpPy.Generated
                 if ((c = ParseOptional(() => ParseGroup())) == null) return null;
 
                 // Action code from grammar
-                return CheckVersion ( 6 , "Variable annotation syntax is" , PyAst . AnnAssign ( Check < GeneratedExpr >( PyParserHelpers . SetExprContext ( a , GeneratedStore.Instance )), b , c , isSimple : true , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                return CheckVersion ( 6 , "Variable annotation syntax is" , PyAst . AnnAssign ( Check < GeneratedExpr >( PyParserHelpers . SetExprContext ( NameToken ( a ), GeneratedStore.Instance )),( GeneratedExpr ) b ,( GeneratedExpr ?) c , 1 , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
             }
 
             // Alternative 2
@@ -669,7 +680,7 @@ namespace SharpPy.Generated
                 CaptureStart();
 
                 GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? b = null;
                 GeneratedPtr? c = null;
 
                 if ((a = ParseGroup()) == null) return null;
@@ -678,7 +689,7 @@ namespace SharpPy.Generated
                 if ((c = ParseOptional(() => ParseGroup())) == null) return null;
 
                 // Action code from grammar
-                return CheckVersion ( 6 , "Variable annotations syntax is" , PyAst . AnnAssign ( a , b , c , isSimple : false , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                return CheckVersion ( 6 , "Variable annotations syntax is" , PyAst . AnnAssign (( GeneratedExpr ) a ,( GeneratedExpr ) b ,( GeneratedExpr ?) c , 0 , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
             }
 
             // Alternative 3
@@ -688,15 +699,15 @@ namespace SharpPy.Generated
 
                 GeneratedExprSeq? a = null;
                 GeneratedPtr? b = null;
-                GeneratedPtr? tc = null;
+                GeneratedTokenInfo? tc = null;
 
-                if ((a = ParseOneOrMore(() => ParseGroup())) == null) return null;
+                if ((a = (GeneratedExprSeq)ParseOneOrMore(() => ParseGroup())) == null) return null;
                 if ((b = ParseGroup()) == null) return null;
                 if (NegativeLookahead(() => ExpectOp("=")) == null) return null;
-                if ((tc = ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
+                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Assign ( a , b , tc ?. Value , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Assign (( GeneratedExprSeq ) a ,( GeneratedExpr ) b , tc . GetCommentValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 4
@@ -704,8 +715,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedOperator? b = null;
                 GeneratedPtr? c = null;
 
                 if ((a = Parse_SingleTarget()) == null) return null;
@@ -713,7 +724,7 @@ namespace SharpPy.Generated
                 if ((c = ParseGroup()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . AugAssign ( a , b , c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . AugAssign (( GeneratedExpr ) a ,( GeneratedOperator ) b ,( GeneratedExpr ) c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 5
@@ -725,7 +736,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidAssignment() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -735,8 +746,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: annotated_rhs
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_AnnotatedRhs()
+        private GeneratedExpr? Parse_AnnotatedRhs()
         {
             int _mark = Mark();
 
@@ -744,7 +756,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if ((a = Parse_YieldExpr()) == null) return null;
 
@@ -757,7 +769,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if ((a = Parse_StarExpressions()) == null) return null;
 
@@ -772,8 +784,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: augassign
         /// Alternatives: 13
+        /// Return Type: GeneratedOperator
         /// </summary>
-        private GeneratedPtr? Parse_Augassign()
+        private GeneratedOperator? Parse_Augassign()
         {
             int _mark = Mark();
 
@@ -939,8 +952,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: return_stmt
         /// Alternatives: 1
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_ReturnStmt()
+        private GeneratedStmt? Parse_ReturnStmt()
         {
             int _mark = Mark();
 
@@ -948,13 +962,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectKeyword("return") == null) return null;
-                if ((a = ParseOptional(() => Parse_StarExpressions())) == null) return null;
+                if ((a = (GeneratedExpr)ParseOptional(() => Parse_StarExpressions())) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Return ( a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Return (( GeneratedExpr ?) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -964,8 +978,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: raise_stmt
         /// Alternatives: 2
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_RaiseStmt()
+        private GeneratedStmt? Parse_RaiseStmt()
         {
             int _mark = Mark();
 
@@ -973,7 +988,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
                 GeneratedPtr? b = null;
 
                 if (ExpectKeyword("raise") == null) return null;
@@ -981,7 +996,7 @@ namespace SharpPy.Generated
                 if ((b = ParseOptional(() => ParseGroup())) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Raise ( a , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Raise (( GeneratedExpr ) a ,( GeneratedExpr ?) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -1003,8 +1018,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: global_stmt
         /// Alternatives: 1
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_GlobalStmt()
+        private GeneratedStmt? Parse_GlobalStmt()
         {
             int _mark = Mark();
 
@@ -1015,10 +1031,10 @@ namespace SharpPy.Generated
                 GeneratedExprSeq? a = null;
 
                 if (ExpectKeyword("global") == null) return null;
-                if ((a = ParseGatherPlus(() => ExpectOp(","), () => Expect(PyToken.Type.NAME, "NAME"))) == null) return null;
+                if ((a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Expect(PyToken.Type.NAME, "NAME"))) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Global ( Check < GeneratedIdentifierSeq >( PyParserHelpers . MapNamesToIds ( a )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Global ( Check < GeneratedIdentifierSeq >( PyParserHelpers . MapNamesToIds (( GeneratedExprSeq ) a )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -1028,8 +1044,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: nonlocal_stmt
         /// Alternatives: 1
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_NonlocalStmt()
+        private GeneratedStmt? Parse_NonlocalStmt()
         {
             int _mark = Mark();
 
@@ -1040,10 +1057,10 @@ namespace SharpPy.Generated
                 GeneratedExprSeq? a = null;
 
                 if (ExpectKeyword("nonlocal") == null) return null;
-                if ((a = ParseGatherPlus(() => ExpectOp(","), () => Expect(PyToken.Type.NAME, "NAME"))) == null) return null;
+                if ((a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Expect(PyToken.Type.NAME, "NAME"))) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Nonlocal ( Check < GeneratedIdentifierSeq >( PyParserHelpers . MapNamesToIds ( a )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Nonlocal ( Check < GeneratedIdentifierSeq >( PyParserHelpers . MapNamesToIds (( GeneratedExprSeq ) a )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -1053,8 +1070,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: del_stmt
         /// Alternatives: 2
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_DelStmt()
+        private GeneratedStmt? Parse_DelStmt()
         {
             int _mark = Mark();
 
@@ -1062,14 +1080,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExprSeq? a = null;
 
                 if (ExpectKeyword("del") == null) return null;
                 if ((a = Parse_DelTargets()) == null) return null;
                 if (PositiveLookahead(() => ParseGroup()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Delete ( a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Delete (( GeneratedExprSeq ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -1081,7 +1099,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidDelStmt() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -1091,8 +1109,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: yield_stmt
         /// Alternatives: 1
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_YieldStmt()
+        private GeneratedStmt? Parse_YieldStmt()
         {
             int _mark = Mark();
 
@@ -1100,12 +1119,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? y = null;
+                GeneratedExpr? y = null;
 
                 if ((y = Parse_YieldExpr()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Expr ( y , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Expr (( GeneratedExpr ) y , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -1115,8 +1134,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: assert_stmt
         /// Alternatives: 1
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_AssertStmt()
+        private GeneratedStmt? Parse_AssertStmt()
         {
             int _mark = Mark();
 
@@ -1124,7 +1144,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
                 GeneratedPtr? b = null;
 
                 if (ExpectKeyword("assert") == null) return null;
@@ -1132,7 +1152,7 @@ namespace SharpPy.Generated
                 if ((b = ParseOptional(() => ParseGroup())) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Assert ( a , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Assert (( GeneratedExpr ) a ,( GeneratedExpr ?) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -1142,8 +1162,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: import_stmt
         /// Alternatives: 3
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_ImportStmt()
+        private GeneratedStmt? Parse_ImportStmt()
         {
             int _mark = Mark();
 
@@ -1155,7 +1176,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidImport() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -1167,7 +1188,7 @@ namespace SharpPy.Generated
                 if (Parse_ImportName() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 3
@@ -1179,7 +1200,7 @@ namespace SharpPy.Generated
                 if (Parse_ImportFrom() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -1189,8 +1210,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: import_name
         /// Alternatives: 1
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_ImportName()
+        private GeneratedStmt? Parse_ImportName()
         {
             int _mark = Mark();
 
@@ -1198,13 +1220,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedAliasSeq? a = null;
 
                 if (ExpectKeyword("import") == null) return null;
                 if ((a = Parse_DottedAsNames()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Import ( a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Import (( GeneratedAliasSeq ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -1214,8 +1236,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: import_from
         /// Alternatives: 2
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_ImportFrom()
+        private GeneratedStmt? Parse_ImportFrom()
         {
             int _mark = Mark();
 
@@ -1223,9 +1246,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
-                GeneratedPtr? c = null;
+                GeneratedSeq? a = null;
+                GeneratedExpr? b = null;
+                GeneratedAliasSeq? c = null;
 
                 if (ExpectKeyword("from") == null) return null;
                 if ((a = ParseZeroOrMore(() => ParseGroup())) == null) return null;
@@ -1234,7 +1257,7 @@ namespace SharpPy.Generated
                 if ((c = Parse_ImportFromTargets()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . CheckedFutureImport ((( GeneratedName ) b ). Id , c , PyParserHelpers . SeqCountDots ( a ), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyParserHelpers . CheckedFutureImport ( b . GetIdentifier (),( GeneratedAliasSeq ) c , PyParserHelpers . SeqCountDots ( a . ToRawList ()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -1242,8 +1265,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedSeq? a = null;
+                GeneratedAliasSeq? b = null;
 
                 if (ExpectKeyword("from") == null) return null;
                 if ((a = ParseOneOrMore(() => ParseGroup())) == null) return null;
@@ -1251,7 +1274,7 @@ namespace SharpPy.Generated
                 if ((b = Parse_ImportFromTargets()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . ImportFrom ( null , b , PyParserHelpers . SeqCountDots ( a ), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . ImportFrom ( null ,( GeneratedAliasSeq ) b , PyParserHelpers . SeqCountDots ( a . ToRawList ()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -1261,8 +1284,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: import_from_targets
         /// Alternatives: 4
+        /// Return Type: GeneratedAliasSeq
         /// </summary>
-        private GeneratedPtr? Parse_ImportFromTargets()
+        private GeneratedAliasSeq? Parse_ImportFromTargets()
         {
             int _mark = Mark();
 
@@ -1270,7 +1294,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedAliasSeq? a = null;
 
                 if (ExpectOp("(") == null) return null;
                 if ((a = Parse_ImportFromAsNames()) == null) return null;
@@ -1291,7 +1315,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => ExpectOp(",")) == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 3
@@ -1303,7 +1327,7 @@ namespace SharpPy.Generated
                 if (ExpectOp("*") == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SingletonSequence ( Check < GeneratedAlias >( PyParserHelpers . AliasForStar ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset )));
+                return PyParserHelpers . SingletonSequence ( Check < GeneratedAlias >( PyParserHelpers . AliasForStar ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ))). Cast < GeneratedAliasSeq >();
             }
 
             // Alternative 4
@@ -1315,7 +1339,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidImportFromTargets() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -1325,8 +1349,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: import_from_as_names
         /// Alternatives: 1
+        /// Return Type: GeneratedAliasSeq
         /// </summary>
-        private GeneratedPtr? Parse_ImportFromAsNames()
+        private GeneratedAliasSeq? Parse_ImportFromAsNames()
         {
             int _mark = Mark();
 
@@ -1336,7 +1361,7 @@ namespace SharpPy.Generated
 
                 GeneratedAliasSeq? a = null;
 
-                if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_ImportFromAsName())) == null) return null;
+                if ((a = (GeneratedAliasSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_ImportFromAsName())) == null) return null;
 
                 // Action code from grammar
                 return a;
@@ -1349,8 +1374,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: import_from_as_name
         /// Alternatives: 1
+        /// Return Type: GeneratedAlias
         /// </summary>
-        private GeneratedPtr? Parse_ImportFromAsName()
+        private GeneratedAlias? Parse_ImportFromAsName()
         {
             int _mark = Mark();
 
@@ -1358,14 +1384,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
                 GeneratedPtr? b = null;
 
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
                 if ((b = ParseOptional(() => ParseGroup())) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Alias ( a . Id , b ?. Value , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Alias ( a . GetNameValue (), b . GetNameValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -1375,8 +1401,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: dotted_as_names
         /// Alternatives: 1
+        /// Return Type: GeneratedAliasSeq
         /// </summary>
-        private GeneratedPtr? Parse_DottedAsNames()
+        private GeneratedAliasSeq? Parse_DottedAsNames()
         {
             int _mark = Mark();
 
@@ -1386,7 +1413,7 @@ namespace SharpPy.Generated
 
                 GeneratedAliasSeq? a = null;
 
-                if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_DottedAsName())) == null) return null;
+                if ((a = (GeneratedAliasSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_DottedAsName())) == null) return null;
 
                 // Action code from grammar
                 return a;
@@ -1399,8 +1426,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: dotted_as_name
         /// Alternatives: 1
+        /// Return Type: GeneratedAlias
         /// </summary>
-        private GeneratedPtr? Parse_DottedAsName()
+        private GeneratedAlias? Parse_DottedAsName()
         {
             int _mark = Mark();
 
@@ -1408,14 +1436,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
                 GeneratedPtr? b = null;
 
                 if ((a = Parse_DottedName()) == null) return null;
                 if ((b = ParseOptional(() => ParseGroup())) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Alias ((( GeneratedName ) a ). Id , b ?. Value , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Alias ( a . GetIdentifier (), b . GetNameValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -1425,8 +1453,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: dotted_name
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_DottedName()
+        private GeneratedExpr? Parse_DottedName()
         {
             int _mark = Mark();
 
@@ -1434,15 +1463,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedTokenInfo? b = null;
 
                 if ((a = Parse_DottedName()) == null) return null;
                 if (ExpectOp(".") == null) return null;
                 if ((b = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . JoinNamesWithDot ( a , b );
+                return PyParserHelpers . JoinNamesWithDot ( a , NameToken ( b ));
             }
 
             // Alternative 2
@@ -1454,7 +1483,7 @@ namespace SharpPy.Generated
                 if (Expect(PyToken.Type.NAME, "NAME") == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -1464,8 +1493,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: block
         /// Alternatives: 3
+        /// Return Type: GeneratedStmtSeq
         /// </summary>
-        private GeneratedPtr? Parse_Block()
+        private GeneratedStmtSeq? Parse_Block()
         {
             int _mark = Mark();
 
@@ -1473,7 +1503,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedStmtSeq? a = null;
 
                 if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
                 if (Expect(PyToken.Type.INDENT, "INDENT") == null) return null;
@@ -1493,7 +1523,7 @@ namespace SharpPy.Generated
                 if (Parse_SimpleStmts() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 3
@@ -1505,7 +1535,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidBlock() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -1515,8 +1545,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: decorators
         /// Alternatives: 1
+        /// Return Type: GeneratedExprSeq
         /// </summary>
-        private GeneratedPtr? Parse_Decorators()
+        private GeneratedExprSeq? Parse_Decorators()
         {
             int _mark = Mark();
 
@@ -1526,7 +1557,7 @@ namespace SharpPy.Generated
 
                 GeneratedExprSeq? a = null;
 
-                if ((a = ParseOneOrMore(() => ParseGroup())) == null) return null;
+                if ((a = (GeneratedExprSeq)ParseOneOrMore(() => ParseGroup())) == null) return null;
 
                 // Action code from grammar
                 return a;
@@ -1539,8 +1570,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: class_def
         /// Alternatives: 2
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_ClassDef()
+        private GeneratedStmt? Parse_ClassDef()
         {
             int _mark = Mark();
 
@@ -1548,8 +1580,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExprSeq? a = null;
+                GeneratedStmt? b = null;
 
                 if ((a = Parse_Decorators()) == null) return null;
                 if ((b = Parse_ClassDefRaw()) == null) return null;
@@ -1567,7 +1599,7 @@ namespace SharpPy.Generated
                 if (Parse_ClassDefRaw() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -1577,8 +1609,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: class_def_raw
         /// Alternatives: 2
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_ClassDefRaw()
+        private GeneratedStmt? Parse_ClassDefRaw()
         {
             int _mark = Mark();
 
@@ -1590,7 +1623,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidClassDefRaw() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -1598,20 +1631,20 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? t = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedTypeParamSeq? t = null;
                 GeneratedPtr? b = null;
-                GeneratedPtr? c = null;
+                GeneratedStmtSeq? c = null;
 
                 if (ExpectKeyword("class") == null) return null;
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if ((t = ParseOptional(() => Parse_TypeParams())) == null) return null;
+                if ((t = (GeneratedTypeParamSeq)ParseOptional(() => Parse_TypeParams())) == null) return null;
                 if ((b = ParseOptional(() => ParseGroup())) == null) return null;
                 if (ExpectOp(":") == null) return null;
                 if ((c = Parse_Block()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . ClassDef ( a . Id ,( b )?(( GeneratedCall ) b ). Args : null !,( b )?(( GeneratedCall ) b ). Keywords : null !, c , null !, t , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . ClassDef ( a . GetNameValue (),( b != null )?(( GeneratedCall ) b ). Args : null !,( b != null )?(( GeneratedCall ) b ). Keywords : null !, c , null !, t , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -1621,8 +1654,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: function_def
         /// Alternatives: 2
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_FunctionDef()
+        private GeneratedStmt? Parse_FunctionDef()
         {
             int _mark = Mark();
 
@@ -1630,8 +1664,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? d = null;
-                GeneratedPtr? f = null;
+                GeneratedExprSeq? d = null;
+                GeneratedStmt? f = null;
 
                 if ((d = Parse_Decorators()) == null) return null;
                 if ((f = Parse_FunctionDefRaw()) == null) return null;
@@ -1649,7 +1683,7 @@ namespace SharpPy.Generated
                 if (Parse_FunctionDefRaw() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -1659,8 +1693,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: function_def_raw
         /// Alternatives: 3
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_FunctionDefRaw()
+        private GeneratedStmt? Parse_FunctionDefRaw()
         {
             int _mark = Mark();
 
@@ -1672,7 +1707,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidDefRaw() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -1680,26 +1715,26 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? n = null;
-                GeneratedPtr? t = null;
-                GeneratedPtr? params_ = null;
+                GeneratedTokenInfo? n = null;
+                GeneratedTypeParamSeq? t = null;
+                GeneratedArguments? params_ = null;
                 GeneratedPtr? a = null;
-                GeneratedPtr? tc = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? tc = null;
+                GeneratedStmtSeq? b = null;
 
                 if (ExpectKeyword("def") == null) return null;
                 if ((n = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if ((t = ParseOptional(() => Parse_TypeParams())) == null) return null;
+                if ((t = (GeneratedTypeParamSeq)ParseOptional(() => Parse_TypeParams())) == null) return null;
                 if (PositiveLookahead(() => PositiveLookahead(() => ExpectOp("("))) == null) return null;
-                if ((params_ = ParseOptional(() => Parse_Params())) == null) return null;
+                if ((params_ = (GeneratedArguments)ParseOptional(() => Parse_Params())) == null) return null;
                 if (ExpectOp(")") == null) return null;
                 if ((a = ParseOptional(() => ParseGroup())) == null) return null;
                 if (PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) == null) return null;
-                if ((tc = ParseOptional(() => Parse_FuncTypeComment())) == null) return null;
+                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Parse_FuncTypeComment())) == null) return null;
                 if ((b = Parse_Block()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . FunctionDef ( n . Id ,( params_ )? params_ : Check < GeneratedArguments >( PyParserHelpers . EmptyArguments ()), b , null , a , tc ?. Value , t , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . FunctionDef ( n . GetNameValue (),( params_ != null )? params_ :( GeneratedArguments ) Check < GeneratedArguments >( PyParserHelpers . EmptyArguments ()), b , null ,( GeneratedExpr ?) a , tc . GetCommentValue (), t , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 3
@@ -1707,27 +1742,27 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? n = null;
-                GeneratedPtr? t = null;
-                GeneratedPtr? params_ = null;
+                GeneratedTokenInfo? n = null;
+                GeneratedTypeParamSeq? t = null;
+                GeneratedArguments? params_ = null;
                 GeneratedPtr? a = null;
-                GeneratedPtr? tc = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? tc = null;
+                GeneratedStmtSeq? b = null;
 
                 if (Expect(PyToken.Type.ASYNC, "ASYNC") == null) return null;
                 if (ExpectKeyword("def") == null) return null;
                 if ((n = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if ((t = ParseOptional(() => Parse_TypeParams())) == null) return null;
+                if ((t = (GeneratedTypeParamSeq)ParseOptional(() => Parse_TypeParams())) == null) return null;
                 if (PositiveLookahead(() => PositiveLookahead(() => ExpectOp("("))) == null) return null;
-                if ((params_ = ParseOptional(() => Parse_Params())) == null) return null;
+                if ((params_ = (GeneratedArguments)ParseOptional(() => Parse_Params())) == null) return null;
                 if (ExpectOp(")") == null) return null;
                 if ((a = ParseOptional(() => ParseGroup())) == null) return null;
                 if (PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) == null) return null;
-                if ((tc = ParseOptional(() => Parse_FuncTypeComment())) == null) return null;
+                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Parse_FuncTypeComment())) == null) return null;
                 if ((b = Parse_Block()) == null) return null;
 
                 // Action code from grammar
-                return CheckVersion ( 5 , "Async functions are" , PyAst . AsyncFunctionDef ( n . Id ,( params_ )? params_ : Check < GeneratedArguments >( PyParserHelpers . EmptyArguments ()), b , null , a , tc ?. Value , t , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                return CheckVersion ( 5 , "Async functions are" , PyAst . AsyncFunctionDef ( n . GetNameValue (),( params_ != null )? params_ :( GeneratedArguments ) Check < GeneratedArguments >( PyParserHelpers . EmptyArguments ()), b , null ,( GeneratedExpr ?) a , tc . GetCommentValue (), t , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
             }
 
             Reset(_mark);
@@ -1737,8 +1772,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: params
         /// Alternatives: 2
+        /// Return Type: GeneratedArguments
         /// </summary>
-        private GeneratedPtr? Parse_Params()
+        private GeneratedArguments? Parse_Params()
         {
             int _mark = Mark();
 
@@ -1751,7 +1787,7 @@ namespace SharpPy.Generated
                 if ((a = Parse_InvalidParameters()) == null) return null;
 
                 // Action code from grammar
-                return a;
+                return ( GeneratedArguments ) a;
             }
 
             // Alternative 2
@@ -1759,12 +1795,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedArguments? a = null;
 
                 if ((a = Parse_Parameters()) == null) return null;
 
                 // Action code from grammar
-                return a;
+                return ( GeneratedArguments ) a;
             }
 
             Reset(_mark);
@@ -1774,8 +1810,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: parameters
         /// Alternatives: 5
+        /// Return Type: GeneratedArguments
         /// </summary>
-        private GeneratedPtr? Parse_Parameters()
+        private GeneratedArguments? Parse_Parameters()
         {
             int _mark = Mark();
 
@@ -1783,18 +1820,18 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedArgSeq? a = null;
                 GeneratedArgSeq? b = null;
-                GeneratedPtr? c = null;
-                GeneratedPtr? d = null;
+                GeneratedSeq? c = null;
+                GeneratedStarEtc? d = null;
 
                 if ((a = Parse_SlashNoDefault()) == null) return null;
-                if ((b = ParseZeroOrMore(() => Parse_ParamNoDefault())) == null) return null;
+                if ((b = (GeneratedArgSeq)ParseZeroOrMore(() => Parse_ParamNoDefault())) == null) return null;
                 if ((c = ParseZeroOrMore(() => Parse_ParamWithDefault())) == null) return null;
-                if ((d = ParseOptional(() => Parse_StarEtc())) == null) return null;
+                if ((d = (GeneratedStarEtc)ParseOptional(() => Parse_StarEtc())) == null) return null;
 
                 // Action code from grammar
-                return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments ( a , null , b , c , d ));
+                return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments (( GeneratedArgSeq ) a , null , b ,( GeneratedNameDefaultPairSeq ?) c ,( GeneratedStarEtc ?) d ));
             }
 
             // Alternative 2
@@ -1802,16 +1839,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
-                GeneratedPtr? c = null;
+                GeneratedSlashWithDefault? a = null;
+                GeneratedSeq? b = null;
+                GeneratedStarEtc? c = null;
 
                 if ((a = Parse_SlashWithDefault()) == null) return null;
                 if ((b = ParseZeroOrMore(() => Parse_ParamWithDefault())) == null) return null;
-                if ((c = ParseOptional(() => Parse_StarEtc())) == null) return null;
+                if ((c = (GeneratedStarEtc)ParseOptional(() => Parse_StarEtc())) == null) return null;
 
                 // Action code from grammar
-                return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments ( null , a , null , b , c ));
+                return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments ( null ,( GeneratedSlashWithDefault ) a , null ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedStarEtc ?) c ));
             }
 
             // Alternative 3
@@ -1820,15 +1857,15 @@ namespace SharpPy.Generated
                 CaptureStart();
 
                 GeneratedArgSeq? a = null;
-                GeneratedPtr? b = null;
-                GeneratedPtr? c = null;
+                GeneratedSeq? b = null;
+                GeneratedStarEtc? c = null;
 
-                if ((a = ParseOneOrMore(() => Parse_ParamNoDefault())) == null) return null;
+                if ((a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_ParamNoDefault())) == null) return null;
                 if ((b = ParseZeroOrMore(() => Parse_ParamWithDefault())) == null) return null;
-                if ((c = ParseOptional(() => Parse_StarEtc())) == null) return null;
+                if ((c = (GeneratedStarEtc)ParseOptional(() => Parse_StarEtc())) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . MakeArguments ( null , null , a , b , c );
+                return PyParserHelpers . MakeArguments ( null , null , a ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedStarEtc ?) c );
             }
 
             // Alternative 4
@@ -1836,14 +1873,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedSeq? a = null;
+                GeneratedStarEtc? b = null;
 
                 if ((a = ParseOneOrMore(() => Parse_ParamWithDefault())) == null) return null;
-                if ((b = ParseOptional(() => Parse_StarEtc())) == null) return null;
+                if ((b = (GeneratedStarEtc)ParseOptional(() => Parse_StarEtc())) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . MakeArguments ( null , null , null , a , b );
+                return PyParserHelpers . MakeArguments ( null , null , null ,( GeneratedNameDefaultPairSeq ?) a ,( GeneratedStarEtc ?) b );
             }
 
             // Alternative 5
@@ -1851,12 +1888,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedStarEtc? a = null;
 
                 if ((a = Parse_StarEtc()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . MakeArguments ( null , null , null , null , a );
+                return PyParserHelpers . MakeArguments ( null , null , null , null ,( GeneratedStarEtc ) a );
             }
 
             Reset(_mark);
@@ -1866,8 +1903,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: slash_no_default
         /// Alternatives: 2
+        /// Return Type: GeneratedArgSeq
         /// </summary>
-        private GeneratedPtr? Parse_SlashNoDefault()
+        private GeneratedArgSeq? Parse_SlashNoDefault()
         {
             int _mark = Mark();
 
@@ -1877,7 +1915,7 @@ namespace SharpPy.Generated
 
                 GeneratedArgSeq? a = null;
 
-                if ((a = ParseOneOrMore(() => Parse_ParamNoDefault())) == null) return null;
+                if ((a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_ParamNoDefault())) == null) return null;
                 if (ExpectOp("/") == null) return null;
                 if (ExpectOp(",") == null) return null;
 
@@ -1892,7 +1930,7 @@ namespace SharpPy.Generated
 
                 GeneratedArgSeq? a = null;
 
-                if ((a = ParseOneOrMore(() => Parse_ParamNoDefault())) == null) return null;
+                if ((a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_ParamNoDefault())) == null) return null;
                 if (ExpectOp("/") == null) return null;
                 if (PositiveLookahead(() => ExpectOp(")")) == null) return null;
 
@@ -1907,8 +1945,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: slash_with_default
         /// Alternatives: 2
+        /// Return Type: GeneratedSlashWithDefault
         /// </summary>
-        private GeneratedPtr? Parse_SlashWithDefault()
+        private GeneratedSlashWithDefault? Parse_SlashWithDefault()
         {
             int _mark = Mark();
 
@@ -1916,8 +1955,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedSeq? a = null;
+                GeneratedSeq? b = null;
 
                 if ((a = ParseZeroOrMore(() => Parse_ParamNoDefault())) == null) return null;
                 if ((b = ParseOneOrMore(() => Parse_ParamWithDefault())) == null) return null;
@@ -1925,7 +1964,7 @@ namespace SharpPy.Generated
                 if (ExpectOp(",") == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SlashWithDefault ( a , b );
+                return PyParserHelpers . SlashWithDefault (( GeneratedArgSeq ?) a ,( GeneratedNameDefaultPairSeq ) b );
             }
 
             // Alternative 2
@@ -1933,8 +1972,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedSeq? a = null;
+                GeneratedSeq? b = null;
 
                 if ((a = ParseZeroOrMore(() => Parse_ParamNoDefault())) == null) return null;
                 if ((b = ParseOneOrMore(() => Parse_ParamWithDefault())) == null) return null;
@@ -1942,7 +1981,7 @@ namespace SharpPy.Generated
                 if (PositiveLookahead(() => ExpectOp(")")) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SlashWithDefault ( a , b );
+                return PyParserHelpers . SlashWithDefault (( GeneratedArgSeq ?) a ,( GeneratedNameDefaultPairSeq ) b );
             }
 
             Reset(_mark);
@@ -1952,8 +1991,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: star_etc
         /// Alternatives: 5
+        /// Return Type: GeneratedStarEtc
         /// </summary>
-        private GeneratedPtr? Parse_StarEtc()
+        private GeneratedStarEtc? Parse_StarEtc()
         {
             int _mark = Mark();
 
@@ -1965,7 +2005,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidStarEtc() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -1973,17 +2013,17 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
-                GeneratedPtr? c = null;
+                GeneratedArg? a = null;
+                GeneratedSeq? b = null;
+                GeneratedArg? c = null;
 
                 if (ExpectOp("*") == null) return null;
                 if ((a = Parse_ParamNoDefault()) == null) return null;
                 if ((b = ParseZeroOrMore(() => Parse_ParamMaybeDefault())) == null) return null;
-                if ((c = ParseOptional(() => Parse_Kwds())) == null) return null;
+                if ((c = (GeneratedArg)ParseOptional(() => Parse_Kwds())) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . StarEtc ( a , b , c );
+                return PyParserHelpers . StarEtc (( GeneratedArg ) a ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedArg ?) c );
             }
 
             // Alternative 3
@@ -1991,17 +2031,17 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
-                GeneratedPtr? c = null;
+                GeneratedArg? a = null;
+                GeneratedSeq? b = null;
+                GeneratedArg? c = null;
 
                 if (ExpectOp("*") == null) return null;
                 if ((a = Parse_ParamNoDefaultStarAnnotation()) == null) return null;
                 if ((b = ParseZeroOrMore(() => Parse_ParamMaybeDefault())) == null) return null;
-                if ((c = ParseOptional(() => Parse_Kwds())) == null) return null;
+                if ((c = (GeneratedArg)ParseOptional(() => Parse_Kwds())) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . StarEtc ( a , b , c );
+                return PyParserHelpers . StarEtc (( GeneratedArg ) a ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedArg ?) c );
             }
 
             // Alternative 4
@@ -2009,16 +2049,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? b = null;
-                GeneratedPtr? c = null;
+                GeneratedSeq? b = null;
+                GeneratedArg? c = null;
 
                 if (ExpectOp("*") == null) return null;
                 if (ExpectOp(",") == null) return null;
                 if ((b = ParseOneOrMore(() => Parse_ParamMaybeDefault())) == null) return null;
-                if ((c = ParseOptional(() => Parse_Kwds())) == null) return null;
+                if ((c = (GeneratedArg)ParseOptional(() => Parse_Kwds())) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . StarEtc ( null , b , c );
+                return PyParserHelpers . StarEtc ( null ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedArg ?) c );
             }
 
             // Alternative 5
@@ -2026,12 +2066,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedArg? a = null;
 
                 if ((a = Parse_Kwds()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . StarEtc ( null , null , a );
+                return PyParserHelpers . StarEtc ( null , null ,( GeneratedArg ) a );
             }
 
             Reset(_mark);
@@ -2041,8 +2081,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: kwds
         /// Alternatives: 2
+        /// Return Type: GeneratedArg
         /// </summary>
-        private GeneratedPtr? Parse_Kwds()
+        private GeneratedArg? Parse_Kwds()
         {
             int _mark = Mark();
 
@@ -2054,7 +2095,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidKwds() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -2062,7 +2103,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedArg? a = null;
 
                 if (ExpectOp("**") == null) return null;
                 if ((a = Parse_ParamNoDefault()) == null) return null;
@@ -2078,8 +2119,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: param_no_default
         /// Alternatives: 2
+        /// Return Type: GeneratedArg
         /// </summary>
-        private GeneratedPtr? Parse_ParamNoDefault()
+        private GeneratedArg? Parse_ParamNoDefault()
         {
             int _mark = Mark();
 
@@ -2087,12 +2129,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? tc = null;
+                GeneratedArg? a = null;
+                GeneratedTokenInfo? tc = null;
 
                 if ((a = Parse_Param()) == null) return null;
                 if (ExpectOp(",") == null) return null;
-                if ((tc = ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
+                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
 
                 // Action code from grammar
                 return PyParserHelpers . AddTypeCommentToArg ( a , tc );
@@ -2103,11 +2145,11 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? tc = null;
+                GeneratedArg? a = null;
+                GeneratedTokenInfo? tc = null;
 
                 if ((a = Parse_Param()) == null) return null;
-                if ((tc = ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
+                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
                 if (PositiveLookahead(() => ExpectOp(")")) == null) return null;
 
                 // Action code from grammar
@@ -2121,8 +2163,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: param_no_default_star_annotation
         /// Alternatives: 2
+        /// Return Type: GeneratedArg
         /// </summary>
-        private GeneratedPtr? Parse_ParamNoDefaultStarAnnotation()
+        private GeneratedArg? Parse_ParamNoDefaultStarAnnotation()
         {
             int _mark = Mark();
 
@@ -2130,12 +2173,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? tc = null;
+                GeneratedArg? a = null;
+                GeneratedTokenInfo? tc = null;
 
                 if ((a = Parse_ParamStarAnnotation()) == null) return null;
                 if (ExpectOp(",") == null) return null;
-                if ((tc = ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
+                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
 
                 // Action code from grammar
                 return PyParserHelpers . AddTypeCommentToArg ( a , tc );
@@ -2146,11 +2189,11 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? tc = null;
+                GeneratedArg? a = null;
+                GeneratedTokenInfo? tc = null;
 
                 if ((a = Parse_ParamStarAnnotation()) == null) return null;
-                if ((tc = ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
+                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
                 if (PositiveLookahead(() => ExpectOp(")")) == null) return null;
 
                 // Action code from grammar
@@ -2164,8 +2207,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: param_with_default
         /// Alternatives: 2
+        /// Return Type: GeneratedNameDefaultPair
         /// </summary>
-        private GeneratedPtr? Parse_ParamWithDefault()
+        private GeneratedNameDefaultPair? Parse_ParamWithDefault()
         {
             int _mark = Mark();
 
@@ -2173,17 +2217,17 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? c = null;
-                GeneratedPtr? tc = null;
+                GeneratedArg? a = null;
+                GeneratedExpr? c = null;
+                GeneratedTokenInfo? tc = null;
 
                 if ((a = Parse_Param()) == null) return null;
                 if ((c = Parse_Default()) == null) return null;
                 if (ExpectOp(",") == null) return null;
-                if ((tc = ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
+                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . NameDefaultPair ( a , c , tc );
+                return PyParserHelpers . NameDefaultPair ( a , c , tc ?. Value );
             }
 
             // Alternative 2
@@ -2191,17 +2235,17 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? c = null;
-                GeneratedPtr? tc = null;
+                GeneratedArg? a = null;
+                GeneratedExpr? c = null;
+                GeneratedTokenInfo? tc = null;
 
                 if ((a = Parse_Param()) == null) return null;
                 if ((c = Parse_Default()) == null) return null;
-                if ((tc = ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
+                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
                 if (PositiveLookahead(() => ExpectOp(")")) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . NameDefaultPair ( a , c , tc );
+                return PyParserHelpers . NameDefaultPair ( a , c , tc ?. Value );
             }
 
             Reset(_mark);
@@ -2211,8 +2255,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: param_maybe_default
         /// Alternatives: 2
+        /// Return Type: GeneratedNameDefaultPair
         /// </summary>
-        private GeneratedPtr? Parse_ParamMaybeDefault()
+        private GeneratedNameDefaultPair? Parse_ParamMaybeDefault()
         {
             int _mark = Mark();
 
@@ -2220,17 +2265,17 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? c = null;
-                GeneratedPtr? tc = null;
+                GeneratedArg? a = null;
+                GeneratedExpr? c = null;
+                GeneratedTokenInfo? tc = null;
 
                 if ((a = Parse_Param()) == null) return null;
-                if ((c = ParseOptional(() => Parse_Default())) == null) return null;
+                if ((c = (GeneratedExpr)ParseOptional(() => Parse_Default())) == null) return null;
                 if (ExpectOp(",") == null) return null;
-                if ((tc = ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
+                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . NameDefaultPair ( a , c , tc );
+                return PyParserHelpers . NameDefaultPair ( a , c , tc ?. Value );
             }
 
             // Alternative 2
@@ -2238,17 +2283,17 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? c = null;
-                GeneratedPtr? tc = null;
+                GeneratedArg? a = null;
+                GeneratedExpr? c = null;
+                GeneratedTokenInfo? tc = null;
 
                 if ((a = Parse_Param()) == null) return null;
-                if ((c = ParseOptional(() => Parse_Default())) == null) return null;
-                if ((tc = ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
+                if ((c = (GeneratedExpr)ParseOptional(() => Parse_Default())) == null) return null;
+                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
                 if (PositiveLookahead(() => ExpectOp(")")) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . NameDefaultPair ( a , c , tc );
+                return PyParserHelpers . NameDefaultPair ( a , c , tc ?. Value );
             }
 
             Reset(_mark);
@@ -2258,8 +2303,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: param
         /// Alternatives: 1
+        /// Return Type: GeneratedArg
         /// </summary>
-        private GeneratedPtr? Parse_Param()
+        private GeneratedArg? Parse_Param()
         {
             int _mark = Mark();
 
@@ -2267,14 +2313,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if ((b = ParseOptional(() => Parse_Annotation())) == null) return null;
+                if ((b = (GeneratedExpr)ParseOptional(() => Parse_Annotation())) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Arg ( a . Id , b , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Arg ( a . GetNameValue (), b , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -2284,8 +2330,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: param_star_annotation
         /// Alternatives: 1
+        /// Return Type: GeneratedArg
         /// </summary>
-        private GeneratedPtr? Parse_ParamStarAnnotation()
+        private GeneratedArg? Parse_ParamStarAnnotation()
         {
             int _mark = Mark();
 
@@ -2293,14 +2340,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
                 if ((b = Parse_StarAnnotation()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Arg ( a . Id , b , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Arg ( a . GetNameValue (), b , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -2310,8 +2357,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: annotation
         /// Alternatives: 1
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Annotation()
+        private GeneratedExpr? Parse_Annotation()
         {
             int _mark = Mark();
 
@@ -2319,7 +2367,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp(":") == null) return null;
                 if ((a = Parse_Expression()) == null) return null;
@@ -2335,8 +2383,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: star_annotation
         /// Alternatives: 1
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_StarAnnotation()
+        private GeneratedExpr? Parse_StarAnnotation()
         {
             int _mark = Mark();
 
@@ -2344,7 +2393,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp(":") == null) return null;
                 if ((a = Parse_StarExpression()) == null) return null;
@@ -2360,8 +2409,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: default
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Default()
+        private GeneratedExpr? Parse_Default()
         {
             int _mark = Mark();
 
@@ -2369,7 +2419,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp("=") == null) return null;
                 if ((a = Parse_Expression()) == null) return null;
@@ -2387,7 +2437,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidDefault() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -2397,8 +2447,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: if_stmt
         /// Alternatives: 3
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_IfStmt()
+        private GeneratedStmt? Parse_IfStmt()
         {
             int _mark = Mark();
 
@@ -2410,7 +2461,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidIfStmt() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -2418,9 +2469,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
-                GeneratedPtr? c = null;
+                GeneratedExpr? a = null;
+                GeneratedStmtSeq? b = null;
+                GeneratedStmt? c = null;
 
                 if (ExpectKeyword("if") == null) return null;
                 if ((a = Parse_NamedExpression()) == null) return null;
@@ -2429,7 +2480,7 @@ namespace SharpPy.Generated
                 if ((c = Parse_ElifStmt()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . If ( a , b , Check < GeneratedStmtSeq >( PyParserHelpers . SingletonSequence ( c )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . If (( GeneratedExpr ) a ,( GeneratedStmtSeq ) b , Check < GeneratedStmtSeq >( PyParserHelpers . SingletonSequence (( GeneratedStmt ) c ). Cast < GeneratedStmtSeq >()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 3
@@ -2437,18 +2488,18 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
-                GeneratedPtr? c = null;
+                GeneratedExpr? a = null;
+                GeneratedStmtSeq? b = null;
+                GeneratedStmtSeq? c = null;
 
                 if (ExpectKeyword("if") == null) return null;
                 if ((a = Parse_NamedExpression()) == null) return null;
                 if (ExpectOp(":") == null) return null;
                 if ((b = Parse_Block()) == null) return null;
-                if ((c = ParseOptional(() => Parse_ElseBlock())) == null) return null;
+                if ((c = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null) return null;
 
                 // Action code from grammar
-                return PyAst . If ( a , b , c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . If (( GeneratedExpr ) a ,( GeneratedStmtSeq ) b ,( GeneratedStmtSeq ?) c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -2458,8 +2509,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: elif_stmt
         /// Alternatives: 3
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_ElifStmt()
+        private GeneratedStmt? Parse_ElifStmt()
         {
             int _mark = Mark();
 
@@ -2471,7 +2523,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidElifStmt() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -2479,9 +2531,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
-                GeneratedPtr? c = null;
+                GeneratedExpr? a = null;
+                GeneratedStmtSeq? b = null;
+                GeneratedStmt? c = null;
 
                 if (ExpectKeyword("elif") == null) return null;
                 if ((a = Parse_NamedExpression()) == null) return null;
@@ -2490,7 +2542,7 @@ namespace SharpPy.Generated
                 if ((c = Parse_ElifStmt()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . If ( a , b , Check < GeneratedStmtSeq >( PyParserHelpers . SingletonSequence ( c )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . If (( GeneratedExpr ) a ,( GeneratedStmtSeq ) b , Check < GeneratedStmtSeq >( PyParserHelpers . SingletonSequence (( GeneratedStmt ) c ). Cast < GeneratedStmtSeq >()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 3
@@ -2498,18 +2550,18 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
-                GeneratedPtr? c = null;
+                GeneratedExpr? a = null;
+                GeneratedStmtSeq? b = null;
+                GeneratedStmtSeq? c = null;
 
                 if (ExpectKeyword("elif") == null) return null;
                 if ((a = Parse_NamedExpression()) == null) return null;
                 if (ExpectOp(":") == null) return null;
                 if ((b = Parse_Block()) == null) return null;
-                if ((c = ParseOptional(() => Parse_ElseBlock())) == null) return null;
+                if ((c = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null) return null;
 
                 // Action code from grammar
-                return PyAst . If ( a , b , c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . If (( GeneratedExpr ) a ,( GeneratedStmtSeq ) b ,( GeneratedStmtSeq ?) c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -2519,8 +2571,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: else_block
         /// Alternatives: 2
+        /// Return Type: GeneratedStmtSeq
         /// </summary>
-        private GeneratedPtr? Parse_ElseBlock()
+        private GeneratedStmtSeq? Parse_ElseBlock()
         {
             int _mark = Mark();
 
@@ -2532,7 +2585,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidElseStmt() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -2540,7 +2593,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? b = null;
+                GeneratedStmtSeq? b = null;
 
                 if (ExpectKeyword("else") == null) return null;
                 if (PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) == null) return null;
@@ -2557,8 +2610,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: while_stmt
         /// Alternatives: 2
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_WhileStmt()
+        private GeneratedStmt? Parse_WhileStmt()
         {
             int _mark = Mark();
 
@@ -2570,7 +2624,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidWhileStmt() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -2578,18 +2632,18 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
-                GeneratedPtr? c = null;
+                GeneratedExpr? a = null;
+                GeneratedStmtSeq? b = null;
+                GeneratedStmtSeq? c = null;
 
                 if (ExpectKeyword("while") == null) return null;
                 if ((a = Parse_NamedExpression()) == null) return null;
                 if (ExpectOp(":") == null) return null;
                 if ((b = Parse_Block()) == null) return null;
-                if ((c = ParseOptional(() => Parse_ElseBlock())) == null) return null;
+                if ((c = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null) return null;
 
                 // Action code from grammar
-                return PyAst . While ( a , b , c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . While (( GeneratedExpr ) a ,( GeneratedStmtSeq ) b ,( GeneratedStmtSeq ?) c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -2599,8 +2653,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: for_stmt
         /// Alternatives: 4
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_ForStmt()
+        private GeneratedStmt? Parse_ForStmt()
         {
             int _mark = Mark();
 
@@ -2612,7 +2667,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidForStmt() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -2620,23 +2675,23 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? t = null;
-                GeneratedPtr? ex = null;
-                GeneratedPtr? tc = null;
-                GeneratedPtr? b = null;
-                GeneratedPtr? el = null;
+                GeneratedExpr? t = null;
+                GeneratedExpr? ex = null;
+                GeneratedTokenInfo? tc = null;
+                GeneratedStmtSeq? b = null;
+                GeneratedStmtSeq? el = null;
 
                 if (ExpectKeyword("for") == null) return null;
                 if ((t = Parse_StarTargets()) == null) return null;
                 if (ExpectKeyword("in") == null) return null;
                 if ((ex = Parse_StarExpressions()) == null) return null;
                 if (ExpectOp(":") == null) return null;
-                if ((tc = ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
+                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
                 if ((b = Parse_Block()) == null) return null;
-                if ((el = ParseOptional(() => Parse_ElseBlock())) == null) return null;
+                if ((el = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null) return null;
 
                 // Action code from grammar
-                return PyAst . For ( t , ex , b , el , tc ?. Value , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . For (( GeneratedExpr ) t ,( GeneratedExpr ) ex ,( GeneratedStmtSeq ) b ,( GeneratedStmtSeq ?) el , tc . GetCommentValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 3
@@ -2644,11 +2699,11 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? t = null;
-                GeneratedPtr? ex = null;
-                GeneratedPtr? tc = null;
-                GeneratedPtr? b = null;
-                GeneratedPtr? el = null;
+                GeneratedExpr? t = null;
+                GeneratedExpr? ex = null;
+                GeneratedTokenInfo? tc = null;
+                GeneratedStmtSeq? b = null;
+                GeneratedStmtSeq? el = null;
 
                 if (Expect(PyToken.Type.ASYNC, "ASYNC") == null) return null;
                 if (ExpectKeyword("for") == null) return null;
@@ -2656,12 +2711,12 @@ namespace SharpPy.Generated
                 if (ExpectKeyword("in") == null) return null;
                 if ((ex = Parse_StarExpressions()) == null) return null;
                 if (ExpectOp(":") == null) return null;
-                if ((tc = ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
+                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
                 if ((b = Parse_Block()) == null) return null;
-                if ((el = ParseOptional(() => Parse_ElseBlock())) == null) return null;
+                if ((el = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null) return null;
 
                 // Action code from grammar
-                return CheckVersion ( 5 , "Async for loops are" , PyAst . AsyncFor ( t , ex , b , el , tc ?. Value , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                return CheckVersion ( 5 , "Async for loops are" , PyAst . AsyncFor (( GeneratedExpr ) t ,( GeneratedExpr ) ex ,( GeneratedStmtSeq ) b ,( GeneratedStmtSeq ?) el , tc . GetCommentValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
             }
 
             // Alternative 4
@@ -2673,7 +2728,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidForTarget() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -2683,8 +2738,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: with_stmt
         /// Alternatives: 6
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_WithStmt()
+        private GeneratedStmt? Parse_WithStmt()
         {
             int _mark = Mark();
 
@@ -2696,7 +2752,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidWithStmtIndent() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -2704,19 +2760,19 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedWithItemSeq? a = null;
-                GeneratedPtr? b = null;
+                GeneratedWithitemSeq? a = null;
+                GeneratedStmtSeq? b = null;
 
                 if (ExpectKeyword("with") == null) return null;
                 if (ExpectOp("(") == null) return null;
-                if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())) == null) return null;
+                if ((a = (GeneratedWithitemSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())) == null) return null;
                 if (ParseOptional(() => ExpectOp(",")) == null) return null;
                 if (ExpectOp(")") == null) return null;
                 if (ExpectOp(":") == null) return null;
                 if ((b = Parse_Block()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . With ( a , b , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . With (( GeneratedWithitemSeq ) a ,( GeneratedStmtSeq ) b , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 3
@@ -2724,18 +2780,18 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedWithItemSeq? a = null;
-                GeneratedPtr? tc = null;
-                GeneratedPtr? b = null;
+                GeneratedWithitemSeq? a = null;
+                GeneratedTokenInfo? tc = null;
+                GeneratedStmtSeq? b = null;
 
                 if (ExpectKeyword("with") == null) return null;
-                if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())) == null) return null;
+                if ((a = (GeneratedWithitemSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())) == null) return null;
                 if (ExpectOp(":") == null) return null;
-                if ((tc = ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
+                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
                 if ((b = Parse_Block()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . With ( a , b , tc ?. Value , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . With (( GeneratedWithitemSeq ) a ,( GeneratedStmtSeq ) b , tc . GetCommentValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 4
@@ -2743,20 +2799,20 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedWithItemSeq? a = null;
-                GeneratedPtr? b = null;
+                GeneratedWithitemSeq? a = null;
+                GeneratedStmtSeq? b = null;
 
                 if (Expect(PyToken.Type.ASYNC, "ASYNC") == null) return null;
                 if (ExpectKeyword("with") == null) return null;
                 if (ExpectOp("(") == null) return null;
-                if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())) == null) return null;
+                if ((a = (GeneratedWithitemSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())) == null) return null;
                 if (ParseOptional(() => ExpectOp(",")) == null) return null;
                 if (ExpectOp(")") == null) return null;
                 if (ExpectOp(":") == null) return null;
                 if ((b = Parse_Block()) == null) return null;
 
                 // Action code from grammar
-                return CheckVersion ( 5 , "Async with statements are" , PyAst . AsyncWith ( a , b , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                return CheckVersion ( 5 , "Async with statements are" , PyAst . AsyncWith (( GeneratedWithitemSeq ) a ,( GeneratedStmtSeq ) b , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
             }
 
             // Alternative 5
@@ -2764,19 +2820,19 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedWithItemSeq? a = null;
-                GeneratedPtr? tc = null;
-                GeneratedPtr? b = null;
+                GeneratedWithitemSeq? a = null;
+                GeneratedTokenInfo? tc = null;
+                GeneratedStmtSeq? b = null;
 
                 if (Expect(PyToken.Type.ASYNC, "ASYNC") == null) return null;
                 if (ExpectKeyword("with") == null) return null;
-                if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())) == null) return null;
+                if ((a = (GeneratedWithitemSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())) == null) return null;
                 if (ExpectOp(":") == null) return null;
-                if ((tc = ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
+                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
                 if ((b = Parse_Block()) == null) return null;
 
                 // Action code from grammar
-                return CheckVersion ( 5 , "Async with statements are" , PyAst . AsyncWith ( a , b , tc ?. Value , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                return CheckVersion ( 5 , "Async with statements are" , PyAst . AsyncWith (( GeneratedWithitemSeq ) a ,( GeneratedStmtSeq ) b , tc . GetCommentValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
             }
 
             // Alternative 6
@@ -2788,7 +2844,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidWithStmt() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -2798,8 +2854,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: with_item
         /// Alternatives: 3
+        /// Return Type: GeneratedWithitem
         /// </summary>
-        private GeneratedPtr? Parse_WithItem()
+        private GeneratedWithitem? Parse_WithItem()
         {
             int _mark = Mark();
 
@@ -2807,8 +2864,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? e = null;
-                GeneratedPtr? t = null;
+                GeneratedExpr? e = null;
+                GeneratedExpr? t = null;
 
                 if ((e = Parse_Expression()) == null) return null;
                 if (ExpectKeyword("as") == null) return null;
@@ -2816,7 +2873,7 @@ namespace SharpPy.Generated
                 if (PositiveLookahead(() => ParseGroup()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . WithItem ( e , t );
+                return PyAst . Withitem (( GeneratedExpr ) e ,( GeneratedExpr ) t );
             }
 
             // Alternative 2
@@ -2828,7 +2885,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidWithItem() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 3
@@ -2836,12 +2893,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? e = null;
+                GeneratedExpr? e = null;
 
                 if ((e = Parse_Expression()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . WithItem ( e , null );
+                return PyAst . Withitem (( GeneratedExpr ) e , null );
             }
 
             Reset(_mark);
@@ -2851,8 +2908,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: try_stmt
         /// Alternatives: 4
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_TryStmt()
+        private GeneratedStmt? Parse_TryStmt()
         {
             int _mark = Mark();
 
@@ -2864,7 +2922,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidTryStmt() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -2872,8 +2930,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? b = null;
-                GeneratedPtr? f = null;
+                GeneratedStmtSeq? b = null;
+                GeneratedStmtSeq? f = null;
 
                 if (ExpectKeyword("try") == null) return null;
                 if (PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) == null) return null;
@@ -2881,7 +2939,7 @@ namespace SharpPy.Generated
                 if ((f = Parse_FinallyBlock()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Try ( b , null , null , f , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Try (( GeneratedStmtSeq ) b , null , null ,( GeneratedStmtSeq ) f , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 3
@@ -2889,20 +2947,20 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? b = null;
-                GeneratedExceptHandlerSeq? ex = null;
-                GeneratedPtr? el = null;
-                GeneratedPtr? f = null;
+                GeneratedStmtSeq? b = null;
+                GeneratedExcepthandlerSeq? ex = null;
+                GeneratedStmtSeq? el = null;
+                GeneratedStmtSeq? f = null;
 
                 if (ExpectKeyword("try") == null) return null;
                 if (PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) == null) return null;
                 if ((b = Parse_Block()) == null) return null;
-                if ((ex = ParseOneOrMore(() => Parse_ExceptBlock())) == null) return null;
-                if ((el = ParseOptional(() => Parse_ElseBlock())) == null) return null;
-                if ((f = ParseOptional(() => Parse_FinallyBlock())) == null) return null;
+                if ((ex = (GeneratedExcepthandlerSeq)ParseOneOrMore(() => Parse_ExceptBlock())) == null) return null;
+                if ((el = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null) return null;
+                if ((f = (GeneratedStmtSeq)ParseOptional(() => Parse_FinallyBlock())) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Try ( b , ex , el , f , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Try (( GeneratedStmtSeq ) b ,( GeneratedExcepthandlerSeq ) ex ,( GeneratedStmtSeq ?) el ,( GeneratedStmtSeq ?) f , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 4
@@ -2910,20 +2968,20 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? b = null;
-                GeneratedExceptHandlerSeq? ex = null;
-                GeneratedPtr? el = null;
-                GeneratedPtr? f = null;
+                GeneratedStmtSeq? b = null;
+                GeneratedExcepthandlerSeq? ex = null;
+                GeneratedStmtSeq? el = null;
+                GeneratedStmtSeq? f = null;
 
                 if (ExpectKeyword("try") == null) return null;
                 if (PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) == null) return null;
                 if ((b = Parse_Block()) == null) return null;
-                if ((ex = ParseOneOrMore(() => Parse_ExceptStarBlock())) == null) return null;
-                if ((el = ParseOptional(() => Parse_ElseBlock())) == null) return null;
-                if ((f = ParseOptional(() => Parse_FinallyBlock())) == null) return null;
+                if ((ex = (GeneratedExcepthandlerSeq)ParseOneOrMore(() => Parse_ExceptStarBlock())) == null) return null;
+                if ((el = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null) return null;
+                if ((f = (GeneratedStmtSeq)ParseOptional(() => Parse_FinallyBlock())) == null) return null;
 
                 // Action code from grammar
-                return CheckVersion ( 11 , "Exception groups are" , PyAst . TryStar ( b , ex , el , f , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                return CheckVersion ( 11 , "Exception groups are" , PyAst . TryStar (( GeneratedStmtSeq ) b ,( GeneratedExcepthandlerSeq ) ex ,( GeneratedStmtSeq ?) el ,( GeneratedStmtSeq ?) f , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
             }
 
             Reset(_mark);
@@ -2933,8 +2991,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: except_block
         /// Alternatives: 4
+        /// Return Type: GeneratedExcepthandler
         /// </summary>
-        private GeneratedPtr? Parse_ExceptBlock()
+        private GeneratedExcepthandler? Parse_ExceptBlock()
         {
             int _mark = Mark();
 
@@ -2946,7 +3005,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidExceptStmtIndent() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -2954,9 +3013,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? e = null;
+                GeneratedExpr? e = null;
                 GeneratedPtr? t = null;
-                GeneratedPtr? b = null;
+                GeneratedStmtSeq? b = null;
 
                 if (ExpectKeyword("except") == null) return null;
                 if ((e = Parse_Expression()) == null) return null;
@@ -2965,7 +3024,7 @@ namespace SharpPy.Generated
                 if ((b = Parse_Block()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . ExceptHandler ( e , t ? NameToken ( t ). Id : null , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . ExceptHandler (( GeneratedExpr ) e , t != null ?(( GeneratedName ) NameToken (( GeneratedTokenInfo ) t )). Id : null ,( GeneratedStmtSeq ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 3
@@ -2973,14 +3032,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? b = null;
+                GeneratedStmtSeq? b = null;
 
                 if (ExpectKeyword("except") == null) return null;
                 if (ExpectOp(":") == null) return null;
                 if ((b = Parse_Block()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . ExceptHandler ( null , null , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . ExceptHandler ( null , null ,( GeneratedStmtSeq ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 4
@@ -2992,7 +3051,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidExceptStmt() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -3002,8 +3061,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: except_star_block
         /// Alternatives: 3
+        /// Return Type: GeneratedExcepthandler
         /// </summary>
-        private GeneratedPtr? Parse_ExceptStarBlock()
+        private GeneratedExcepthandler? Parse_ExceptStarBlock()
         {
             int _mark = Mark();
 
@@ -3015,7 +3075,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidExceptStarStmtIndent() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -3023,9 +3083,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? e = null;
+                GeneratedExpr? e = null;
                 GeneratedPtr? t = null;
-                GeneratedPtr? b = null;
+                GeneratedStmtSeq? b = null;
 
                 if (ExpectKeyword("except") == null) return null;
                 if (ExpectOp("*") == null) return null;
@@ -3035,7 +3095,7 @@ namespace SharpPy.Generated
                 if ((b = Parse_Block()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . ExceptHandler ( e ,( t )? NameToken ( t ). Id : null , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . ExceptHandler (( GeneratedExpr ) e ,( t != null )?(( GeneratedName ) NameToken (( GeneratedTokenInfo ) t )). Id : null ,( GeneratedStmtSeq ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 3
@@ -3047,7 +3107,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidExceptStmt() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -3057,8 +3117,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: finally_block
         /// Alternatives: 2
+        /// Return Type: GeneratedStmtSeq
         /// </summary>
-        private GeneratedPtr? Parse_FinallyBlock()
+        private GeneratedStmtSeq? Parse_FinallyBlock()
         {
             int _mark = Mark();
 
@@ -3070,7 +3131,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidFinallyStmt() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -3078,7 +3139,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedStmtSeq? a = null;
 
                 if (ExpectKeyword("finally") == null) return null;
                 if (PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) == null) return null;
@@ -3095,8 +3156,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: match_stmt
         /// Alternatives: 2
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_MatchStmt()
+        private GeneratedStmt? Parse_MatchStmt()
         {
             int _mark = Mark();
 
@@ -3104,7 +3166,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? subject = null;
+                GeneratedExpr? subject = null;
                 GeneratedMatchCaseSeq? cases = null;
 
                 if (ExpectSoftKeyword("match") == null) return null;
@@ -3112,11 +3174,11 @@ namespace SharpPy.Generated
                 if (ExpectOp(":") == null) return null;
                 if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
                 if (Expect(PyToken.Type.INDENT, "INDENT") == null) return null;
-                if ((cases = ParseOneOrMore(() => Parse_CaseBlock())) == null) return null;
+                if ((cases = (GeneratedMatchCaseSeq)ParseOneOrMore(() => Parse_CaseBlock())) == null) return null;
                 if (Expect(PyToken.Type.DEDENT, "DEDENT") == null) return null;
 
                 // Action code from grammar
-                return CheckVersion ( 10 , "Pattern matching is" , PyAst . Match ( subject , cases , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                return CheckVersion ( 10 , "Pattern matching is" , PyAst . Match (( GeneratedExpr ) subject ,( GeneratedMatchCaseSeq ) cases , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
             }
 
             // Alternative 2
@@ -3128,7 +3190,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidMatchStmt() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -3138,8 +3200,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: subject_expr
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_SubjectExpr()
+        private GeneratedExpr? Parse_SubjectExpr()
         {
             int _mark = Mark();
 
@@ -3147,15 +3210,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? value = null;
-                GeneratedPtr? values = null;
+                GeneratedExpr? value = null;
+                GeneratedExprSeq? values = null;
 
                 if ((value = Parse_StarNamedExpression()) == null) return null;
                 if (ExpectOp(",") == null) return null;
-                if ((values = ParseOptional(() => Parse_StarNamedExpressions())) == null) return null;
+                if ((values = (GeneratedExprSeq)ParseOptional(() => Parse_StarNamedExpressions())) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront ( value , values )), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront (( GeneratedExpr ) value ,( GeneratedExprSeq ?) values ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -3167,7 +3230,7 @@ namespace SharpPy.Generated
                 if (Parse_NamedExpression() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -3177,8 +3240,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: case_block
         /// Alternatives: 2
+        /// Return Type: GeneratedMatchCase
         /// </summary>
-        private GeneratedPtr? Parse_CaseBlock()
+        private GeneratedMatchCase? Parse_CaseBlock()
         {
             int _mark = Mark();
 
@@ -3190,7 +3254,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidCaseBlock() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -3198,18 +3262,18 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? pattern = null;
-                GeneratedPtr? guard = null;
-                GeneratedPtr? body = null;
+                GeneratedPattern? pattern = null;
+                GeneratedExpr? guard = null;
+                GeneratedStmtSeq? body = null;
 
                 if (ExpectSoftKeyword("case") == null) return null;
                 if ((pattern = Parse_Patterns()) == null) return null;
-                if ((guard = ParseOptional(() => Parse_Guard())) == null) return null;
+                if ((guard = (GeneratedExpr)ParseOptional(() => Parse_Guard())) == null) return null;
                 if (ExpectOp(":") == null) return null;
                 if ((body = Parse_Block()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . MatchCase ( pattern , guard , body );
+                return PyAst . MatchCase (( GeneratedPattern ) pattern ,( GeneratedExpr ?) guard ,( GeneratedStmtSeq ) body );
             }
 
             Reset(_mark);
@@ -3219,8 +3283,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: guard
         /// Alternatives: 1
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Guard()
+        private GeneratedExpr? Parse_Guard()
         {
             int _mark = Mark();
 
@@ -3228,7 +3293,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? guard = null;
+                GeneratedExpr? guard = null;
 
                 if (ExpectKeyword("if") == null) return null;
                 if ((guard = Parse_NamedExpression()) == null) return null;
@@ -3244,8 +3309,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: patterns
         /// Alternatives: 2
+        /// Return Type: GeneratedPattern
         /// </summary>
-        private GeneratedPtr? Parse_Patterns()
+        private GeneratedPattern? Parse_Patterns()
         {
             int _mark = Mark();
 
@@ -3255,10 +3321,10 @@ namespace SharpPy.Generated
 
                 GeneratedPatternSeq? patterns = null;
 
-                if ((patterns = Parse_OpenSequencePattern()) == null) return null;
+                if ((patterns = (GeneratedPatternSeq)Parse_OpenSequencePattern()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . MatchSequence ( patterns , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . MatchSequence (( GeneratedPatternSeq ) patterns , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -3270,7 +3336,7 @@ namespace SharpPy.Generated
                 if (Parse_Pattern() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -3280,8 +3346,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: pattern
         /// Alternatives: 2
+        /// Return Type: GeneratedPattern
         /// </summary>
-        private GeneratedPtr? Parse_Pattern()
+        private GeneratedPattern? Parse_Pattern()
         {
             int _mark = Mark();
 
@@ -3293,7 +3360,7 @@ namespace SharpPy.Generated
                 if (Parse_AsPattern() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -3305,7 +3372,7 @@ namespace SharpPy.Generated
                 if (Parse_OrPattern() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -3315,8 +3382,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: as_pattern
         /// Alternatives: 2
+        /// Return Type: GeneratedPattern
         /// </summary>
-        private GeneratedPtr? Parse_AsPattern()
+        private GeneratedPattern? Parse_AsPattern()
         {
             int _mark = Mark();
 
@@ -3324,15 +3392,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? pattern = null;
-                GeneratedPtr? target = null;
+                GeneratedPattern? pattern = null;
+                GeneratedExpr? target = null;
 
                 if ((pattern = Parse_OrPattern()) == null) return null;
                 if (ExpectKeyword("as") == null) return null;
                 if ((target = Parse_PatternCaptureTarget()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . MatchAs ( pattern ,(( GeneratedName ) target ). Id , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . MatchAs (( GeneratedPattern ) pattern , target . GetIdentifier (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -3344,7 +3412,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidAsPattern() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -3354,8 +3422,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: or_pattern
         /// Alternatives: 1
+        /// Return Type: GeneratedPattern
         /// </summary>
-        private GeneratedPtr? Parse_OrPattern()
+        private GeneratedPattern? Parse_OrPattern()
         {
             int _mark = Mark();
 
@@ -3365,10 +3434,10 @@ namespace SharpPy.Generated
 
                 GeneratedPatternSeq? patterns = null;
 
-                if ((patterns = ParseGatherPlus(() => ExpectOp("|"), () => Parse_ClosedPattern())) == null) return null;
+                if ((patterns = (GeneratedPatternSeq)ParseGatherPlus(() => ExpectOp("|"), () => Parse_ClosedPattern())) == null) return null;
 
                 // Action code from grammar
-                return asdl_seq_LEN ( patterns )== 1 ? asdl_seq_GET ( patterns , 0 ): PyAst . MatchOr ( patterns , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return patterns . Count == 1 ?( GeneratedPattern ) patterns [ 0 ]: PyAst . MatchOr (( GeneratedPatternSeq ) patterns , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -3378,8 +3447,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: closed_pattern
         /// Alternatives: 8
+        /// Return Type: GeneratedPattern
         /// </summary>
-        private GeneratedPtr? Parse_ClosedPattern()
+        private GeneratedPattern? Parse_ClosedPattern()
         {
             int _mark = Mark();
 
@@ -3387,7 +3457,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedPattern? a = null;
 
                 if ((a = Parse_LiteralPattern()) == null) return null;
 
@@ -3400,7 +3470,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedPattern? a = null;
 
                 if ((a = Parse_CapturePattern()) == null) return null;
 
@@ -3413,7 +3483,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedPattern? a = null;
 
                 if ((a = Parse_WildcardPattern()) == null) return null;
 
@@ -3426,7 +3496,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedPattern? a = null;
 
                 if ((a = Parse_ValuePattern()) == null) return null;
 
@@ -3439,7 +3509,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedPattern? a = null;
 
                 if ((a = Parse_GroupPattern()) == null) return null;
 
@@ -3452,7 +3522,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedPattern? a = null;
 
                 if ((a = Parse_SequencePattern()) == null) return null;
 
@@ -3465,7 +3535,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedPattern? a = null;
 
                 if ((a = Parse_MappingPattern()) == null) return null;
 
@@ -3478,7 +3548,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedPattern? a = null;
 
                 if ((a = Parse_ClassPattern()) == null) return null;
 
@@ -3493,8 +3563,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: literal_pattern
         /// Alternatives: 6
+        /// Return Type: GeneratedPattern
         /// </summary>
-        private GeneratedPtr? Parse_LiteralPattern()
+        private GeneratedPattern? Parse_LiteralPattern()
         {
             int _mark = Mark();
 
@@ -3502,13 +3573,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? value = null;
+                GeneratedExpr? value = null;
 
                 if ((value = Parse_SignedNumber()) == null) return null;
                 if (NegativeLookahead(() => ParseGroup()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . MatchValue ( value , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . MatchValue (( GeneratedExpr ) value , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -3516,12 +3587,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? value = null;
+                GeneratedExpr? value = null;
 
                 if ((value = Parse_ComplexNumber()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . MatchValue ( value , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . MatchValue (( GeneratedExpr ) value , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 3
@@ -3529,12 +3600,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? value = null;
+                GeneratedExpr? value = null;
 
                 if ((value = Parse_Strings()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . MatchValue ( value , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . MatchValue (( GeneratedExpr ) value , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 4
@@ -3546,7 +3617,7 @@ namespace SharpPy.Generated
                 if (ExpectKeyword("None") == null) return null;
 
                 // Action code from grammar
-                return PyAst . MatchSingleton ( Py_None , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . MatchSingleton ( GeneratedPyConstant . None , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 5
@@ -3558,7 +3629,7 @@ namespace SharpPy.Generated
                 if (ExpectKeyword("True") == null) return null;
 
                 // Action code from grammar
-                return PyAst . MatchSingleton ( Py_True , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . MatchSingleton ( GeneratedPyConstant . True , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 6
@@ -3570,7 +3641,7 @@ namespace SharpPy.Generated
                 if (ExpectKeyword("False") == null) return null;
 
                 // Action code from grammar
-                return PyAst . MatchSingleton ( Py_False , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . MatchSingleton ( GeneratedPyConstant . False , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -3580,8 +3651,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: literal_expr
         /// Alternatives: 6
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_LiteralExpr()
+        private GeneratedExpr? Parse_LiteralExpr()
         {
             int _mark = Mark();
 
@@ -3594,7 +3666,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => ParseGroup()) == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -3606,7 +3678,7 @@ namespace SharpPy.Generated
                 if (Parse_ComplexNumber() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 3
@@ -3618,7 +3690,7 @@ namespace SharpPy.Generated
                 if (Parse_Strings() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 4
@@ -3630,7 +3702,7 @@ namespace SharpPy.Generated
                 if (ExpectKeyword("None") == null) return null;
 
                 // Action code from grammar
-                return PyAst . Constant ( Py_None , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Constant ( GeneratedPyConstant . None , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 5
@@ -3642,7 +3714,7 @@ namespace SharpPy.Generated
                 if (ExpectKeyword("True") == null) return null;
 
                 // Action code from grammar
-                return PyAst . Constant ( Py_True , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Constant ( GeneratedPyConstant . True , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 6
@@ -3654,7 +3726,7 @@ namespace SharpPy.Generated
                 if (ExpectKeyword("False") == null) return null;
 
                 // Action code from grammar
-                return PyAst . Constant ( Py_False , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Constant ( GeneratedPyConstant . False , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -3664,8 +3736,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: complex_number
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_ComplexNumber()
+        private GeneratedExpr? Parse_ComplexNumber()
         {
             int _mark = Mark();
 
@@ -3673,15 +3746,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? real = null;
-                GeneratedPtr? imag = null;
+                GeneratedExpr? real = null;
+                GeneratedExpr? imag = null;
 
                 if ((real = Parse_SignedRealNumber()) == null) return null;
                 if (ExpectOp("+") == null) return null;
                 if ((imag = Parse_ImaginaryNumber()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . BinOp ( real , GeneratedAdd.Instance , imag , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . BinOp (( GeneratedExpr ) real , GeneratedAdd.Instance ,( GeneratedExpr ) imag , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -3689,15 +3762,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? real = null;
-                GeneratedPtr? imag = null;
+                GeneratedExpr? real = null;
+                GeneratedExpr? imag = null;
 
                 if ((real = Parse_SignedRealNumber()) == null) return null;
                 if (ExpectOp("-") == null) return null;
                 if ((imag = Parse_ImaginaryNumber()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . BinOp ( real , GeneratedSub.Instance , imag , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . BinOp (( GeneratedExpr ) real , GeneratedSub.Instance ,( GeneratedExpr ) imag , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -3707,8 +3780,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: signed_number
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_SignedNumber()
+        private GeneratedExpr? Parse_SignedNumber()
         {
             int _mark = Mark();
 
@@ -3716,11 +3790,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? number = null;
 
-                if (Expect(PyToken.Type.NUMBER, "NUMBER") == null) return null;
+                if ((number = Expect(PyToken.Type.NUMBER, "NUMBER")) == null) return null;
 
-                // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                // Action code from grammar
+                return NumberToken ( number );
             }
 
             // Alternative 2
@@ -3728,13 +3803,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? number = null;
+                GeneratedTokenInfo? number = null;
 
                 if (ExpectOp("-") == null) return null;
                 if ((number = Expect(PyToken.Type.NUMBER, "NUMBER")) == null) return null;
 
                 // Action code from grammar
-                return PyAst . UnaryOp ( GeneratedUSub.Instance , number , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . UnaryOp ( GeneratedUSub.Instance , NumberToken ( number ), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -3744,8 +3819,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: signed_real_number
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_SignedRealNumber()
+        private GeneratedExpr? Parse_SignedRealNumber()
         {
             int _mark = Mark();
 
@@ -3757,7 +3833,7 @@ namespace SharpPy.Generated
                 if (Parse_RealNumber() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -3765,13 +3841,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? real = null;
+                GeneratedExpr? real = null;
 
                 if (ExpectOp("-") == null) return null;
                 if ((real = Parse_RealNumber()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . UnaryOp ( GeneratedUSub.Instance , real , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . UnaryOp ( GeneratedUSub.Instance ,( GeneratedExpr ) real , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -3781,8 +3857,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: real_number
         /// Alternatives: 1
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_RealNumber()
+        private GeneratedExpr? Parse_RealNumber()
         {
             int _mark = Mark();
 
@@ -3790,12 +3867,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? real = null;
+                GeneratedTokenInfo? real = null;
 
                 if ((real = Expect(PyToken.Type.NUMBER, "NUMBER")) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . EnsureReal ( real );
+                return PyParserHelpers . EnsureReal ( NumberToken ( real ));
             }
 
             Reset(_mark);
@@ -3805,8 +3882,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: imaginary_number
         /// Alternatives: 1
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_ImaginaryNumber()
+        private GeneratedExpr? Parse_ImaginaryNumber()
         {
             int _mark = Mark();
 
@@ -3814,12 +3892,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? imag = null;
+                GeneratedTokenInfo? imag = null;
 
                 if ((imag = Expect(PyToken.Type.NUMBER, "NUMBER")) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . EnsureImaginary ( imag );
+                return PyParserHelpers . EnsureImaginary ( NumberToken ( imag ));
             }
 
             Reset(_mark);
@@ -3829,8 +3907,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: capture_pattern
         /// Alternatives: 1
+        /// Return Type: GeneratedPattern
         /// </summary>
-        private GeneratedPtr? Parse_CapturePattern()
+        private GeneratedPattern? Parse_CapturePattern()
         {
             int _mark = Mark();
 
@@ -3838,12 +3917,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? target = null;
+                GeneratedExpr? target = null;
 
                 if ((target = Parse_PatternCaptureTarget()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . MatchAs ( null ,(( GeneratedName ) target ). Id , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . MatchAs ( null , target . GetIdentifier (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -3853,8 +3932,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: pattern_capture_target
         /// Alternatives: 1
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_PatternCaptureTarget()
+        private GeneratedExpr? Parse_PatternCaptureTarget()
         {
             int _mark = Mark();
 
@@ -3862,14 +3942,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? name = null;
+                GeneratedTokenInfo? name = null;
 
                 if (NegativeLookahead(() => ExpectSoftKeyword("_")) == null) return null;
                 if ((name = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
                 if (NegativeLookahead(() => ParseGroup()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SetExprContext ( name , GeneratedStore.Instance );
+                return PyParserHelpers . SetExprContext ( NameToken ( name ), GeneratedStore.Instance );
             }
 
             Reset(_mark);
@@ -3879,8 +3959,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: wildcard_pattern
         /// Alternatives: 1
+        /// Return Type: GeneratedPattern
         /// </summary>
-        private GeneratedPtr? Parse_WildcardPattern()
+        private GeneratedPattern? Parse_WildcardPattern()
         {
             int _mark = Mark();
 
@@ -3902,8 +3983,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: value_pattern
         /// Alternatives: 1
+        /// Return Type: GeneratedPattern
         /// </summary>
-        private GeneratedPtr? Parse_ValuePattern()
+        private GeneratedPattern? Parse_ValuePattern()
         {
             int _mark = Mark();
 
@@ -3911,13 +3993,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? attr = null;
+                GeneratedExpr? attr = null;
 
                 if ((attr = Parse_Attr()) == null) return null;
                 if (NegativeLookahead(() => ParseGroup()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . MatchValue ( attr , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . MatchValue (( GeneratedExpr ) attr , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -3927,8 +4009,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: attr
         /// Alternatives: 1
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Attr()
+        private GeneratedExpr? Parse_Attr()
         {
             int _mark = Mark();
 
@@ -3936,15 +4019,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? value = null;
-                GeneratedPtr? attr = null;
+                GeneratedExpr? value = null;
+                GeneratedTokenInfo? attr = null;
 
                 if ((value = Parse_NameOrAttr()) == null) return null;
                 if (ExpectOp(".") == null) return null;
                 if ((attr = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Attribute ( value , attr . Id , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Attribute (( GeneratedExpr ) value , attr . Value , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -3954,8 +4037,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: name_or_attr
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_NameOrAttr()
+        private GeneratedExpr? Parse_NameOrAttr()
         {
             int _mark = Mark();
 
@@ -3967,7 +4051,7 @@ namespace SharpPy.Generated
                 if (Parse_Attr() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -3979,7 +4063,7 @@ namespace SharpPy.Generated
                 if (Expect(PyToken.Type.NAME, "NAME") == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -3989,8 +4073,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: group_pattern
         /// Alternatives: 1
+        /// Return Type: GeneratedPattern
         /// </summary>
-        private GeneratedPtr? Parse_GroupPattern()
+        private GeneratedPattern? Parse_GroupPattern()
         {
             int _mark = Mark();
 
@@ -3998,7 +4083,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? pattern = null;
+                GeneratedPattern? pattern = null;
 
                 if (ExpectOp("(") == null) return null;
                 if ((pattern = Parse_Pattern()) == null) return null;
@@ -4015,8 +4100,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: sequence_pattern
         /// Alternatives: 2
+        /// Return Type: GeneratedPattern
         /// </summary>
-        private GeneratedPtr? Parse_SequencePattern()
+        private GeneratedPattern? Parse_SequencePattern()
         {
             int _mark = Mark();
 
@@ -4024,14 +4110,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? patterns = null;
+                GeneratedSeq? patterns = null;
 
                 if (ExpectOp("[") == null) return null;
-                if ((patterns = ParseOptional(() => Parse_MaybeSequencePattern())) == null) return null;
+                if ((patterns = (GeneratedSeq)ParseOptional(() => Parse_MaybeSequencePattern())) == null) return null;
                 if (ExpectOp("]") == null) return null;
 
                 // Action code from grammar
-                return PyAst . MatchSequence ( patterns . Cast < GeneratedPatternSeq >(), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . MatchSequence (( GeneratedPatternSeq ?) patterns , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -4039,14 +4125,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? patterns = null;
+                GeneratedSeq? patterns = null;
 
                 if (ExpectOp("(") == null) return null;
-                if ((patterns = ParseOptional(() => Parse_OpenSequencePattern())) == null) return null;
+                if ((patterns = (GeneratedSeq)ParseOptional(() => Parse_OpenSequencePattern())) == null) return null;
                 if (ExpectOp(")") == null) return null;
 
                 // Action code from grammar
-                return PyAst . MatchSequence ( patterns . Cast < GeneratedPatternSeq >(), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . MatchSequence (( GeneratedPatternSeq ?) patterns , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -4056,8 +4142,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: open_sequence_pattern
         /// Alternatives: 1
+        /// Return Type: GeneratedSeq
         /// </summary>
-        private GeneratedPtr? Parse_OpenSequencePattern()
+        private GeneratedSeq? Parse_OpenSequencePattern()
         {
             int _mark = Mark();
 
@@ -4065,15 +4152,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? pattern = null;
-                GeneratedPtr? patterns = null;
+                GeneratedPattern? pattern = null;
+                GeneratedSeq? patterns = null;
 
                 if ((pattern = Parse_MaybeStarPattern()) == null) return null;
                 if (ExpectOp(",") == null) return null;
-                if ((patterns = ParseOptional(() => Parse_MaybeSequencePattern())) == null) return null;
+                if ((patterns = (GeneratedSeq)ParseOptional(() => Parse_MaybeSequencePattern())) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SeqInsertInFront ( pattern , patterns );
+                return PyParserHelpers . SeqInsertInFront (( GeneratedPattern ) pattern ,( GeneratedSeq ?) patterns ). Cast < GeneratedPatternSeq >();
             }
 
             Reset(_mark);
@@ -4083,8 +4170,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: maybe_sequence_pattern
         /// Alternatives: 1
+        /// Return Type: GeneratedSeq
         /// </summary>
-        private GeneratedPtr? Parse_MaybeSequencePattern()
+        private GeneratedSeq? Parse_MaybeSequencePattern()
         {
             int _mark = Mark();
 
@@ -4092,7 +4180,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? patterns = null;
+                GeneratedSeq? patterns = null;
 
                 if ((patterns = ParseGatherPlus(() => ExpectOp(","), () => Parse_MaybeStarPattern())) == null) return null;
                 if (ParseOptional(() => ExpectOp(",")) == null) return null;
@@ -4108,8 +4196,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: maybe_star_pattern
         /// Alternatives: 2
+        /// Return Type: GeneratedPattern
         /// </summary>
-        private GeneratedPtr? Parse_MaybeStarPattern()
+        private GeneratedPattern? Parse_MaybeStarPattern()
         {
             int _mark = Mark();
 
@@ -4121,7 +4210,7 @@ namespace SharpPy.Generated
                 if (Parse_StarPattern() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -4133,7 +4222,7 @@ namespace SharpPy.Generated
                 if (Parse_Pattern() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -4143,8 +4232,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: star_pattern
         /// Alternatives: 2
+        /// Return Type: GeneratedPattern
         /// </summary>
-        private GeneratedPtr? Parse_StarPattern()
+        private GeneratedPattern? Parse_StarPattern()
         {
             int _mark = Mark();
 
@@ -4152,13 +4242,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? target = null;
+                GeneratedExpr? target = null;
 
                 if (ExpectOp("*") == null) return null;
                 if ((target = Parse_PatternCaptureTarget()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . MatchStar ((( GeneratedName ) target ). Id , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . MatchStar ( target . GetIdentifier (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -4181,8 +4271,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: mapping_pattern
         /// Alternatives: 4
+        /// Return Type: GeneratedPattern
         /// </summary>
-        private GeneratedPtr? Parse_MappingPattern()
+        private GeneratedPattern? Parse_MappingPattern()
         {
             int _mark = Mark();
 
@@ -4203,7 +4294,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? rest = null;
+                GeneratedExpr? rest = null;
 
                 if (ExpectOp("{") == null) return null;
                 if ((rest = Parse_DoubleStarPattern()) == null) return null;
@@ -4211,7 +4302,7 @@ namespace SharpPy.Generated
                 if (ExpectOp("}") == null) return null;
 
                 // Action code from grammar
-                return PyAst . MatchMapping ( null , null ,(( GeneratedName ) rest ). Id , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . MatchMapping ( null , null , rest . GetIdentifier (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 3
@@ -4219,8 +4310,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? items = null;
-                GeneratedPtr? rest = null;
+                GeneratedSeq? items = null;
+                GeneratedExpr? rest = null;
 
                 if (ExpectOp("{") == null) return null;
                 if ((items = Parse_ItemsPattern()) == null) return null;
@@ -4230,7 +4321,7 @@ namespace SharpPy.Generated
                 if (ExpectOp("}") == null) return null;
 
                 // Action code from grammar
-                return PyAst . MatchMapping ( Check < GeneratedExprSeq >( PyParserHelpers . GetPatternKeys ( items )), Check < GeneratedPatternSeq >( PyParserHelpers . GetPatterns ( items )),(( GeneratedName ) rest ). Id , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . MatchMapping ( Check < GeneratedExprSeq >( PyParserHelpers . GetPatternKeys ( items )), Check < GeneratedPatternSeq >( PyParserHelpers . GetPatterns ( items )), rest . GetIdentifier (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 4
@@ -4238,7 +4329,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? items = null;
+                GeneratedSeq? items = null;
 
                 if (ExpectOp("{") == null) return null;
                 if ((items = Parse_ItemsPattern()) == null) return null;
@@ -4256,8 +4347,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: items_pattern
         /// Alternatives: 1
+        /// Return Type: GeneratedSeq
         /// </summary>
-        private GeneratedPtr? Parse_ItemsPattern()
+        private GeneratedSeq? Parse_ItemsPattern()
         {
             int _mark = Mark();
 
@@ -4269,7 +4361,7 @@ namespace SharpPy.Generated
                 if (ParseGatherPlus(() => ExpectOp(","), () => Parse_KeyValuePattern()) == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -4279,8 +4371,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: key_value_pattern
         /// Alternatives: 1
+        /// Return Type: GeneratedKeyPatternPair
         /// </summary>
-        private GeneratedPtr? Parse_KeyValuePattern()
+        private GeneratedKeyPatternPair? Parse_KeyValuePattern()
         {
             int _mark = Mark();
 
@@ -4289,14 +4382,14 @@ namespace SharpPy.Generated
                 CaptureStart();
 
                 GeneratedPtr? key = null;
-                GeneratedPtr? pattern = null;
+                GeneratedPattern? pattern = null;
 
                 if ((key = ParseGroup()) == null) return null;
                 if (ExpectOp(":") == null) return null;
                 if ((pattern = Parse_Pattern()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . KeyPatternPair ( key , pattern );
+                return PyParserHelpers . KeyPatternPair (( GeneratedExpr ) key ,( GeneratedPattern ) pattern );
             }
 
             Reset(_mark);
@@ -4306,8 +4399,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: double_star_pattern
         /// Alternatives: 1
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_DoubleStarPattern()
+        private GeneratedExpr? Parse_DoubleStarPattern()
         {
             int _mark = Mark();
 
@@ -4315,7 +4409,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? target = null;
+                GeneratedExpr? target = null;
 
                 if (ExpectOp("**") == null) return null;
                 if ((target = Parse_PatternCaptureTarget()) == null) return null;
@@ -4331,8 +4425,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: class_pattern
         /// Alternatives: 5
+        /// Return Type: GeneratedPattern
         /// </summary>
-        private GeneratedPtr? Parse_ClassPattern()
+        private GeneratedPattern? Parse_ClassPattern()
         {
             int _mark = Mark();
 
@@ -4340,14 +4435,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? cls = null;
+                GeneratedExpr? cls = null;
 
                 if ((cls = Parse_NameOrAttr()) == null) return null;
                 if (ExpectOp("(") == null) return null;
                 if (ExpectOp(")") == null) return null;
 
                 // Action code from grammar
-                return PyAst . MatchClass ( cls , null , null , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . MatchClass (( GeneratedExpr ) cls , null , null , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -4355,8 +4450,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? cls = null;
-                GeneratedPtr? patterns = null;
+                GeneratedExpr? cls = null;
+                GeneratedPatternSeq? patterns = null;
 
                 if ((cls = Parse_NameOrAttr()) == null) return null;
                 if (ExpectOp("(") == null) return null;
@@ -4365,7 +4460,7 @@ namespace SharpPy.Generated
                 if (ExpectOp(")") == null) return null;
 
                 // Action code from grammar
-                return PyAst . MatchClass ( cls , patterns , null , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . MatchClass (( GeneratedExpr ) cls ,( GeneratedPatternSeq ) patterns , null , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 3
@@ -4373,8 +4468,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? cls = null;
-                GeneratedPtr? keywords = null;
+                GeneratedExpr? cls = null;
+                GeneratedSeq? keywords = null;
 
                 if ((cls = Parse_NameOrAttr()) == null) return null;
                 if (ExpectOp("(") == null) return null;
@@ -4383,7 +4478,7 @@ namespace SharpPy.Generated
                 if (ExpectOp(")") == null) return null;
 
                 // Action code from grammar
-                return PyAst . MatchClass ( cls , null , Check < GeneratedIdentifierSeq >( PyParserHelpers . MapNamesToIds ( Check < GeneratedExprSeq >( PyParserHelpers . GetPatternKeys ( keywords )))), Check < GeneratedPatternSeq >( PyParserHelpers . GetPatterns ( keywords )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . MatchClass (( GeneratedExpr ) cls , null , Check < GeneratedIdentifierSeq >( PyParserHelpers . MapNamesToIds ( Check < GeneratedExprSeq >( PyParserHelpers . GetPatternKeys (( GeneratedSeq ) keywords )))), Check < GeneratedPatternSeq >( PyParserHelpers . GetPatterns (( GeneratedSeq ) keywords )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 4
@@ -4391,9 +4486,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? cls = null;
-                GeneratedPtr? patterns = null;
-                GeneratedPtr? keywords = null;
+                GeneratedExpr? cls = null;
+                GeneratedPatternSeq? patterns = null;
+                GeneratedSeq? keywords = null;
 
                 if ((cls = Parse_NameOrAttr()) == null) return null;
                 if (ExpectOp("(") == null) return null;
@@ -4404,7 +4499,7 @@ namespace SharpPy.Generated
                 if (ExpectOp(")") == null) return null;
 
                 // Action code from grammar
-                return PyAst . MatchClass ( cls , patterns , Check < GeneratedIdentifierSeq >( PyParserHelpers . MapNamesToIds ( Check < GeneratedExprSeq >( PyParserHelpers . GetPatternKeys ( keywords )))), Check < GeneratedPatternSeq >( PyParserHelpers . GetPatterns ( keywords )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . MatchClass (( GeneratedExpr ) cls ,( GeneratedPatternSeq ) patterns , Check < GeneratedIdentifierSeq >( PyParserHelpers . MapNamesToIds ( Check < GeneratedExprSeq >( PyParserHelpers . GetPatternKeys (( GeneratedSeq ) keywords )))), Check < GeneratedPatternSeq >( PyParserHelpers . GetPatterns (( GeneratedSeq ) keywords )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 5
@@ -4416,7 +4511,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidClassPattern() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -4426,8 +4521,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: positional_patterns
         /// Alternatives: 1
+        /// Return Type: GeneratedPatternSeq
         /// </summary>
-        private GeneratedPtr? Parse_PositionalPatterns()
+        private GeneratedPatternSeq? Parse_PositionalPatterns()
         {
             int _mark = Mark();
 
@@ -4437,7 +4533,7 @@ namespace SharpPy.Generated
 
                 GeneratedPatternSeq? args = null;
 
-                if ((args = ParseGatherPlus(() => ExpectOp(","), () => Parse_Pattern())) == null) return null;
+                if ((args = (GeneratedPatternSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_Pattern())) == null) return null;
 
                 // Action code from grammar
                 return args;
@@ -4450,8 +4546,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: keyword_patterns
         /// Alternatives: 1
+        /// Return Type: GeneratedSeq
         /// </summary>
-        private GeneratedPtr? Parse_KeywordPatterns()
+        private GeneratedSeq? Parse_KeywordPatterns()
         {
             int _mark = Mark();
 
@@ -4463,7 +4560,7 @@ namespace SharpPy.Generated
                 if (ParseGatherPlus(() => ExpectOp(","), () => Parse_KeywordPattern()) == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -4473,8 +4570,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: keyword_pattern
         /// Alternatives: 1
+        /// Return Type: GeneratedKeyPatternPair
         /// </summary>
-        private GeneratedPtr? Parse_KeywordPattern()
+        private GeneratedKeyPatternPair? Parse_KeywordPattern()
         {
             int _mark = Mark();
 
@@ -4482,15 +4580,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? arg = null;
-                GeneratedPtr? value = null;
+                GeneratedTokenInfo? arg = null;
+                GeneratedPattern? value = null;
 
                 if ((arg = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
                 if (ExpectOp("=") == null) return null;
                 if ((value = Parse_Pattern()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . KeyPatternPair ( arg , value );
+                return PyParserHelpers . KeyPatternPair ( NameToken ( arg ),( GeneratedPattern ) value );
             }
 
             Reset(_mark);
@@ -4500,8 +4598,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: type_alias
         /// Alternatives: 1
+        /// Return Type: GeneratedStmt
         /// </summary>
-        private GeneratedPtr? Parse_TypeAlias()
+        private GeneratedStmt? Parse_TypeAlias()
         {
             int _mark = Mark();
 
@@ -4509,18 +4608,18 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? n = null;
-                GeneratedPtr? t = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? n = null;
+                GeneratedTypeParamSeq? t = null;
+                GeneratedExpr? b = null;
 
                 if (ExpectSoftKeyword("type") == null) return null;
                 if ((n = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if ((t = ParseOptional(() => Parse_TypeParams())) == null) return null;
+                if ((t = (GeneratedTypeParamSeq)ParseOptional(() => Parse_TypeParams())) == null) return null;
                 if (ExpectOp("=") == null) return null;
                 if ((b = Parse_Expression()) == null) return null;
 
                 // Action code from grammar
-                return CheckVersion ( 12 , "Type statement is" , PyAst . TypeAlias ( Check < GeneratedExpr >( PyParserHelpers . SetExprContext ( n , GeneratedStore.Instance )), t , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                return CheckVersion ( 12 , "Type statement is" , PyAst . TypeAlias ( Check < GeneratedExpr >( PyParserHelpers . SetExprContext ( NameToken ( n ), GeneratedStore.Instance )),( GeneratedTypeParamSeq ?) t ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
             }
 
             Reset(_mark);
@@ -4530,8 +4629,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: type_params
         /// Alternatives: 1
+        /// Return Type: GeneratedTypeParamSeq
         /// </summary>
-        private GeneratedPtr? Parse_TypeParams()
+        private GeneratedTypeParamSeq? Parse_TypeParams()
         {
             int _mark = Mark();
 
@@ -4539,7 +4639,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? t = null;
+                GeneratedTypeParamSeq? t = null;
 
                 if (ExpectOp("[") == null) return null;
                 if ((t = Parse_TypeParamSeq()) == null) return null;
@@ -4556,8 +4656,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: type_param_seq
         /// Alternatives: 1
+        /// Return Type: GeneratedTypeParamSeq
         /// </summary>
-        private GeneratedPtr? Parse_TypeParamSeq()
+        private GeneratedTypeParamSeq? Parse_TypeParamSeq()
         {
             int _mark = Mark();
 
@@ -4567,7 +4668,7 @@ namespace SharpPy.Generated
 
                 GeneratedTypeParamSeq? a = null;
 
-                if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_TypeParam())) == null) return null;
+                if ((a = (GeneratedTypeParamSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_TypeParam())) == null) return null;
                 if (ParseOptional(() => ExpectOp(",")) == null) return null;
 
                 // Action code from grammar
@@ -4581,8 +4682,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: type_param
         /// Alternatives: 5
+        /// Return Type: GeneratedTypeParam
         /// </summary>
-        private GeneratedPtr? Parse_TypeParam()
+        private GeneratedTypeParam? Parse_TypeParam()
         {
             int _mark = Mark();
 
@@ -4590,14 +4692,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if ((b = ParseOptional(() => Parse_TypeParamBound())) == null) return null;
+                if ((b = (GeneratedExpr)ParseOptional(() => Parse_TypeParamBound())) == null) return null;
 
                 // Action code from grammar
-                return PyAst . TypeVar ( a . Id , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . TypeVar ( a . GetNameValue (),( GeneratedExpr ?) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -4605,9 +4707,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? colon = null;
-                GeneratedPtr? e = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedTokenInfo? colon = null;
+                GeneratedExpr? e = null;
 
                 if (ExpectOp("*") == null) return null;
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
@@ -4615,7 +4717,7 @@ namespace SharpPy.Generated
                 if ((e = Parse_Expression()) == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorStartingFrom ( colon , e is GeneratedTuple ? "cannot use constraints with TypeVarTuple" : "cannot use bound with TypeVarTuple" );
+                RaiseSyntaxErrorStartingFrom ( colon ,( GeneratedExpr ) e is GeneratedTuple ? "cannot use constraints with TypeVarTuple" : "cannot use bound with TypeVarTuple" );
             }
 
             // Alternative 3
@@ -4623,13 +4725,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ExpectOp("*") == null) return null;
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
 
                 // Action code from grammar
-                return PyAst . TypeVarTuple ( a . Id , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . TypeVarTuple ( a . GetNameValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 4
@@ -4637,9 +4739,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? colon = null;
-                GeneratedPtr? e = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedTokenInfo? colon = null;
+                GeneratedExpr? e = null;
 
                 if (ExpectOp("**") == null) return null;
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
@@ -4647,7 +4749,7 @@ namespace SharpPy.Generated
                 if ((e = Parse_Expression()) == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorStartingFrom ( colon , e is GeneratedTuple ? "cannot use constraints with ParamSpec" : "cannot use bound with ParamSpec" );
+                RaiseSyntaxErrorStartingFrom ( colon ,( GeneratedExpr ) e is GeneratedTuple ? "cannot use constraints with ParamSpec" : "cannot use bound with ParamSpec" );
             }
 
             // Alternative 5
@@ -4655,13 +4757,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ExpectOp("**") == null) return null;
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
 
                 // Action code from grammar
-                return PyAst . ParamSpec ( a . Id , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . ParamSpec ( a . GetNameValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -4671,8 +4773,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: type_param_bound
         /// Alternatives: 1
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_TypeParamBound()
+        private GeneratedExpr? Parse_TypeParamBound()
         {
             int _mark = Mark();
 
@@ -4680,7 +4783,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? e = null;
+                GeneratedExpr? e = null;
 
                 if (ExpectOp(":") == null) return null;
                 if ((e = Parse_Expression()) == null) return null;
@@ -4696,8 +4799,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: expressions
         /// Alternatives: 3
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Expressions()
+        private GeneratedExpr? Parse_Expressions()
         {
             int _mark = Mark();
 
@@ -4705,15 +4809,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedSeq? b = null;
 
                 if ((a = Parse_Expression()) == null) return null;
                 if ((b = ParseOneOrMore(() => ParseGroup())) == null) return null;
                 if (ParseOptional(() => ExpectOp(",")) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront ( a , b )), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront (( GeneratedExpr ) a ,( GeneratedSeq ) b ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -4721,13 +4825,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if ((a = Parse_Expression()) == null) return null;
                 if (ExpectOp(",") == null) return null;
 
                 // Action code from grammar
-                return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SingletonSequence ( a )), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SingletonSequence (( GeneratedExpr ) a ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 3
@@ -4739,7 +4843,7 @@ namespace SharpPy.Generated
                 if (Parse_Expression() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -4749,8 +4853,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: expression
         /// Alternatives: 5
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Expression()
+        private GeneratedExpr? Parse_Expression()
         {
             int _mark = Mark();
 
@@ -4762,7 +4867,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidExpression() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -4774,7 +4879,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidLegacyExpression() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 3
@@ -4782,9 +4887,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
-                GeneratedPtr? c = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
+                GeneratedExpr? c = null;
 
                 if ((a = Parse_Disjunction()) == null) return null;
                 if (ExpectKeyword("if") == null) return null;
@@ -4793,7 +4898,7 @@ namespace SharpPy.Generated
                 if ((c = Parse_Expression()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . IfExp ( b , a , c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . IfExp (( GeneratedExpr ) b ,( GeneratedExpr ) a ,( GeneratedExpr ) c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 4
@@ -4805,7 +4910,7 @@ namespace SharpPy.Generated
                 if (Parse_Disjunction() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 5
@@ -4817,7 +4922,7 @@ namespace SharpPy.Generated
                 if (Parse_Lambdef() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -4827,8 +4932,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: yield_expr
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_YieldExpr()
+        private GeneratedExpr? Parse_YieldExpr()
         {
             int _mark = Mark();
 
@@ -4836,14 +4942,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectKeyword("yield") == null) return null;
                 if (ExpectKeyword("from") == null) return null;
                 if ((a = Parse_Expression()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . YieldFrom ( a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . YieldFrom (( GeneratedExpr ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -4851,13 +4957,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectKeyword("yield") == null) return null;
-                if ((a = ParseOptional(() => Parse_StarExpressions())) == null) return null;
+                if ((a = (GeneratedExpr)ParseOptional(() => Parse_StarExpressions())) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Yield ( a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Yield (( GeneratedExpr ?) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -4867,8 +4973,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: star_expressions
         /// Alternatives: 3
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_StarExpressions()
+        private GeneratedExpr? Parse_StarExpressions()
         {
             int _mark = Mark();
 
@@ -4876,15 +4983,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedSeq? b = null;
 
                 if ((a = Parse_StarExpression()) == null) return null;
                 if ((b = ParseOneOrMore(() => ParseGroup())) == null) return null;
                 if (ParseOptional(() => ExpectOp(",")) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront ( a , b )), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront (( GeneratedExpr ) a ,( GeneratedSeq ) b ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -4892,13 +4999,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if ((a = Parse_StarExpression()) == null) return null;
                 if (ExpectOp(",") == null) return null;
 
                 // Action code from grammar
-                return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SingletonSequence ( a )), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SingletonSequence (( GeneratedExpr ) a ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 3
@@ -4910,7 +5017,7 @@ namespace SharpPy.Generated
                 if (Parse_StarExpression() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -4920,8 +5027,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: star_expression
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_StarExpression()
+        private GeneratedExpr? Parse_StarExpression()
         {
             int _mark = Mark();
 
@@ -4929,13 +5037,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp("*") == null) return null;
                 if ((a = Parse_BitwiseOr()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Starred ( a , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Starred (( GeneratedExpr ) a , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -4947,7 +5055,7 @@ namespace SharpPy.Generated
                 if (Parse_Expression() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -4957,8 +5065,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: star_named_expressions
         /// Alternatives: 1
+        /// Return Type: GeneratedExprSeq
         /// </summary>
-        private GeneratedPtr? Parse_StarNamedExpressions()
+        private GeneratedExprSeq? Parse_StarNamedExpressions()
         {
             int _mark = Mark();
 
@@ -4968,7 +5077,7 @@ namespace SharpPy.Generated
 
                 GeneratedExprSeq? a = null;
 
-                if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_StarNamedExpression())) == null) return null;
+                if ((a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_StarNamedExpression())) == null) return null;
                 if (ParseOptional(() => ExpectOp(",")) == null) return null;
 
                 // Action code from grammar
@@ -4982,8 +5091,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: star_named_expression
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_StarNamedExpression()
+        private GeneratedExpr? Parse_StarNamedExpression()
         {
             int _mark = Mark();
 
@@ -4991,13 +5101,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp("*") == null) return null;
                 if ((a = Parse_BitwiseOr()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Starred ( a , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Starred (( GeneratedExpr ) a , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -5009,7 +5119,7 @@ namespace SharpPy.Generated
                 if (Parse_NamedExpression() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -5019,8 +5129,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: assignment_expression
         /// Alternatives: 1
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_AssignmentExpression()
+        private GeneratedExpr? Parse_AssignmentExpression()
         {
             int _mark = Mark();
 
@@ -5028,15 +5139,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
                 if (ExpectOp(":=") == null) return null;
                 if ((b = Parse_Expression()) == null) return null;
 
                 // Action code from grammar
-                return CheckVersion ( 8 , "Assignment expressions are" , PyAst . NamedExpr ( Check < GeneratedExpr >( PyParserHelpers . SetExprContext ( a , GeneratedStore.Instance )), b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                return CheckVersion ( 8 , "Assignment expressions are" , PyAst . NamedExpr ( Check < GeneratedExpr >( PyParserHelpers . SetExprContext ( NameToken ( a ), GeneratedStore.Instance )),( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
             }
 
             Reset(_mark);
@@ -5046,8 +5157,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: named_expression
         /// Alternatives: 3
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_NamedExpression()
+        private GeneratedExpr? Parse_NamedExpression()
         {
             int _mark = Mark();
 
@@ -5059,7 +5171,7 @@ namespace SharpPy.Generated
                 if (Parse_AssignmentExpression() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -5071,7 +5183,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidNamedExpression() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 3
@@ -5084,7 +5196,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => ExpectOp(":=")) == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -5094,8 +5206,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: disjunction
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Disjunction()
+        private GeneratedExpr? Parse_Disjunction()
         {
             int _mark = Mark();
 
@@ -5103,14 +5216,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedSeq? b = null;
 
                 if ((a = Parse_Conjunction()) == null) return null;
                 if ((b = ParseOneOrMore(() => ParseGroup())) == null) return null;
 
                 // Action code from grammar
-                return PyAst . BoolOp ( GeneratedOr.Instance , Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront ( a , b )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . BoolOp ( GeneratedOr.Instance , Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront (( GeneratedExpr ) a ,( GeneratedSeq ) b ). Cast < GeneratedExprSeq >()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -5122,7 +5235,7 @@ namespace SharpPy.Generated
                 if (Parse_Conjunction() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -5132,8 +5245,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: conjunction
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Conjunction()
+        private GeneratedExpr? Parse_Conjunction()
         {
             int _mark = Mark();
 
@@ -5141,14 +5255,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedSeq? b = null;
 
                 if ((a = Parse_Inversion()) == null) return null;
                 if ((b = ParseOneOrMore(() => ParseGroup())) == null) return null;
 
                 // Action code from grammar
-                return PyAst . BoolOp ( GeneratedAnd.Instance , Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront ( a , b )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . BoolOp ( GeneratedAnd.Instance , Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront (( GeneratedExpr ) a ,( GeneratedSeq ) b ). Cast < GeneratedExprSeq >()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -5160,7 +5274,7 @@ namespace SharpPy.Generated
                 if (Parse_Inversion() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -5170,8 +5284,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: inversion
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Inversion()
+        private GeneratedExpr? Parse_Inversion()
         {
             int _mark = Mark();
 
@@ -5179,13 +5294,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectKeyword("not") == null) return null;
                 if ((a = Parse_Inversion()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . UnaryOp ( GeneratedNot.Instance , a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . UnaryOp ( GeneratedNot.Instance ,( GeneratedExpr ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -5197,7 +5312,7 @@ namespace SharpPy.Generated
                 if (Parse_Comparison() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -5207,8 +5322,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: comparison
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Comparison()
+        private GeneratedExpr? Parse_Comparison()
         {
             int _mark = Mark();
 
@@ -5216,14 +5332,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedSeq? b = null;
 
                 if ((a = Parse_BitwiseOr()) == null) return null;
                 if ((b = ParseOneOrMore(() => Parse_CompareOpBitwiseOrPair())) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Compare ( a , Check < GeneratedIntSeq >( PyParserHelpers . GetCmpops ( b )), Check < GeneratedExprSeq >( PyParserHelpers . GetExprs ( b )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Compare (( GeneratedExpr ) a , Check < GeneratedCmpopSeq >( PyParserHelpers . GetCmpops (( GeneratedSeq ) b ). Cast < GeneratedCmpopSeq >()), Check < GeneratedExprSeq >( PyParserHelpers . GetExprs (( GeneratedSeq ) b )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -5235,7 +5351,7 @@ namespace SharpPy.Generated
                 if (Parse_BitwiseOr() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -5245,8 +5361,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: compare_op_bitwise_or_pair
         /// Alternatives: 10
+        /// Return Type: GeneratedCmpopExprPair
         /// </summary>
-        private GeneratedPtr? Parse_CompareOpBitwiseOrPair()
+        private GeneratedCmpopExprPair? Parse_CompareOpBitwiseOrPair()
         {
             int _mark = Mark();
 
@@ -5258,7 +5375,7 @@ namespace SharpPy.Generated
                 if (Parse_EqBitwiseOr() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -5270,7 +5387,7 @@ namespace SharpPy.Generated
                 if (Parse_NoteqBitwiseOr() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 3
@@ -5282,7 +5399,7 @@ namespace SharpPy.Generated
                 if (Parse_LteBitwiseOr() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 4
@@ -5294,7 +5411,7 @@ namespace SharpPy.Generated
                 if (Parse_LtBitwiseOr() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 5
@@ -5306,7 +5423,7 @@ namespace SharpPy.Generated
                 if (Parse_GteBitwiseOr() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 6
@@ -5318,7 +5435,7 @@ namespace SharpPy.Generated
                 if (Parse_GtBitwiseOr() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 7
@@ -5330,7 +5447,7 @@ namespace SharpPy.Generated
                 if (Parse_NotinBitwiseOr() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 8
@@ -5342,7 +5459,7 @@ namespace SharpPy.Generated
                 if (Parse_InBitwiseOr() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 9
@@ -5354,7 +5471,7 @@ namespace SharpPy.Generated
                 if (Parse_IsnotBitwiseOr() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 10
@@ -5366,7 +5483,7 @@ namespace SharpPy.Generated
                 if (Parse_IsBitwiseOr() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -5376,8 +5493,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: eq_bitwise_or
         /// Alternatives: 1
+        /// Return Type: GeneratedCmpopExprPair
         /// </summary>
-        private GeneratedPtr? Parse_EqBitwiseOr()
+        private GeneratedCmpopExprPair? Parse_EqBitwiseOr()
         {
             int _mark = Mark();
 
@@ -5385,13 +5503,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp("==") == null) return null;
                 if ((a = Parse_BitwiseOr()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . CmpopExprPair ( GeneratedEq.Instance , a );
+                return PyParserHelpers . CmpopExprPair ( GeneratedEq.Instance ,( GeneratedExpr ) a );
             }
 
             Reset(_mark);
@@ -5401,8 +5519,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: noteq_bitwise_or
         /// Alternatives: 1
+        /// Return Type: GeneratedCmpopExprPair
         /// </summary>
-        private GeneratedPtr? Parse_NoteqBitwiseOr()
+        private GeneratedCmpopExprPair? Parse_NoteqBitwiseOr()
         {
             int _mark = Mark();
 
@@ -5410,13 +5529,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ParseGroup() == null) return null;
                 if ((a = Parse_BitwiseOr()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . CmpopExprPair ( GeneratedNotEq.Instance , a );
+                return PyParserHelpers . CmpopExprPair ( GeneratedNotEq.Instance ,( GeneratedExpr ) a );
             }
 
             Reset(_mark);
@@ -5426,8 +5545,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: lte_bitwise_or
         /// Alternatives: 1
+        /// Return Type: GeneratedCmpopExprPair
         /// </summary>
-        private GeneratedPtr? Parse_LteBitwiseOr()
+        private GeneratedCmpopExprPair? Parse_LteBitwiseOr()
         {
             int _mark = Mark();
 
@@ -5435,13 +5555,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp("<=") == null) return null;
                 if ((a = Parse_BitwiseOr()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . CmpopExprPair ( GeneratedLtE.Instance , a );
+                return PyParserHelpers . CmpopExprPair ( GeneratedLtE.Instance ,( GeneratedExpr ) a );
             }
 
             Reset(_mark);
@@ -5451,8 +5571,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: lt_bitwise_or
         /// Alternatives: 1
+        /// Return Type: GeneratedCmpopExprPair
         /// </summary>
-        private GeneratedPtr? Parse_LtBitwiseOr()
+        private GeneratedCmpopExprPair? Parse_LtBitwiseOr()
         {
             int _mark = Mark();
 
@@ -5460,13 +5581,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp("<") == null) return null;
                 if ((a = Parse_BitwiseOr()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . CmpopExprPair ( GeneratedLt.Instance , a );
+                return PyParserHelpers . CmpopExprPair ( GeneratedLt.Instance ,( GeneratedExpr ) a );
             }
 
             Reset(_mark);
@@ -5476,8 +5597,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: gte_bitwise_or
         /// Alternatives: 1
+        /// Return Type: GeneratedCmpopExprPair
         /// </summary>
-        private GeneratedPtr? Parse_GteBitwiseOr()
+        private GeneratedCmpopExprPair? Parse_GteBitwiseOr()
         {
             int _mark = Mark();
 
@@ -5485,13 +5607,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp(">=") == null) return null;
                 if ((a = Parse_BitwiseOr()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . CmpopExprPair ( GeneratedGtE.Instance , a );
+                return PyParserHelpers . CmpopExprPair ( GeneratedGtE.Instance ,( GeneratedExpr ) a );
             }
 
             Reset(_mark);
@@ -5501,8 +5623,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: gt_bitwise_or
         /// Alternatives: 1
+        /// Return Type: GeneratedCmpopExprPair
         /// </summary>
-        private GeneratedPtr? Parse_GtBitwiseOr()
+        private GeneratedCmpopExprPair? Parse_GtBitwiseOr()
         {
             int _mark = Mark();
 
@@ -5510,13 +5633,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp(">") == null) return null;
                 if ((a = Parse_BitwiseOr()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . CmpopExprPair ( GeneratedGt.Instance , a );
+                return PyParserHelpers . CmpopExprPair ( GeneratedGt.Instance ,( GeneratedExpr ) a );
             }
 
             Reset(_mark);
@@ -5526,8 +5649,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: notin_bitwise_or
         /// Alternatives: 1
+        /// Return Type: GeneratedCmpopExprPair
         /// </summary>
-        private GeneratedPtr? Parse_NotinBitwiseOr()
+        private GeneratedCmpopExprPair? Parse_NotinBitwiseOr()
         {
             int _mark = Mark();
 
@@ -5535,14 +5659,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectKeyword("not") == null) return null;
                 if (ExpectKeyword("in") == null) return null;
                 if ((a = Parse_BitwiseOr()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . CmpopExprPair ( GeneratedNotIn.Instance , a );
+                return PyParserHelpers . CmpopExprPair ( GeneratedNotIn.Instance ,( GeneratedExpr ) a );
             }
 
             Reset(_mark);
@@ -5552,8 +5676,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: in_bitwise_or
         /// Alternatives: 1
+        /// Return Type: GeneratedCmpopExprPair
         /// </summary>
-        private GeneratedPtr? Parse_InBitwiseOr()
+        private GeneratedCmpopExprPair? Parse_InBitwiseOr()
         {
             int _mark = Mark();
 
@@ -5561,13 +5686,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectKeyword("in") == null) return null;
                 if ((a = Parse_BitwiseOr()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . CmpopExprPair ( GeneratedIn.Instance , a );
+                return PyParserHelpers . CmpopExprPair ( GeneratedIn.Instance ,( GeneratedExpr ) a );
             }
 
             Reset(_mark);
@@ -5577,8 +5702,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: isnot_bitwise_or
         /// Alternatives: 1
+        /// Return Type: GeneratedCmpopExprPair
         /// </summary>
-        private GeneratedPtr? Parse_IsnotBitwiseOr()
+        private GeneratedCmpopExprPair? Parse_IsnotBitwiseOr()
         {
             int _mark = Mark();
 
@@ -5586,14 +5712,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectKeyword("is") == null) return null;
                 if (ExpectKeyword("not") == null) return null;
                 if ((a = Parse_BitwiseOr()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . CmpopExprPair ( GeneratedIsNot.Instance , a );
+                return PyParserHelpers . CmpopExprPair ( GeneratedIsNot.Instance ,( GeneratedExpr ) a );
             }
 
             Reset(_mark);
@@ -5603,8 +5729,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: is_bitwise_or
         /// Alternatives: 1
+        /// Return Type: GeneratedCmpopExprPair
         /// </summary>
-        private GeneratedPtr? Parse_IsBitwiseOr()
+        private GeneratedCmpopExprPair? Parse_IsBitwiseOr()
         {
             int _mark = Mark();
 
@@ -5612,13 +5739,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectKeyword("is") == null) return null;
                 if ((a = Parse_BitwiseOr()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . CmpopExprPair ( GeneratedIs.Instance , a );
+                return PyParserHelpers . CmpopExprPair ( GeneratedIs.Instance ,( GeneratedExpr ) a );
             }
 
             Reset(_mark);
@@ -5628,8 +5755,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: bitwise_or
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_BitwiseOr()
+        private GeneratedExpr? Parse_BitwiseOr()
         {
             int _mark = Mark();
 
@@ -5637,15 +5765,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_BitwiseOr()) == null) return null;
                 if (ExpectOp("|") == null) return null;
                 if ((b = Parse_BitwiseXor()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . BinOp ( a , GeneratedBitOr.Instance , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedBitOr.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -5657,7 +5785,7 @@ namespace SharpPy.Generated
                 if (Parse_BitwiseXor() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -5667,8 +5795,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: bitwise_xor
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_BitwiseXor()
+        private GeneratedExpr? Parse_BitwiseXor()
         {
             int _mark = Mark();
 
@@ -5676,15 +5805,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_BitwiseXor()) == null) return null;
                 if (ExpectOp("^") == null) return null;
                 if ((b = Parse_BitwiseAnd()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . BinOp ( a , GeneratedBitXor.Instance , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedBitXor.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -5696,7 +5825,7 @@ namespace SharpPy.Generated
                 if (Parse_BitwiseAnd() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -5706,8 +5835,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: bitwise_and
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_BitwiseAnd()
+        private GeneratedExpr? Parse_BitwiseAnd()
         {
             int _mark = Mark();
 
@@ -5715,15 +5845,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_BitwiseAnd()) == null) return null;
                 if (ExpectOp("&") == null) return null;
                 if ((b = Parse_ShiftExpr()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . BinOp ( a , GeneratedBitAnd.Instance , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedBitAnd.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -5735,7 +5865,7 @@ namespace SharpPy.Generated
                 if (Parse_ShiftExpr() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -5745,8 +5875,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: shift_expr
         /// Alternatives: 3
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_ShiftExpr()
+        private GeneratedExpr? Parse_ShiftExpr()
         {
             int _mark = Mark();
 
@@ -5754,15 +5885,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_ShiftExpr()) == null) return null;
                 if (ExpectOp("<<") == null) return null;
                 if ((b = Parse_Sum()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . BinOp ( a , GeneratedLShift.Instance , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedLShift.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -5770,15 +5901,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_ShiftExpr()) == null) return null;
                 if (ExpectOp(">>") == null) return null;
                 if ((b = Parse_Sum()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . BinOp ( a , GeneratedRShift.Instance , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedRShift.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 3
@@ -5790,7 +5921,7 @@ namespace SharpPy.Generated
                 if (Parse_Sum() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -5800,8 +5931,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: sum
         /// Alternatives: 3
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Sum()
+        private GeneratedExpr? Parse_Sum()
         {
             int _mark = Mark();
 
@@ -5809,15 +5941,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_Sum()) == null) return null;
                 if (ExpectOp("+") == null) return null;
                 if ((b = Parse_Term()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . BinOp ( a , GeneratedAdd.Instance , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedAdd.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -5825,15 +5957,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_Sum()) == null) return null;
                 if (ExpectOp("-") == null) return null;
                 if ((b = Parse_Term()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . BinOp ( a , GeneratedSub.Instance , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedSub.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 3
@@ -5845,7 +5977,7 @@ namespace SharpPy.Generated
                 if (Parse_Term() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -5855,8 +5987,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: term
         /// Alternatives: 6
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Term()
+        private GeneratedExpr? Parse_Term()
         {
             int _mark = Mark();
 
@@ -5864,15 +5997,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_Term()) == null) return null;
                 if (ExpectOp("*") == null) return null;
                 if ((b = Parse_Factor()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . BinOp ( a , GeneratedMult.Instance , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedMult.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -5880,15 +6013,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_Term()) == null) return null;
                 if (ExpectOp("/") == null) return null;
                 if ((b = Parse_Factor()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . BinOp ( a , GeneratedDiv.Instance , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedDiv.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 3
@@ -5896,15 +6029,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_Term()) == null) return null;
                 if (ExpectOp("//") == null) return null;
                 if ((b = Parse_Factor()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . BinOp ( a , GeneratedFloorDiv.Instance , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedFloorDiv.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 4
@@ -5912,15 +6045,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_Term()) == null) return null;
                 if (ExpectOp("%") == null) return null;
                 if ((b = Parse_Factor()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . BinOp ( a , GeneratedMod_.Instance , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedMod_.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 5
@@ -5928,15 +6061,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_Term()) == null) return null;
                 if (ExpectOp("@") == null) return null;
                 if ((b = Parse_Factor()) == null) return null;
 
                 // Action code from grammar
-                return CheckVersion ( 5 , "The '@' operator is" , PyAst . BinOp ( a , GeneratedMatMult.Instance , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                return CheckVersion ( 5 , "The '@' operator is" , PyAst . BinOp (( GeneratedExpr ) a , GeneratedMatMult.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
             }
 
             // Alternative 6
@@ -5948,7 +6081,7 @@ namespace SharpPy.Generated
                 if (Parse_Factor() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -5958,8 +6091,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: factor
         /// Alternatives: 4
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Factor()
+        private GeneratedExpr? Parse_Factor()
         {
             int _mark = Mark();
 
@@ -5967,13 +6101,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp("+") == null) return null;
                 if ((a = Parse_Factor()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . UnaryOp ( GeneratedUAdd.Instance , a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . UnaryOp ( GeneratedUAdd.Instance ,( GeneratedExpr ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -5981,13 +6115,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp("-") == null) return null;
                 if ((a = Parse_Factor()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . UnaryOp ( GeneratedUSub.Instance , a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . UnaryOp ( GeneratedUSub.Instance ,( GeneratedExpr ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 3
@@ -5995,13 +6129,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp("~") == null) return null;
                 if ((a = Parse_Factor()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . UnaryOp ( GeneratedInvert.Instance , a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . UnaryOp ( GeneratedInvert.Instance ,( GeneratedExpr ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 4
@@ -6013,7 +6147,7 @@ namespace SharpPy.Generated
                 if (Parse_Power() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -6023,8 +6157,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: power
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Power()
+        private GeneratedExpr? Parse_Power()
         {
             int _mark = Mark();
 
@@ -6032,15 +6167,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_AwaitPrimary()) == null) return null;
                 if (ExpectOp("**") == null) return null;
                 if ((b = Parse_Factor()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . BinOp ( a , GeneratedPow.Instance , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedPow.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -6052,7 +6187,7 @@ namespace SharpPy.Generated
                 if (Parse_AwaitPrimary() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -6062,8 +6197,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: await_primary
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_AwaitPrimary()
+        private GeneratedExpr? Parse_AwaitPrimary()
         {
             int _mark = Mark();
 
@@ -6071,13 +6207,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (Expect(PyToken.Type.AWAIT, "AWAIT") == null) return null;
                 if ((a = Parse_Primary()) == null) return null;
 
                 // Action code from grammar
-                return CheckVersion ( 5 , "Await expressions are" , PyAst . Await ( a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                return CheckVersion ( 5 , "Await expressions are" , PyAst . Await (( GeneratedExpr ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
             }
 
             // Alternative 2
@@ -6089,7 +6225,7 @@ namespace SharpPy.Generated
                 if (Parse_Primary() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -6099,8 +6235,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: primary
         /// Alternatives: 5
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Primary()
+        private GeneratedExpr? Parse_Primary()
         {
             int _mark = Mark();
 
@@ -6108,15 +6245,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedTokenInfo? b = null;
 
                 if ((a = Parse_Primary()) == null) return null;
                 if (ExpectOp(".") == null) return null;
                 if ((b = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Attribute ( a , b . Id , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Attribute (( GeneratedExpr ) a , b . GetNameValue (), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -6124,14 +6261,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_Primary()) == null) return null;
                 if ((b = Parse_Genexp()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Call ( a , Check < GeneratedExprSeq >( PyParserHelpers . SingletonSequence ( b )), null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Call (( GeneratedExpr ) a , Check < GeneratedExprSeq >( PyParserHelpers . SingletonSequence (( GeneratedExpr ) b ). Cast < GeneratedExprSeq >()), null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 3
@@ -6139,16 +6276,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_Primary()) == null) return null;
                 if (ExpectOp("(") == null) return null;
-                if ((b = ParseOptional(() => Parse_Arguments())) == null) return null;
+                if ((b = (GeneratedExpr)ParseOptional(() => Parse_Arguments())) == null) return null;
                 if (ExpectOp(")") == null) return null;
 
                 // Action code from grammar
-                return PyAst . Call ( a ,( b )?(( GeneratedCall ) b ). Args : null !,( b )?(( GeneratedCall ) b ). Keywords : null !, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Call (( GeneratedExpr ) a ,( b != null )?(( GeneratedCall ) b ). Args : null !,( b != null )?(( GeneratedCall ) b ). Keywords : null !, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 4
@@ -6156,8 +6293,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_Primary()) == null) return null;
                 if (ExpectOp("[") == null) return null;
@@ -6165,7 +6302,7 @@ namespace SharpPy.Generated
                 if (ExpectOp("]") == null) return null;
 
                 // Action code from grammar
-                return PyAst . Subscript ( a , b , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Subscript (( GeneratedExpr ) a ,( GeneratedExpr ) b , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 5
@@ -6177,7 +6314,7 @@ namespace SharpPy.Generated
                 if (Parse_Atom() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -6187,8 +6324,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: slices
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Slices()
+        private GeneratedExpr? Parse_Slices()
         {
             int _mark = Mark();
 
@@ -6196,7 +6334,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if ((a = Parse_Slice()) == null) return null;
                 if (NegativeLookahead(() => ExpectOp(",")) == null) return null;
@@ -6212,7 +6350,7 @@ namespace SharpPy.Generated
 
                 GeneratedExprSeq? a = null;
 
-                if ((a = ParseGatherPlus(() => ExpectOp(","), () => ParseGroup())) == null) return null;
+                if ((a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => ParseGroup())) == null) return null;
                 if (ParseOptional(() => ExpectOp(",")) == null) return null;
 
                 // Action code from grammar
@@ -6226,8 +6364,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: slice
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Slice()
+        private GeneratedExpr? Parse_Slice()
         {
             int _mark = Mark();
 
@@ -6235,17 +6374,17 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
                 GeneratedPtr? c = null;
 
-                if ((a = ParseOptional(() => Parse_Expression())) == null) return null;
+                if ((a = (GeneratedExpr)ParseOptional(() => Parse_Expression())) == null) return null;
                 if (ExpectOp(":") == null) return null;
-                if ((b = ParseOptional(() => Parse_Expression())) == null) return null;
+                if ((b = (GeneratedExpr)ParseOptional(() => Parse_Expression())) == null) return null;
                 if ((c = ParseOptional(() => ParseGroup())) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Slice ( a , b , c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Slice (( GeneratedExpr ?) a ,( GeneratedExpr ?) b ,( GeneratedExpr ?) c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -6253,7 +6392,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if ((a = Parse_NamedExpression()) == null) return null;
 
@@ -6268,8 +6407,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: atom
         /// Alternatives: 10
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Atom()
+        private GeneratedExpr? Parse_Atom()
         {
             int _mark = Mark();
 
@@ -6277,11 +6417,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? name = null;
 
-                if (Expect(PyToken.Type.NAME, "NAME") == null) return null;
+                if ((name = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
 
-                // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                // Action code from grammar
+                return NameToken ( name );
             }
 
             // Alternative 2
@@ -6293,7 +6434,7 @@ namespace SharpPy.Generated
                 if (ExpectKeyword("True") == null) return null;
 
                 // Action code from grammar
-                return PyAst . Constant ( Py_True , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Constant ( GeneratedPyConstant . True , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 3
@@ -6305,7 +6446,7 @@ namespace SharpPy.Generated
                 if (ExpectKeyword("False") == null) return null;
 
                 // Action code from grammar
-                return PyAst . Constant ( Py_False , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Constant ( GeneratedPyConstant . False , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 4
@@ -6317,7 +6458,7 @@ namespace SharpPy.Generated
                 if (ExpectKeyword("None") == null) return null;
 
                 // Action code from grammar
-                return PyAst . Constant ( Py_None , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Constant ( GeneratedPyConstant . None , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 5
@@ -6330,7 +6471,7 @@ namespace SharpPy.Generated
                 if (Parse_Strings() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 6
@@ -6338,11 +6479,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? number = null;
 
-                if (Expect(PyToken.Type.NUMBER, "NUMBER") == null) return null;
+                if ((number = Expect(PyToken.Type.NUMBER, "NUMBER")) == null) return null;
 
-                // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                // Action code from grammar
+                return NumberToken ( number );
             }
 
             // Alternative 7
@@ -6355,7 +6497,7 @@ namespace SharpPy.Generated
                 if (ParseGroup() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 8
@@ -6368,7 +6510,7 @@ namespace SharpPy.Generated
                 if (ParseGroup() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 9
@@ -6381,7 +6523,7 @@ namespace SharpPy.Generated
                 if (ParseGroup() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 10
@@ -6393,7 +6535,7 @@ namespace SharpPy.Generated
                 if (ExpectOp("...") == null) return null;
 
                 // Action code from grammar
-                return PyAst . Constant ( Py_Ellipsis , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Constant ( GeneratedPyConstant . Ellipsis , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -6403,8 +6545,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: group
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Group()
+        private GeneratedExpr? Parse_Group()
         {
             int _mark = Mark();
 
@@ -6419,7 +6562,7 @@ namespace SharpPy.Generated
                 if (ExpectOp(")") == null) return null;
 
                 // Action code from grammar
-                return a;
+                return ( GeneratedExpr ) a;
             }
 
             // Alternative 2
@@ -6431,7 +6574,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidGroup() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -6441,8 +6584,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: lambdef
         /// Alternatives: 1
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Lambdef()
+        private GeneratedExpr? Parse_Lambdef()
         {
             int _mark = Mark();
 
@@ -6450,16 +6594,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedArguments? a = null;
+                GeneratedExpr? b = null;
 
                 if (ExpectKeyword("lambda") == null) return null;
-                if ((a = ParseOptional(() => Parse_LambdaParams())) == null) return null;
+                if ((a = (GeneratedArguments)ParseOptional(() => Parse_LambdaParams())) == null) return null;
                 if (ExpectOp(":") == null) return null;
                 if ((b = Parse_Expression()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Lambda (( a )? a : Check < GeneratedArguments >( PyParserHelpers . EmptyArguments ()), b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Lambda (( a != null )? a :( GeneratedArguments ) Check < GeneratedArguments >( PyParserHelpers . EmptyArguments ()), b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -6469,8 +6613,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: lambda_params
         /// Alternatives: 2
+        /// Return Type: GeneratedArguments
         /// </summary>
-        private GeneratedPtr? Parse_LambdaParams()
+        private GeneratedArguments? Parse_LambdaParams()
         {
             int _mark = Mark();
 
@@ -6483,7 +6628,7 @@ namespace SharpPy.Generated
                 if ((a = Parse_InvalidLambdaParameters()) == null) return null;
 
                 // Action code from grammar
-                return a;
+                return ( GeneratedArguments ) a;
             }
 
             // Alternative 2
@@ -6491,12 +6636,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedArguments? a = null;
 
                 if ((a = Parse_LambdaParameters()) == null) return null;
 
                 // Action code from grammar
-                return a;
+                return ( GeneratedArguments ) a;
             }
 
             Reset(_mark);
@@ -6506,8 +6651,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: lambda_parameters
         /// Alternatives: 5
+        /// Return Type: GeneratedArguments
         /// </summary>
-        private GeneratedPtr? Parse_LambdaParameters()
+        private GeneratedArguments? Parse_LambdaParameters()
         {
             int _mark = Mark();
 
@@ -6515,18 +6661,18 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedArgSeq? a = null;
                 GeneratedArgSeq? b = null;
-                GeneratedPtr? c = null;
-                GeneratedPtr? d = null;
+                GeneratedSeq? c = null;
+                GeneratedStarEtc? d = null;
 
                 if ((a = Parse_LambdaSlashNoDefault()) == null) return null;
-                if ((b = ParseZeroOrMore(() => Parse_LambdaParamNoDefault())) == null) return null;
+                if ((b = (GeneratedArgSeq)ParseZeroOrMore(() => Parse_LambdaParamNoDefault())) == null) return null;
                 if ((c = ParseZeroOrMore(() => Parse_LambdaParamWithDefault())) == null) return null;
-                if ((d = ParseOptional(() => Parse_LambdaStarEtc())) == null) return null;
+                if ((d = (GeneratedStarEtc)ParseOptional(() => Parse_LambdaStarEtc())) == null) return null;
 
                 // Action code from grammar
-                return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments ( a , null , b , c , d ));
+                return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments (( GeneratedArgSeq ) a , null , b ,( GeneratedNameDefaultPairSeq ?) c ,( GeneratedStarEtc ?) d ));
             }
 
             // Alternative 2
@@ -6534,16 +6680,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
-                GeneratedPtr? c = null;
+                GeneratedSlashWithDefault? a = null;
+                GeneratedSeq? b = null;
+                GeneratedStarEtc? c = null;
 
                 if ((a = Parse_LambdaSlashWithDefault()) == null) return null;
                 if ((b = ParseZeroOrMore(() => Parse_LambdaParamWithDefault())) == null) return null;
-                if ((c = ParseOptional(() => Parse_LambdaStarEtc())) == null) return null;
+                if ((c = (GeneratedStarEtc)ParseOptional(() => Parse_LambdaStarEtc())) == null) return null;
 
                 // Action code from grammar
-                return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments ( null , a , null , b , c ));
+                return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments ( null ,( GeneratedSlashWithDefault ) a , null ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedStarEtc ?) c ));
             }
 
             // Alternative 3
@@ -6552,15 +6698,15 @@ namespace SharpPy.Generated
                 CaptureStart();
 
                 GeneratedArgSeq? a = null;
-                GeneratedPtr? b = null;
-                GeneratedPtr? c = null;
+                GeneratedSeq? b = null;
+                GeneratedStarEtc? c = null;
 
-                if ((a = ParseOneOrMore(() => Parse_LambdaParamNoDefault())) == null) return null;
+                if ((a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_LambdaParamNoDefault())) == null) return null;
                 if ((b = ParseZeroOrMore(() => Parse_LambdaParamWithDefault())) == null) return null;
-                if ((c = ParseOptional(() => Parse_LambdaStarEtc())) == null) return null;
+                if ((c = (GeneratedStarEtc)ParseOptional(() => Parse_LambdaStarEtc())) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . MakeArguments ( null , null , a , b , c );
+                return PyParserHelpers . MakeArguments ( null , null , a ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedStarEtc ?) c );
             }
 
             // Alternative 4
@@ -6568,14 +6714,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedSeq? a = null;
+                GeneratedStarEtc? b = null;
 
                 if ((a = ParseOneOrMore(() => Parse_LambdaParamWithDefault())) == null) return null;
-                if ((b = ParseOptional(() => Parse_LambdaStarEtc())) == null) return null;
+                if ((b = (GeneratedStarEtc)ParseOptional(() => Parse_LambdaStarEtc())) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . MakeArguments ( null , null , null , a , b );
+                return PyParserHelpers . MakeArguments ( null , null , null ,( GeneratedNameDefaultPairSeq ?) a ,( GeneratedStarEtc ?) b );
             }
 
             // Alternative 5
@@ -6583,12 +6729,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedStarEtc? a = null;
 
                 if ((a = Parse_LambdaStarEtc()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . MakeArguments ( null , null , null , null , a );
+                return PyParserHelpers . MakeArguments ( null , null , null , null ,( GeneratedStarEtc ) a );
             }
 
             Reset(_mark);
@@ -6598,8 +6744,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: lambda_slash_no_default
         /// Alternatives: 2
+        /// Return Type: GeneratedArgSeq
         /// </summary>
-        private GeneratedPtr? Parse_LambdaSlashNoDefault()
+        private GeneratedArgSeq? Parse_LambdaSlashNoDefault()
         {
             int _mark = Mark();
 
@@ -6609,7 +6756,7 @@ namespace SharpPy.Generated
 
                 GeneratedArgSeq? a = null;
 
-                if ((a = ParseOneOrMore(() => Parse_LambdaParamNoDefault())) == null) return null;
+                if ((a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_LambdaParamNoDefault())) == null) return null;
                 if (ExpectOp("/") == null) return null;
                 if (ExpectOp(",") == null) return null;
 
@@ -6624,7 +6771,7 @@ namespace SharpPy.Generated
 
                 GeneratedArgSeq? a = null;
 
-                if ((a = ParseOneOrMore(() => Parse_LambdaParamNoDefault())) == null) return null;
+                if ((a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_LambdaParamNoDefault())) == null) return null;
                 if (ExpectOp("/") == null) return null;
                 if (PositiveLookahead(() => ExpectOp(":")) == null) return null;
 
@@ -6639,8 +6786,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: lambda_slash_with_default
         /// Alternatives: 2
+        /// Return Type: GeneratedSlashWithDefault
         /// </summary>
-        private GeneratedPtr? Parse_LambdaSlashWithDefault()
+        private GeneratedSlashWithDefault? Parse_LambdaSlashWithDefault()
         {
             int _mark = Mark();
 
@@ -6648,8 +6796,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedSeq? a = null;
+                GeneratedSeq? b = null;
 
                 if ((a = ParseZeroOrMore(() => Parse_LambdaParamNoDefault())) == null) return null;
                 if ((b = ParseOneOrMore(() => Parse_LambdaParamWithDefault())) == null) return null;
@@ -6657,7 +6805,7 @@ namespace SharpPy.Generated
                 if (ExpectOp(",") == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SlashWithDefault ( a . Cast < GeneratedArgSeq >(), b );
+                return PyParserHelpers . SlashWithDefault (( GeneratedArgSeq ?) a ,( GeneratedNameDefaultPairSeq ) b );
             }
 
             // Alternative 2
@@ -6665,8 +6813,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedSeq? a = null;
+                GeneratedSeq? b = null;
 
                 if ((a = ParseZeroOrMore(() => Parse_LambdaParamNoDefault())) == null) return null;
                 if ((b = ParseOneOrMore(() => Parse_LambdaParamWithDefault())) == null) return null;
@@ -6674,7 +6822,7 @@ namespace SharpPy.Generated
                 if (PositiveLookahead(() => ExpectOp(":")) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SlashWithDefault ( a . Cast < GeneratedArgSeq >(), b );
+                return PyParserHelpers . SlashWithDefault (( GeneratedArgSeq ?) a ,( GeneratedNameDefaultPairSeq ) b );
             }
 
             Reset(_mark);
@@ -6684,8 +6832,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: lambda_star_etc
         /// Alternatives: 4
+        /// Return Type: GeneratedStarEtc
         /// </summary>
-        private GeneratedPtr? Parse_LambdaStarEtc()
+        private GeneratedStarEtc? Parse_LambdaStarEtc()
         {
             int _mark = Mark();
 
@@ -6697,7 +6846,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidLambdaStarEtc() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -6705,17 +6854,17 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
-                GeneratedPtr? c = null;
+                GeneratedArg? a = null;
+                GeneratedSeq? b = null;
+                GeneratedArg? c = null;
 
                 if (ExpectOp("*") == null) return null;
                 if ((a = Parse_LambdaParamNoDefault()) == null) return null;
                 if ((b = ParseZeroOrMore(() => Parse_LambdaParamMaybeDefault())) == null) return null;
-                if ((c = ParseOptional(() => Parse_LambdaKwds())) == null) return null;
+                if ((c = (GeneratedArg)ParseOptional(() => Parse_LambdaKwds())) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . StarEtc ( a , b , c );
+                return PyParserHelpers . StarEtc (( GeneratedArg ) a ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedArg ?) c );
             }
 
             // Alternative 3
@@ -6723,16 +6872,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? b = null;
-                GeneratedPtr? c = null;
+                GeneratedSeq? b = null;
+                GeneratedArg? c = null;
 
                 if (ExpectOp("*") == null) return null;
                 if (ExpectOp(",") == null) return null;
                 if ((b = ParseOneOrMore(() => Parse_LambdaParamMaybeDefault())) == null) return null;
-                if ((c = ParseOptional(() => Parse_LambdaKwds())) == null) return null;
+                if ((c = (GeneratedArg)ParseOptional(() => Parse_LambdaKwds())) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . StarEtc ( null , b , c );
+                return PyParserHelpers . StarEtc ( null ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedArg ?) c );
             }
 
             // Alternative 4
@@ -6740,12 +6889,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedArg? a = null;
 
                 if ((a = Parse_LambdaKwds()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . StarEtc ( null , null , a );
+                return PyParserHelpers . StarEtc ( null , null ,( GeneratedArg ) a );
             }
 
             Reset(_mark);
@@ -6755,8 +6904,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: lambda_kwds
         /// Alternatives: 2
+        /// Return Type: GeneratedArg
         /// </summary>
-        private GeneratedPtr? Parse_LambdaKwds()
+        private GeneratedArg? Parse_LambdaKwds()
         {
             int _mark = Mark();
 
@@ -6768,7 +6918,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidLambdaKwds() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -6776,7 +6926,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedArg? a = null;
 
                 if (ExpectOp("**") == null) return null;
                 if ((a = Parse_LambdaParamNoDefault()) == null) return null;
@@ -6792,8 +6942,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: lambda_param_no_default
         /// Alternatives: 2
+        /// Return Type: GeneratedArg
         /// </summary>
-        private GeneratedPtr? Parse_LambdaParamNoDefault()
+        private GeneratedArg? Parse_LambdaParamNoDefault()
         {
             int _mark = Mark();
 
@@ -6801,7 +6952,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedArg? a = null;
 
                 if ((a = Parse_LambdaParam()) == null) return null;
                 if (ExpectOp(",") == null) return null;
@@ -6815,7 +6966,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedArg? a = null;
 
                 if ((a = Parse_LambdaParam()) == null) return null;
                 if (PositiveLookahead(() => ExpectOp(":")) == null) return null;
@@ -6831,8 +6982,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: lambda_param_with_default
         /// Alternatives: 2
+        /// Return Type: GeneratedNameDefaultPair
         /// </summary>
-        private GeneratedPtr? Parse_LambdaParamWithDefault()
+        private GeneratedNameDefaultPair? Parse_LambdaParamWithDefault()
         {
             int _mark = Mark();
 
@@ -6840,15 +6992,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? c = null;
+                GeneratedArg? a = null;
+                GeneratedExpr? c = null;
 
                 if ((a = Parse_LambdaParam()) == null) return null;
                 if ((c = Parse_Default()) == null) return null;
                 if (ExpectOp(",") == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . NameDefaultPair ( a , c , null );
+                return PyParserHelpers . NameDefaultPair (( GeneratedArg ) a ,( GeneratedExpr ) c , null );
             }
 
             // Alternative 2
@@ -6856,15 +7008,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? c = null;
+                GeneratedArg? a = null;
+                GeneratedExpr? c = null;
 
                 if ((a = Parse_LambdaParam()) == null) return null;
                 if ((c = Parse_Default()) == null) return null;
                 if (PositiveLookahead(() => ExpectOp(":")) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . NameDefaultPair ( a , c , null );
+                return PyParserHelpers . NameDefaultPair (( GeneratedArg ) a ,( GeneratedExpr ) c , null );
             }
 
             Reset(_mark);
@@ -6874,8 +7026,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: lambda_param_maybe_default
         /// Alternatives: 2
+        /// Return Type: GeneratedNameDefaultPair
         /// </summary>
-        private GeneratedPtr? Parse_LambdaParamMaybeDefault()
+        private GeneratedNameDefaultPair? Parse_LambdaParamMaybeDefault()
         {
             int _mark = Mark();
 
@@ -6883,15 +7036,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? c = null;
+                GeneratedArg? a = null;
+                GeneratedExpr? c = null;
 
                 if ((a = Parse_LambdaParam()) == null) return null;
-                if ((c = ParseOptional(() => Parse_Default())) == null) return null;
+                if ((c = (GeneratedExpr)ParseOptional(() => Parse_Default())) == null) return null;
                 if (ExpectOp(",") == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . NameDefaultPair ( a , c , null );
+                return PyParserHelpers . NameDefaultPair (( GeneratedArg ) a ,( GeneratedExpr ?) c , null );
             }
 
             // Alternative 2
@@ -6899,15 +7052,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? c = null;
+                GeneratedArg? a = null;
+                GeneratedExpr? c = null;
 
                 if ((a = Parse_LambdaParam()) == null) return null;
-                if ((c = ParseOptional(() => Parse_Default())) == null) return null;
+                if ((c = (GeneratedExpr)ParseOptional(() => Parse_Default())) == null) return null;
                 if (PositiveLookahead(() => ExpectOp(":")) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . NameDefaultPair ( a , c , null );
+                return PyParserHelpers . NameDefaultPair (( GeneratedArg ) a ,( GeneratedExpr ?) c , null );
             }
 
             Reset(_mark);
@@ -6917,8 +7070,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: lambda_param
         /// Alternatives: 1
+        /// Return Type: GeneratedArg
         /// </summary>
-        private GeneratedPtr? Parse_LambdaParam()
+        private GeneratedArg? Parse_LambdaParam()
         {
             int _mark = Mark();
 
@@ -6926,12 +7080,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Arg ( a . Id , null , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Arg ( a . GetNameValue (), null , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -6941,8 +7095,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: fstring_middle
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_FstringMiddle()
+        private GeneratedExpr? Parse_FstringMiddle()
         {
             int _mark = Mark();
 
@@ -6954,7 +7109,7 @@ namespace SharpPy.Generated
                 if (Parse_FstringReplacementField() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -6962,12 +7117,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? t = null;
+                GeneratedTokenInfo? t = null;
 
                 if ((t = Expect(PyToken.Type.FSTRING_MIDDLE, "FSTRING_MIDDLE")) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . ConstantFromToken ( t );
+                return PegenHelpers . _PyPegen_constant_from_token ( t );
             }
 
             Reset(_mark);
@@ -6977,8 +7132,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: fstring_replacement_field
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_FstringReplacementField()
+        private GeneratedExpr? Parse_FstringReplacementField()
         {
             int _mark = Mark();
 
@@ -6987,20 +7143,20 @@ namespace SharpPy.Generated
                 CaptureStart();
 
                 GeneratedPtr? a = null;
-                GeneratedPtr? debug_expr = null;
-                GeneratedPtr? conversion = null;
-                GeneratedPtr? format = null;
-                GeneratedPtr? rbrace = null;
+                GeneratedTokenInfo? debug_expr = null;
+                GeneratedResultTokenWithMetadata? conversion = null;
+                GeneratedResultTokenWithMetadata? format = null;
+                GeneratedTokenInfo? rbrace = null;
 
                 if (ExpectOp("{") == null) return null;
                 if ((a = ParseGroup()) == null) return null;
-                if ((debug_expr = ParseOptional(() => ExpectOp("="))) == null) return null;
-                if ((conversion = ParseOptional(() => Parse_FstringConversion())) == null) return null;
-                if ((format = ParseOptional(() => Parse_FstringFullFormatSpec())) == null) return null;
+                if ((debug_expr = (GeneratedTokenInfo)ParseOptional(() => ExpectOp("="))) == null) return null;
+                if ((conversion = (GeneratedResultTokenWithMetadata)ParseOptional(() => Parse_FstringConversion())) == null) return null;
+                if ((format = (GeneratedResultTokenWithMetadata)ParseOptional(() => Parse_FstringFullFormatSpec())) == null) return null;
                 if ((rbrace = ExpectOp("}")) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . FormattedValue ( a , debug_expr , conversion , format , rbrace , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return GeneratedParserBridge . _PyPegen_formatted_value (( GeneratedExpr ) a , debug_expr , conversion , format , rbrace , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -7012,7 +7168,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidReplacementField() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -7022,8 +7178,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: fstring_conversion
         /// Alternatives: 1
+        /// Return Type: GeneratedResultTokenWithMetadata
         /// </summary>
-        private GeneratedPtr? Parse_FstringConversion()
+        private GeneratedResultTokenWithMetadata? Parse_FstringConversion()
         {
             int _mark = Mark();
 
@@ -7031,14 +7188,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? conv_token = null;
-                GeneratedPtr? conv = null;
+                GeneratedTokenInfo? conv_token = null;
+                GeneratedTokenInfo? conv = null;
 
                 if ((conv_token = ExpectSoftKeyword("!")) == null) return null;
                 if ((conv = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . CheckFstringConversion ( conv_token , conv );
+                return GeneratedParserBridge . _PyPegen_check_fstring_conversion ( conv_token , GeneratedParserBridge . _PyPegen_name_token ( conv ));
             }
 
             Reset(_mark);
@@ -7048,8 +7205,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: fstring_full_format_spec
         /// Alternatives: 1
+        /// Return Type: GeneratedResultTokenWithMetadata
         /// </summary>
-        private GeneratedPtr? Parse_FstringFullFormatSpec()
+        private GeneratedResultTokenWithMetadata? Parse_FstringFullFormatSpec()
         {
             int _mark = Mark();
 
@@ -7057,14 +7215,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? colon = null;
-                GeneratedPtr? spec = null;
+                GeneratedTokenInfo? colon = null;
+                GeneratedSeq? spec = null;
 
                 if ((colon = ExpectOp(":")) == null) return null;
                 if ((spec = ParseZeroOrMore(() => Parse_FstringFormatSpec())) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SetupFullFormatSpec ( colon , spec . Cast < GeneratedExprSeq >(), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return GeneratedParserBridge . _PyPegen_setup_full_format_spec ( colon , spec . Cast < GeneratedExprSeq >(), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -7074,8 +7232,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: fstring_format_spec
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_FstringFormatSpec()
+        private GeneratedExpr? Parse_FstringFormatSpec()
         {
             int _mark = Mark();
 
@@ -7083,7 +7242,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? t = null;
+                GeneratedTokenInfo? t = null;
 
                 if ((t = Expect(PyToken.Type.FSTRING_MIDDLE, "FSTRING_MIDDLE")) == null) return null;
 
@@ -7100,7 +7259,7 @@ namespace SharpPy.Generated
                 if (Parse_FstringReplacementField() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -7110,8 +7269,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: fstring
         /// Alternatives: 1
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Fstring()
+        private GeneratedExpr? Parse_Fstring()
         {
             int _mark = Mark();
 
@@ -7119,16 +7279,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
-                GeneratedPtr? c = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedSeq? b = null;
+                GeneratedTokenInfo? c = null;
 
                 if ((a = Expect(PyToken.Type.FSTRING_START, "FSTRING_START")) == null) return null;
                 if ((b = ParseZeroOrMore(() => Parse_FstringMiddle())) == null) return null;
                 if ((c = Expect(PyToken.Type.FSTRING_END, "FSTRING_END")) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . JoinedStr ( a , b , c );
+                return GeneratedParserBridge . _PyPegen_joined_str ( a , b . Cast < GeneratedExprSeq >(), c );
             }
 
             Reset(_mark);
@@ -7138,8 +7298,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: string
         /// Alternatives: 1
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_String()
+        private GeneratedExpr? Parse_String()
         {
             int _mark = Mark();
 
@@ -7147,7 +7308,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedToken? s = null;
+                GeneratedTokenInfo? s = null;
 
                 if ((s = Expect(PyToken.Type.STRING, "STRING")) == null) return null;
 
@@ -7162,8 +7323,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: strings
         /// Alternatives: 1
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Strings()
+        private GeneratedExpr? Parse_Strings()
         {
             int _mark = Mark();
 
@@ -7173,7 +7335,7 @@ namespace SharpPy.Generated
 
                 GeneratedExprSeq? a = null;
 
-                if ((a = ParseOneOrMore(() => ParseGroup())) == null) return null;
+                if ((a = (GeneratedExprSeq)ParseOneOrMore(() => ParseGroup())) == null) return null;
 
                 // Action code from grammar
                 return PyParserHelpers . ConcatenateStrings ( a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -7186,8 +7348,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: list
         /// Alternatives: 1
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_List()
+        private GeneratedExpr? Parse_List()
         {
             int _mark = Mark();
 
@@ -7195,10 +7358,10 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExprSeq? a = null;
 
                 if (ExpectOp("[") == null) return null;
-                if ((a = ParseOptional(() => Parse_StarNamedExpressions())) == null) return null;
+                if ((a = (GeneratedExprSeq)ParseOptional(() => Parse_StarNamedExpressions())) == null) return null;
                 if (ExpectOp("]") == null) return null;
 
                 // Action code from grammar
@@ -7212,8 +7375,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: tuple
         /// Alternatives: 1
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Tuple()
+        private GeneratedExpr? Parse_Tuple()
         {
             int _mark = Mark();
 
@@ -7228,7 +7392,7 @@ namespace SharpPy.Generated
                 if (ExpectOp(")") == null) return null;
 
                 // Action code from grammar
-                return PyAst . Tuple ( a , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Tuple (( GeneratedExprSeq ?) a , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -7238,8 +7402,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: set
         /// Alternatives: 1
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Set()
+        private GeneratedExpr? Parse_Set()
         {
             int _mark = Mark();
 
@@ -7247,7 +7412,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExprSeq? a = null;
 
                 if (ExpectOp("{") == null) return null;
                 if ((a = Parse_StarNamedExpressions()) == null) return null;
@@ -7264,8 +7429,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: dict
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Dict()
+        private GeneratedExpr? Parse_Dict()
         {
             int _mark = Mark();
 
@@ -7273,10 +7439,10 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedSeq? a = null;
 
                 if (ExpectOp("{") == null) return null;
-                if ((a = ParseOptional(() => Parse_DoubleStarredKvpairs())) == null) return null;
+                if ((a = (GeneratedSeq)ParseOptional(() => Parse_DoubleStarredKvpairs())) == null) return null;
                 if (ExpectOp("}") == null) return null;
 
                 // Action code from grammar
@@ -7294,7 +7460,7 @@ namespace SharpPy.Generated
                 if (ExpectOp("}") == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -7304,8 +7470,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: double_starred_kvpairs
         /// Alternatives: 1
+        /// Return Type: GeneratedSeq
         /// </summary>
-        private GeneratedPtr? Parse_DoubleStarredKvpairs()
+        private GeneratedSeq? Parse_DoubleStarredKvpairs()
         {
             int _mark = Mark();
 
@@ -7313,7 +7480,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedSeq? a = null;
 
                 if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_DoubleStarredKvpair())) == null) return null;
                 if (ParseOptional(() => ExpectOp(",")) == null) return null;
@@ -7329,8 +7496,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: double_starred_kvpair
         /// Alternatives: 2
+        /// Return Type: GeneratedKeyValuePair
         /// </summary>
-        private GeneratedPtr? Parse_DoubleStarredKvpair()
+        private GeneratedKeyValuePair? Parse_DoubleStarredKvpair()
         {
             int _mark = Mark();
 
@@ -7338,7 +7506,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp("**") == null) return null;
                 if ((a = Parse_BitwiseOr()) == null) return null;
@@ -7356,7 +7524,7 @@ namespace SharpPy.Generated
                 if (Parse_Kvpair() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -7366,8 +7534,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: kvpair
         /// Alternatives: 1
+        /// Return Type: GeneratedKeyValuePair
         /// </summary>
-        private GeneratedPtr? Parse_Kvpair()
+        private GeneratedKeyValuePair? Parse_Kvpair()
         {
             int _mark = Mark();
 
@@ -7375,8 +7544,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_Expression()) == null) return null;
                 if (ExpectOp(":") == null) return null;
@@ -7393,8 +7562,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: for_if_clauses
         /// Alternatives: 1
+        /// Return Type: GeneratedComprehensionSeq
         /// </summary>
-        private GeneratedPtr? Parse_ForIfClauses()
+        private GeneratedComprehensionSeq? Parse_ForIfClauses()
         {
             int _mark = Mark();
 
@@ -7404,7 +7574,7 @@ namespace SharpPy.Generated
 
                 GeneratedComprehensionSeq? a = null;
 
-                if ((a = ParseOneOrMore(() => Parse_ForIfClause())) == null) return null;
+                if ((a = (GeneratedComprehensionSeq)ParseOneOrMore(() => Parse_ForIfClause())) == null) return null;
 
                 // Action code from grammar
                 return a;
@@ -7417,8 +7587,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: for_if_clause
         /// Alternatives: 3
+        /// Return Type: GeneratedComprehension
         /// </summary>
-        private GeneratedPtr? Parse_ForIfClause()
+        private GeneratedComprehension? Parse_ForIfClause()
         {
             int _mark = Mark();
 
@@ -7426,8 +7597,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
                 GeneratedExprSeq? c = null;
 
                 if (Expect(PyToken.Type.ASYNC, "ASYNC") == null) return null;
@@ -7435,10 +7606,10 @@ namespace SharpPy.Generated
                 if ((a = Parse_StarTargets()) == null) return null;
                 if (ExpectKeyword("in") == null) return null;
                 if ((b = Parse_Disjunction()) == null) return null;
-                if ((c = ParseZeroOrMore(() => ParseGroup())) == null) return null;
+                if ((c = (GeneratedExprSeq)ParseZeroOrMore(() => ParseGroup())) == null) return null;
 
                 // Action code from grammar
-                return CheckVersion ( 6 , "Async comprehensions are" , PyAst . Comprehension ( a , b , c , isAsync : true , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                return CheckVersion ( 6 , "Async comprehensions are" , PyAst . Comprehension (( GeneratedExpr ) a ,( GeneratedExpr ) b , c , is_async : 1 ));
             }
 
             // Alternative 2
@@ -7446,18 +7617,18 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
                 GeneratedExprSeq? c = null;
 
                 if (ExpectKeyword("for") == null) return null;
                 if ((a = Parse_StarTargets()) == null) return null;
                 if (ExpectKeyword("in") == null) return null;
                 if ((b = Parse_Disjunction()) == null) return null;
-                if ((c = ParseZeroOrMore(() => ParseGroup())) == null) return null;
+                if ((c = (GeneratedExprSeq)ParseZeroOrMore(() => ParseGroup())) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Comprehension ( a , b , c , isAsync : false , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Comprehension (( GeneratedExpr ) a ,( GeneratedExpr ) b , c , is_async : 0 );
             }
 
             // Alternative 3
@@ -7469,7 +7640,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidForTarget() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -7479,8 +7650,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: listcomp
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Listcomp()
+        private GeneratedExpr? Parse_Listcomp()
         {
             int _mark = Mark();
 
@@ -7488,8 +7660,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedComprehensionSeq? b = null;
 
                 if (ExpectOp("[") == null) return null;
                 if ((a = Parse_NamedExpression()) == null) return null;
@@ -7509,7 +7681,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidComprehension() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -7519,8 +7691,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: setcomp
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Setcomp()
+        private GeneratedExpr? Parse_Setcomp()
         {
             int _mark = Mark();
 
@@ -7528,8 +7701,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedComprehensionSeq? b = null;
 
                 if (ExpectOp("{") == null) return null;
                 if ((a = Parse_NamedExpression()) == null) return null;
@@ -7549,7 +7722,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidComprehension() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -7559,8 +7732,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: genexp
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Genexp()
+        private GeneratedExpr? Parse_Genexp()
         {
             int _mark = Mark();
 
@@ -7569,7 +7743,7 @@ namespace SharpPy.Generated
                 CaptureStart();
 
                 GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedComprehensionSeq? b = null;
 
                 if (ExpectOp("(") == null) return null;
                 if ((a = ParseGroup()) == null) return null;
@@ -7577,7 +7751,7 @@ namespace SharpPy.Generated
                 if (ExpectOp(")") == null) return null;
 
                 // Action code from grammar
-                return PyAst . GeneratorExp ( a , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . GeneratorExp (( GeneratedExpr ) a , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -7589,7 +7763,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidComprehension() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -7599,8 +7773,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: dictcomp
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Dictcomp()
+        private GeneratedExpr? Parse_Dictcomp()
         {
             int _mark = Mark();
 
@@ -7608,8 +7783,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedKeyValuePair? a = null;
+                GeneratedComprehensionSeq? b = null;
 
                 if (ExpectOp("{") == null) return null;
                 if ((a = Parse_Kvpair()) == null) return null;
@@ -7629,7 +7804,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidDictComprehension() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -7639,8 +7814,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: arguments
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Arguments()
+        private GeneratedExpr? Parse_Arguments()
         {
             int _mark = Mark();
 
@@ -7648,7 +7824,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if ((a = Parse_Args()) == null) return null;
                 if (ParseOptional(() => ExpectOp(",")) == null) return null;
@@ -7667,7 +7843,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidArguments() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -7677,8 +7853,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: args
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_Args()
+        private GeneratedExpr? Parse_Args()
         {
             int _mark = Mark();
 
@@ -7689,11 +7866,11 @@ namespace SharpPy.Generated
                 GeneratedExprSeq? a = null;
                 GeneratedPtr? b = null;
 
-                if ((a = ParseGatherPlus(() => ExpectOp(","), () => ParseGroup())) == null) return null;
+                if ((a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => ParseGroup())) == null) return null;
                 if ((b = ParseOptional(() => ParseGroup())) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . CollectCallSeqs ( a , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyParserHelpers . CollectCallSeqs ( a ,( GeneratedSeq ?) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -7701,7 +7878,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedSeq? a = null;
 
                 if ((a = Parse_Kwargs()) == null) return null;
 
@@ -7716,8 +7893,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: kwargs
         /// Alternatives: 3
+        /// Return Type: GeneratedSeq
         /// </summary>
-        private GeneratedPtr? Parse_Kwargs()
+        private GeneratedSeq? Parse_Kwargs()
         {
             int _mark = Mark();
 
@@ -7725,8 +7903,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedSeq? a = null;
+                GeneratedSeq? b = null;
 
                 if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_KwargOrStarred())) == null) return null;
                 if (ExpectOp(",") == null) return null;
@@ -7745,7 +7923,7 @@ namespace SharpPy.Generated
                 if (ParseGatherPlus(() => ExpectOp(","), () => Parse_KwargOrStarred()) == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 3
@@ -7757,7 +7935,7 @@ namespace SharpPy.Generated
                 if (ParseGatherPlus(() => ExpectOp(","), () => Parse_KwargOrDoubleStarred()) == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -7767,8 +7945,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: starred_expression
         /// Alternatives: 3
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_StarredExpression()
+        private GeneratedExpr? Parse_StarredExpression()
         {
             int _mark = Mark();
 
@@ -7780,7 +7959,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidStarredExpression() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -7788,7 +7967,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp("*") == null) return null;
                 if ((a = Parse_Expression()) == null) return null;
@@ -7816,8 +7995,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: kwarg_or_starred
         /// Alternatives: 3
+        /// Return Type: GeneratedKeywordOrStarred
         /// </summary>
-        private GeneratedPtr? Parse_KwargOrStarred()
+        private GeneratedKeywordOrStarred? Parse_KwargOrStarred()
         {
             int _mark = Mark();
 
@@ -7829,7 +8009,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidKwarg() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -7837,15 +8017,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
                 if (ExpectOp("=") == null) return null;
                 if ((b = Parse_Expression()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . KeywordOrStarred ( Check < GeneratedKeyword >( PyAst . Keyword ( a . Id , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset )), isKeyword : true );
+                return PyParserHelpers . KeywordOrStarred ( Check < GeneratedKeyword >( PyAst . Keyword ( a . GetNameValue (), b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset )), is_keyword : 1 );
             }
 
             // Alternative 3
@@ -7853,12 +8033,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if ((a = Parse_StarredExpression()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . KeywordOrStarred ( a , isKeyword : false );
+                return PyParserHelpers . KeywordOrStarred ( a , is_keyword : 0 );
             }
 
             Reset(_mark);
@@ -7868,8 +8048,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: kwarg_or_double_starred
         /// Alternatives: 3
+        /// Return Type: GeneratedKeywordOrStarred
         /// </summary>
-        private GeneratedPtr? Parse_KwargOrDoubleStarred()
+        private GeneratedKeywordOrStarred? Parse_KwargOrDoubleStarred()
         {
             int _mark = Mark();
 
@@ -7881,7 +8062,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidKwarg() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -7889,15 +8070,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
                 if (ExpectOp("=") == null) return null;
                 if ((b = Parse_Expression()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . KeywordOrStarred ( Check < GeneratedKeyword >( PyAst . Keyword ( a . Id , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset )), isKeyword : true );
+                return PyParserHelpers . KeywordOrStarred ( Check < GeneratedKeyword >( PyAst . Keyword ( a . GetNameValue (), b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset )), is_keyword : 1 );
             }
 
             // Alternative 3
@@ -7905,13 +8086,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp("**") == null) return null;
                 if ((a = Parse_Expression()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . KeywordOrStarred ( Check < GeneratedKeyword >( PyAst . Keyword ( null , a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset )), isKeyword : true );
+                return PyParserHelpers . KeywordOrStarred ( Check < GeneratedKeyword >( PyAst . Keyword ( null , a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset )), is_keyword : 1 );
             }
 
             Reset(_mark);
@@ -7921,8 +8102,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: star_targets
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_StarTargets()
+        private GeneratedExpr? Parse_StarTargets()
         {
             int _mark = Mark();
 
@@ -7930,7 +8112,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if ((a = Parse_StarTarget()) == null) return null;
                 if (NegativeLookahead(() => ExpectOp(",")) == null) return null;
@@ -7944,15 +8126,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedSeq? b = null;
 
                 if ((a = Parse_StarTarget()) == null) return null;
                 if ((b = ParseZeroOrMore(() => ParseGroup())) == null) return null;
                 if (ParseOptional(() => ExpectOp(",")) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront ( a , b )), GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Tuple (( GeneratedExprSeq ?) Check < GeneratedExprSeq >(( GeneratedExprSeq ) PyParserHelpers . SeqInsertInFront ( a , b )), GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -7962,8 +8144,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: star_targets_list_seq
         /// Alternatives: 1
+        /// Return Type: GeneratedExprSeq
         /// </summary>
-        private GeneratedPtr? Parse_StarTargetsListSeq()
+        private GeneratedExprSeq? Parse_StarTargetsListSeq()
         {
             int _mark = Mark();
 
@@ -7973,7 +8156,7 @@ namespace SharpPy.Generated
 
                 GeneratedExprSeq? a = null;
 
-                if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_StarTarget())) == null) return null;
+                if ((a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_StarTarget())) == null) return null;
                 if (ParseOptional(() => ExpectOp(",")) == null) return null;
 
                 // Action code from grammar
@@ -7987,8 +8170,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: star_targets_tuple_seq
         /// Alternatives: 2
+        /// Return Type: GeneratedExprSeq
         /// </summary>
-        private GeneratedPtr? Parse_StarTargetsTupleSeq()
+        private GeneratedExprSeq? Parse_StarTargetsTupleSeq()
         {
             int _mark = Mark();
 
@@ -7996,15 +8180,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedSeq? b = null;
 
                 if ((a = Parse_StarTarget()) == null) return null;
                 if ((b = ParseOneOrMore(() => ParseGroup())) == null) return null;
                 if (ParseOptional(() => ExpectOp(",")) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SeqInsertInFront ( a , b );
+                return PyParserHelpers . SeqInsertInFront ( a , b ). Cast < GeneratedExprSeq >();
             }
 
             // Alternative 2
@@ -8012,13 +8196,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if ((a = Parse_StarTarget()) == null) return null;
                 if (ExpectOp(",") == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SingletonSeq ( a );
+                return PyParserHelpers . SingletonSeq ( a ). Cast < GeneratedExprSeq >();
             }
 
             Reset(_mark);
@@ -8028,8 +8212,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: star_target
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_StarTarget()
+        private GeneratedExpr? Parse_StarTarget()
         {
             int _mark = Mark();
 
@@ -8043,7 +8228,7 @@ namespace SharpPy.Generated
                 if ((a = ParseGroup()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Starred ( Check < GeneratedExpr >( PyParserHelpers . SetExprContext ( a , GeneratedStore.Instance )), GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Starred (( GeneratedExpr ) Check < GeneratedExpr >(( GeneratedExpr ) PyParserHelpers . SetExprContext (( GeneratedExpr ) a , GeneratedStore.Instance )), GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -8055,7 +8240,7 @@ namespace SharpPy.Generated
                 if (Parse_TargetWithStarAtom() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -8065,8 +8250,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: target_with_star_atom
         /// Alternatives: 3
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_TargetWithStarAtom()
+        private GeneratedExpr? Parse_TargetWithStarAtom()
         {
             int _mark = Mark();
 
@@ -8074,8 +8260,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedTokenInfo? b = null;
 
                 if ((a = Parse_TPrimary()) == null) return null;
                 if (ExpectOp(".") == null) return null;
@@ -8083,7 +8269,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => Parse_TLookahead()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Attribute ( a , b . Id , GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Attribute ( a , b . GetNameValue (), GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -8091,8 +8277,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_TPrimary()) == null) return null;
                 if (ExpectOp("[") == null) return null;
@@ -8113,7 +8299,7 @@ namespace SharpPy.Generated
                 if (Parse_StarAtom() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -8123,8 +8309,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: star_atom
         /// Alternatives: 4
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_StarAtom()
+        private GeneratedExpr? Parse_StarAtom()
         {
             int _mark = Mark();
 
@@ -8132,12 +8319,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SetExprContext ( a , GeneratedStore.Instance );
+                return PyParserHelpers . SetExprContext ( NameToken ( a ), GeneratedStore.Instance );
             }
 
             // Alternative 2
@@ -8145,7 +8332,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp("(") == null) return null;
                 if ((a = Parse_TargetWithStarAtom()) == null) return null;
@@ -8160,10 +8347,10 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExprSeq? a = null;
 
                 if (ExpectOp("(") == null) return null;
-                if ((a = ParseOptional(() => Parse_StarTargetsTupleSeq())) == null) return null;
+                if ((a = (GeneratedExprSeq)ParseOptional(() => Parse_StarTargetsTupleSeq())) == null) return null;
                 if (ExpectOp(")") == null) return null;
 
                 // Action code from grammar
@@ -8175,10 +8362,10 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExprSeq? a = null;
 
                 if (ExpectOp("[") == null) return null;
-                if ((a = ParseOptional(() => Parse_StarTargetsListSeq())) == null) return null;
+                if ((a = (GeneratedExprSeq)ParseOptional(() => Parse_StarTargetsListSeq())) == null) return null;
                 if (ExpectOp("]") == null) return null;
 
                 // Action code from grammar
@@ -8192,8 +8379,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: single_target
         /// Alternatives: 3
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_SingleTarget()
+        private GeneratedExpr? Parse_SingleTarget()
         {
             int _mark = Mark();
 
@@ -8205,7 +8393,7 @@ namespace SharpPy.Generated
                 if (Parse_SingleSubscriptAttributeTarget() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -8213,12 +8401,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SetExprContext ( a , GeneratedStore.Instance );
+                return PyParserHelpers . SetExprContext ( NameToken ( a ), GeneratedStore.Instance );
             }
 
             // Alternative 3
@@ -8226,7 +8414,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp("(") == null) return null;
                 if ((a = Parse_SingleTarget()) == null) return null;
@@ -8243,8 +8431,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: single_subscript_attribute_target
         /// Alternatives: 2
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_SingleSubscriptAttributeTarget()
+        private GeneratedExpr? Parse_SingleSubscriptAttributeTarget()
         {
             int _mark = Mark();
 
@@ -8252,8 +8441,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedTokenInfo? b = null;
 
                 if ((a = Parse_TPrimary()) == null) return null;
                 if (ExpectOp(".") == null) return null;
@@ -8261,7 +8450,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => Parse_TLookahead()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Attribute ( a , b . Id , GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Attribute ( a , b . GetNameValue (), GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -8269,8 +8458,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_TPrimary()) == null) return null;
                 if (ExpectOp("[") == null) return null;
@@ -8289,8 +8478,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: t_primary
         /// Alternatives: 5
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_TPrimary()
+        private GeneratedExpr? Parse_TPrimary()
         {
             int _mark = Mark();
 
@@ -8298,8 +8488,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedTokenInfo? b = null;
 
                 if ((a = Parse_TPrimary()) == null) return null;
                 if (ExpectOp(".") == null) return null;
@@ -8307,7 +8497,7 @@ namespace SharpPy.Generated
                 if (PositiveLookahead(() => Parse_TLookahead()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Attribute ( a , b . Id , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Attribute ( a , b . GetNameValue (), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -8315,8 +8505,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_TPrimary()) == null) return null;
                 if (ExpectOp("[") == null) return null;
@@ -8333,15 +8523,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_TPrimary()) == null) return null;
                 if ((b = Parse_Genexp()) == null) return null;
                 if (PositiveLookahead(() => Parse_TLookahead()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Call ( a , Check < GeneratedExprSeq >( PyParserHelpers . SingletonSeq ( b )), null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Call ( a , Check < GeneratedExprSeq >( PyParserHelpers . SingletonSeq ( b ). Cast < GeneratedExprSeq >()), null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 4
@@ -8349,17 +8539,17 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_TPrimary()) == null) return null;
                 if (ExpectOp("(") == null) return null;
-                if ((b = ParseOptional(() => Parse_Arguments())) == null) return null;
+                if ((b = (GeneratedExpr)ParseOptional(() => Parse_Arguments())) == null) return null;
                 if (ExpectOp(")") == null) return null;
                 if (PositiveLookahead(() => Parse_TLookahead()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Call ( a ,( b )?(( GeneratedCall ) b ). Args : null !,( b )?(( GeneratedCall ) b ). Keywords : null !, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Call ( a ,( b != null )?(( GeneratedCall ) b ). Args : null !,( b != null )?(( GeneratedCall ) b ). Keywords : null !, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 5
@@ -8367,7 +8557,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if ((a = Parse_Atom()) == null) return null;
                 if (PositiveLookahead(() => Parse_TLookahead()) == null) return null;
@@ -8396,7 +8586,7 @@ namespace SharpPy.Generated
                 if (ExpectOp("(") == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -8408,7 +8598,7 @@ namespace SharpPy.Generated
                 if (ExpectOp("[") == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 3
@@ -8420,7 +8610,7 @@ namespace SharpPy.Generated
                 if (ExpectOp(".") == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -8430,8 +8620,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: del_targets
         /// Alternatives: 1
+        /// Return Type: GeneratedExprSeq
         /// </summary>
-        private GeneratedPtr? Parse_DelTargets()
+        private GeneratedExprSeq? Parse_DelTargets()
         {
             int _mark = Mark();
 
@@ -8441,7 +8632,7 @@ namespace SharpPy.Generated
 
                 GeneratedExprSeq? a = null;
 
-                if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_DelTarget())) == null) return null;
+                if ((a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_DelTarget())) == null) return null;
                 if (ParseOptional(() => ExpectOp(",")) == null) return null;
 
                 // Action code from grammar
@@ -8455,8 +8646,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: del_target
         /// Alternatives: 3
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_DelTarget()
+        private GeneratedExpr? Parse_DelTarget()
         {
             int _mark = Mark();
 
@@ -8464,8 +8656,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedTokenInfo? b = null;
 
                 if ((a = Parse_TPrimary()) == null) return null;
                 if (ExpectOp(".") == null) return null;
@@ -8473,7 +8665,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => Parse_TLookahead()) == null) return null;
 
                 // Action code from grammar
-                return PyAst . Attribute ( a , b . Id , GeneratedDel.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . Attribute ( a , b . GetNameValue (), GeneratedDel.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -8481,8 +8673,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_TPrimary()) == null) return null;
                 if (ExpectOp("[") == null) return null;
@@ -8503,7 +8695,7 @@ namespace SharpPy.Generated
                 if (Parse_DelTAtom() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -8513,8 +8705,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: del_t_atom
         /// Alternatives: 4
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_DelTAtom()
+        private GeneratedExpr? Parse_DelTAtom()
         {
             int _mark = Mark();
 
@@ -8522,12 +8715,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SetExprContext ( a , GeneratedDel.Instance );
+                return PyParserHelpers . SetExprContext ( NameToken ( a ), GeneratedDel.Instance );
             }
 
             // Alternative 2
@@ -8535,7 +8728,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp("(") == null) return null;
                 if ((a = Parse_DelTarget()) == null) return null;
@@ -8550,10 +8743,10 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExprSeq? a = null;
 
                 if (ExpectOp("(") == null) return null;
-                if ((a = ParseOptional(() => Parse_DelTargets())) == null) return null;
+                if ((a = (GeneratedExprSeq)ParseOptional(() => Parse_DelTargets())) == null) return null;
                 if (ExpectOp(")") == null) return null;
 
                 // Action code from grammar
@@ -8565,10 +8758,10 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExprSeq? a = null;
 
                 if (ExpectOp("[") == null) return null;
-                if ((a = ParseOptional(() => Parse_DelTargets())) == null) return null;
+                if ((a = (GeneratedExprSeq)ParseOptional(() => Parse_DelTargets())) == null) return null;
                 if (ExpectOp("]") == null) return null;
 
                 // Action code from grammar
@@ -8582,8 +8775,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: type_expressions
         /// Alternatives: 7
+        /// Return Type: GeneratedExprSeq
         /// </summary>
-        private GeneratedPtr? Parse_TypeExpressions()
+        private GeneratedExprSeq? Parse_TypeExpressions()
         {
             int _mark = Mark();
 
@@ -8591,9 +8785,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
-                GeneratedPtr? c = null;
+                GeneratedSeq? a = null;
+                GeneratedExpr? b = null;
+                GeneratedExpr? c = null;
 
                 if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_Expression())) == null) return null;
                 if (ExpectOp(",") == null) return null;
@@ -8604,7 +8798,7 @@ namespace SharpPy.Generated
                 if ((c = Parse_Expression()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SeqAppendToEnd (( Check < GeneratedSeq >( PyParserHelpers . SeqAppendToEnd ( a , b )). Cast < GeneratedExprSeq >()), c );
+                return PyParserHelpers . SeqAppendToEnd (( Check < GeneratedSeq >( PyParserHelpers . SeqAppendToEnd ( a , b )). Cast < GeneratedExprSeq >()), c ). Cast < GeneratedExprSeq >();
             }
 
             // Alternative 2
@@ -8612,8 +8806,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedSeq? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_Expression())) == null) return null;
                 if (ExpectOp(",") == null) return null;
@@ -8621,7 +8815,7 @@ namespace SharpPy.Generated
                 if ((b = Parse_Expression()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SeqAppendToEnd ( a , b );
+                return PyParserHelpers . SeqAppendToEnd ( a , b ). Cast < GeneratedExprSeq >();
             }
 
             // Alternative 3
@@ -8629,8 +8823,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedSeq? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_Expression())) == null) return null;
                 if (ExpectOp(",") == null) return null;
@@ -8638,7 +8832,7 @@ namespace SharpPy.Generated
                 if ((b = Parse_Expression()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SeqAppendToEnd ( a , b );
+                return PyParserHelpers . SeqAppendToEnd ( a , b ). Cast < GeneratedExprSeq >();
             }
 
             // Alternative 4
@@ -8646,8 +8840,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if (ExpectOp("*") == null) return null;
                 if ((a = Parse_Expression()) == null) return null;
@@ -8656,7 +8850,7 @@ namespace SharpPy.Generated
                 if ((b = Parse_Expression()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SeqAppendToEnd (( Check < GeneratedSeq >( PyParserHelpers . SingletonSeq ( a )). Cast < GeneratedExprSeq >()), b );
+                return PyParserHelpers . SeqAppendToEnd (( Check < GeneratedSeq >( PyParserHelpers . SingletonSeq ( a )). Cast < GeneratedExprSeq >()), b ). Cast < GeneratedExprSeq >();
             }
 
             // Alternative 5
@@ -8664,13 +8858,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp("*") == null) return null;
                 if ((a = Parse_Expression()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SingletonSeq ( a );
+                return PyParserHelpers . SingletonSeq ( a ). Cast < GeneratedExprSeq >();
             }
 
             // Alternative 6
@@ -8678,13 +8872,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp("**") == null) return null;
                 if ((a = Parse_Expression()) == null) return null;
 
                 // Action code from grammar
-                return PyParserHelpers . SingletonSeq ( a );
+                return PyParserHelpers . SingletonSeq ( a ). Cast < GeneratedExprSeq >();
             }
 
             // Alternative 7
@@ -8694,7 +8888,7 @@ namespace SharpPy.Generated
 
                 GeneratedExprSeq? a = null;
 
-                if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_Expression())) == null) return null;
+                if ((a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_Expression())) == null) return null;
 
                 // Action code from grammar
                 return a;
@@ -8707,8 +8901,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: func_type_comment
         /// Alternatives: 3
+        /// Return Type: GeneratedTokenInfo
         /// </summary>
-        private GeneratedPtr? Parse_FuncTypeComment()
+        private GeneratedTokenInfo? Parse_FuncTypeComment()
         {
             int _mark = Mark();
 
@@ -8716,7 +8911,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? t = null;
+                GeneratedTokenInfo? t = null;
 
                 if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
                 if ((t = Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT")) == null) return null;
@@ -8735,7 +8930,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidDoubleTypeComments() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 3
@@ -8747,7 +8942,7 @@ namespace SharpPy.Generated
                 if (Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT") == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -8766,7 +8961,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ParseGroup() == null) return null;
                 if ((a = ExpectOp(",")) == null) return null;
@@ -8781,8 +8976,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedComprehensionSeq? b = null;
 
                 if ((a = Parse_Expression()) == null) return null;
                 if ((b = Parse_ForIfClauses()) == null) return null;
@@ -8790,7 +8985,7 @@ namespace SharpPy.Generated
                 if (ParseOptional(() => ParseGroup()) == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , _PyPegen_get_last_comprehension_item ( PyPegen_last_item ( b , comprehension_ty )), "Generator expression must be parenthesized" );
+                RaiseSyntaxErrorKnownRange ( a , PegenHelpers . _PyPegen_get_last_comprehension_item ( PegenHelpers . PyPegen_last_item < GeneratedComprehension >( b )), "Generator expression must be parenthesized" );
             }
 
             // Alternative 3
@@ -8798,8 +8993,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedTokenInfo? b = null;
 
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
                 if ((b = ExpectOp("=")) == null) return null;
@@ -8815,8 +9010,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedTokenInfo? b = null;
 
                 if (ParseOptional(() => ParseGroup()) == null) return null;
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
@@ -8832,14 +9027,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedComprehensionSeq? b = null;
 
                 if ((a = Parse_Args()) == null) return null;
                 if ((b = Parse_ForIfClauses()) == null) return null;
 
                 // Action code from grammar
-                return _PyPegen_nonparen_genexp_in_call ( a , b );
+                return GeneratedParserBridge . _PyPegen_nonparen_genexp_in_call ( a , b );
             }
 
             // Alternative 6
@@ -8847,8 +9042,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedComprehensionSeq? b = null;
 
                 if (Parse_Args() == null) return null;
                 if (ExpectOp(",") == null) return null;
@@ -8856,7 +9051,7 @@ namespace SharpPy.Generated
                 if ((b = Parse_ForIfClauses()) == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , _PyPegen_get_last_comprehension_item ( PyPegen_last_item ( b , comprehension_ty )), "Generator expression must be parenthesized" );
+                RaiseSyntaxErrorKnownRange ( a , PegenHelpers . _PyPegen_get_last_comprehension_item ( PegenHelpers . PyPegen_last_item < GeneratedComprehension >( b )), "Generator expression must be parenthesized" );
             }
 
             // Alternative 7
@@ -8864,14 +9059,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if ((a = Parse_Args()) == null) return null;
                 if (ExpectOp(",") == null) return null;
                 if (Parse_Args() == null) return null;
 
                 // Action code from grammar
-                return _PyPegen_arguments_parsing_error ( a );
+                return GeneratedParserBridge . _PyPegen_arguments_parsing_error ( a );
             }
 
             Reset(_mark);
@@ -8891,9 +9086,9 @@ namespace SharpPy.Generated
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? b = null;
 
-                if ((a = ParseGroup()) == null) return null;
+                if ((a = (GeneratedTokenInfo)ParseGroup()) == null) return null;
                 if ((b = ExpectOp("=")) == null) return null;
 
                 // Action code from grammar
@@ -8905,8 +9100,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedTokenInfo? b = null;
 
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
                 if ((b = ExpectOp("=")) == null) return null;
@@ -8922,8 +9117,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedTokenInfo? b = null;
 
                 if (NegativeLookahead(() => ParseGroup()) == null) return null;
                 if ((a = Parse_Expression()) == null) return null;
@@ -8938,8 +9133,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = ExpectOp("**")) == null) return null;
                 if (Parse_Expression() == null) return null;
@@ -8957,8 +9152,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: expression_without_invalid
         /// Alternatives: 3
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_ExpressionWithoutInvalid()
+        private GeneratedExpr? Parse_ExpressionWithoutInvalid()
         {
             int _mark = Mark();
 
@@ -8966,9 +9162,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
-                GeneratedPtr? c = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
+                GeneratedExpr? c = null;
 
                 if ((a = Parse_Disjunction()) == null) return null;
                 if (ExpectKeyword("if") == null) return null;
@@ -8977,7 +9173,7 @@ namespace SharpPy.Generated
                 if ((c = Parse_Expression()) == null) return null;
 
                 // Action code from grammar
-                return _PyAST_IfExp ( b , a , c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return PyAst . IfExp ( b , a , c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -8989,7 +9185,7 @@ namespace SharpPy.Generated
                 if (Parse_Disjunction() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 3
@@ -9001,7 +9197,7 @@ namespace SharpPy.Generated
                 if (Parse_Lambdef() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -9020,15 +9216,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
                 if (NegativeLookahead(() => ExpectOp("(")) == null) return null;
                 if ((b = Parse_StarExpressions()) == null) return null;
 
                 // Action code from grammar
-                return PegenHelpers . CheckLegacyStmt ( a )? RaiseSyntaxErrorKnownRange ( a , b , "Missing parentheses in call to '{a.Id}'. Did you mean {a.Id}(...)?" ): null;
+                return PegenHelpers . CheckLegacyStmt ( NameToken ( a ))? RaiseSyntaxErrorKnownRange ( NameToken ( a ), b , "Missing parentheses in call to '{a.GetNameValue()}'. Did you mean {a.GetNameValue()}(...)?" ): null;
             }
 
             Reset(_mark);
@@ -9047,8 +9243,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if (NegativeLookahead(() => ParseGroup()) == null) return null;
                 if ((a = Parse_Disjunction()) == null) return null;
@@ -9063,8 +9259,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Parse_Disjunction()) == null) return null;
                 if (ExpectKeyword("if") == null) return null;
@@ -9080,8 +9276,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedTokenInfo? b = null;
 
                 if ((a = ExpectKeyword("lambda")) == null) return null;
                 if (ParseOptional(() => Parse_LambdaParams()) == null) return null;
@@ -9108,14 +9304,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if ((a = Parse_Expression()) == null) return null;
                 if (ExpectOp(":=") == null) return null;
                 if (Parse_Expression() == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "cannot use assignment expressions with %s" , _PyPegen_get_expr_name ( a ));
+                RaiseSyntaxErrorKnownLocation ( a , "cannot use assignment expressions with %s" , PegenHelpers . _PyPegen_get_expr_name ( a ));
             }
 
             // Alternative 2
@@ -9123,8 +9319,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
                 if (ExpectOp("=") == null) return null;
@@ -9140,8 +9336,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedTokenInfo? b = null;
 
                 if (NegativeLookahead(() => ParseGroup()) == null) return null;
                 if ((a = Parse_BitwiseOr()) == null) return null;
@@ -9150,7 +9346,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => ParseGroup()) == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "cannot assign to %s here. Maybe you meant '==' instead of '='?" , _PyPegen_get_expr_name ( a ));
+                RaiseSyntaxErrorKnownLocation ( a , "cannot assign to %s here. Maybe you meant '==' instead of '='?" , PegenHelpers . _PyPegen_get_expr_name ( a ));
             }
 
             Reset(_mark);
@@ -9169,14 +9365,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if ((a = Parse_InvalidAnnAssignTarget()) == null) return null;
                 if (ExpectOp(":") == null) return null;
                 if (Parse_Expression() == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "only single target (not %s) can be annotated" , _PyPegen_get_expr_name ( a ));
+                RaiseSyntaxErrorKnownLocation ( a , "only single target (not %s) can be annotated" , PegenHelpers . _PyPegen_get_expr_name ( a ));
             }
 
             // Alternative 2
@@ -9184,7 +9380,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if ((a = Parse_StarNamedExpression()) == null) return null;
                 if (ExpectOp(",") == null) return null;
@@ -9201,7 +9397,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if ((a = Parse_Expression()) == null) return null;
                 if (ExpectOp(":") == null) return null;
@@ -9216,14 +9412,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ParseZeroOrMore(() => ParseGroup()) == null) return null;
                 if ((a = Parse_StarExpressions()) == null) return null;
                 if (ExpectOp("=") == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorInvalidTarget ( STAR_TARGETS , a );
+                RaiseSyntaxErrorInvalidTarget ( "assign to" , a );
             }
 
             // Alternative 5
@@ -9231,7 +9427,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ParseZeroOrMore(() => ParseGroup()) == null) return null;
                 if ((a = Parse_YieldExpr()) == null) return null;
@@ -9246,14 +9442,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if ((a = Parse_StarExpressions()) == null) return null;
                 if (Parse_Augassign() == null) return null;
                 if (ParseGroup() == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "'%s' is an illegal expression for augmented assignment" , _PyPegen_get_expr_name ( a ));
+                RaiseSyntaxErrorKnownLocation ( a , "'%s' is an illegal expression for augmented assignment" , PegenHelpers . _PyPegen_get_expr_name ( a ));
             }
 
             Reset(_mark);
@@ -9263,8 +9459,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: invalid_ann_assign_target
         /// Alternatives: 3
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedPtr? Parse_InvalidAnnAssignTarget()
+        private GeneratedExpr? Parse_InvalidAnnAssignTarget()
         {
             int _mark = Mark();
 
@@ -9276,7 +9473,7 @@ namespace SharpPy.Generated
                 if (Parse_List() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -9288,7 +9485,7 @@ namespace SharpPy.Generated
                 if (Parse_Tuple() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 3
@@ -9296,7 +9493,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp("(") == null) return null;
                 if ((a = Parse_InvalidAnnAssignTarget()) == null) return null;
@@ -9322,13 +9519,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectKeyword("del") == null) return null;
                 if ((a = Parse_StarExpressions()) == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorInvalidTarget ( DEL_TARGETS , a );
+                RaiseSyntaxErrorInvalidTarget ( "delete" , a );
             }
 
             Reset(_mark);
@@ -9371,7 +9568,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ParseGroup() == null) return null;
                 if ((a = Parse_StarredExpression()) == null) return null;
@@ -9386,8 +9583,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedExprSeq? b = null;
 
                 if (ParseGroup() == null) return null;
                 if ((a = Parse_StarNamedExpression()) == null) return null;
@@ -9396,7 +9593,7 @@ namespace SharpPy.Generated
                 if (Parse_ForIfClauses() == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , PyPegen_last_item ( b , expr_ty ), "did you forget parentheses around the comprehension target?" );
+                RaiseSyntaxErrorKnownRange ( a , PegenHelpers . PyPegen_last_item < GeneratedExpr >( b ), "did you forget parentheses around the comprehension target?" );
             }
 
             // Alternative 3
@@ -9404,8 +9601,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedExpr? a = null;
+                GeneratedTokenInfo? b = null;
 
                 if (ParseGroup() == null) return null;
                 if ((a = Parse_StarNamedExpression()) == null) return null;
@@ -9432,7 +9629,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ExpectOp("{") == null) return null;
                 if ((a = ExpectOp("**")) == null) return null;
@@ -9460,7 +9657,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = ExpectSoftKeyword("/")) == null) return null;
                 if (ExpectOp(",") == null) return null;
@@ -9474,7 +9671,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ParseGroup() == null) return null;
                 if (ParseZeroOrMore(() => Parse_ParamMaybeDefault()) == null) return null;
@@ -9489,7 +9686,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedArg? a = null;
 
                 if (ParseOptional(() => Parse_SlashNoDefault()) == null) return null;
                 if (ParseZeroOrMore(() => Parse_ParamNoDefault()) == null) return null;
@@ -9505,8 +9702,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedTokenInfo? b = null;
 
                 if (ParseZeroOrMore(() => Parse_ParamNoDefault()) == null) return null;
                 if ((a = ExpectOp("(")) == null) return null;
@@ -9523,7 +9720,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ParseOptional(() => ParseGroup()) == null) return null;
                 if (ParseZeroOrMore(() => Parse_ParamMaybeDefault()) == null) return null;
@@ -9541,7 +9738,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ParseOneOrMore(() => Parse_ParamMaybeDefault()) == null) return null;
                 if (ExpectOp("/") == null) return null;
@@ -9567,7 +9764,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = ExpectOp("=")) == null) return null;
                 if (PositiveLookahead(() => ParseGroup()) == null) return null;
@@ -9592,7 +9789,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = ExpectOp("*")) == null) return null;
                 if (ParseGroup() == null) return null;
@@ -9620,7 +9817,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ExpectOp("*") == null) return null;
                 if (Parse_Param() == null) return null;
@@ -9635,7 +9832,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ExpectOp("*") == null) return null;
                 if (ParseGroup() == null) return null;
@@ -9663,7 +9860,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ExpectOp("**") == null) return null;
                 if (Parse_Param() == null) return null;
@@ -9678,7 +9875,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedArg? a = null;
 
                 if (ExpectOp("**") == null) return null;
                 if (Parse_Param() == null) return null;
@@ -9699,7 +9896,7 @@ namespace SharpPy.Generated
                 if (ExpectOp("**") == null) return null;
                 if (Parse_Param() == null) return null;
                 if (ExpectOp(",") == null) return null;
-                if ((a = ParseGroup()) == null) return null;
+                if ((a = (GeneratedTokenInfo)ParseGroup()) == null) return null;
 
                 // Action code from grammar
                 RaiseSyntaxErrorKnownLocation ( a , "arguments cannot follow var-keyword argument" );
@@ -9712,8 +9909,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: invalid_parameters_helper
         /// Alternatives: 2
+        /// Return Type: GeneratedArguments
         /// </summary>
-        private GeneratedPtr? Parse_InvalidParametersHelper()
+        private GeneratedArguments? Parse_InvalidParametersHelper()
         {
             int _mark = Mark();
 
@@ -9721,12 +9919,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedSlashWithDefault? a = null;
 
                 if ((a = Parse_SlashWithDefault()) == null) return null;
 
                 // Action code from grammar
-                return _PyPegen_singleton_seq ( a );
+                return null;
             }
 
             // Alternative 2
@@ -9734,11 +9932,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedSeq? a = null;
 
-                if (ParseOneOrMore(() => Parse_ParamWithDefault()) == null) return null;
+                if ((a = ParseOneOrMore(() => Parse_ParamWithDefault())) == null) return null;
 
-                // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                // Action code from grammar
+                return null;
             }
 
             Reset(_mark);
@@ -9757,7 +9956,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = ExpectSoftKeyword("/")) == null) return null;
                 if (ExpectOp(",") == null) return null;
@@ -9771,7 +9970,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ParseGroup() == null) return null;
                 if (ParseZeroOrMore(() => Parse_LambdaParamMaybeDefault()) == null) return null;
@@ -9786,7 +9985,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedArg? a = null;
 
                 if (ParseOptional(() => Parse_LambdaSlashNoDefault()) == null) return null;
                 if (ParseZeroOrMore(() => Parse_LambdaParamNoDefault()) == null) return null;
@@ -9802,8 +10001,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedTokenInfo? b = null;
 
                 if (ParseZeroOrMore(() => Parse_LambdaParamNoDefault()) == null) return null;
                 if ((a = ExpectOp("(")) == null) return null;
@@ -9820,7 +10019,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ParseOptional(() => ParseGroup()) == null) return null;
                 if (ParseZeroOrMore(() => Parse_LambdaParamMaybeDefault()) == null) return null;
@@ -9838,7 +10037,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ParseOneOrMore(() => Parse_LambdaParamMaybeDefault()) == null) return null;
                 if (ExpectOp("/") == null) return null;
@@ -9864,12 +10063,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedSlashWithDefault? a = null;
 
                 if ((a = Parse_LambdaSlashWithDefault()) == null) return null;
 
                 // Action code from grammar
-                return _PyPegen_singleton_seq ( a );
+                return GeneratedParserBridge . _PyPegen_singleton_seq ( a );
             }
 
             // Alternative 2
@@ -9881,7 +10080,7 @@ namespace SharpPy.Generated
                 if (ParseOneOrMore(() => Parse_LambdaParamWithDefault()) == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             Reset(_mark);
@@ -9913,7 +10112,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ExpectOp("*") == null) return null;
                 if (Parse_LambdaParam() == null) return null;
@@ -9928,7 +10127,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ExpectOp("*") == null) return null;
                 if (ParseGroup() == null) return null;
@@ -9956,7 +10155,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ExpectOp("**") == null) return null;
                 if (Parse_LambdaParam() == null) return null;
@@ -9971,7 +10170,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedArg? a = null;
 
                 if (ExpectOp("**") == null) return null;
                 if (Parse_LambdaParam() == null) return null;
@@ -9992,7 +10191,7 @@ namespace SharpPy.Generated
                 if (ExpectOp("**") == null) return null;
                 if (Parse_LambdaParam() == null) return null;
                 if (ExpectOp(",") == null) return null;
-                if ((a = ParseGroup()) == null) return null;
+                if ((a = (GeneratedTokenInfo)ParseGroup()) == null) return null;
 
                 // Action code from grammar
                 RaiseSyntaxErrorKnownLocation ( a , "arguments cannot follow var-keyword argument" );
@@ -10041,7 +10240,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (Parse_Expression() == null) return null;
                 if (ExpectKeyword("as") == null) return null;
@@ -10049,7 +10248,7 @@ namespace SharpPy.Generated
                 if (PositiveLookahead(() => ParseGroup()) == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorInvalidTarget ( STAR_TARGETS , a );
+                RaiseSyntaxErrorInvalidTarget ( "assign to" , a );
             }
 
             Reset(_mark);
@@ -10068,14 +10267,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ParseOptional(() => Expect(PyToken.Type.ASYNC, "ASYNC")) == null) return null;
                 if (ExpectKeyword("for") == null) return null;
                 if ((a = Parse_StarExpressions()) == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorInvalidTarget ( FOR_TARGETS , a );
+                RaiseSyntaxErrorInvalidTarget ( "use in for loop" , a );
             }
 
             Reset(_mark);
@@ -10094,7 +10293,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectOp("(") == null) return null;
                 if ((a = Parse_StarredExpression()) == null) return null;
@@ -10109,7 +10308,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ExpectOp("(") == null) return null;
                 if ((a = ExpectOp("**")) == null) return null;
@@ -10136,7 +10335,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = ExpectKeyword("import")) == null) return null;
                 if (ParseGatherPlus(() => ExpectOp(","), () => Parse_DottedName()) == null) return null;
@@ -10232,7 +10431,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ParseOptional(() => Expect(PyToken.Type.ASYNC, "ASYNC")) == null) return null;
                 if ((a = ExpectKeyword("with")) == null) return null;
@@ -10242,7 +10441,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
 
                 // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'with' statement on line %d" , a . LineNo );
+                return RaiseIndentationError ( "expected an indented block after 'with' statement on line %d" , a . GetLineNo ());
             }
 
             // Alternative 2
@@ -10250,7 +10449,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ParseOptional(() => Expect(PyToken.Type.ASYNC, "ASYNC")) == null) return null;
                 if ((a = ExpectKeyword("with")) == null) return null;
@@ -10263,7 +10462,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
 
                 // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'with' statement on line %d" , a . LineNo );
+                return RaiseIndentationError ( "expected an indented block after 'with' statement on line %d" , a . GetLineNo ());
             }
 
             Reset(_mark);
@@ -10282,7 +10481,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = ExpectKeyword("try")) == null) return null;
                 if (ExpectOp(":") == null) return null;
@@ -10290,7 +10489,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
 
                 // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'try' statement on line %d" , a . LineNo );
+                return RaiseIndentationError ( "expected an indented block after 'try' statement on line %d" , a . GetLineNo ());
             }
 
             // Alternative 2
@@ -10313,8 +10512,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedTokenInfo? b = null;
 
                 if (ExpectKeyword("try") == null) return null;
                 if (ExpectOp(":") == null) return null;
@@ -10335,7 +10534,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ExpectKeyword("try") == null) return null;
                 if (ExpectOp(":") == null) return null;
@@ -10365,7 +10564,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (ExpectKeyword("except") == null) return null;
                 if (ParseOptional(() => ExpectOp("*")) == null) return null;
@@ -10384,7 +10583,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = ExpectKeyword("except")) == null) return null;
                 if (ParseOptional(() => ExpectOp("*")) == null) return null;
@@ -10401,7 +10600,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = ExpectKeyword("except")) == null) return null;
                 if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
@@ -10415,7 +10614,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = ExpectKeyword("except")) == null) return null;
                 if (ExpectOp("*") == null) return null;
@@ -10441,7 +10640,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = ExpectKeyword("finally")) == null) return null;
                 if (ExpectOp(":") == null) return null;
@@ -10449,7 +10648,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
 
                 // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'finally' statement on line %d" , a . LineNo );
+                return RaiseIndentationError ( "expected an indented block after 'finally' statement on line %d" , a . GetLineNo ());
             }
 
             Reset(_mark);
@@ -10468,7 +10667,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = ExpectKeyword("except")) == null) return null;
                 if (Parse_Expression() == null) return null;
@@ -10478,7 +10677,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
 
                 // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'except' statement on line %d" , a . LineNo );
+                return RaiseIndentationError ( "expected an indented block after 'except' statement on line %d" , a . GetLineNo ());
             }
 
             // Alternative 2
@@ -10486,7 +10685,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = ExpectKeyword("except")) == null) return null;
                 if (ExpectOp(":") == null) return null;
@@ -10494,7 +10693,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
 
                 // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'except' statement on line %d" , a . LineNo );
+                return RaiseIndentationError ( "expected an indented block after 'except' statement on line %d" , a . GetLineNo ());
             }
 
             Reset(_mark);
@@ -10513,7 +10712,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = ExpectKeyword("except")) == null) return null;
                 if (ExpectOp("*") == null) return null;
@@ -10524,7 +10723,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
 
                 // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'except*' statement on line %d" , a . LineNo );
+                return RaiseIndentationError ( "expected an indented block after 'except*' statement on line %d" , a . GetLineNo ());
             }
 
             Reset(_mark);
@@ -10557,8 +10756,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? subject = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedExpr? subject = null;
 
                 if ((a = ExpectSoftKeyword("match")) == null) return null;
                 if ((subject = Parse_SubjectExpr()) == null) return null;
@@ -10567,7 +10766,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
 
                 // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'match' statement on line %d" , a . LineNo );
+                return RaiseIndentationError ( "expected an indented block after 'match' statement on line %d" , a . GetLineNo ());
             }
 
             Reset(_mark);
@@ -10601,7 +10800,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = ExpectSoftKeyword("case")) == null) return null;
                 if (Parse_Patterns() == null) return null;
@@ -10611,7 +10810,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
 
                 // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'case' statement on line %d" , a . LineNo );
+                return RaiseIndentationError ( "expected an indented block after 'case' statement on line %d" , a . GetLineNo ());
             }
 
             Reset(_mark);
@@ -10630,7 +10829,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (Parse_OrPattern() == null) return null;
                 if (ExpectKeyword("as") == null) return null;
@@ -10645,7 +10844,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if (Parse_OrPattern() == null) return null;
                 if (ExpectKeyword("as") == null) return null;
@@ -10672,14 +10871,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedPatternSeq? a = null;
 
                 if (Parse_NameOrAttr() == null) return null;
                 if (ExpectOp("(") == null) return null;
                 if ((a = Parse_InvalidClassArgumentPattern()) == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( PyPegen_first_item ( a , pattern_ty ), PyPegen_last_item ( a , pattern_ty ), "positional patterns follow keyword patterns" );
+                RaiseSyntaxErrorKnownRange ( PegenHelpers . PyPegen_first_item < GeneratedPattern >( a ), PegenHelpers . PyPegen_last_item < GeneratedPattern >( a ), "positional patterns follow keyword patterns" );
             }
 
             Reset(_mark);
@@ -10689,8 +10888,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: invalid_class_argument_pattern
         /// Alternatives: 1
+        /// Return Type: GeneratedPatternSeq
         /// </summary>
-        private GeneratedPtr? Parse_InvalidClassArgumentPattern()
+        private GeneratedPatternSeq? Parse_InvalidClassArgumentPattern()
         {
             int _mark = Mark();
 
@@ -10698,7 +10898,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedPatternSeq? a = null;
 
                 if (ParseOptional(() => ParseGroup()) == null) return null;
                 if (Parse_KeywordPatterns() == null) return null;
@@ -10739,17 +10939,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = ExpectKeyword("if")) == null) return null;
-                if ((a = Parse_NamedExpression()) == null) return null;
+                if (Parse_NamedExpression() == null) return null;
                 if (ExpectOp(":") == null) return null;
                 if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
                 if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
 
                 // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'if' statement on line %d" , a . LineNo );
+                return RaiseIndentationError ( "expected an indented block after 'if' statement on line %d" , a . GetLineNo ());
             }
 
             Reset(_mark);
@@ -10782,7 +10981,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = ExpectKeyword("elif")) == null) return null;
                 if (Parse_NamedExpression() == null) return null;
@@ -10791,7 +10990,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
 
                 // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'elif' statement on line %d" , a . LineNo );
+                return RaiseIndentationError ( "expected an indented block after 'elif' statement on line %d" , a . GetLineNo ());
             }
 
             Reset(_mark);
@@ -10810,7 +11009,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = ExpectKeyword("else")) == null) return null;
                 if (ExpectOp(":") == null) return null;
@@ -10818,7 +11017,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
 
                 // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'else' statement on line %d" , a . LineNo );
+                return RaiseIndentationError ( "expected an indented block after 'else' statement on line %d" , a . GetLineNo ());
             }
 
             Reset(_mark);
@@ -10851,7 +11050,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = ExpectKeyword("while")) == null) return null;
                 if (Parse_NamedExpression() == null) return null;
@@ -10860,7 +11059,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
 
                 // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'while' statement on line %d" , a . LineNo );
+                return RaiseIndentationError ( "expected an indented block after 'while' statement on line %d" , a . GetLineNo ());
             }
 
             Reset(_mark);
@@ -10896,7 +11095,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ParseOptional(() => Expect(PyToken.Type.ASYNC, "ASYNC")) == null) return null;
                 if ((a = ExpectKeyword("for")) == null) return null;
@@ -10908,7 +11107,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
 
                 // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'for' statement on line %d" , a . LineNo );
+                return RaiseIndentationError ( "expected an indented block after 'for' statement on line %d" , a . GetLineNo ());
             }
 
             Reset(_mark);
@@ -10927,7 +11126,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ParseOptional(() => Expect(PyToken.Type.ASYNC, "ASYNC")) == null) return null;
                 if ((a = ExpectKeyword("def")) == null) return null;
@@ -10942,7 +11141,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
 
                 // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after function definition on line %d" , a . LineNo );
+                return RaiseIndentationError ( "expected an indented block after function definition on line %d" , a . GetLineNo ());
             }
 
             Reset(_mark);
@@ -10977,7 +11176,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if ((a = ExpectKeyword("class")) == null) return null;
                 if (Expect(PyToken.Type.NAME, "NAME") == null) return null;
@@ -10988,7 +11187,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
 
                 // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after class definition on line %d" , a . LineNo );
+                return RaiseIndentationError ( "expected an indented block after class definition on line %d" , a . GetLineNo ());
             }
 
             Reset(_mark);
@@ -11013,7 +11212,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidKvpair() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 2
@@ -11021,7 +11220,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (Parse_Expression() == null) return null;
                 if (ExpectOp(":") == null) return null;
@@ -11037,7 +11236,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (Parse_Expression() == null) return null;
                 if ((a = ExpectOp(":")) == null) return null;
@@ -11063,13 +11262,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedExpr? a = null;
 
                 if ((a = Parse_Expression()) == null) return null;
                 if (NegativeLookahead(() => ParseGroup()) == null) return null;
 
                 // Action code from grammar
-                return RaiseErrorKnownLocation ( PyExc_SyntaxError , a . LineNo , a . EndColOffset - 1 , a . EndLineNo ,- 1 , "':' expected after dictionary key" );
+                return RaiseErrorKnownLocation ( typeof ( PySyntaxErrorException ), a . GetLineNo (), a . EndColOffset - 1 , a . EndLineNo ,- 1 , "':' expected after dictionary key" );
             }
 
             // Alternative 2
@@ -11077,7 +11276,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (Parse_Expression() == null) return null;
                 if (ExpectOp(":") == null) return null;
@@ -11093,7 +11292,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (Parse_Expression() == null) return null;
                 if ((a = ExpectOp(":")) == null) return null;
@@ -11119,8 +11318,8 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
-                GeneratedPtr? b = null;
+                GeneratedTokenInfo? a = null;
+                GeneratedExpr? b = null;
 
                 if ((a = ExpectOp("*")) == null) return null;
                 if (Parse_Expression() == null) return null;
@@ -11147,7 +11346,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ExpectOp("{") == null) return null;
                 if ((a = ExpectOp("=")) == null) return null;
@@ -11161,7 +11360,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ExpectOp("{") == null) return null;
                 if ((a = ExpectOp("!")) == null) return null;
@@ -11175,7 +11374,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ExpectOp("{") == null) return null;
                 if ((a = ExpectOp(":")) == null) return null;
@@ -11189,7 +11388,7 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
-                GeneratedPtr? a = null;
+                GeneratedTokenInfo? a = null;
 
                 if (ExpectOp("{") == null) return null;
                 if ((a = ExpectOp("}")) == null) return null;
@@ -11252,7 +11451,7 @@ namespace SharpPy.Generated
                 if (Parse_InvalidConversionCharacter() == null) return null;
 
                 // Default action: no captures (unexpected)
-                return GeneratedPlaceholder.Instance;
+                return null;
             }
 
             // Alternative 9

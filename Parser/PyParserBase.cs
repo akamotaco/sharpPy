@@ -640,6 +640,24 @@ namespace SharpPy.Generated
             throw new PySyntaxErrorException($"SyntaxError: {message}");
         }
 
+        /// <summary>
+        /// CPython: PyErr_Occurred() - Check if an error has occurred
+        /// Used in f-string parsing to check for decoding errors
+        /// </summary>
+        protected bool PyErr_Occurred()
+        {
+            return _errorIndicator != 0 || _pendingSyntaxError != null;
+        }
+
+        /// <summary>
+        /// CPython: CHECK_NULL_ALLOWED macro - Allow null values in specific contexts
+        /// Used in grammar actions where null is a valid result
+        /// </summary>
+        protected T CheckNullAllowed<T>(T value) where T : class
+        {
+            return value;  // Always allow null in C#
+        }
+
         // ============================================================
         // PEG Parser Helper Methods
         // ============================================================

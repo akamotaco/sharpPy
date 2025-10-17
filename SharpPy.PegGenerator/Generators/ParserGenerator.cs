@@ -4,6 +4,56 @@ using SharpPy.PegGenerator.DataStructures;
 namespace SharpPy.PegGenerator.Generators;
 
 /// <summary>
+/// Represents information about an Atom's function call
+/// Mirrors CPython's FunctionCall class in c_generator.py
+/// CPython 3.12: Tools/peg_generator/pegen/c_generator.py (line 83-116)
+/// </summary>
+internal class AtomCallInfo
+{
+    public string Function { get; set; } = "";
+    public string? AssignedVariable { get; set; }
+    public string? AssignedVariableType { get; set; }  // Grammar type annotation
+    public string? ReturnType { get; set; }            // Actual return type from rule/atom
+
+    /// <summary>
+    /// Generate C# code for this call
+    /// CPython: FunctionCall.__str__() (c_generator.py line 93-116)
+    /// </summary>
+    public string GenerateCode()
+    {
+        if (AssignedVariable != null)
+        {
+            // CPython: if self.assigned_variable_type: parts = ["(", assigned_variable, " = ", "(", assigned_variable_type, ")", ...]
+            if (AssignedVariableType != null)
+            {
+                // Type annotation exists
+                if (AssignedVariableType == ReturnType)
+                {
+                    // Type matches → no cast needed
+                    // (c = Parse_ImportFromTargets())
+                    return $"({AssignedVariable} = {Function})";
+                }
+                else
+                {
+                    // Type differs → need cast
+                    // (c = (GeneratedAliasSeq)Parse_ImportFromTargets())
+                    // (a = (GeneratedTokenInfo)ParseOptional(...))  // ParseOptional returns GeneratedPtr
+                    return $"({AssignedVariable} = ({AssignedVariableType}){Function})";
+                }
+            }
+            else
+            {
+                // No type annotation → no cast
+                return $"({AssignedVariable} = {Function})";
+            }
+        }
+
+        // No assignment, just function call
+        return Function;
+    }
+}
+
+/// <summary>
 /// python_py.gram → PyParser.cs 생성기
 /// CPython 3.12 PEG parser generation
 /// </summary>
@@ -13,6 +63,7 @@ public class ParserGenerator
     private int _indentLevel = 0;
     private HashSet<string> _hardKeywords = new();
     private HashSet<string> _softKeywords = new();
+    private Dictionary<string, string> _ruleReturnTypes = new();  // rule_name → return_type
 
     public string Generate(PegRule[] rules, HashSet<string> hardKeywords, HashSet<string> softKeywords, TrailerCode? trailer = null)
     {
@@ -20,6 +71,20 @@ public class ParserGenerator
         _indentLevel = 0;
         _hardKeywords = hardKeywords;
         _softKeywords = softKeywords;
+        _ruleReturnTypes.Clear();
+
+        // Build rule return type mapping (rule_name → return_type)
+        foreach (var rule in rules)
+        {
+            var returnType = "GeneratedPtr";  // default
+
+            if (!string.IsNullOrEmpty(rule.ReturnType))
+            {
+                returnType = rule.ReturnType;
+            }
+
+            _ruleReturnTypes[rule.Name] = returnType;
+        }
 
         // File header
         WriteLine("// Generated Parser from python_py.gram");
@@ -130,15 +195,45 @@ public class ParserGenerator
         return _sb.ToString();
     }
 
+    /// <summary>
+    /// Get return type for Atom pattern - mirrors CPython's callmakervisitor.generate_call()
+    /// CPython: visit_Repeat1() → FunctionCall(return_type="asdl_seq *")
+    /// SharpPy: OneOrMore → "GeneratedSeq"
+    /// </summary>
+    private string GetAtomReturnType(Atom atom)
+    {
+        return atom switch
+        {
+            OneOrMore _ => "GeneratedSeq",       // CPython: asdl_seq * (for +)
+            ZeroOrMore _ => "GeneratedSeq",      // CPython: asdl_seq * (for *)
+            Gather _ => "GeneratedSeq",          // CPython: asdl_seq * (for sep.item+)
+            Optional opt => GetAtomReturnType(opt.Inner),  // Recurse to inner type
+            Group _ => "GeneratedPtr",           // Group returns one of alternatives
+            RuleRef ruleRef => _ruleReturnTypes.GetValueOrDefault(ruleRef.Name, "GeneratedPtr"),  // Lookup actual rule return type
+            Keyword _ => "GeneratedTokenInfo",   // Keyword returns token
+            Token _ => "GeneratedTokenInfo",     // Token returns token
+            PositiveLookahead _ => "GeneratedPtr",  // Lookahead doesn't consume
+            NegativeLookahead _ => "GeneratedPtr",  // Lookahead doesn't consume
+            _ => "GeneratedPtr"                  // Default fallback
+        };
+    }
+
     private void GenerateRuleMethod(PegRule rule)
     {
         var methodName = ToPascalCase(rule.Name);
 
+        // Use rule's return type from grammar mapping
+        var returnType = _ruleReturnTypes.GetValueOrDefault(rule.Name, "GeneratedPtr");
+
         WriteLine($"/// <summary>");
         WriteLine($"/// Rule: {rule.Name}");
         WriteLine($"/// Alternatives: {rule.Alternatives.Count}");
+        if (!string.IsNullOrEmpty(rule.ReturnType))
+        {
+            WriteLine($"/// Return Type: {rule.ReturnType}");
+        }
         WriteLine($"/// </summary>");
-        WriteLine($"private GeneratedPtr? Parse_{methodName}()");
+        WriteLine($"private {returnType}? Parse_{methodName}()");
         WriteLine("{");
         _indentLevel++;
 
@@ -186,12 +281,16 @@ public class ParserGenerator
 
         foreach (var item in namedItems)
         {
-            // Use type annotation if provided, otherwise default to GeneratedPtr
-            var varType = !string.IsNullOrEmpty(item.Type) ? item.Type : "GeneratedPtr";
+            // CPython: return_type = call.return_type if node.type is None else node.type
+            // Use type annotation if provided, otherwise infer from Atom pattern
+            var varType = !string.IsNullOrEmpty(item.Type)
+                ? item.Type
+                : GetAtomReturnType(item.Atom);
             WriteLine($"{varType}? {item.Name} = null;");
         }
 
         // Generate parsing code for each item
+        // CPython: CParserGenerator.visit_NamedItem() (c_generator.py line 690-694)
         WriteLine();
         for (int i = 0; i < alt.Items.Count; i++)
         {
@@ -199,10 +298,33 @@ public class ParserGenerator
 
             if (!string.IsNullOrEmpty(item.Name))
             {
-                WriteLine($"if (({item.Name} = {GenerateAtomCode(item.Atom)}) == null) return null;");
+                // CPython visit_NamedItem pattern:
+                // 1. call = self.callmakervisitor.generate_call(node)
+                var callInfo = GenerateAtomCallInfo(item.Atom);
+
+                // 2. if node.name: call.assigned_variable = node.name
+                callInfo.AssignedVariable = item.Name;
+
+                // 3. if node.type: call.assigned_variable_type = node.type
+                if (!string.IsNullOrEmpty(item.Type))
+                {
+                    callInfo.AssignedVariableType = item.Type;
+                }
+                else
+                {
+                    // No type annotation → use same type as variable declaration
+                    // IMPORTANT: Must match GetAtomReturnType() used in variable declaration!
+                    // Example: Optional<TokenInfo> → variable: GeneratedTokenInfo?, assign: (GeneratedTokenInfo)ParseOptional(...)
+                    callInfo.AssignedVariableType = GetAtomReturnType(item.Atom);
+                }
+
+                // 4. Generate code using FunctionCall.__str__() pattern
+                var code = callInfo.GenerateCode();
+                WriteLine($"if ({code} == null) return null;");
             }
             else
             {
+                // Unnamed item: just call the function
                 WriteLine($"if ({GenerateAtomCode(item.Atom)} == null) return null;");
             }
         }
@@ -248,9 +370,9 @@ public class ParserGenerator
 
             if (namedItems.Count == 0)
             {
-                // No captured variables: shouldn't happen in valid grammar, use placeholder
+                // No captured variables: shouldn't happen in valid grammar, return null
                 WriteLine($"// Default action: no captures (unexpected)");
-                WriteLine("return GeneratedPlaceholder.Instance;");
+                WriteLine("return null;");
             }
             else if (namedItems.Count == 1)
             {
@@ -268,22 +390,84 @@ public class ParserGenerator
         }
     }
 
-    private string GenerateAtomCode(Atom atom)
+    // GetCastExpression() REMOVED
+    // Replaced by AtomCallInfo.GenerateCode() which follows CPython FunctionCall.__str__() pattern
+    // CPython does NOT have a separate GetCastExpression method
+    // Type casting is handled by FunctionCall.assigned_variable_type field
+
+    /// <summary>
+    /// Generate AtomCallInfo for an Atom
+    /// CPython: CCallMakerVisitor.generate_call() (c_generator.py)
+    /// CPython visit_NameLeaf() → line 173-184
+    /// </summary>
+    private AtomCallInfo GenerateAtomCallInfo(Atom atom)
     {
         return atom switch
         {
-            Keyword kw => GenerateKeywordCode(kw),
-            Token token => $"Expect(PyToken.Type.{token.TokenType}, \"{token.TokenType}\")",
-            RuleRef ruleRef => $"Parse_{ToPascalCase(ruleRef.Name)}()",
-            Group group => GenerateGroupCode(group),
-            Optional opt => GenerateOptionalCode(opt),
-            ZeroOrMore zm => GenerateZeroOrMoreCode(zm),
-            OneOrMore om => GenerateOneOrMoreCode(om),
-            PositiveLookahead pl => GeneratePositiveLookaheadCode(pl),
-            NegativeLookahead nl => GenerateNegativeLookaheadCode(nl),
-            Gather gather => GenerateGatherCode(gather),
+            Keyword kw => new AtomCallInfo
+            {
+                Function = GenerateKeywordCode(kw),
+                ReturnType = "GeneratedTokenInfo"
+            },
+            Token token => new AtomCallInfo
+            {
+                Function = $"Expect(PyToken.Type.{token.TokenType}, \"{token.TokenType}\")",
+                ReturnType = "GeneratedTokenInfo"
+            },
+            RuleRef ruleRef => new AtomCallInfo
+            {
+                // CPython visit_NameLeaf: function=f"{name}_rule", return_type=rule.type
+                Function = $"Parse_{ToPascalCase(ruleRef.Name)}()",
+                ReturnType = _ruleReturnTypes.GetValueOrDefault(ruleRef.Name, "GeneratedPtr")
+            },
+            Group group => new AtomCallInfo
+            {
+                Function = GenerateGroupCode(group),
+                ReturnType = "GeneratedPtr"
+            },
+            Optional opt => new AtomCallInfo
+            {
+                Function = GenerateOptionalCode(opt),
+                ReturnType = "GeneratedPtr"  // ParseOptional always returns GeneratedPtr!
+            },
+            ZeroOrMore zm => new AtomCallInfo
+            {
+                // CPython: visit_Repeat0() → FunctionCall(return_type="asdl_seq *")
+                Function = GenerateZeroOrMoreCode(zm),
+                ReturnType = "GeneratedSeq"
+            },
+            OneOrMore om => new AtomCallInfo
+            {
+                // CPython: visit_Repeat1() → FunctionCall(return_type="asdl_seq *")
+                Function = GenerateOneOrMoreCode(om),
+                ReturnType = "GeneratedSeq"
+            },
+            PositiveLookahead pl => new AtomCallInfo
+            {
+                Function = GeneratePositiveLookaheadCode(pl),
+                ReturnType = "GeneratedPtr"
+            },
+            NegativeLookahead nl => new AtomCallInfo
+            {
+                Function = GenerateNegativeLookaheadCode(nl),
+                ReturnType = "GeneratedPtr"
+            },
+            Gather gather => new AtomCallInfo
+            {
+                // CPython: visit_Gather() → FunctionCall(return_type="asdl_seq *")
+                Function = GenerateGatherCode(gather),
+                ReturnType = "GeneratedSeq"
+            },
             _ => throw new Exception($"Unknown atom type: {atom.GetType().Name}")
         };
+    }
+
+    /// <summary>
+    /// Legacy method for backward compatibility - wraps GenerateAtomCallInfo
+    /// </summary>
+    private string GenerateAtomCode(Atom atom)
+    {
+        return GenerateAtomCallInfo(atom).Function;
     }
 
     private string GenerateKeywordCode(Keyword kw)

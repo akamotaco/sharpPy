@@ -3,10 +3,12 @@ namespace SharpPy.PegGenerator.DataStructures;
 /// <summary>
 /// PEG 규칙 (python_py.gram의 한 규칙)
 /// 예: if_stmt: | 'if' named_expression ':' block elif_stmt
+/// 타입 어노테이션: file[GeneratedMod]: ...
 /// </summary>
 public class PegRule
 {
     public string Name { get; set; } = "";
+    public string? ReturnType { get; set; }  // 규칙의 반환 타입 (예: GeneratedMod, GeneratedExpr)
     public List<Alternative> Alternatives { get; set; } = new();
 }
 

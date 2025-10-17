@@ -55,6 +55,12 @@ namespace SharpPy.Generated
         // Conversion methods
         /// <summary>Returns raw List<GeneratedPtr></summary>
         public List<GeneratedPtr> ToRawList() => _items;
+        public List<T> ToCastList<T>() where T : GeneratedPtr
+        {
+            var result = new List<T>(_items.Count);
+            foreach (var item in _items) result.Add((T)item);
+            return result;
+        }
 
         /// <summary>Converts GeneratedSeq to typed Seq subclass (e.g., GeneratedExprSeq)</summary>
         public T Cast<T>() where T : GeneratedSeq, new()
@@ -62,6 +68,11 @@ namespace SharpPy.Generated
             var result = new T();
             result._initialize(this._items);
             return result;
+        }
+
+        static public GeneratedSeq FromList(List<GeneratedPtr> items)
+        {
+            return new GeneratedSeq(items);
         }
 
         private void _initialize(List<GeneratedPtr> items)
@@ -147,6 +158,14 @@ namespace SharpPy.Generated
     {
         public PyToken.Type Type { get; set; }
         public string Value { get; set; } = "";
+
+        /// <summary>
+        /// CPython 3.12: Parenthesis nesting level (depth of nested parentheses/brackets/braces)
+        /// Used to track context for error reporting and syntax validation
+        /// Corresponds to Token.level in CPython's pegen.h
+        /// </summary>
+        public int Level { get; set; }
+
         public int Line { get; set; }
         public int Column { get; set; }
         public int EndLine { get; set; }
@@ -162,6 +181,7 @@ namespace SharpPy.Generated
         {
             Type = type;
             Value = value;
+            Level = 0; // Default level is 0 (not inside any parentheses)
             Line = line;
             Column = column;
             EndLine = endLine;
@@ -230,6 +250,10 @@ namespace SharpPy.Generated
         // Parentheses context tracking for correct NL/NEWLINE classification
         private readonly Stack<char> _parenStack = new();
         private bool IsInsideParentheses => _parenStack.Count > 0;
+
+        // CPython 3.12: Parenthesis nesting level tracking (tok->level in CPython)
+        // Increments on '(', '[', '{' and decrements on ')', ']', '}'
+        private int _level = 0;
 
         // CPython 3.12: Colon context tracking for compound statement NEWLINE tokens
         // Rule: colon-followed-by-newline always generates NEWLINE token (not NL)
@@ -398,7 +422,9 @@ namespace SharpPy.Generated
 
         private void AddToken(PyToken.Type type, string value, int startLine, int startColumn)
         {
-            _tokens.Add(new GeneratedTokenInfo(type, value, startLine, startColumn, startLine, startColumn + value.Length));
+            var token = new GeneratedTokenInfo(type, value, startLine, startColumn, startLine, startColumn + value.Length);
+            token.Level = _level; // CPython 3.12: Assign current parenthesis nesting level
+            _tokens.Add(token);
         }
 
         private void HandleWhitespace()
@@ -796,7 +822,27 @@ namespace SharpPy.Generated
                 return false;
 
             var lit = PyToken.Literals[index];
+
+            // CPython 3.12: Track parenthesis nesting level (tok->level in tokenizer.c lines 2560-2576)
+            // Pattern: Token gets CURRENT level, THEN level changes
+            // Before '(': level=0 → token.level=0 → increment to level=1
+            // Before ')': level=1 → decrement to level=0 → token.level=0
+
+            // Decrement BEFORE creating token for closing parens
+            if (lit.type == PyToken.Type.RPAR || lit.type == PyToken.Type.RSQB || lit.type == PyToken.Type.RBRACE)
+            {
+                if (_level > 0)
+                    _level--;
+            }
+
             AddToken(lit.type, lit.name, _line, _column);
+
+            // Increment AFTER creating token for opening parens
+            if (lit.type == PyToken.Type.LPAR || lit.type == PyToken.Type.LSQB || lit.type == PyToken.Type.LBRACE)
+            {
+                _level++;
+            }
+
             _position += lit.name.Length;
             _column += lit.name.Length;
 
@@ -1037,9 +1083,10 @@ namespace SharpPy.Generated
                             _currentLineHasRealTokens = true;
                         }
 
-                        // Emit { as OP token
+                        // Emit { as OP token (track level for CPython 3.12 compatibility)
                         AddToken(PyToken.Type.LBRACE, "{", _line, braceColumn);
                         _currentLineHasRealTokens = true;
+                        _level++; // Increment level after creating LBRACE token
                         _fstringBraceDepth++;
 
                         // Tokenize expression content until matching }
@@ -1122,6 +1169,9 @@ namespace SharpPy.Generated
                 // Check for closing brace
                 if (c == '}' && _fstringBraceDepth > 0)
                 {
+                    // Decrement level BEFORE creating RBRACE token (CPython 3.12 compatibility)
+                    if (_level > 0)
+                        _level--;
                     // Emit } as OP token
                     AddToken(PyToken.Type.RBRACE, "}", _line, _column);
                     _currentLineHasRealTokens = true;
@@ -1135,6 +1185,7 @@ namespace SharpPy.Generated
                 {
                     AddToken(PyToken.Type.LBRACE, "{", _line, _column);
                     _currentLineHasRealTokens = true;
+                    _level++; // Increment level AFTER creating LBRACE token (CPython 3.12 compatibility)
                     _fstringBraceDepth++;
                     Advance();
                     continue;
