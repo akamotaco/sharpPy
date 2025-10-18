@@ -319,8 +319,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectToken(PyToken.Type.NEWLINE) != null)
+                if ((_item0 = ExpectToken(PyToken.Type.NEWLINE)) != null)
                 {
                     // Action code from grammar
                     return PyParserHelpers . SingletonSequence ( Check < GeneratedStmt >( PyAst . Pass ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ))). Cast < GeneratedStmtSeq >();
@@ -332,8 +333,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectToken(PyToken.Type.ENDMARKER) != null)
+                if ((_item0 = ExpectToken(PyToken.Type.ENDMARKER)) != null)
                 {
                     // Action code from grammar
                     return PyParserHelpers . InteractiveExit ();
@@ -439,14 +441,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedStmt? _item1 = null;
 
                 if (
                     PositiveLookahead(() => ExpectSoftKeyword("type")) != null &&
-                    Parse_TypeAlias() != null
+                    (_item1 = Parse_TypeAlias()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item1;
                 }
             }
 
@@ -470,14 +473,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedStmt? _item1 = null;
 
                 if (
                     PositiveLookahead(() => ExpectKeyword("return")) != null &&
-                    Parse_ReturnStmt() != null
+                    (_item1 = Parse_ReturnStmt()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item1;
                 }
             }
 
@@ -486,14 +490,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedStmt? _item1 = null;
 
                 if (
                     PositiveLookahead(() => Parse_Tmp1()) != null &&
-                    Parse_ImportStmt() != null
+                    (_item1 = Parse_ImportStmt()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item1;
                 }
             }
 
@@ -502,14 +507,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedStmt? _item1 = null;
 
                 if (
                     PositiveLookahead(() => ExpectKeyword("raise")) != null &&
-                    Parse_RaiseStmt() != null
+                    (_item1 = Parse_RaiseStmt()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item1;
                 }
             }
 
@@ -518,8 +524,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectKeyword("pass") != null)
+                if ((_item0 = ExpectKeyword("pass")) != null)
                 {
                     // Action code from grammar
                     return PyAst . Pass ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -531,14 +538,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedStmt? _item1 = null;
 
                 if (
                     PositiveLookahead(() => ExpectKeyword("del")) != null &&
-                    Parse_DelStmt() != null
+                    (_item1 = Parse_DelStmt()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item1;
                 }
             }
 
@@ -547,14 +555,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedStmt? _item1 = null;
 
                 if (
                     PositiveLookahead(() => ExpectKeyword("yield")) != null &&
-                    Parse_YieldStmt() != null
+                    (_item1 = Parse_YieldStmt()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item1;
                 }
             }
 
@@ -563,14 +572,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedStmt? _item1 = null;
 
                 if (
                     PositiveLookahead(() => ExpectKeyword("assert")) != null &&
-                    Parse_AssertStmt() != null
+                    (_item1 = Parse_AssertStmt()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item1;
                 }
             }
 
@@ -579,8 +589,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectKeyword("break") != null)
+                if ((_item0 = ExpectKeyword("break")) != null)
                 {
                     // Action code from grammar
                     return PyAst . Break ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -592,8 +603,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectKeyword("continue") != null)
+                if ((_item0 = ExpectKeyword("continue")) != null)
                 {
                     // Action code from grammar
                     return PyAst . Continue ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -605,14 +617,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedStmt? _item1 = null;
 
                 if (
                     PositiveLookahead(() => ExpectKeyword("global")) != null &&
-                    Parse_GlobalStmt() != null
+                    (_item1 = Parse_GlobalStmt()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item1;
                 }
             }
 
@@ -621,14 +634,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedStmt? _item1 = null;
 
                 if (
                     PositiveLookahead(() => ExpectKeyword("nonlocal")) != null &&
-                    Parse_NonlocalStmt() != null
+                    (_item1 = Parse_NonlocalStmt()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item1;
                 }
             }
 
@@ -959,8 +973,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectOp("+=") != null)
+                if ((_item0 = ExpectOp("+=")) != null)
                 {
                     // Action code from grammar
                     return PyParserHelpers . AugOperator ( GeneratedAdd.Instance );
@@ -972,8 +987,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectOp("-=") != null)
+                if ((_item0 = ExpectOp("-=")) != null)
                 {
                     // Action code from grammar
                     return PyParserHelpers . AugOperator ( GeneratedSub.Instance );
@@ -985,8 +1001,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectOp("*=") != null)
+                if ((_item0 = ExpectOp("*=")) != null)
                 {
                     // Action code from grammar
                     return PyParserHelpers . AugOperator ( GeneratedMult.Instance );
@@ -998,8 +1015,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectOp("@=") != null)
+                if ((_item0 = ExpectOp("@=")) != null)
                 {
                     // Action code from grammar
                     return CheckVersion ( 5 , "The '@' operator is" , PyParserHelpers . AugOperator ( GeneratedMatMult.Instance ));
@@ -1011,8 +1029,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectOp("/=") != null)
+                if ((_item0 = ExpectOp("/=")) != null)
                 {
                     // Action code from grammar
                     return PyParserHelpers . AugOperator ( GeneratedDiv.Instance );
@@ -1024,8 +1043,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectOp("%=") != null)
+                if ((_item0 = ExpectOp("%=")) != null)
                 {
                     // Action code from grammar
                     return PyParserHelpers . AugOperator ( GeneratedMod_.Instance );
@@ -1037,8 +1057,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectOp("&=") != null)
+                if ((_item0 = ExpectOp("&=")) != null)
                 {
                     // Action code from grammar
                     return PyParserHelpers . AugOperator ( GeneratedBitAnd.Instance );
@@ -1050,8 +1071,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectOp("|=") != null)
+                if ((_item0 = ExpectOp("|=")) != null)
                 {
                     // Action code from grammar
                     return PyParserHelpers . AugOperator ( GeneratedBitOr.Instance );
@@ -1063,8 +1085,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectOp("^=") != null)
+                if ((_item0 = ExpectOp("^=")) != null)
                 {
                     // Action code from grammar
                     return PyParserHelpers . AugOperator ( GeneratedBitXor.Instance );
@@ -1076,8 +1099,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectOp("<<=") != null)
+                if ((_item0 = ExpectOp("<<=")) != null)
                 {
                     // Action code from grammar
                     return PyParserHelpers . AugOperator ( GeneratedLShift.Instance );
@@ -1089,8 +1113,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectOp(">>=") != null)
+                if ((_item0 = ExpectOp(">>=")) != null)
                 {
                     // Action code from grammar
                     return PyParserHelpers . AugOperator ( GeneratedRShift.Instance );
@@ -1102,8 +1127,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectOp("**=") != null)
+                if ((_item0 = ExpectOp("**=")) != null)
                 {
                     // Action code from grammar
                     return PyParserHelpers . AugOperator ( GeneratedPow.Instance );
@@ -1115,8 +1141,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectOp("//=") != null)
+                if ((_item0 = ExpectOp("//=")) != null)
                 {
                     // Action code from grammar
                     return PyParserHelpers . AugOperator ( GeneratedFloorDiv.Instance );
@@ -1196,8 +1223,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectKeyword("raise") != null)
+                if ((_item0 = ExpectKeyword("raise")) != null)
                 {
                     // Action code from grammar
                     return PyAst . Raise ( null , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -1572,14 +1600,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedAliasSeq? _item0 = null;
 
                 if (
-                    Parse_ImportFromAsNames() != null &&
+                    (_item0 = Parse_ImportFromAsNames()) != null &&
                     NegativeLookahead(() => ExpectOp(",")) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item0;
                 }
             }
 
@@ -1588,8 +1617,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectOp("*") != null)
+                if ((_item0 = ExpectOp("*")) != null)
                 {
                     // Action code from grammar
                     return PyParserHelpers . SingletonSequence ( Check < GeneratedAlias >( PyParserHelpers . AliasForStar ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ))). Cast < GeneratedAliasSeq >();
@@ -4363,8 +4393,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectKeyword("None") != null)
+                if ((_item0 = ExpectKeyword("None")) != null)
                 {
                     // Action code from grammar
                     return PyAst . MatchSingleton ( GeneratedPyConstant . None , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -4376,8 +4407,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectKeyword("True") != null)
+                if ((_item0 = ExpectKeyword("True")) != null)
                 {
                     // Action code from grammar
                     return PyAst . MatchSingleton ( GeneratedPyConstant . True , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -4389,8 +4421,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectKeyword("False") != null)
+                if ((_item0 = ExpectKeyword("False")) != null)
                 {
                     // Action code from grammar
                     return PyAst . MatchSingleton ( GeneratedPyConstant . False , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -4418,14 +4451,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _item0 = null;
 
                 if (
-                    Parse_SignedNumber() != null &&
+                    (_item0 = Parse_SignedNumber()) != null &&
                     NegativeLookahead(() => Parse_Tmp27()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item0;
                 }
             }
 
@@ -4462,8 +4496,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectKeyword("None") != null)
+                if ((_item0 = ExpectKeyword("None")) != null)
                 {
                     // Action code from grammar
                     return PyAst . Constant ( GeneratedPyConstant . None , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -4475,8 +4510,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectKeyword("True") != null)
+                if ((_item0 = ExpectKeyword("True")) != null)
                 {
                     // Action code from grammar
                     return PyAst . Constant ( GeneratedPyConstant . True , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -4488,8 +4524,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectKeyword("False") != null)
+                if ((_item0 = ExpectKeyword("False")) != null)
                 {
                     // Action code from grammar
                     return PyAst . Constant ( GeneratedPyConstant . False , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -4789,8 +4826,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectSoftKeyword("_") != null)
+                if ((_item0 = ExpectSoftKeyword("_")) != null)
                 {
                     // Action code from grammar
                     return PyAst . MatchAs ( null , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -5175,10 +5213,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPattern? _item1 = null;
 
                 if (
-                    ExpectOp("*") != null &&
-                    Parse_WildcardPattern() != null
+                    (_item0 = ExpectOp("*")) != null &&
+                    (_item1 = Parse_WildcardPattern()) != null
                 )
                 {
                     // Action code from grammar
@@ -5207,10 +5247,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    ExpectOp("{") != null &&
-                    ExpectOp("}") != null
+                    (_item0 = ExpectOp("{")) != null &&
+                    (_item1 = ExpectOp("}")) != null
                 )
                 {
                     // Action code from grammar
@@ -6358,14 +6400,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _item0 = null;
 
                 if (
-                    Parse_Expression() != null &&
+                    (_item0 = Parse_Expression()) != null &&
                     NegativeLookahead(() => ExpectOp(":=")) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item0;
                 }
             }
 
@@ -8038,8 +8081,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectKeyword("True") != null)
+                if ((_item0 = ExpectKeyword("True")) != null)
                 {
                     // Action code from grammar
                     return PyAst . Constant ( GeneratedPyConstant . True , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -8051,8 +8095,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectKeyword("False") != null)
+                if ((_item0 = ExpectKeyword("False")) != null)
                 {
                     // Action code from grammar
                     return PyAst . Constant ( GeneratedPyConstant . False , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -8064,8 +8109,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectKeyword("None") != null)
+                if ((_item0 = ExpectKeyword("None")) != null)
                 {
                     // Action code from grammar
                     return PyAst . Constant ( GeneratedPyConstant . None , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -8077,14 +8123,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _item1 = null;
 
                 if (
                     PositiveLookahead(() => Parse_Tmp38()) != null &&
-                    Parse_Strings() != null
+                    (_item1 = Parse_Strings()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item1;
                 }
             }
 
@@ -8108,14 +8155,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _item1 = null;
 
                 if (
                     PositiveLookahead(() => ExpectOp("(")) != null &&
-                    Parse_Tmp39() != null
+                    (_item1 = (GeneratedExpr)Parse_Tmp39()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item1;
                 }
             }
 
@@ -8124,14 +8172,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _item1 = null;
 
                 if (
                     PositiveLookahead(() => ExpectOp("[")) != null &&
-                    Parse_Tmp40() != null
+                    (_item1 = (GeneratedExpr)Parse_Tmp40()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item1;
                 }
             }
 
@@ -8140,14 +8189,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _item1 = null;
 
                 if (
                     PositiveLookahead(() => ExpectOp("{")) != null &&
-                    Parse_Tmp41() != null
+                    (_item1 = (GeneratedExpr)Parse_Tmp41()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item1;
                 }
             }
 
@@ -8156,8 +8206,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectOp("...") != null)
+                if ((_item0 = ExpectOp("...")) != null)
                 {
                     // Action code from grammar
                     return PyAst . Constant ( GeneratedPyConstant . Ellipsis , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -9288,15 +9339,18 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedExpr? _item1 = null;
+                GeneratedTokenInfo? _item2 = null;
 
                 if (
-                    ExpectOp("{") != null &&
-                    Parse_InvalidDoubleStarredKvpairs() != null &&
-                    ExpectOp("}") != null
+                    (_item0 = ExpectOp("{")) != null &&
+                    (_item1 = (GeneratedExpr)Parse_InvalidDoubleStarredKvpairs()) != null &&
+                    (_item2 = ExpectOp("}")) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 3 local variables → _PyPegen_dummy_name()
+                    return (GeneratedExpr)DummyResponse;
                 }
             }
 
@@ -9941,8 +9995,9 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
-                if (ExpectOp("*") != null)
+                if ((_item0 = ExpectOp("*")) != null)
                 {
                     // Action code from grammar
                     RaiseSyntaxError ( "Invalid star expression" );
@@ -11884,9 +11939,10 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
                 if (
-                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    (_item0 = ExpectToken(PyToken.Type.NEWLINE)) != null &&
                     NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
                 )
                 {
@@ -12202,11 +12258,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
+                GeneratedTokenInfo? _item2 = null;
 
                 if (
-                    ExpectOp("*") != null &&
-                    ExpectOp(",") != null &&
-                    ExpectToken(PyToken.Type.TYPE_COMMENT) != null
+                    (_item0 = ExpectOp("*")) != null &&
+                    (_item1 = ExpectOp(",")) != null &&
+                    (_item2 = ExpectToken(PyToken.Type.TYPE_COMMENT)) != null
                 )
                 {
                     // Action code from grammar
@@ -12559,10 +12618,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPtr? _item1 = null;
 
                 if (
-                    ExpectOp("*") != null &&
-                    Parse_Tmp84() != null
+                    (_item0 = ExpectOp("*")) != null &&
+                    (_item1 = Parse_Tmp84()) != null
                 )
                 {
                     // Action code from grammar
@@ -12699,13 +12760,18 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
+                GeneratedTokenInfo? _item2 = null;
+                GeneratedTokenInfo? _item3 = null;
+                GeneratedTokenInfo? _item4 = null;
 
                 if (
-                    ExpectToken(PyToken.Type.TYPE_COMMENT) != null &&
-                    ExpectToken(PyToken.Type.NEWLINE) != null &&
-                    ExpectToken(PyToken.Type.TYPE_COMMENT) != null &&
-                    ExpectToken(PyToken.Type.NEWLINE) != null &&
-                    ExpectToken(PyToken.Type.INDENT) != null
+                    (_item0 = ExpectToken(PyToken.Type.TYPE_COMMENT)) != null &&
+                    (_item1 = ExpectToken(PyToken.Type.NEWLINE)) != null &&
+                    (_item2 = ExpectToken(PyToken.Type.TYPE_COMMENT)) != null &&
+                    (_item3 = ExpectToken(PyToken.Type.NEWLINE)) != null &&
+                    (_item4 = ExpectToken(PyToken.Type.INDENT)) != null
                 )
                 {
                     // Action code from grammar
@@ -12886,11 +12952,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
+                GeneratedTokenInfo? _item2 = null;
 
                 if (
-                    Parse_ImportFromAsNames() != null &&
-                    ExpectOp(",") != null &&
-                    ExpectToken(PyToken.Type.NEWLINE) != null
+                    (_item0 = (GeneratedPtr)Parse_ImportFromAsNames()) != null &&
+                    (_item1 = ExpectOp(",")) != null &&
+                    (_item2 = ExpectToken(PyToken.Type.NEWLINE)) != null
                 )
                 {
                     // Action code from grammar
@@ -12918,12 +12987,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
+                GeneratedPtr? _item2 = null;
+                GeneratedTokenInfo? _item3 = null;
 
                 if (
-                    (ParseOptional(() => ExpectToken(PyToken.Type.ASYNC)) == null || true) &&
-                    ExpectKeyword("with") != null &&
-                    ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp89()) != null &&
-                    ExpectToken(PyToken.Type.NEWLINE) != null
+                    ((_item0 = ParseOptional(() => ExpectToken(PyToken.Type.ASYNC))) == null || true) &&
+                    (_item1 = ExpectKeyword("with")) != null &&
+                    (_item2 = (GeneratedPtr)ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp89())) != null &&
+                    (_item3 = ExpectToken(PyToken.Type.NEWLINE)) != null
                 )
                 {
                     // Action code from grammar
@@ -12936,15 +13009,22 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
+                GeneratedTokenInfo? _item2 = null;
+                GeneratedPtr? _item3 = null;
+                GeneratedPtr? _item4 = null;
+                GeneratedTokenInfo? _item5 = null;
+                GeneratedTokenInfo? _item6 = null;
 
                 if (
-                    (ParseOptional(() => ExpectToken(PyToken.Type.ASYNC)) == null || true) &&
-                    ExpectKeyword("with") != null &&
-                    ExpectOp("(") != null &&
-                    ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp90()) != null &&
-                    (ParseOptional(() => ExpectOp(",")) == null || true) &&
-                    ExpectOp(")") != null &&
-                    ExpectToken(PyToken.Type.NEWLINE) != null
+                    ((_item0 = ParseOptional(() => ExpectToken(PyToken.Type.ASYNC))) == null || true) &&
+                    (_item1 = ExpectKeyword("with")) != null &&
+                    (_item2 = ExpectOp("(")) != null &&
+                    (_item3 = (GeneratedPtr)ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp90())) != null &&
+                    ((_item4 = ParseOptional(() => ExpectOp(","))) == null || true) &&
+                    (_item5 = ExpectOp(")")) != null &&
+                    (_item6 = ExpectToken(PyToken.Type.NEWLINE)) != null
                 )
                 {
                     // Action code from grammar
@@ -13051,11 +13131,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
+                GeneratedPtr? _item2 = null;
 
                 if (
-                    ExpectKeyword("try") != null &&
-                    ExpectOp(":") != null &&
-                    Parse_Block() != null &&
+                    (_item0 = ExpectKeyword("try")) != null &&
+                    (_item1 = ExpectOp(":")) != null &&
+                    (_item2 = (GeneratedPtr)Parse_Block()) != null &&
                     NegativeLookahead(() => Parse_Tmp93()) != null
                 )
                 {
@@ -13349,11 +13432,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPtr? _item1 = null;
+                GeneratedTokenInfo? _item2 = null;
 
                 if (
-                    ExpectSoftKeyword("match") != null &&
-                    Parse_SubjectExpr() != null &&
-                    ExpectToken(PyToken.Type.NEWLINE) != null
+                    (_item0 = ExpectSoftKeyword("match")) != null &&
+                    (_item1 = (GeneratedPtr)Parse_SubjectExpr()) != null &&
+                    (_item2 = ExpectToken(PyToken.Type.NEWLINE)) != null
                 )
                 {
                     // Action code from grammar
@@ -13402,12 +13488,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPtr? _item1 = null;
+                GeneratedPtr? _item2 = null;
+                GeneratedTokenInfo? _item3 = null;
 
                 if (
-                    ExpectSoftKeyword("case") != null &&
-                    Parse_Patterns() != null &&
-                    (ParseOptional(() => Parse_Guard()) == null || true) &&
-                    ExpectToken(PyToken.Type.NEWLINE) != null
+                    (_item0 = ExpectSoftKeyword("case")) != null &&
+                    (_item1 = (GeneratedPtr)Parse_Patterns()) != null &&
+                    ((_item2 = ParseOptional(() => Parse_Guard())) == null || true) &&
+                    (_item3 = ExpectToken(PyToken.Type.NEWLINE)) != null
                 )
                 {
                     // Action code from grammar
@@ -13576,11 +13666,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPtr? _item1 = null;
+                GeneratedTokenInfo? _item2 = null;
 
                 if (
-                    ExpectKeyword("if") != null &&
-                    Parse_NamedExpression() != null &&
-                    ExpectToken(PyToken.Type.NEWLINE) != null
+                    (_item0 = ExpectKeyword("if")) != null &&
+                    (_item1 = (GeneratedPtr)Parse_NamedExpression()) != null &&
+                    (_item2 = ExpectToken(PyToken.Type.NEWLINE)) != null
                 )
                 {
                     // Action code from grammar
@@ -13628,11 +13721,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPtr? _item1 = null;
+                GeneratedTokenInfo? _item2 = null;
 
                 if (
-                    ExpectKeyword("elif") != null &&
-                    Parse_NamedExpression() != null &&
-                    ExpectToken(PyToken.Type.NEWLINE) != null
+                    (_item0 = ExpectKeyword("elif")) != null &&
+                    (_item1 = (GeneratedPtr)Parse_NamedExpression()) != null &&
+                    (_item2 = ExpectToken(PyToken.Type.NEWLINE)) != null
                 )
                 {
                     // Action code from grammar
@@ -13714,11 +13810,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPtr? _item1 = null;
+                GeneratedTokenInfo? _item2 = null;
 
                 if (
-                    ExpectKeyword("while") != null &&
-                    Parse_NamedExpression() != null &&
-                    ExpectToken(PyToken.Type.NEWLINE) != null
+                    (_item0 = ExpectKeyword("while")) != null &&
+                    (_item1 = (GeneratedPtr)Parse_NamedExpression()) != null &&
+                    (_item2 = ExpectToken(PyToken.Type.NEWLINE)) != null
                 )
                 {
                     // Action code from grammar
@@ -13766,14 +13865,20 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
+                GeneratedPtr? _item2 = null;
+                GeneratedTokenInfo? _item3 = null;
+                GeneratedPtr? _item4 = null;
+                GeneratedTokenInfo? _item5 = null;
 
                 if (
-                    (ParseOptional(() => ExpectToken(PyToken.Type.ASYNC)) == null || true) &&
-                    ExpectKeyword("for") != null &&
-                    Parse_StarTargets() != null &&
-                    ExpectKeyword("in") != null &&
-                    Parse_StarExpressions() != null &&
-                    ExpectToken(PyToken.Type.NEWLINE) != null
+                    ((_item0 = ParseOptional(() => ExpectToken(PyToken.Type.ASYNC))) == null || true) &&
+                    (_item1 = ExpectKeyword("for")) != null &&
+                    (_item2 = (GeneratedPtr)Parse_StarTargets()) != null &&
+                    (_item3 = ExpectKeyword("in")) != null &&
+                    (_item4 = (GeneratedPtr)Parse_StarExpressions()) != null &&
+                    (_item5 = ExpectToken(PyToken.Type.NEWLINE)) != null
                 )
                 {
                     // Action code from grammar
@@ -13865,13 +13970,18 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
+                GeneratedPtr? _item2 = null;
+                GeneratedPtr? _item3 = null;
+                GeneratedTokenInfo? _item4 = null;
 
                 if (
-                    ExpectKeyword("class") != null &&
-                    ExpectName() != null &&
-                    (ParseOptional(() => Parse_TypeParams()) == null || true) &&
-                    (ParseOptional(() => Parse_Tmp103()) == null || true) &&
-                    ExpectToken(PyToken.Type.NEWLINE) != null
+                    (_item0 = ExpectKeyword("class")) != null &&
+                    (_item1 = ExpectName()) != null &&
+                    ((_item2 = ParseOptional(() => Parse_TypeParams())) == null || true) &&
+                    ((_item3 = ParseOptional(() => Parse_Tmp103())) == null || true) &&
+                    (_item4 = ExpectToken(PyToken.Type.NEWLINE)) != null
                 )
                 {
                     // Action code from grammar
@@ -13921,15 +14031,18 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
+                GeneratedPtr? _item2 = null;
 
                 if (
-                    ParseGatherPlus(() => ExpectOp(","), () => Parse_DoubleStarredKvpair()) != null &&
-                    ExpectOp(",") != null &&
-                    Parse_InvalidKvpair() != null
+                    (_item0 = (GeneratedPtr)ParseGatherPlus(() => ExpectOp(","), () => Parse_DoubleStarredKvpair())) != null &&
+                    (_item1 = ExpectOp(",")) != null &&
+                    (_item2 = Parse_InvalidKvpair()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 3 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -14162,9 +14275,10 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
                 if (
-                    ExpectOp("{") != null &&
+                    (_item0 = ExpectOp("{")) != null &&
                     NegativeLookahead(() => Parse_Tmp108()) != null
                 )
                 {
@@ -14178,10 +14292,12 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPtr? _item1 = null;
 
                 if (
-                    ExpectOp("{") != null &&
-                    Parse_Tmp109() != null &&
+                    (_item0 = ExpectOp("{")) != null &&
+                    (_item1 = Parse_Tmp109()) != null &&
                     NegativeLookahead(() => Parse_Tmp110()) != null
                 )
                 {
@@ -14195,11 +14311,14 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPtr? _item1 = null;
+                GeneratedTokenInfo? _item2 = null;
 
                 if (
-                    ExpectOp("{") != null &&
-                    Parse_Tmp111() != null &&
-                    ExpectOp("=") != null &&
+                    (_item0 = ExpectOp("{")) != null &&
+                    (_item1 = Parse_Tmp111()) != null &&
+                    (_item2 = ExpectOp("=")) != null &&
                     NegativeLookahead(() => Parse_Tmp112()) != null
                 )
                 {
@@ -14213,16 +14332,20 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPtr? _item1 = null;
+                GeneratedPtr? _item2 = null;
+                GeneratedPtr? _item3 = null;
 
                 if (
-                    ExpectOp("{") != null &&
-                    Parse_Tmp113() != null &&
-                    (ParseOptional(() => ExpectOp("=")) == null || true) &&
-                    Parse_InvalidConversionCharacter() != null
+                    (_item0 = ExpectOp("{")) != null &&
+                    (_item1 = Parse_Tmp113()) != null &&
+                    ((_item2 = ParseOptional(() => ExpectOp("="))) == null || true) &&
+                    (_item3 = Parse_InvalidConversionCharacter()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 4 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -14231,12 +14354,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPtr? _item1 = null;
+                GeneratedPtr? _item2 = null;
+                GeneratedPtr? _item3 = null;
 
                 if (
-                    ExpectOp("{") != null &&
-                    Parse_Tmp114() != null &&
-                    (ParseOptional(() => ExpectOp("=")) == null || true) &&
-                    (ParseOptional(() => Parse_Tmp115()) == null || true) &&
+                    (_item0 = ExpectOp("{")) != null &&
+                    (_item1 = Parse_Tmp114()) != null &&
+                    ((_item2 = ParseOptional(() => ExpectOp("="))) == null || true) &&
+                    ((_item3 = ParseOptional(() => Parse_Tmp115())) == null || true) &&
                     NegativeLookahead(() => Parse_Tmp116()) != null
                 )
                 {
@@ -14250,14 +14377,20 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPtr? _item1 = null;
+                GeneratedPtr? _item2 = null;
+                GeneratedPtr? _item3 = null;
+                GeneratedTokenInfo? _item4 = null;
+                GeneratedPtr? _item5 = null;
 
                 if (
-                    ExpectOp("{") != null &&
-                    Parse_Tmp117() != null &&
-                    (ParseOptional(() => ExpectOp("=")) == null || true) &&
-                    (ParseOptional(() => Parse_Tmp118()) == null || true) &&
-                    ExpectOp(":") != null &&
-                    ParseZeroOrMore(() => Parse_FstringFormatSpec()) != null &&
+                    (_item0 = ExpectOp("{")) != null &&
+                    (_item1 = Parse_Tmp117()) != null &&
+                    ((_item2 = ParseOptional(() => ExpectOp("="))) == null || true) &&
+                    ((_item3 = ParseOptional(() => Parse_Tmp118())) == null || true) &&
+                    (_item4 = ExpectOp(":")) != null &&
+                    (_item5 = (GeneratedPtr)ParseZeroOrMore(() => Parse_FstringFormatSpec())) != null &&
                     NegativeLookahead(() => ExpectOp("}")) != null
                 )
                 {
@@ -14271,12 +14404,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPtr? _item1 = null;
+                GeneratedPtr? _item2 = null;
+                GeneratedPtr? _item3 = null;
 
                 if (
-                    ExpectOp("{") != null &&
-                    Parse_Tmp119() != null &&
-                    (ParseOptional(() => ExpectOp("=")) == null || true) &&
-                    (ParseOptional(() => Parse_Tmp120()) == null || true) &&
+                    (_item0 = ExpectOp("{")) != null &&
+                    (_item1 = Parse_Tmp119()) != null &&
+                    ((_item2 = ParseOptional(() => ExpectOp("="))) == null || true) &&
+                    ((_item3 = ParseOptional(() => Parse_Tmp120())) == null || true) &&
                     NegativeLookahead(() => ExpectOp("}")) != null
                 )
                 {
@@ -14305,9 +14442,10 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
                 if (
-                    ExpectOp("!") != null &&
+                    (_item0 = ExpectOp("!")) != null &&
                     PositiveLookahead(() => Parse_Tmp121()) != null
                 )
                 {
@@ -14321,9 +14459,10 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
 
                 if (
-                    ExpectOp("!") != null &&
+                    (_item0 = ExpectOp("!")) != null &&
                     NegativeLookahead(() => ExpectName()) != null
                 )
                 {
@@ -16296,14 +16435,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
 
                 if (
-                    Parse_Expression() != null &&
+                    (_item0 = (GeneratedPtr)Parse_Expression()) != null &&
                     NegativeLookahead(() => ExpectOp(":=")) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item0;
                 }
             }
 
@@ -16342,14 +16482,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
 
                 if (
-                    Parse_Tmp122() != null &&
+                    (_item0 = Parse_Tmp122()) != null &&
                     NegativeLookahead(() => ExpectOp("=")) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item0;
                 }
             }
 
@@ -16473,14 +16614,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item1 = null;
 
                 if (
                     NegativeLookahead(() => ExpectOp("*")) != null &&
-                    Parse_StarTarget() != null
+                    (_item1 = (GeneratedPtr)Parse_StarTarget()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item1;
                 }
             }
 
@@ -16505,14 +16647,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    ExpectToken(PyToken.Type.NEWLINE) != null &&
-                    ExpectToken(PyToken.Type.INDENT) != null
+                    (_item0 = ExpectToken(PyToken.Type.NEWLINE)) != null &&
+                    (_item1 = ExpectToken(PyToken.Type.INDENT)) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -16581,14 +16725,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
 
                 if (
-                    Parse_StarredExpression() != null &&
+                    (_item0 = (GeneratedPtr)Parse_StarredExpression()) != null &&
                     NegativeLookahead(() => ExpectOp("=")) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item0;
                 }
             }
 
@@ -16627,14 +16772,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
+                GeneratedPtr? _item1 = null;
 
                 if (
-                    Parse_Expression() != null &&
-                    Parse_ForIfClauses() != null
+                    (_item0 = (GeneratedPtr)Parse_Expression()) != null &&
+                    (_item1 = (GeneratedPtr)Parse_ForIfClauses()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -16659,14 +16806,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    Parse_Args() != null &&
-                    ExpectOp(",") != null
+                    (_item0 = (GeneratedPtr)Parse_Args()) != null &&
+                    (_item1 = ExpectOp(",")) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -16793,14 +16942,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    ExpectName() != null &&
-                    ExpectOp("=") != null
+                    (_item0 = ExpectName()) != null &&
+                    (_item1 = ExpectOp("=")) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -16825,14 +16976,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    ExpectName() != null &&
-                    ExpectToken(PyToken.Type.STRING) != null
+                    (_item0 = ExpectName()) != null &&
+                    (_item1 = ExpectToken(PyToken.Type.STRING)) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -17103,14 +17256,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    Parse_StarTargets() != null &&
-                    ExpectOp("=") != null
+                    (_item0 = (GeneratedPtr)Parse_StarTargets()) != null &&
+                    (_item1 = ExpectOp("=")) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -17135,14 +17290,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    Parse_StarTargets() != null &&
-                    ExpectOp("=") != null
+                    (_item0 = (GeneratedPtr)Parse_StarTargets()) != null &&
+                    (_item1 = ExpectOp("=")) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -17547,14 +17704,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPtr? _item1 = null;
 
                 if (
-                    ExpectOp(",") != null &&
-                    Parse_Tmp124() != null
+                    (_item0 = ExpectOp(",")) != null &&
+                    (_item1 = Parse_Tmp124()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -17871,14 +18030,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPtr? _item1 = null;
 
                 if (
-                    ExpectOp(",") != null &&
-                    Parse_Tmp125() != null
+                    (_item0 = ExpectOp(",")) != null &&
+                    (_item1 = Parse_Tmp125()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -18107,14 +18268,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
+                GeneratedPtr? _item1 = null;
 
                 if (
-                    Parse_Expression() != null &&
-                    (ParseOptional(() => Parse_Tmp126()) == null || true)
+                    (_item0 = (GeneratedPtr)Parse_Expression()) != null &&
+                    ((_item1 = ParseOptional(() => Parse_Tmp126())) == null || true)
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -18139,14 +18302,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
+                GeneratedPtr? _item1 = null;
 
                 if (
-                    Parse_Expressions() != null &&
-                    (ParseOptional(() => Parse_Tmp127()) == null || true)
+                    (_item0 = (GeneratedPtr)Parse_Expressions()) != null &&
+                    ((_item1 = ParseOptional(() => Parse_Tmp127())) == null || true)
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -18171,14 +18336,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
+                GeneratedPtr? _item1 = null;
 
                 if (
-                    Parse_Expression() != null &&
-                    (ParseOptional(() => Parse_Tmp128()) == null || true)
+                    (_item0 = (GeneratedPtr)Parse_Expression()) != null &&
+                    ((_item1 = ParseOptional(() => Parse_Tmp128())) == null || true)
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -18203,14 +18370,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
+                GeneratedPtr? _item1 = null;
 
                 if (
-                    Parse_Expressions() != null &&
-                    (ParseOptional(() => Parse_Tmp129()) == null || true)
+                    (_item0 = (GeneratedPtr)Parse_Expressions()) != null &&
+                    ((_item1 = ParseOptional(() => Parse_Tmp129())) == null || true)
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -18279,14 +18448,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    ExpectKeyword("as") != null &&
-                    ExpectName() != null
+                    (_item0 = ExpectKeyword("as")) != null &&
+                    (_item1 = ExpectName()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -18311,14 +18482,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
+                GeneratedPtr? _item1 = null;
 
                 if (
-                    Parse_Expression() != null &&
-                    (ParseOptional(() => Parse_Tmp130()) == null || true)
+                    (_item0 = (GeneratedPtr)Parse_Expression()) != null &&
+                    ((_item1 = ParseOptional(() => Parse_Tmp130())) == null || true)
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -18343,14 +18516,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    ExpectKeyword("as") != null &&
-                    ExpectName() != null
+                    (_item0 = ExpectKeyword("as")) != null &&
+                    (_item1 = ExpectName()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -18375,14 +18550,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    ExpectKeyword("as") != null &&
-                    ExpectName() != null
+                    (_item0 = ExpectKeyword("as")) != null &&
+                    (_item1 = ExpectName()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -18451,14 +18628,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    ExpectKeyword("as") != null &&
-                    ExpectName() != null
+                    (_item0 = ExpectKeyword("as")) != null &&
+                    (_item1 = ExpectName()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -18483,14 +18662,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    ExpectKeyword("as") != null &&
-                    ExpectName() != null
+                    (_item0 = ExpectKeyword("as")) != null &&
+                    (_item1 = ExpectName()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -18515,14 +18696,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    Parse_PositionalPatterns() != null &&
-                    ExpectOp(",") != null
+                    (_item0 = (GeneratedPtr)Parse_PositionalPatterns()) != null &&
+                    (_item1 = ExpectOp(",")) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -18547,14 +18730,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPtr? _item1 = null;
 
                 if (
-                    ExpectOp("->") != null &&
-                    Parse_Expression() != null
+                    (_item0 = ExpectOp("->")) != null &&
+                    (_item1 = (GeneratedPtr)Parse_Expression()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -18579,15 +18764,18 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPtr? _item1 = null;
+                GeneratedTokenInfo? _item2 = null;
 
                 if (
-                    ExpectOp("(") != null &&
-                    (ParseOptional(() => Parse_Arguments()) == null || true) &&
-                    ExpectOp(")") != null
+                    (_item0 = ExpectOp("(")) != null &&
+                    ((_item1 = ParseOptional(() => Parse_Arguments())) == null || true) &&
+                    (_item2 = ExpectOp(")")) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 3 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -18612,15 +18800,18 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPtr? _item1 = null;
+                GeneratedTokenInfo? _item2 = null;
 
                 if (
-                    ExpectOp("(") != null &&
-                    (ParseOptional(() => Parse_Arguments()) == null || true) &&
-                    ExpectOp(")") != null
+                    (_item0 = ExpectOp("(")) != null &&
+                    ((_item1 = ParseOptional(() => Parse_Arguments())) == null || true) &&
+                    (_item2 = ExpectOp(")")) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 3 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -19113,14 +19304,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    ExpectOp("!") != null &&
-                    ExpectName() != null
+                    (_item0 = ExpectOp("!")) != null &&
+                    (_item1 = ExpectName()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -19233,14 +19426,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    ExpectOp("!") != null &&
-                    ExpectName() != null
+                    (_item0 = ExpectOp("!")) != null &&
+                    (_item1 = ExpectName()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -19309,14 +19504,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    ExpectOp("!") != null &&
-                    ExpectName() != null
+                    (_item0 = ExpectOp("!")) != null &&
+                    (_item1 = ExpectName()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -19399,14 +19596,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
 
                 if (
-                    Parse_Expression() != null &&
+                    (_item0 = (GeneratedPtr)Parse_Expression()) != null &&
                     NegativeLookahead(() => ExpectOp(":=")) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item0;
                 }
             }
 
@@ -19431,15 +19629,18 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
+                GeneratedPtr? _item2 = null;
 
                 if (
-                    ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp131()) != null &&
-                    ExpectOp(",") != null &&
-                    Parse_Kwargs() != null
+                    (_item0 = (GeneratedPtr)ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp131())) != null &&
+                    (_item1 = ExpectOp(",")) != null &&
+                    (_item2 = (GeneratedPtr)Parse_Kwargs()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 3 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -19552,14 +19753,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPtr? _item1 = null;
 
                 if (
-                    ExpectKeyword("as") != null &&
-                    Parse_StarTarget() != null
+                    (_item0 = ExpectKeyword("as")) != null &&
+                    (_item1 = (GeneratedPtr)Parse_StarTarget()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -19584,14 +19787,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPtr? _item1 = null;
 
                 if (
-                    ExpectKeyword("as") != null &&
-                    Parse_StarTarget() != null
+                    (_item0 = ExpectKeyword("as")) != null &&
+                    (_item1 = (GeneratedPtr)Parse_StarTarget()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -19616,14 +19821,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPtr? _item1 = null;
 
                 if (
-                    ExpectKeyword("as") != null &&
-                    Parse_StarTarget() != null
+                    (_item0 = ExpectKeyword("as")) != null &&
+                    (_item1 = (GeneratedPtr)Parse_StarTarget()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -19648,14 +19855,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedPtr? _item1 = null;
 
                 if (
-                    ExpectKeyword("as") != null &&
-                    Parse_StarTarget() != null
+                    (_item0 = ExpectKeyword("as")) != null &&
+                    (_item1 = (GeneratedPtr)Parse_StarTarget()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -19680,14 +19889,16 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _item0 = null;
+                GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    ExpectKeyword("as") != null &&
-                    ExpectName() != null
+                    (_item0 = ExpectKeyword("as")) != null &&
+                    (_item1 = ExpectName()) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 2 local variables → _PyPegen_dummy_name()
+                    return (GeneratedPtr)DummyResponse;
                 }
             }
 
@@ -19726,14 +19937,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
 
                 if (
-                    Parse_Tmp132() != null &&
+                    (_item0 = Parse_Tmp132()) != null &&
                     NegativeLookahead(() => ExpectOp("=")) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item0;
                 }
             }
 
@@ -19772,14 +19984,15 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _item0 = null;
 
                 if (
-                    Parse_Expression() != null &&
+                    (_item0 = (GeneratedPtr)Parse_Expression()) != null &&
                     NegativeLookahead(() => ExpectOp(":=")) != null
                 )
                 {
-                    // Default action: no captures (unexpected)
-                    return null;
+                    // CPython pattern: 1 local variable → return it
+                    return _item0;
                 }
             }
 

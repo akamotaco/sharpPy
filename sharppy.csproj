@@ -19,9 +19,9 @@
 
   </PropertyGroup>
 
-  <!-- Debug 모드: 파싱 로그만 활성화 -->
+  <!-- Debug 모드: Compiler + VM 로그 활성화 -->
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-    <DefineConstants>DEBUG;TRACE;</DefineConstants>
+    <DefineConstants>DEBUG;TRACE;DEBUG_PARSE_LOG;DEBUG_COMPILER_LOG;DEBUG_VM_LOG</DefineConstants>
   </PropertyGroup>
 
   <!-- Release 모드: 디버그 로그 비활성화 -->
@@ -64,7 +64,7 @@
   <!-- ASDL + PEG Parser Generation (Phase 2) -->
   <Target Name="GenerateParser" BeforeTargets="BeforeBuild">
     <Message Text="Generating AST types and PEG parser from ASDL + Grammar..." Importance="high" />
-    <Exec Command="dotnet run --project SharpPy.PegGenerator --grammar Grammar/python_py.gram --asdl Grammar/Python.asdl --output-ast Generated/AstTypes.cs --output-parser Generated/PyParser.cs"
+    <Exec Command="dotnet run --project SharpPy.PegGenerator --grammar Grammar/python_cs.gram --asdl Grammar/Python.asdl --output-ast Generated/AstTypes.cs --output-parser Generated/PyParser.cs"
           ContinueOnError="false"
           WorkingDirectory="$(ProjectDir)" />
   </Target>

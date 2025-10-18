@@ -451,6 +451,44 @@ public class ParserGenerator
             WriteLine($"{varType}? _alt_var = null;");
         }
 
+        // CPython pattern: For alternatives without named captures, we need to capture unnamed items
+        // Example: expression !':=' → capture expression result even though it's not named
+        // CPython: expr_ty expression_var (uses specific type, not void*)
+        // C#: Use current rule's return type (ruleReturnType), NOT atom's return type
+        // Reason: In C, void* can hold any pointer. In C#, base class can't downcast to derived.
+        if (namedItems.Count == 0 && !isSingleUnnamedItem)
+        {
+            for (int i = 0; i < alt.Items.Count; i++)
+            {
+                var item = alt.Items[i];
+                // Skip lookaheads - they don't produce values
+                if (item.Atom is PositiveLookahead || item.Atom is NegativeLookahead)
+                    continue;
+
+                // CRITICAL: Choose correct type for _item{i} variable
+                // CPython: void* _res (universal), expr_ty expression_var (specific)
+                // C#: Must match return type to avoid casting errors
+                string varType;
+                if (!string.IsNullOrEmpty(item.Type))
+                {
+                    // Explicit type annotation in grammar
+                    varType = item.Type;
+                }
+                else if (item.Atom is Token || item.Atom is Keyword)
+                {
+                    // Token/Keyword always returns GeneratedTokenInfo
+                    varType = "GeneratedTokenInfo";
+                }
+                else
+                {
+                    // Use rule's return type for other atoms (RuleRef, Group, etc.)
+                    // This matches CPython's pattern where variables match function return type
+                    varType = ruleReturnType;
+                }
+                WriteLine($"{varType}? _item{i} = null;");
+            }
+        }
+
         // Build condition list - CPython pattern: (a = rule(p)) && (b = rule(p)) && ...
         // CRITICAL: Optional items must be in the condition chain for proper evaluation order!
         // CPython: (lit = expect('(')) && (a = rule(p), true) && (lit2 = expect(')'))
@@ -494,17 +532,55 @@ public class ParserGenerator
             {
                 // Unnamed item
                 bool isOptional = item.Atom is Optional;
+                bool isLookahead = item.Atom is PositiveLookahead || item.Atom is NegativeLookahead;
 
-                if (isOptional)
+                // CPython pattern: For alternatives without named captures, assign to _item{i} variables
+                if (namedItems.Count == 0 && !isSingleUnnamedItem && !isLookahead)
                 {
-                    // CPython: (rule(p), !p->error_indicator)
-                    // Unnamed optional must still be in condition chain for eval order!
-                    conditions.Add($"({GenerateAtomCode(item.Atom)} == null || true)");
+                    var itemIndex = alt.Items.IndexOf(item);
+                    var callInfo = GenerateAtomCallInfo(item.Atom);
+                    callInfo.AssignedVariable = $"_item{itemIndex}";
+                    // CRITICAL: Match variable declaration type
+                    // Same logic as variable declaration above
+                    string varType;
+                    if (!string.IsNullOrEmpty(item.Type))
+                    {
+                        varType = item.Type;
+                    }
+                    else if (item.Atom is Token || item.Atom is Keyword)
+                    {
+                        varType = "GeneratedTokenInfo";
+                    }
+                    else
+                    {
+                        varType = ruleReturnType;
+                    }
+                    callInfo.AssignedVariableType = varType;
+                    var code = callInfo.GenerateCode();
+
+                    if (isOptional)
+                    {
+                        conditions.Add($"({code} == null || true)");
+                    }
+                    else
+                    {
+                        conditions.Add(code + " != null");
+                    }
                 }
                 else
                 {
-                    // Required unnamed: add to conditions
-                    conditions.Add(GenerateAtomCode(item.Atom) + " != null");
+                    // Regular unnamed item (not captured)
+                    if (isOptional)
+                    {
+                        // CPython: (rule(p), !p->error_indicator)
+                        // Unnamed optional must still be in condition chain for eval order!
+                        conditions.Add($"({GenerateAtomCode(item.Atom)} == null || true)");
+                    }
+                    else
+                    {
+                        // Required unnamed: add to conditions
+                        conditions.Add(GenerateAtomCode(item.Atom) + " != null");
+                    }
                 }
             }
         }
@@ -582,6 +658,7 @@ public class ParserGenerator
         else
         {
             // Default action
+            // CPython 3.12: emit_default_action() in c_generator.py (line 732-753)
             if (isSingleUnnamedItem)
             {
                 WriteLine($"// Default action: return single unnamed item");
@@ -589,8 +666,32 @@ public class ParserGenerator
             }
             else if (namedItems.Count == 0)
             {
-                WriteLine($"// Default action: no captures (unexpected)");
-                WriteLine("return null;");
+                // CPython pattern: Count non-lookahead items
+                var nonLookaheadItems = alt.Items
+                    .Where(i => !(i.Atom is PositiveLookahead) && !(i.Atom is NegativeLookahead))
+                    .ToList();
+
+                if (nonLookaheadItems.Count == 0)
+                {
+                    // All items are lookaheads (very rare case)
+                    WriteLine($"// All items are lookaheads - return dummy success");
+                    WriteLine($"return DummyResponse;");
+                }
+                else if (nonLookaheadItems.Count == 1)
+                {
+                    // CPython: len(local_variable_names) == 1 → return that variable
+                    // Example: expression !':=' → returns expression (1 non-lookahead item)
+                    var itemIndex = alt.Items.IndexOf(nonLookaheadItems[0]);
+                    WriteLine($"// CPython pattern: 1 local variable → return it");
+                    WriteLine($"return _item{itemIndex};");
+                }
+                else
+                {
+                    // CPython: len(local_variable_names) > 1 → _PyPegen_dummy_name()
+                    // Example: '{' invalid_double_starred_kvpairs '}' → 3 items → dummy
+                    WriteLine($"// CPython pattern: {nonLookaheadItems.Count} local variables → _PyPegen_dummy_name()");
+                    WriteLine($"return ({ruleReturnType})DummyResponse;");
+                }
             }
             else if (namedItems.Count == 1)
             {
@@ -599,9 +700,9 @@ public class ParserGenerator
             }
             else
             {
-                WriteLine($"// Default action: return first non-null of {namedItems.Count} captures");
-                var nullCoalescing = string.Join(" ?? ", namedItems.Select(i => i.Name));
-                WriteLine($"return {nullCoalescing};");
+                // CPython: Multiple named items → _PyPegen_dummy_name()
+                WriteLine($"// CPython pattern: {namedItems.Count} named items → _PyPegen_dummy_name()");
+                WriteLine($"return ({ruleReturnType})DummyResponse;");
             }
         }
 

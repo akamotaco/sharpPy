@@ -918,7 +918,7 @@ namespace SharpPy.Generated
             var result = parser();
             Reset(mark);
             // Return a dummy success value if matched, null if not
-            return result != null ? new DummyResult() : null;
+            return result != null ? DummyResponse : null;
         }
 
         /// <summary>
@@ -931,7 +931,7 @@ namespace SharpPy.Generated
             var result = parser();
             Reset(mark);
             // Return success if NOT matched, null if matched
-            return result == null ? new DummyResult() : null;
+            return result == null ? DummyResponse : null;
         }
 
         /// <summary>
@@ -1013,8 +1013,16 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// Dummy result for lookahead operations
+        /// Dummy expression for lookahead and alternatives without captures
+        /// CPython 3.12: Lookahead returns int (boolean), but C# needs object
+        /// This concrete class can be used anywhere GeneratedPtr or GeneratedExpr is needed
         /// </summary>
-        private class DummyResult : GeneratedPtr { }
+        private class DummyExpr : GeneratedExpr { }
+
+        /// <summary>
+        /// Shared dummy response instance
+        /// Used for: 1) Lookahead success indicator, 2) Alternatives without named captures
+        /// </summary>
+        protected static readonly GeneratedPtr DummyResponse = new DummyExpr();
     }
 }
