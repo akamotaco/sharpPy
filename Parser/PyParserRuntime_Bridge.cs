@@ -6,13 +6,13 @@ using SharpPy.Generated;
 // using SharpPy.Tokenizer.Generated; // Now using SharpPy.Generated
 using SharpPy.Utils;
 
-namespace SharpPy
+namespace SharpPy.Generated
 {
     /// <summary>
     /// CPython 3.12 compatible generated parser bridge
     /// Uses auto-generated tokenizer and parser from Grammar/python.gram
     /// </summary>
-    public static partial class GeneratedParserBridge
+    public static partial class PyParserRuntime
     {
         /// <summary>
         /// Main parsing entry point - uses auto-generated CPython 3.12 compatible tokenizer and parser
@@ -20,7 +20,7 @@ namespace SharpPy
         public static List<GeneratedTokenInfo> LexerSource(string source)
         {
 #if DEBUG_AST_LOG
-            Console.WriteLine($"[DEBUG] GeneratedParserBridge.ParseSource START for {filename}");
+            Console.WriteLine($"[DEBUG] PyParserRuntime.ParseSource START for {filename}");
             Console.WriteLine($"[DEBUG] GeneratedParserBridge: Using auto-generated CPython 3.12 tokenizer + parser for {filename}");
 #endif
 

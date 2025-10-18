@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using SharpPy.Generated;
+using static SharpPy.Generated.PyParserRuntime;
 
 namespace SharpPy.Generated
 {
@@ -7122,7 +7123,7 @@ namespace SharpPy.Generated
                 if ((t = Expect(PyToken.Type.FSTRING_MIDDLE, "FSTRING_MIDDLE")) == null) return null;
 
                 // Action code from grammar
-                return PyPegen . ConstantFromToken ( t );
+                return ConstantFromToken ( t );
             }
 
             Reset(_mark);
@@ -7156,7 +7157,7 @@ namespace SharpPy.Generated
                 if ((rbrace = ExpectOp("}")) == null) return null;
 
                 // Action code from grammar
-                return GeneratedParserBridge . _PyPegen_formatted_value (( GeneratedExpr ) a , debug_expr , conversion , format , rbrace , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return FormattedValue (( GeneratedExpr ) a , debug_expr , conversion , format , rbrace , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             // Alternative 2
@@ -7195,7 +7196,7 @@ namespace SharpPy.Generated
                 if ((conv = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
 
                 // Action code from grammar
-                return GeneratedParserBridge . _PyPegen_check_fstring_conversion ( conv_token , GeneratedParserBridge . _PyPegen_name_token ( conv ));
+                return CheckFstringConversion ( conv_token , NameToken ( conv ));
             }
 
             Reset(_mark);
@@ -7222,7 +7223,7 @@ namespace SharpPy.Generated
                 if ((spec = ParseZeroOrMore(() => Parse_FstringFormatSpec())) == null) return null;
 
                 // Action code from grammar
-                return GeneratedParserBridge . _PyPegen_setup_full_format_spec ( colon , spec . Cast < GeneratedExprSeq >(), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                return SetupFullFormatSpec ( colon , spec . Cast < GeneratedExprSeq >(), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
             }
 
             Reset(_mark);
@@ -7288,7 +7289,7 @@ namespace SharpPy.Generated
                 if ((c = Expect(PyToken.Type.FSTRING_END, "FSTRING_END")) == null) return null;
 
                 // Action code from grammar
-                return GeneratedParserBridge . _PyPegen_joined_str ( a , b . Cast < GeneratedExprSeq >(), c );
+                return JoinedStr ( a , b . Cast < GeneratedExprSeq >(), c );
             }
 
             Reset(_mark);
@@ -8985,7 +8986,7 @@ namespace SharpPy.Generated
                 if (ParseOptional(() => ParseGroup()) == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , PyPegen . GetLastComprehensionItem ( PyPegen . LastItem < GeneratedComprehension >( b )), "Generator expression must be parenthesized" );
+                RaiseSyntaxErrorKnownRange ( a , GetLastComprehensionItem ( LastItem < GeneratedComprehension >( b )), "Generator expression must be parenthesized" );
             }
 
             // Alternative 3
@@ -9034,7 +9035,7 @@ namespace SharpPy.Generated
                 if ((b = Parse_ForIfClauses()) == null) return null;
 
                 // Action code from grammar
-                return GeneratedParserBridge . _PyPegen_nonparen_genexp_in_call ( a , b );
+                return NonparenGenexpInCall ( a , b );
             }
 
             // Alternative 6
@@ -9051,7 +9052,7 @@ namespace SharpPy.Generated
                 if ((b = Parse_ForIfClauses()) == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , PyPegen . GetLastComprehensionItem ( PyPegen . LastItem < GeneratedComprehension >( b )), "Generator expression must be parenthesized" );
+                RaiseSyntaxErrorKnownRange ( a , GetLastComprehensionItem ( LastItem < GeneratedComprehension >( b )), "Generator expression must be parenthesized" );
             }
 
             // Alternative 7
@@ -9066,7 +9067,7 @@ namespace SharpPy.Generated
                 if (Parse_Args() == null) return null;
 
                 // Action code from grammar
-                return GeneratedParserBridge . _PyPegen_arguments_parsing_error ( a );
+                return ArgumentsParsingError ( a );
             }
 
             Reset(_mark);
@@ -9224,7 +9225,7 @@ namespace SharpPy.Generated
                 if ((b = Parse_StarExpressions()) == null) return null;
 
                 // Action code from grammar
-                return PyPegen . CheckLegacyStmt ( NameToken ( a ))? RaiseSyntaxErrorKnownRange ( NameToken ( a ), b , "Missing parentheses in call to '{a.GetNameValue()}'. Did you mean {a.GetNameValue()}(...)?" ): null;
+                return CheckLegacyStmt ( NameToken ( a ))? RaiseSyntaxErrorKnownRange ( NameToken ( a ), b , "Missing parentheses in call to '{a.GetNameValue()}'. Did you mean {a.GetNameValue()}(...)?" ): null;
             }
 
             Reset(_mark);
@@ -9251,7 +9252,7 @@ namespace SharpPy.Generated
                 if ((b = Parse_ExpressionWithoutInvalid()) == null) return null;
 
                 // Action code from grammar
-                return PyPegen . CheckLegacyStmt ( a )? null : _tokens [ _mark - 1 ]. Level == 0 ? null : RaiseSyntaxErrorKnownRange ( a , b , "invalid syntax. Perhaps you forgot a comma?" );
+                return CheckLegacyStmt ( a )? null : _tokens [ _mark - 1 ]. Level == 0 ? null : RaiseSyntaxErrorKnownRange ( a , b , "invalid syntax. Perhaps you forgot a comma?" );
             }
 
             // Alternative 2
@@ -9311,7 +9312,7 @@ namespace SharpPy.Generated
                 if (Parse_Expression() == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "cannot use assignment expressions with %s" , PyPegen . GetExprName ( a ));
+                RaiseSyntaxErrorKnownLocation ( a , "cannot use assignment expressions with %s" , GetExprName ( a ));
             }
 
             // Alternative 2
@@ -9346,7 +9347,7 @@ namespace SharpPy.Generated
                 if (NegativeLookahead(() => ParseGroup()) == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "cannot assign to %s here. Maybe you meant '==' instead of '='?" , PyPegen . GetExprName ( a ));
+                RaiseSyntaxErrorKnownLocation ( a , "cannot assign to %s here. Maybe you meant '==' instead of '='?" , GetExprName ( a ));
             }
 
             Reset(_mark);
@@ -9372,7 +9373,7 @@ namespace SharpPy.Generated
                 if (Parse_Expression() == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "only single target (not %s) can be annotated" , PyPegen . GetExprName ( a ));
+                RaiseSyntaxErrorKnownLocation ( a , "only single target (not %s) can be annotated" , GetExprName ( a ));
             }
 
             // Alternative 2
@@ -9449,7 +9450,7 @@ namespace SharpPy.Generated
                 if (ParseGroup() == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "'%s' is an illegal expression for augmented assignment" , PyPegen . GetExprName ( a ));
+                RaiseSyntaxErrorKnownLocation ( a , "'%s' is an illegal expression for augmented assignment" , GetExprName ( a ));
             }
 
             Reset(_mark);
@@ -9593,7 +9594,7 @@ namespace SharpPy.Generated
                 if (Parse_ForIfClauses() == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , PyPegen . LastItem < GeneratedExpr >( b ), "did you forget parentheses around the comprehension target?" );
+                RaiseSyntaxErrorKnownRange ( a , LastItem < GeneratedExpr >( b ), "did you forget parentheses around the comprehension target?" );
             }
 
             // Alternative 3
@@ -10068,7 +10069,7 @@ namespace SharpPy.Generated
                 if ((a = Parse_LambdaSlashWithDefault()) == null) return null;
 
                 // Action code from grammar
-                return GeneratedParserBridge . _PyPegen_singleton_seq ( a );
+                return SingletonSeq ( a );
             }
 
             // Alternative 2
@@ -10878,7 +10879,7 @@ namespace SharpPy.Generated
                 if ((a = Parse_InvalidClassArgumentPattern()) == null) return null;
 
                 // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( PyPegen . FirstItem < GeneratedPattern >( a ), PyPegen . LastItem < GeneratedPattern >( a ), "positional patterns follow keyword patterns" );
+                RaiseSyntaxErrorKnownRange ( FirstItem < GeneratedPattern >( a ), LastItem < GeneratedPattern >( a ), "positional patterns follow keyword patterns" );
             }
 
             Reset(_mark);

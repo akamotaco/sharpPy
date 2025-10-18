@@ -1,3 +1,5 @@
+using SharpPy.Generated;
+
 namespace SharpPy
 {
     #region Interpreter Integration (기존 시스템과 통합)
@@ -71,7 +73,7 @@ namespace SharpPy
                 Console.WriteLine("1️⃣ 파싱: 소스 → AST");
                 Console.WriteLine(new string('=', 30));
 #endif
-                var tokens = GeneratedParserBridge.LexerSource(sourceCode);
+                var tokens = PyParserRuntime.LexerSource(sourceCode);
 
                 if(showTokenize)
                 {
@@ -84,7 +86,7 @@ namespace SharpPy
                     Console.WriteLine("[===== tokenize end ====]");
                 }
 
-                var statements = GeneratedParserBridge.ParseSource(tokens, sourceCode, fileName ?? "<string>");
+                var statements = PyParserRuntime.ParseSource(tokens, sourceCode, fileName ?? "<string>");
 
                 if(showAst)
                 {

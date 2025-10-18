@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using SharpPy.Core;
+using SharpPy.Generated;
 
 namespace SharpPy.Tools
 {
@@ -39,8 +40,8 @@ namespace SharpPy.Tools
 
                 string code = File.ReadAllText(pythonFile);
                 // Use GeneratedParserBridge to get CPython 3.12 compatible PEG parser support
-                var tokens = GeneratedParserBridge.LexerSource(code);
-                var ast = GeneratedParserBridge.ParseSource(tokens, code, pythonFile);
+                var tokens = PyParserRuntime.LexerSource(code);
+                var ast = PyParserRuntime.ParseSource(tokens, code, pythonFile);
                 
                 var compiler = new PythonCompiler();
                 var codeObject = compiler.Compile(ast, "<module>", new List<string>(), pythonFile);

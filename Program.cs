@@ -120,8 +120,8 @@ namespace SharpPy
 
                 try
                 {
-                    var tokens = GeneratedParserBridge.LexerSource(System.IO.File.ReadAllText(pythonFile));
-                    var statements = GeneratedParserBridge.ParseSource(tokens, System.IO.File.ReadAllText(pythonFile), pythonFile);
+                    var tokens = PyParserRuntime.LexerSource(System.IO.File.ReadAllText(pythonFile));
+                    var statements = PyParserRuntime.ParseSource(tokens, System.IO.File.ReadAllText(pythonFile), pythonFile);
                     Console.WriteLine($"✅ Successfully parsed {statements.Count} statements");
                     Console.WriteLine("🎉 CPython 3.12 compatibility verified!");
                 }

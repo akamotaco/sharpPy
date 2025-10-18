@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using SharpPy.Core;
+using SharpPy.Generated;
 
 namespace SharpPy.Tools
 {
@@ -46,10 +47,10 @@ namespace SharpPy.Tools
                 }
 
 #if DEBUG
-                Console.WriteLine("[DEBUG] Calling GeneratedParserBridge.ParseSource...");
+                Console.WriteLine("[DEBUG] Calling PyParserRuntime.ParseSource...");
 #endif
-                var tokens = GeneratedParserBridge.LexerSource(source);
-                var statements = GeneratedParserBridge.ParseSource(tokens, source, pythonFile);
+                var tokens = PyParserRuntime.LexerSource(source);
+                var statements = PyParserRuntime.ParseSource(tokens, source, pythonFile);
 #if DEBUG
                 Console.WriteLine($"[DEBUG] ParseSource returned {statements?.Count ?? 0} statements");
 #endif

@@ -92,7 +92,7 @@ namespace SharpPy.Generated
         // CPython 3.12: _get_keyword_or_name_type - Must be implemented by generated parser
         protected abstract int GetKeywordOrNameType(string name, int nameLen);
 
-        // CPython 3.12: Get source line for error reporting (like CPython's _PyPegen_get_source_line)
+        // CPython 3.12: Get source line for error reporting (like CPython's GetSourceLine)
         protected string? GetSourceLine(int lineNumber)
         {
             if (_sourceLines == null || lineNumber <= 0 || lineNumber > _sourceLines.Length)
@@ -161,7 +161,7 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// CPython 3.12: _PyPegen_expect_soft_keyword
+        /// CPython 3.12: ExpectSoftKeyword
         /// Soft keywords: _, case, match, type
         /// These are NAME tokens that are treated as keywords only in specific contexts
         /// </summary>
@@ -184,8 +184,8 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// CPython 3.12: _PyPegen_expect_forced_token
-        /// Token *_PyPegen_expect_forced_token(Parser *p, int type, const char* expected)
+        /// CPython 3.12: ExpectForcedToken
+        /// Token *ExpectForcedToken(Parser *p, int type, const char* expected)
         /// Forced token must match or raise syntax error immediately
         /// </summary>
         protected GeneratedTokenInfo ExpectForcedToken(PyToken.Type type, string expected)
@@ -209,8 +209,8 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// CPython 3.12: _PyPegen_expect_forced_result
-        /// void*_PyPegen_expect_forced_result(Parser *p, void* result, const char* expected)
+        /// CPython 3.12: ExpectForcedResult
+        /// void*ExpectForcedResult(Parser *p, void* result, const char* expected)
         /// Forced result must be non-null or raise syntax error immediately
         /// </summary>
         protected T ExpectForcedResult<T>(T result, string expected) where T : class
@@ -243,7 +243,7 @@ namespace SharpPy.Generated
                 throw new StackOverflowException($"Maximum recursion depth exceeded in rule {ruleName}");
             }
 
-            // CPython 3.12: Check memoization first (like _PyPegen_is_memoized)
+            // CPython 3.12: Check memoization first (like IsMemoized)
             var key = (_position, ruleName);
             if (_lrCache.TryGetValue(key, out var lrEntry))
             {
@@ -264,7 +264,7 @@ namespace SharpPy.Generated
                 // CPython 3.12: Growth loop
                 while (true)
                 {
-                    // Update memo with current result (like _PyPegen_update_memo)
+                    // Update memo with current result (like UpdateMemo)
                     // Use _resmark (previous iteration's end position), not _position
                     _lrCache[key] = new LREntry { Result = _res, EndPos = _resmark, IsGrowing = false };
 
@@ -308,7 +308,7 @@ namespace SharpPy.Generated
 
         /// <summary>
         /// Handle memoized (non-left-recursive) rules with token-based caching
-        /// CPython 3.12: Implements _PyPegen_is_memoized() + _PyPegen_update_memo() pattern
+        /// CPython 3.12: Implements IsMemoized() + UpdateMemo() pattern
         /// Pattern:
         ///   1. Get current token: Token *t = p->tokens[p->mark]
         ///   2. Check cache: for (Memo *m = t->memo; m != NULL; m = m->next)
@@ -333,7 +333,7 @@ namespace SharpPy.Generated
             var token = _tokens[_position];
             int startMark = _position;
 
-            // STEP 2: CHECK CACHE - _PyPegen_is_memoized(p, type, &res)
+            // STEP 2: CHECK CACHE - IsMemoized(p, type, &res)
             // CPython 3.12: Cache key must include call_invalid_rules state for expression rules
             if (token.Memo != null)
             {
@@ -362,7 +362,7 @@ namespace SharpPy.Generated
             Console.WriteLine($"[MEMO] {ruleName}: Parse completed, result={(result == null ? "null" : "not-null")}, pos={startMark}->{endMark}");
             #endif
 
-            // STEP 4: UPDATE CACHE - _PyPegen_update_memo(p, mark, type, node)
+            // STEP 4: UPDATE CACHE - UpdateMemo(p, mark, type, node)
             if (token.Memo == null)
             {
                 token.Memo = new List<MemoEntry>();
@@ -386,7 +386,7 @@ namespace SharpPy.Generated
                 Console.WriteLine($"[MEMO] {ruleName}: Adding new cache entry");
                 #endif
                 // Insert new memo entry
-                // CPython: _PyPegen_insert_memo() adds to front of linked list
+                // CPython: InsertMemo() adds to front of linked list
                 // CPython: Cache key is just rule name, independent of call_invalid_rules
                 token.Memo.Add(new MemoEntry
                 {
@@ -400,7 +400,7 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// CPython 3.12: _PyPegen_is_memoized - Check if rule result is memoized
+        /// CPython 3.12: IsMemoized - Check if rule result is memoized
         /// Used by left-recursive wrapper for growth loop
         /// </summary>
         protected bool TryGetMemoized(string ruleName, out GeneratedPtr result)
@@ -426,7 +426,7 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// CPython 3.12: _PyPegen_update_memo - Update memoization for left-recursive growth
+        /// CPython 3.12: UpdateMemo - Update memoization for left-recursive growth
         /// </summary>
         protected void UpdateMemoized(string ruleName, int mark, GeneratedPtr result, int endPos)
         {
@@ -505,13 +505,13 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// Convert STRING token to token wrapper for _PyPegen_constant_from_string
+        /// Convert STRING token to token wrapper for ConstantFromString
         /// CPython 3.12: Token is passed to string_parser.c for decoding
         /// Note: Returns GeneratedTokenInfo directly to trigger DecodeStringLiteral
         /// </summary>
         protected GeneratedTokenInfo StringToken(GeneratedTokenInfo token)
         {
-            // Return token as-is so _PyPegen_constant_from_string can decode it
+            // Return token as-is so ConstantFromString can decode it
             return token;
         }
 

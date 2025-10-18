@@ -93,6 +93,7 @@ public class ParserGenerator
         WriteLine("using System;");
         WriteLine("using System.Collections.Generic;");
         WriteLine("using SharpPy.Generated;");
+        WriteLine("using static SharpPy.Generated.PyParserRuntime;");
         WriteLine();
         WriteLine("namespace SharpPy.Generated");
         WriteLine("{");
@@ -382,7 +383,7 @@ public class ParserGenerator
             }
             else
             {
-                // Multiple variables: return first non-null (CPython _PyPegen_dummy_name pattern)
+                // Multiple variables: return first non-null (CPython DummyName pattern)
                 WriteLine($"// Default action: return first non-null of {namedItems.Count} captures");
                 var nullCoalescing = string.Join(" ?? ", namedItems.Select(i => i.Name));
                 WriteLine($"return {nullCoalescing};");

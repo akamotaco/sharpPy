@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using SharpPy.Generated;
 
-namespace SharpPy
+namespace SharpPy.Generated
 {
     /// <summary>
-    /// Function-related conversion methods for GeneratedParserBridge
+    /// Function-related conversion methods for PyParserRuntime
     /// Handles function definitions, parameters, defaults, decorators
     /// </summary>
-    public static partial class GeneratedParserBridge
+    public static partial class PyParserRuntime
     {
         /// <summary>
         /// Convert GeneratedArguments to CPython 3.12 compatible FunctionArguments
@@ -145,7 +145,7 @@ namespace SharpPy
             return functionArgs;
         }
 
-        // Note: ConvertDefaultToString is already defined in GeneratedParserBridge.cs
+        // Note: ConvertDefaultToString is already defined in PyParserRuntime.cs
         // We don't duplicate it here
     }
 }

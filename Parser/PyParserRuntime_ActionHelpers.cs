@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using SharpPy.Generated;
 
-namespace SharpPy
+namespace SharpPy.Generated
 {
     /// <summary>
     /// CPython 3.12: _PyPegen_* helper functions
     /// Translated from cpython-3.12/Parser/action_helpers.c
     /// </summary>
-    public static partial class GeneratedParserBridge
+    public static partial class PyParserRuntime
     {
         // ============================================================
         // CPython 3.12: Parser helper functions from action_helpers.c
@@ -17,9 +17,9 @@ namespace SharpPy
         // ============================================================
 
         /// <summary>
-        /// CPython: NameDefaultPair *_PyPegen_name_default_pair(Parser *p, arg_ty arg, expr_ty c, Token *tc)
+        /// CPython: NameDefaultPair *NameDefaultPair(Parser *p, arg_ty arg, expr_ty c, Token *tc)
         /// </summary>
-        public static GeneratedNameDefaultPair _PyPegen_name_default_pair(GeneratedArg arg, GeneratedExpr defaultValue, GeneratedTokenInfo? typeComment)
+        public static GeneratedNameDefaultPair NameDefaultPair(GeneratedArg arg, GeneratedExpr defaultValue, GeneratedTokenInfo? typeComment)
         {
             return new GeneratedNameDefaultPair
             {
@@ -30,9 +30,9 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: SlashWithDefault *_PyPegen_slash_with_default(Parser *p, asdl_arg_seq *plain, asdl_seq *names_with_defaults)
+        /// CPython: SlashWithDefault *SlashWithDefault(Parser *p, asdl_arg_seq *plain, asdl_seq *names_with_defaults)
         /// </summary>
-        public static GeneratedSlashWithDefault _PyPegen_slash_with_default(GeneratedArgSeq plain, GeneratedSeq namesWithDefaults)
+        public static GeneratedSlashWithDefault SlashWithDefault(GeneratedArgSeq plain, GeneratedSeq namesWithDefaults)
         {
             var result = new GeneratedSlashWithDefault();
 
@@ -57,9 +57,9 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: StarEtc *_PyPegen_star_etc(Parser *p, arg_ty vararg, asdl_seq *kwonlyargs, arg_ty kwarg)
+        /// CPython: StarEtc *StarEtc(Parser *p, arg_ty vararg, asdl_seq *kwonlyargs, arg_ty kwarg)
         /// </summary>
-        public static GeneratedStarEtc _PyPegen_star_etc(GeneratedArg vararg, GeneratedSeq kwonlyargs, GeneratedArg kwarg)
+        public static GeneratedStarEtc StarEtc(GeneratedArg vararg, GeneratedSeq kwonlyargs, GeneratedArg kwarg)
         {
             var result = new GeneratedStarEtc
             {
@@ -82,11 +82,11 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: arguments_ty _PyPegen_make_arguments(Parser *p, asdl_arg_seq *slash_without_default,
+        /// CPython: arguments_ty MakeArguments(Parser *p, asdl_arg_seq *slash_without_default,
         ///     SlashWithDefault *slash_with_default, asdl_arg_seq *plain_names,
         ///     asdl_seq *names_with_default, StarEtc *star_etc)
         /// </summary>
-        public static GeneratedArguments _PyPegen_make_arguments(
+        public static GeneratedArguments MakeArguments(
             GeneratedArgSeq slashWithoutDefault,
             GeneratedSlashWithDefault slashWithDefault,
             GeneratedArgSeq plainNames,
@@ -166,9 +166,9 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: expr_ty _PyPegen_join_names_with_dot(Parser *p, expr_ty first_name, expr_ty second_name)
+        /// CPython: expr_ty JoinNamesWithDot(Parser *p, expr_ty first_name, expr_ty second_name)
         /// </summary>
-        public static GeneratedExpr _PyPegen_join_names_with_dot(GeneratedExpr firstName, GeneratedExpr secondName)
+        public static GeneratedExpr JoinNamesWithDot(GeneratedExpr firstName, GeneratedExpr secondName)
         {
             // CPython: firstName.id + "." + secondName.id
             // Extract string values and join with dot
@@ -183,9 +183,9 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: asdl_seq *_PyPegen_join_sequences(Parser *p, asdl_seq *a, asdl_seq *b)
+        /// CPython: asdl_seq *JoinSequences(Parser *p, asdl_seq *a, asdl_seq *b)
         /// </summary>
-        public static GeneratedSeq _PyPegen_join_sequences(GeneratedSeq a, GeneratedSeq b)
+        public static GeneratedSeq JoinSequences(GeneratedSeq a, GeneratedSeq b)
         {
             if (a == null) return b;
             if (b == null) return a;
@@ -197,9 +197,9 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: expr_ty _PyPegen_class_def_decorators(Parser *p, asdl_expr_seq *decorators, class_body_ty class_def)
+        /// CPython: expr_ty ClassDefDecorators(Parser *p, asdl_expr_seq *decorators, class_body_ty class_def)
         /// </summary>
-        public static GeneratedStmt _PyPegen_class_def_decorators(GeneratedExprSeq decorators, GeneratedStmt classDef)
+        public static GeneratedStmt ClassDefDecorators(GeneratedExprSeq decorators, GeneratedStmt classDef)
         {
             // Attach decorators to ClassDef
             if (classDef is GeneratedClassDef cd)
@@ -210,9 +210,9 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: stmt_ty _PyPegen_function_def_decorators(Parser *p, asdl_expr_seq *decorators, stmt_ty function_def)
+        /// CPython: stmt_ty FunctionDefDecorators(Parser *p, asdl_expr_seq *decorators, stmt_ty function_def)
         /// </summary>
-        public static GeneratedStmt _PyPegen_function_def_decorators(GeneratedExprSeq decorators, GeneratedStmt functionDef)
+        public static GeneratedStmt FunctionDefDecorators(GeneratedExprSeq decorators, GeneratedStmt functionDef)
         {
             // Attach decorators to FunctionDef or AsyncFunctionDef
             if (functionDef is GeneratedFunctionDef fd)
@@ -227,9 +227,9 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: KeyPatternPair *_PyPegen_key_pattern_pair(Parser *p, expr_ty key, pattern_ty pattern)
+        /// CPython: KeyPatternPair *KeyPatternPair(Parser *p, expr_ty key, pattern_ty pattern)
         /// </summary>
-        public static GeneratedKeyPatternPair _PyPegen_key_pattern_pair(GeneratedExpr key, GeneratedPattern pattern)
+        public static GeneratedKeyPatternPair KeyPatternPair(GeneratedExpr key, GeneratedPattern pattern)
         {
             return new GeneratedKeyPatternPair
             {
@@ -239,10 +239,10 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: asdl_stmt_seq* _PyPegen_interactive_exit(Parser *p)
+        /// CPython: asdl_stmt_seq* InteractiveExit(Parser *p)
         /// Returns NULL to signal EOF in interactive mode
         /// </summary>
-        public static GeneratedStmtSeq? _PyPegen_interactive_exit()
+        public static GeneratedStmtSeq? InteractiveExit()
         {
             // CPython: Sets errcode = E_EOF and returns NULL
             // SharpPy: Just return null to signal EOF
@@ -250,10 +250,10 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: stmt_ty _PyPegen_checked_future_import(Parser *p, identifier module, asdl_alias_seq *names, int level,
+        /// CPython: stmt_ty CheckedFutureImport(Parser *p, identifier module, asdl_alias_seq *names, int level,
         ///                                                  int lineno, int col_offset, int end_lineno, int end_col_offset, PyArena *arena)
         /// </summary>
-        public static GeneratedStmt _PyPegen_checked_future_import(
+        public static GeneratedStmt CheckedFutureImport(
             GeneratedIdentifier module,
             GeneratedAliasSeq names,
             int level,
@@ -289,9 +289,9 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: arg_ty _PyPegen_add_type_comment_to_arg(Parser *p, arg_ty arg, Token *tc)
+        /// CPython: arg_ty AddTypeCommentToArg(Parser *p, arg_ty arg, Token *tc)
         /// </summary>
-        public static GeneratedArg _PyPegen_add_type_comment_to_arg(GeneratedArg arg, GeneratedTokenInfo? typeComment)
+        public static GeneratedArg AddTypeCommentToArg(GeneratedArg arg, GeneratedTokenInfo? typeComment)
         {
             if (arg != null && typeComment != null)
             {
@@ -301,9 +301,9 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: expr_ty _PyPegen_constant_from_token(Parser *p, Token *tok)
+        /// CPython: expr_ty ConstantFromToken(Parser *p, Token *tok)
         /// </summary>
-        public static GeneratedExpr _PyPegen_constant_from_token(GeneratedTokenInfo token)
+        public static GeneratedExpr ConstantFromToken(GeneratedTokenInfo token)
         {
             // Parse token value to constant
             return new GeneratedConstant
@@ -313,9 +313,9 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: expr_ty _PyPegen_decoded_constant_from_token(Parser *p, Token *tok)
+        /// CPython: expr_ty DecodedConstantFromToken(Parser *p, Token *tok)
         /// </summary>
-        public static GeneratedExpr _PyPegen_decoded_constant_from_token(GeneratedTokenInfo token)
+        public static GeneratedExpr DecodedConstantFromToken(GeneratedTokenInfo token)
         {
             // Decode string literal (remove quotes, handle escapes)
             string decoded = DecodeStringLiteral(token.Value);
@@ -326,29 +326,29 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: expr_ty _PyPegen_ensure_real(Parser *p, expr_ty number)
+        /// CPython: expr_ty EnsureReal(Parser *p, expr_ty number)
         /// </summary>
-        public static GeneratedExpr _PyPegen_ensure_real(GeneratedExpr number)
+        public static GeneratedExpr EnsureReal(GeneratedExpr number)
         {
             // Ensure number is real (not imaginary)
             return number;
         }
 
         /// <summary>
-        /// CPython: expr_ty _PyPegen_ensure_imaginary(Parser *p, expr_ty number)
+        /// CPython: expr_ty EnsureImaginary(Parser *p, expr_ty number)
         /// </summary>
-        public static GeneratedExpr _PyPegen_ensure_imaginary(GeneratedExpr number)
+        public static GeneratedExpr EnsureImaginary(GeneratedExpr number)
         {
             // Convert to imaginary number
             return number;
         }
 
         /// <summary>
-        /// CPython: expr_ty _PyPegen_formatted_value(Parser *p, expr_ty expression, Token *debug,
+        /// CPython: expr_ty FormattedValue(Parser *p, expr_ty expression, Token *debug,
         ///                                            ResultTokenWithMetadata *conversion, ResultTokenWithMetadata *format,
         ///                                            Token *closing_brace, int lineno, int col_offset, int end_lineno, int end_col_offset, PyArena *arena)
         /// </summary>
-        public static GeneratedExpr _PyPegen_formatted_value(
+        public static GeneratedExpr FormattedValue(
             GeneratedExpr expression,
             GeneratedTokenInfo debug,
             GeneratedResultTokenWithMetadata conversion,
@@ -359,7 +359,7 @@ namespace SharpPy
             int conversion_val = -1;
 
 #if DEBUG_FSTRING_LOG
-            Console.WriteLine($"[FSTRING-FORMATTED_VALUE] _PyPegen_formatted_value called:");
+            Console.WriteLine($"[FSTRING-FORMATTED_VALUE] FormattedValue called:");
             Console.WriteLine($"  conversion is null: {conversion == null}");
             if (conversion != null)
             {
@@ -471,9 +471,9 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: expr_ty _PyPegen_joined_str(Parser *p, Token *a, asdl_expr_seq *b, Token *c)
+        /// CPython: expr_ty JoinedStr(Parser *p, Token *a, asdl_expr_seq *b, Token *c)
         /// </summary>
-        public static GeneratedExpr _PyPegen_joined_str(GeneratedTokenInfo a, GeneratedExprSeq values, GeneratedTokenInfo c)
+        public static GeneratedExpr JoinedStr(GeneratedTokenInfo a, GeneratedExprSeq values, GeneratedTokenInfo c)
         {
             return new GeneratedJoinedStr
             {
@@ -482,12 +482,12 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: ResultTokenWithMetadata *_PyPegen_check_fstring_conversion(Parser *p, Token *conv_token, expr_ty conv)
+        /// CPython: ResultTokenWithMetadata *CheckFstringConversion(Parser *p, Token *conv_token, expr_ty conv)
         /// </summary>
-        public static GeneratedResultTokenWithMetadata _PyPegen_check_fstring_conversion(GeneratedTokenInfo convToken, GeneratedExpr conv)
+        public static GeneratedResultTokenWithMetadata CheckFstringConversion(GeneratedTokenInfo convToken, GeneratedExpr conv)
         {
 #if DEBUG_FSTRING_LOG
-            Console.WriteLine($"[FSTRING-CHECK_CONVERSION] _PyPegen_check_fstring_conversion called:");
+            Console.WriteLine($"[FSTRING-CHECK_CONVERSION] CheckFstringConversion called:");
             Console.WriteLine($"  convToken: {convToken?.Type}:'{convToken?.Value}'");
             Console.WriteLine($"  conv is null: {conv == null}");
             if (conv != null)
@@ -507,9 +507,9 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: ResultTokenWithMetadata *_PyPegen_setup_full_format_spec(Parser *p, Token *colon, asdl_expr_seq *spec, ...)
+        /// CPython: ResultTokenWithMetadata *SetupFullFormatSpec(Parser *p, Token *colon, asdl_expr_seq *spec, ...)
         /// </summary>
-        public static GeneratedResultTokenWithMetadata _PyPegen_setup_full_format_spec(
+        public static GeneratedResultTokenWithMetadata SetupFullFormatSpec(
             GeneratedTokenInfo colon,
             GeneratedExprSeq spec,
             int lineno, int col_offset, int end_lineno, int end_col_offset)
@@ -535,9 +535,9 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: expr_ty _PyPegen_nonparen_genexp_in_call(Parser *p, expr_ty args, comprehension_ty *comp)
+        /// CPython: expr_ty NonparenGenexpInCall(Parser *p, expr_ty args, comprehension_ty *comp)
         /// </summary>
-        public static GeneratedExpr _PyPegen_nonparen_genexp_in_call(GeneratedExpr args, GeneratedSeq comprehensions)
+        public static GeneratedExpr NonparenGenexpInCall(GeneratedExpr args, GeneratedSeq comprehensions)
         {
             // Create generator expression without parentheses
             var compSeq = new GeneratedComprehensionSeq();
@@ -560,9 +560,9 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: KeywordOrStarred *_PyPegen_keyword_or_starred(Parser *p, void *element, int is_keyword)
+        /// CPython: KeywordOrStarred *KeywordOrStarred(Parser *p, void *element, int is_keyword)
         /// </summary>
-        public static GeneratedKeywordOrStarred _PyPegen_keyword_or_starred(GeneratedPtr element, int is_keyword)
+        public static GeneratedKeywordOrStarred KeywordOrStarred(GeneratedPtr element, int is_keyword)
         {
             if (is_keyword == 1)
             {
@@ -583,18 +583,18 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: void *_PyPegen_arguments_parsing_error(Parser *p, expr_ty e)
+        /// CPython: void *ArgumentsParsingError(Parser *p, expr_ty e)
         /// </summary>
-        public static GeneratedPtr? _PyPegen_arguments_parsing_error(GeneratedExpr e)
+        public static GeneratedPtr? ArgumentsParsingError(GeneratedExpr e)
         {
             // CPython: Raise syntax error
             throw new SyntaxErrorException($"invalid syntax in arguments: {e}");
         }
 
         /// <summary>
-        /// CPython: asdl_expr_seq *_PyPegen_get_pattern_keys(Parser *p, asdl_seq *seq)
+        /// CPython: asdl_expr_seq *GetPatternKeys(Parser *p, asdl_seq *seq)
         /// </summary>
-        public static GeneratedExprSeq _PyPegen_get_pattern_keys(GeneratedSeq seq)
+        public static GeneratedExprSeq GetPatternKeys(GeneratedSeq seq)
         {
             var result = new GeneratedExprSeq(seq?.Count ?? 0);
             if (seq != null)
@@ -611,9 +611,9 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: asdl_pattern_seq *_PyPegen_get_patterns(Parser *p, asdl_seq *seq)
+        /// CPython: asdl_pattern_seq *GetPatterns(Parser *p, asdl_seq *seq)
         /// </summary>
-        public static GeneratedPatternSeq _PyPegen_get_patterns(GeneratedSeq seq)
+        public static GeneratedPatternSeq GetPatterns(GeneratedSeq seq)
         {
             var result = new GeneratedPatternSeq(seq?.Count ?? 0);
             if (seq != null)
@@ -630,10 +630,10 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: expr_ty _PyPegen_name_token(Parser *p)
+        /// CPython: expr_ty NameToken(Parser *p)
         /// Converts NAME token to Name expression node
         /// </summary>
-        public static GeneratedExpr _PyPegen_name_token(GeneratedTokenInfo token)
+        public static GeneratedExpr NameToken(GeneratedTokenInfo token)
         {
             return new GeneratedName
             {
@@ -643,10 +643,10 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: asdl_seq *_PyPegen_singleton_seq(Parser *p, void *a)
+        /// CPython: asdl_seq *SingletonSeq(Parser *p, void *a)
         /// Creates a single-element asdl_seq* that contains a
         /// </summary>
-        public static GeneratedSeq _PyPegen_singleton_seq(GeneratedPtr item)
+        public static GeneratedSeq SingletonSeq(GeneratedPtr item)
         {
             if (item == null) return null;
             var seq = new GeneratedSeq(1);
@@ -655,13 +655,13 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: asdl_seq *_PyPegen_seq_insert_in_front(Parser *p, void *a, asdl_seq *seq)
+        /// CPython: asdl_seq *SeqInsertInFront(Parser *p, void *a, asdl_seq *seq)
         /// Creates a copy of seq and prepends a to it
         /// </summary>
-        public static GeneratedSeq _PyPegen_seq_insert_in_front(GeneratedPtr item, GeneratedSeq seq)
+        public static GeneratedSeq SeqInsertInFront(GeneratedPtr item, GeneratedSeq seq)
         {
             if (item == null) return seq;
-            if (seq == null) return _PyPegen_singleton_seq(item);
+            if (seq == null) return SingletonSeq(item);
 
             var new_seq = new GeneratedSeq(seq.Count + 1);
             new_seq.Add(item);
@@ -670,10 +670,10 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: CmpopExprPair *_PyPegen_cmpop_expr_pair(Parser *p, cmpop_ty cmpop, expr_ty expr)
+        /// CPython: CmpopExprPair *CmpopExprPair(Parser *p, cmpop_ty cmpop, expr_ty expr)
         /// Constructs a CmpopExprPair
         /// </summary>
-        public static GeneratedCmpopExprPair _PyPegen_cmpop_expr_pair(GeneratedCmpop cmpop, GeneratedExpr expr)
+        public static GeneratedCmpopExprPair CmpopExprPair(GeneratedCmpop cmpop, GeneratedExpr expr)
         {
             if (expr == null) return null;
             return new GeneratedCmpopExprPair
@@ -684,10 +684,10 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: asdl_int_seq *_PyPegen_get_cmpops(Parser *p, asdl_seq *seq)
+        /// CPython: asdl_int_seq *GetCmpops(Parser *p, asdl_seq *seq)
         /// Extracts comparison operators from CmpopExprPair sequence
         /// </summary>
-        public static GeneratedCmpopSeq _PyPegen_get_cmpops(GeneratedSeq seq)
+        public static GeneratedCmpopSeq GetCmpops(GeneratedSeq seq)
         {
             if (seq == null || seq.Count == 0) return new GeneratedCmpopSeq();
 
@@ -703,10 +703,10 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: asdl_expr_seq *_PyPegen_get_exprs(Parser *p, asdl_seq *seq)
+        /// CPython: asdl_expr_seq *GetExprs(Parser *p, asdl_seq *seq)
         /// Extracts expressions from CmpopExprPair sequence
         /// </summary>
-        public static GeneratedExprSeq _PyPegen_get_exprs(GeneratedSeq seq)
+        public static GeneratedExprSeq GetExprs(GeneratedSeq seq)
         {
             if (seq == null || seq.Count == 0) return new GeneratedExprSeq();
 
@@ -722,10 +722,10 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: int _PyPegen_seq_count_dots(asdl_seq *seq)
+        /// CPython: int SeqCountDots(asdl_seq *seq)
         /// Counts the total number of dots in seq's tokens
         /// </summary>
-        public static int _PyPegen_seq_count_dots(GeneratedSeq seq)
+        public static int SeqCountDots(GeneratedSeq seq)
         {
             int number_of_dots = 0;
             if (seq == null) return 0;
@@ -750,10 +750,10 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: alias_ty _PyPegen_alias_for_star(Parser *p, int lineno, int col_offset, int end_lineno, int end_col_offset, PyArena *arena)
+        /// CPython: alias_ty AliasForStar(Parser *p, int lineno, int col_offset, int end_lineno, int end_col_offset, PyArena *arena)
         /// Creates an alias with '*' as the identifier name
         /// </summary>
-        public static GeneratedAlias _PyPegen_alias_for_star(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedAlias AliasForStar(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             return new GeneratedAlias
             {
@@ -767,10 +767,10 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: asdl_identifier_seq *_PyPegen_map_names_to_ids(Parser *p, asdl_expr_seq *seq)
+        /// CPython: asdl_identifier_seq *MapNamesToIds(Parser *p, asdl_expr_seq *seq)
         /// Creates a new asdl_seq* with the identifiers of all the names in seq
         /// </summary>
-        public static GeneratedIdentifierSeq _PyPegen_map_names_to_ids(GeneratedExprSeq seq)
+        public static GeneratedIdentifierSeq MapNamesToIds(GeneratedExprSeq seq)
         {
             if (seq == null || seq.Count == 0) return new GeneratedIdentifierSeq();
 
@@ -786,10 +786,10 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: arguments_ty _PyPegen_empty_arguments(Parser *p)
+        /// CPython: arguments_ty EmptyArguments(Parser *p)
         /// Constructs an empty arguments_ty object, that gets used when a function accepts no arguments
         /// </summary>
-        public static GeneratedArguments _PyPegen_empty_arguments()
+        public static GeneratedArguments EmptyArguments()
         {
             return new GeneratedArguments
             {
@@ -804,10 +804,10 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: void *_PyPegen_dummy_name(Parser *p, ...)
+        /// CPython: void *DummyName(Parser *p, ...)
         /// Returns a placeholder/dummy name for temporary use
         /// </summary>
-        public static GeneratedName _PyPegen_dummy_name()
+        public static GeneratedName DummyName()
         {
             return new GeneratedName
             {
@@ -817,10 +817,10 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython: expr_ty _PyPegen_set_expr_context(Parser *p, expr_ty expr, expr_context_ty ctx)
+        /// CPython: expr_ty SetExprContext(Parser *p, expr_ty expr, expr_context_ty ctx)
         /// Creates an `expr_ty` equivalent to `expr` but with `ctx` as context
         /// </summary>
-        public static GeneratedExpr _PyPegen_set_expr_context(GeneratedExpr expr, GeneratedExprContext ctx)
+        public static GeneratedExpr SetExprContext(GeneratedExpr expr, GeneratedExprContext ctx)
         {
             if (expr == null) return null;
 
@@ -834,7 +834,7 @@ namespace SharpPy
                     var tuple_elts = new GeneratedExprSeq(tuple.Elts.Count);
                     foreach (var elt in tuple.Elts)
                     {
-                        tuple_elts.Add(_PyPegen_set_expr_context((GeneratedExpr)elt, ctx));
+                        tuple_elts.Add(SetExprContext((GeneratedExpr)elt, ctx));
                     }
                     return new GeneratedTuple { Elts = tuple_elts, Ctx = ctx };
 
@@ -842,7 +842,7 @@ namespace SharpPy
                     var list_elts = new GeneratedExprSeq(list.Elts.Count);
                     foreach (var elt in list.Elts)
                     {
-                        list_elts.Add(_PyPegen_set_expr_context((GeneratedExpr)elt, ctx));
+                        list_elts.Add(SetExprContext((GeneratedExpr)elt, ctx));
                     }
                     return new GeneratedList { Elts = list_elts, Ctx = ctx };
 
@@ -865,7 +865,7 @@ namespace SharpPy
                 case GeneratedStarred starred:
                     return new GeneratedStarred
                     {
-                        Value = _PyPegen_set_expr_context(starred.Value, ctx),
+                        Value = SetExprContext(starred.Value, ctx),
                         Ctx = ctx
                     };
 
