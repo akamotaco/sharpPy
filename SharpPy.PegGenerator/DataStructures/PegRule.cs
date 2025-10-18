@@ -10,6 +10,11 @@ public class PegRule
     public string Name { get; set; } = "";
     public string? ReturnType { get; set; }  // 규칙의 반환 타입 (예: GeneratedMod, GeneratedExpr)
     public List<Alternative> Alternatives { get; set; } = new();
+
+    /// <summary>
+    /// CPython 3.12: (memo) annotation - enables memoization to prevent infinite recursion
+    /// </summary>
+    public bool IsMemoized { get; set; } = false;
 }
 
 /// <summary>

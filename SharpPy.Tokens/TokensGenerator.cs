@@ -66,7 +66,7 @@ namespace SharpPy.Tokenizer
 
         void GenerateLiteralslist()
         {
-            
+
             // Generate operator map
             var literals = _tokens.Where(t => t.IsLiteral).ToList();
             if (literals.Any())
@@ -75,12 +75,13 @@ namespace SharpPy.Tokenizer
                 WriteLine("{");
                 Indent();
 
-                // Sort by length (longer first) to match properly
-                // var sortedOperators = operators.OrderByDescending(op => op.Value.Length);
-                // foreach (var op in sortedOperators)
-                foreach (var op in literals)
+                // CPython 3.12: All operators use OP type, distinguished by value
+                // Sort by length (longer first) to match properly (e.g., "==" before "=")
+                var sortedLiterals = literals.OrderByDescending(op => op.Value.Length);
+                foreach (var op in sortedLiterals)
                 {
-                    WriteLine($"( \"{EscapeString(op.Value)}\", Type.{op.Name} ),");
+                    // CPython 3.12: All literals return OP type
+                    WriteLine($"( \"{EscapeString(op.Value)}\", Type.OP ),");
                 }
 
                 Dedent();

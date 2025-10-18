@@ -1,5 +1,6 @@
 using System.Text;
 using SharpPy.PegGenerator.DataStructures;
+using SharpPy.PegGenerator.Analysis;
 
 namespace SharpPy.PegGenerator.Generators;
 
@@ -64,6 +65,10 @@ public class ParserGenerator
     private HashSet<string> _hardKeywords = new();
     private HashSet<string> _softKeywords = new();
     private Dictionary<string, string> _ruleReturnTypes = new();  // rule_name → return_type
+    private int _artificialRuleCounter = 0;  // CPython: self.counter in parser_generator.py
+    private List<PegRule> _artificialRules = new();  // CPython: self.all_rules (additional entries)
+    private Dictionary<Group, string> _groupToRuleMap = new();  // Group → artificial rule name cache
+    private HashSet<string> _leftRecursiveRules = new();  // Rules detected as left-recursive
 
     public string Generate(PegRule[] rules, HashSet<string> hardKeywords, HashSet<string> softKeywords, TrailerCode? trailer = null)
     {
@@ -72,6 +77,10 @@ public class ParserGenerator
         _hardKeywords = hardKeywords;
         _softKeywords = softKeywords;
         _ruleReturnTypes.Clear();
+        _artificialRuleCounter = 0;
+        _artificialRules.Clear();
+        _groupToRuleMap.Clear();
+        _leftRecursiveRules.Clear();
 
         // Build rule return type mapping (rule_name → return_type)
         foreach (var rule in rules)
@@ -84,6 +93,17 @@ public class ParserGenerator
             }
 
             _ruleReturnTypes[rule.Name] = returnType;
+        }
+
+        // CPython 3.12: Detect left-recursive rules using SCC algorithm
+        // Tools/peg_generator/pegen/parser_generator.py - compute_left_recursives()
+        var detector = new LeftRecursionDetector(rules);
+        _leftRecursiveRules = detector.DetectLeftRecursiveRules();
+
+        Console.WriteLine($"[LEFT-RECURSION] Detected {_leftRecursiveRules.Count} left-recursive rules:");
+        foreach (var ruleName in _leftRecursiveRules.OrderBy(r => r))
+        {
+            Console.WriteLine($"  - {ruleName}");
         }
 
         // File header
@@ -162,13 +182,28 @@ public class ParserGenerator
 
         // Generate rule methods
         WriteLine("// ============================================================");
-        WriteLine("// Grammar Rules (193 rules from python_py.gram)");
+        WriteLine($"// Grammar Rules ({rules.Length} rules from python_cs.gram)");
         WriteLine("// ============================================================");
         WriteLine();
 
+        // Generate main rules - artificial rules will be collected during generation
         foreach (var rule in rules)
         {
             GenerateRuleMethod(rule);
+        }
+
+        // Now generate artificial rules that were collected
+        // Important: Artificial rules may contain Groups that generate more artificial rules
+        // So we need to keep generating until no new artificial rules are added
+        int processedCount = 0;
+        while (processedCount < _artificialRules.Count)
+        {
+            var rulesToProcess = _artificialRules.Skip(processedCount).ToArray();
+            foreach (var artificialRule in rulesToProcess)
+            {
+                GenerateRuleMethod(artificialRule);
+                processedCount++;
+            }
         }
 
         // GetKeywordOrNameType implementation (abstract method from PyParserBase)
@@ -226,6 +261,14 @@ public class ParserGenerator
         // Use rule's return type from grammar mapping
         var returnType = _ruleReturnTypes.GetValueOrDefault(rule.Name, "GeneratedPtr");
 
+        // Check if this rule is left-recursive
+        // CPython 3.12: Automatically detected using SCC algorithm
+        bool isLeftRecursive = _leftRecursiveRules.Contains(rule.Name);
+
+        // Check if this rule has (memo) annotation
+        // CPython 3.12: Memoization prevents infinite loops in mutual recursion
+        bool isMemoized = rule.IsMemoized;
+
         WriteLine($"/// <summary>");
         WriteLine($"/// Rule: {rule.Name}");
         WriteLine($"/// Alternatives: {rule.Alternatives.Count}");
@@ -233,162 +276,303 @@ public class ParserGenerator
         {
             WriteLine($"/// Return Type: {rule.ReturnType}");
         }
+        if (isLeftRecursive)
+        {
+            WriteLine($"/// Left-recursive rule - uses TryLeftRecursive wrapper");
+        }
+        if (isMemoized)
+        {
+            WriteLine($"/// CPython (memo) - uses TryMemoized wrapper");
+        }
         WriteLine($"/// </summary>");
         WriteLine($"private {returnType}? Parse_{methodName}()");
         WriteLine("{");
         _indentLevel++;
 
-        WriteLine("int _mark = Mark();");
-        WriteLine();
-
-        // Generate alternatives
-        for (int i = 0; i < rule.Alternatives.Count; i++)
+        if (isLeftRecursive)
         {
-            var alt = rule.Alternatives[i];
+            // Wrap with TryLeftRecursive to handle left recursion
+            WriteLine($"return ({returnType}?)TryLeftRecursive(\"{rule.Name}\", Parse_{methodName}_Raw);");
+        }
+        else if (isMemoized)
+        {
+            // CPython 3.12: Wrap with TryMemoized for (memo) rules
+            WriteLine($"return ({returnType}?)TryMemoized(\"{rule.Name}\", Parse_{methodName}_Raw);");
+        }
+        else
+        {
+            // Normal rule generation
+            WriteLine("int _mark = Mark();");
+            WriteLine();
+            WriteLine("#if DEBUG_PARSE_LOG");
+            WriteLine($"Console.WriteLine($\"[RULE] {rule.Name} at pos={{_position}}\");");
+            WriteLine("#endif");
+            WriteLine();
 
-            if (i > 0)
+            // Generate alternatives
+            for (int i = 0; i < rule.Alternatives.Count; i++)
             {
-                WriteLine();
-                WriteLine("// Alternative " + (i + 1));
+                var alt = rule.Alternatives[i];
+
+                if (i > 0)
+                {
+                    WriteLine();
+                    WriteLine("// Alternative " + (i + 1));
+                }
+
+                WriteLine("Reset(_mark);");
+                WriteLine("{");
+                _indentLevel++;
+
+                // Pass the rule's return type to GenerateAlternative
+                GenerateAlternative(alt, rule.Name, returnType);
+
+                _indentLevel--;
+                WriteLine("}");
             }
 
+            WriteLine();
             WriteLine("Reset(_mark);");
-            WriteLine("{");
-            _indentLevel++;
-
-            GenerateAlternative(alt, rule.Name);
-
-            _indentLevel--;
-            WriteLine("}");
+            WriteLine("return null;");
         }
-
-        WriteLine();
-        WriteLine("Reset(_mark);");
-        WriteLine("return null;");
 
         _indentLevel--;
         WriteLine("}");
         WriteLine();
+
+        // For left-recursive or memoized rules, generate the _Raw method that contains the actual parsing logic
+        if (isLeftRecursive || isMemoized)
+        {
+            var wrapperType = isLeftRecursive ? "TryLeftRecursive" : "TryMemoized";
+            WriteLine($"/// <summary>");
+            WriteLine($"/// Raw parsing method for {(isLeftRecursive ? "left-recursive" : "memoized")} rule: {rule.Name}");
+            WriteLine($"/// Called by {wrapperType} wrapper");
+            WriteLine($"/// </summary>");
+            WriteLine($"private {returnType}? Parse_{methodName}_Raw()");
+            WriteLine("{");
+            _indentLevel++;
+
+            WriteLine("int _mark = Mark();");
+            WriteLine();
+            WriteLine("#if DEBUG_PARSE_LOG");
+            WriteLine($"Console.WriteLine($\"[RULE-RAW] {rule.Name} at pos={{_position}}\");");
+            WriteLine("#endif");
+            WriteLine();
+
+            // Generate alternatives
+            for (int i = 0; i < rule.Alternatives.Count; i++)
+            {
+                var alt = rule.Alternatives[i];
+
+                if (i > 0)
+                {
+                    WriteLine();
+                    WriteLine("// Alternative " + (i + 1));
+                }
+
+                WriteLine("Reset(_mark);");
+                WriteLine("{");
+                _indentLevel++;
+
+                // Pass the rule's return type to GenerateAlternative
+                GenerateAlternative(alt, rule.Name, returnType);
+
+                _indentLevel--;
+                WriteLine("}");
+            }
+
+            WriteLine();
+            WriteLine("Reset(_mark);");
+            WriteLine("return null;");
+
+            _indentLevel--;
+            WriteLine("}");
+            WriteLine();
+        }
     }
 
-    private void GenerateAlternative(Alternative alt, string ruleName)
+    private void GenerateAlternative(Alternative alt, string ruleName, string ruleReturnType)
     {
-        // CPython 3.12: Capture start position for EXTRA macro (AST location info)
+        // CPython 3.12 pattern: if (condition1 && condition2 && ...) { return success; }
+        // Build list of all conditions that must succeed
+        var conditions = new List<string>();
+        var namedItems = alt.Items.Where(i => !string.IsNullOrEmpty(i.Name)).ToList();
+
+        // Special case: If this alternative has no action code and only one unnamed item (e.g., "| assignment"),
+        // we'll handle it differently
+        bool isSingleUnnamedItem = string.IsNullOrEmpty(alt.ActionCode) &&
+                                    namedItems.Count == 0 &&
+                                    alt.Items.Count == 1 &&
+                                    string.IsNullOrEmpty(alt.Items[0].Name);
+
+        // Generate variable declarations
         WriteLine("CaptureStart();");
         WriteLine();
 
-        // Generate temporary variables for each named item
-        var namedItems = alt.Items.Where(i => !string.IsNullOrEmpty(i.Name)).ToList();
-
         foreach (var item in namedItems)
         {
-            // CPython: return_type = call.return_type if node.type is None else node.type
-            // Use type annotation if provided, otherwise infer from Atom pattern
             var varType = !string.IsNullOrEmpty(item.Type)
                 ? item.Type
                 : GetAtomReturnType(item.Atom);
             WriteLine($"{varType}? {item.Name} = null;");
         }
 
-        // Generate parsing code for each item
-        // CPython: CParserGenerator.visit_NamedItem() (c_generator.py line 690-694)
-        WriteLine();
-        for (int i = 0; i < alt.Items.Count; i++)
+        if (isSingleUnnamedItem)
         {
-            var item = alt.Items[i];
+            var item = alt.Items[0];
+            bool isUnnamedNameToken = item.Atom is Token token && token.TokenType == "NAME";
+            var varType = !string.IsNullOrEmpty(item.Type) ? item.Type : ruleReturnType;
+            WriteLine($"{varType}? _alt_var = null;");
+        }
 
+        // Build condition list - CPython pattern: (a = rule(p)) && (b = rule(p)) && ...
+        // CRITICAL: Optional items must be in the condition chain for proper evaluation order!
+        // CPython: (lit = expect('(')) && (a = rule(p), true) && (lit2 = expect(')'))
+        // This ensures '(' is checked BEFORE calling rule(p)
+        WriteLine();
+        foreach (var item in alt.Items)
+        {
             if (!string.IsNullOrEmpty(item.Name))
             {
-                // CPython visit_NamedItem pattern:
-                // 1. call = self.callmakervisitor.generate_call(node)
                 var callInfo = GenerateAtomCallInfo(item.Atom);
-
-                // 2. if node.name: call.assigned_variable = node.name
                 callInfo.AssignedVariable = item.Name;
+                callInfo.AssignedVariableType = !string.IsNullOrEmpty(item.Type)
+                    ? item.Type
+                    : GetAtomReturnType(item.Atom);
 
-                // 3. if node.type: call.assigned_variable_type = node.type
-                if (!string.IsNullOrEmpty(item.Type))
+                var code = callInfo.GenerateCode();
+                bool isOptional = item.Atom is Optional;
+
+                if (isOptional)
                 {
-                    callInfo.AssignedVariableType = item.Type;
+                    // CPython: (a = rule(p), !p->error_indicator) - comma operator
+                    // The assignment happens, then we check error_indicator
+                    // In C#, we use "|| true" to always succeed after assignment
+                    // This ensures the assignment is part of the condition chain (proper eval order!)
+                    conditions.Add($"({code} == null || true)");
                 }
                 else
                 {
-                    // No type annotation → use same type as variable declaration
-                    // IMPORTANT: Must match GetAtomReturnType() used in variable declaration!
-                    // Example: Optional<TokenInfo> → variable: GeneratedTokenInfo?, assign: (GeneratedTokenInfo)ParseOptional(...)
-                    callInfo.AssignedVariableType = GetAtomReturnType(item.Atom);
+                    // Required: add null check to conditions
+                    conditions.Add(code + " != null");
                 }
-
-                // 4. Generate code using FunctionCall.__str__() pattern
-                var code = callInfo.GenerateCode();
-                WriteLine($"if ({code} == null) return null;");
             }
             else
             {
-                // Unnamed item: just call the function
-                WriteLine($"if ({GenerateAtomCode(item.Atom)} == null) return null;");
+                // Unnamed item
+                bool isOptional = item.Atom is Optional;
+                if (isOptional)
+                {
+                    // CPython: (rule(p), !p->error_indicator)
+                    // Unnamed optional must still be in condition chain for eval order!
+                    conditions.Add($"({GenerateAtomCode(item.Atom)} == null || true)");
+                }
+                else
+                {
+                    // Required unnamed: add to conditions
+                    conditions.Add(GenerateAtomCode(item.Atom) + " != null");
+                }
             }
         }
 
-        // Generate return statement
-        WriteLine();
+        // Handle single unnamed item specially
+        if (isSingleUnnamedItem)
+        {
+            var item = alt.Items[0];
+            bool isUnnamedNameToken = item.Atom is Token token && token.TokenType == "NAME";
+
+            if (isUnnamedNameToken)
+            {
+                conditions.Clear();
+                conditions.Add("(_alt_var = ExpectNameExpr()) != null");
+            }
+            else
+            {
+                var callInfo = GenerateAtomCallInfo(item.Atom);
+                callInfo.AssignedVariable = "_alt_var";
+                callInfo.AssignedVariableType = !string.IsNullOrEmpty(item.Type) ? item.Type : ruleReturnType;
+                var code = callInfo.GenerateCode();
+                conditions.Clear();
+                conditions.Add(code + " != null");
+            }
+        }
+
+        // CPython pattern: if (all conditions) { return action; }
+        // Generate the big if statement wrapping the return
+        if (conditions.Count == 0)
+        {
+            // No conditions means all items are optional or no items
+            // This should always succeed, but we still wrap in if (true) for consistency
+            WriteLine("if (true)");
+        }
+        else if (conditions.Count == 1)
+        {
+            WriteLine($"if ({conditions[0]})");
+        }
+        else
+        {
+            // Multiple conditions: chain with &&
+            WriteLine($"if (");
+            _indentLevel++;
+            for (int i = 0; i < conditions.Count; i++)
+            {
+                var connector = i < conditions.Count - 1 ? " &&" : "";
+                WriteLine($"{conditions[i]}{connector}");
+            }
+            _indentLevel--;
+            WriteLine(")");
+        }
+
+        // Inside the if block: generate return statement
+        WriteLine("{");
+        _indentLevel++;
+
         if (!string.IsNullOrEmpty(alt.ActionCode))
         {
             // User-defined action code from python_cs.gram
             WriteLine($"// Action code from grammar");
-
-            // CPython 3.12: Expand EXTRA macro
-            // C: #define EXTRA _start_lineno, _start_col_offset, _end_lineno, _end_col_offset, p->arena
-            // C#: Replace EXTRA with four comma-separated arguments
             var expandedCode = alt.ActionCode.Replace("EXTRA", "_start_lineno, _start_col_offset, _end_lineno, _end_col_offset");
-
-            // CPython 3.12: Expand enum-like singleton references
-            // In CPython's python.gram: Store, Load, Add, Sub, etc. are enum VALUES
-            // In C# SharpPy: These are singleton Instance properties
-            // Pattern: Replace bare words that match singleton class names with ClassName.Instance
             expandedCode = ExpandSingletons(expandedCode);
 
-            // Check if action code is a void statement (doesn't return a value)
-            // CPython: Some alternatives call RaiseSyntaxError* which throws exceptions
             var trimmedCode = expandedCode.Trim();
             if (trimmedCode.StartsWith("RaiseSyntaxError", StringComparison.Ordinal) ||
                 trimmedCode.StartsWith("RAISE_SYNTAX_ERROR", StringComparison.Ordinal))
             {
-                // Don't add return - this code throws an exception
                 WriteLine($"{expandedCode};");
             }
             else
             {
-                // Normal case: add return statement
                 WriteLine($"return {expandedCode};");
             }
         }
         else
         {
-            // CPython 3.12: Default action for alternatives without action code
-            // See: cpython-3.12/Tools/peg_generator/pegen/c_generator.py - emit_default_action()
-            // Pattern: Return captured variables automatically
-
-            if (namedItems.Count == 0)
+            // Default action
+            if (isSingleUnnamedItem)
             {
-                // No captured variables: shouldn't happen in valid grammar, return null
+                WriteLine($"// Default action: return single unnamed item");
+                WriteLine($"return _alt_var;");
+            }
+            else if (namedItems.Count == 0)
+            {
                 WriteLine($"// Default action: no captures (unexpected)");
                 WriteLine("return null;");
             }
             else if (namedItems.Count == 1)
             {
-                // Single variable: return it directly (CPython pattern)
                 WriteLine($"// Default action: return single capture");
                 WriteLine($"return {namedItems[0].Name};");
             }
             else
             {
-                // Multiple variables: return first non-null (CPython DummyName pattern)
                 WriteLine($"// Default action: return first non-null of {namedItems.Count} captures");
                 var nullCoalescing = string.Join(" ?? ", namedItems.Select(i => i.Name));
                 WriteLine($"return {nullCoalescing};");
             }
         }
+
+        _indentLevel--;
+        WriteLine("}");
     }
 
     // GetCastExpression() REMOVED
@@ -412,7 +596,16 @@ public class ParserGenerator
             },
             Token token => new AtomCallInfo
             {
-                Function = $"Expect(PyToken.Type.{token.TokenType}, \"{token.TokenType}\")",
+                // CPython: NAME → _PyPegen_name_token(p) or _PyPegen_expect_token(p, NAME)
+                // NUMBER → _PyPegen_expect_token(p, NUMBER)
+                // STRING → _PyPegen_string_token(p)
+                Function = token.TokenType == "NAME"
+                    ? "ExpectName()"
+                    : token.TokenType == "NUMBER"
+                        ? $"ExpectToken(PyToken.Type.{token.TokenType})"
+                        : token.TokenType == "STRING"
+                            ? $"ExpectToken(PyToken.Type.{token.TokenType})"
+                            : $"ExpectToken(PyToken.Type.{token.TokenType})",
                 ReturnType = "GeneratedTokenInfo"
             },
             RuleRef ruleRef => new AtomCallInfo
@@ -493,11 +686,43 @@ public class ParserGenerator
         }
     }
 
+    /// <summary>
+    /// Create artificial rule from Group (on-demand, with caching)
+    /// CPython: artifical_rule_from_rhs() in parser_generator.py (line 171-175)
+    /// </summary>
+    private string ArtificialRuleFromGroup(Group group)
+    {
+        _artificialRuleCounter++;
+        var name = $"_tmp_{_artificialRuleCounter}";
+
+        // CPython: self.all_rules[name] = Rule(name, None, rhs)
+        // Create a new PegRule with the group's alternatives
+        var artificialRule = new PegRule
+        {
+            Name = name,
+            ReturnType = "GeneratedPtr",  // Default type for artificial rules
+            Alternatives = group.Alternatives.ToList()
+        };
+
+        _artificialRules.Add(artificialRule);
+        _ruleReturnTypes[name] = "GeneratedPtr";
+
+        return name;
+    }
+
     private string GenerateGroupCode(Group group)
     {
-        // Group: (alt1 | alt2 | ...)
-        // For now, generate inline code
-        return "ParseGroup()"; // TODO: Generate inline group parsing
+        // CPython pattern: visit_Group() → generate_call(node.rhs) → visit_Rhs()
+        // visit_Rhs() creates artificial rule on-demand with caching (node in self.cache)
+
+        // Check cache first to avoid duplicate rules for same group
+        if (!_groupToRuleMap.TryGetValue(group, out var ruleName))
+        {
+            ruleName = ArtificialRuleFromGroup(group);
+            _groupToRuleMap[group] = ruleName;
+        }
+
+        return $"Parse_{ToPascalCase(ruleName)}()";
     }
 
     private string GenerateOptionalCode(Optional opt)

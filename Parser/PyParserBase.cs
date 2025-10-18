@@ -161,6 +161,17 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
+        /// CPython 3.12: _PyPegen_name_token - Expect NAME token and convert to AST Name node
+        /// Combines _PyPegen_expect_token(p, NAME) + _PyPegen_name_from_token(p, t)
+        /// Returns GeneratedExpr (AST node), not GeneratedTokenInfo (token)
+        /// </summary>
+        protected GeneratedExpr ExpectNameExpr()
+        {
+            var token = ExpectName();
+            return token != null ? NameToken(token) : null;
+        }
+
+        /// <summary>
         /// CPython 3.12: ExpectSoftKeyword
         /// Soft keywords: _, case, match, type
         /// These are NAME tokens that are treated as keywords only in specific contexts

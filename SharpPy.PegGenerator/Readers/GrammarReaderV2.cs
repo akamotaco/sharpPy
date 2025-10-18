@@ -122,6 +122,7 @@ public class GrammarReaderV2
         }
 
         // Optional (memo) annotation
+        bool isMemoized = false;
         if (Current()?.Type == TokenType.OP && Current()?.Value == "(")
         {
             int mark = _position;
@@ -136,6 +137,7 @@ public class GrammarReaderV2
                 if (Current()?.Type == TokenType.OP && Current()?.Value == ")")
                 {
                     Advance();  // Skip ')'
+                    isMemoized = true;  // ← Store the flag!
                     Console.WriteLine($"[DEBUG] After (memo), next token: {Current()?.Type} '{Current()?.Value}'");
                 }
                 else
@@ -193,7 +195,8 @@ public class GrammarReaderV2
         {
             Name = nameToken.Value,
             ReturnType = returnType,
-            Alternatives = alternatives
+            Alternatives = alternatives,
+            IsMemoized = isMemoized  // CPython 3.12: Store (memo) marker
         };
     }
 

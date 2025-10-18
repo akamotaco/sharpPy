@@ -10,6 +10,9 @@ namespace SharpPy
     {
         public static void Main(string[] args)
         {
+            // Windows 콘솔 UTF-8 인코딩 설정 (이모지 및 특수 문자 표시)
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
+
             try
             {
                 // 명령줄 옵션 파싱

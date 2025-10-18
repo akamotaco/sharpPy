@@ -7,12 +7,15 @@ class Program
 {
     static void Main(string[] args)
     {
+        // Windows 콘솔 UTF-8 인코딩 설정 (Box Drawing Characters 및 이모지 표시)
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
+
         try
         {
-            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine("=======================================================");
             Console.WriteLine("   SharpPy NEW PEG Parser Generator");
-            Console.WriteLine("   python_cs.gram → PyParser.cs + AstTypes.cs");
-            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine("   python_cs.gram -> PyParser.cs + AstTypes.cs");
+            Console.WriteLine("=======================================================");
             Console.WriteLine();
 
             // Default paths
@@ -72,9 +75,9 @@ class Program
             // ============================================================
             // Phase 1: Read python_cs.gram
             // ============================================================
-            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine("=======================================================");
             Console.WriteLine("Phase 1: Reading python_cs.gram (Token-based)");
-            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine("=======================================================");
             var grammarReader = new GrammarReaderV2();
             var pegRules = grammarReader.ReadGrammar(grammarPath);
             Console.WriteLine($"✓ Parsed {pegRules.Length} grammar rules");
@@ -83,9 +86,9 @@ class Program
             // ============================================================
             // Phase 2: Extract and validate keywords
             // ============================================================
-            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine("=======================================================");
             Console.WriteLine("Phase 2: Extracting keywords");
-            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine("=======================================================");
             var keywordExtractor = new KeywordExtractor();
             var (hardKeywords, softKeywords) = keywordExtractor.ExtractKeywords(pegRules);
 
@@ -98,9 +101,9 @@ class Program
             // ============================================================
             // Phase 3: Read Python.asdl
             // ============================================================
-            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine("=======================================================");
             Console.WriteLine("Phase 3: Reading Python.asdl");
-            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine("=======================================================");
             var asdlReader = new AsdlReader();
             var asdlModule = asdlReader.ReadAsdl(asdlPath);
             Console.WriteLine($"✓ Module: {asdlModule.Name}");
@@ -110,9 +113,9 @@ class Program
             // ============================================================
             // Phase 4: Generate AstTypes.cs
             // ============================================================
-            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine("=======================================================");
             Console.WriteLine("Phase 4: Generating AstTypes.cs");
-            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine("=======================================================");
             var astGenerator = new Generators.AstGenerator();
             var astCode = astGenerator.Generate(asdlModule);
 
@@ -131,9 +134,9 @@ class Program
             // ============================================================
             // Phase 5: Generate PyParser.cs
             // ============================================================
-            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine("=======================================================");
             Console.WriteLine("Phase 5: Generating PyParser.cs");
-            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine("=======================================================");
             var parserGenerator = new Generators.ParserGenerator();
             var parserCode = parserGenerator.Generate(pegRules, hardKeywords, softKeywords, grammarReader.Trailer);
 
@@ -150,7 +153,7 @@ class Program
             Console.WriteLine($"  Rules: {pegRules.Length}");
             Console.WriteLine();
 
-            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine("=======================================================");
             Console.WriteLine("✓ Successfully completed ALL Phases (1-5)!");
             Console.WriteLine($"  Grammar rules parsed: {pegRules.Length}");
             Console.WriteLine($"  Keywords extracted: {hardKeywords.Count} HARD + {softKeywords.Count} SOFT");
@@ -158,14 +161,14 @@ class Program
             Console.WriteLine($"  Generated files:");
             Console.WriteLine($"    - {outputAst} ({astCode.Split('\n').Length} lines)");
             Console.WriteLine($"    - {outputParser} ({parserCode.Split('\n').Length} lines)");
-            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine("=======================================================");
         }
         catch (Exception ex)
         {
             Console.WriteLine();
-            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine("=======================================================");
             Console.WriteLine($"❌ Error: {ex.Message}");
-            Console.WriteLine("═══════════════════════════════════════════════════════");
+            Console.WriteLine("=======================================================");
             Console.WriteLine();
             Console.WriteLine("Stack trace:");
             Console.WriteLine(ex.StackTrace);

@@ -56,7 +56,7 @@ namespace SharpPy.Generated
         }
 
         // ============================================================
-        // Grammar Rules (193 rules from python_py.gram)
+        // Grammar Rules (244 rules from python_cs.gram)
         // ============================================================
 
         /// <summary>
@@ -68,17 +68,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] file at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedStmtSeq? a = null;
 
-                if ((a = (GeneratedStmtSeq)ParseOptional(() => Parse_Statements())) == null) return null;
-                if (Expect(PyToken.Type.ENDMARKER, "ENDMARKER") == null) return null;
-
-                // Action code from grammar
-                return ( GeneratedMod ) PyParserHelpers . MakeModule (( GeneratedStmtSeq ?) a );
+                if (
+                    ((a = (GeneratedStmtSeq)ParseOptional(() => Parse_Statements())) == null || true) &&
+                    ExpectToken(PyToken.Type.ENDMARKER) != null
+                )
+                {
+                    // Action code from grammar
+                    return ( GeneratedMod ) PyParserHelpers . MakeModule (( GeneratedStmtSeq ?) a );
+                }
             }
 
             Reset(_mark);
@@ -94,16 +101,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] interactive at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedStmtSeq? a = null;
 
-                if ((a = Parse_StatementNewline()) == null) return null;
-
-                // Action code from grammar
-                return ( GeneratedMod ) PyAst . Interactive (( GeneratedStmtSeq ) a );
+                if ((a = Parse_StatementNewline()) != null)
+                {
+                    // Action code from grammar
+                    return ( GeneratedMod ) PyAst . Interactive (( GeneratedStmtSeq ) a );
+                }
             }
 
             Reset(_mark);
@@ -119,18 +131,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] eval at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if ((a = Parse_Expressions()) == null) return null;
-                if (ParseZeroOrMore(() => Expect(PyToken.Type.NEWLINE, "NEWLINE")) == null) return null;
-                if (Expect(PyToken.Type.ENDMARKER, "ENDMARKER") == null) return null;
-
-                // Action code from grammar
-                return ( GeneratedMod ) PyAst . Expression (( GeneratedExpr ) a );
+                if (
+                    (a = Parse_Expressions()) != null &&
+                    ParseZeroOrMore(() => ExpectToken(PyToken.Type.NEWLINE)) != null &&
+                    ExpectToken(PyToken.Type.ENDMARKER) != null
+                )
+                {
+                    // Action code from grammar
+                    return ( GeneratedMod ) PyAst . Expression (( GeneratedExpr ) a );
+                }
             }
 
             Reset(_mark);
@@ -146,6 +165,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] func_type at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -153,16 +176,19 @@ namespace SharpPy.Generated
                 GeneratedExprSeq? a = null;
                 GeneratedExpr? b = null;
 
-                if (ExpectOp("(") == null) return null;
-                if ((a = (GeneratedExprSeq)ParseOptional(() => Parse_TypeExpressions())) == null) return null;
-                if (ExpectOp(")") == null) return null;
-                if (ExpectOp("->") == null) return null;
-                if ((b = Parse_Expression()) == null) return null;
-                if (ParseZeroOrMore(() => Expect(PyToken.Type.NEWLINE, "NEWLINE")) == null) return null;
-                if (Expect(PyToken.Type.ENDMARKER, "ENDMARKER") == null) return null;
-
-                // Action code from grammar
-                return ( GeneratedMod ) PyAst . FunctionType (( GeneratedExprSeq ?) a ,( GeneratedExpr ) b );
+                if (
+                    ExpectOp("(") != null &&
+                    ((a = (GeneratedExprSeq)ParseOptional(() => Parse_TypeExpressions())) == null || true) &&
+                    ExpectOp(")") != null &&
+                    ExpectOp("->") != null &&
+                    (b = Parse_Expression()) != null &&
+                    ParseZeroOrMore(() => ExpectToken(PyToken.Type.NEWLINE)) != null &&
+                    ExpectToken(PyToken.Type.ENDMARKER) != null
+                )
+                {
+                    // Action code from grammar
+                    return ( GeneratedMod ) PyAst . FunctionType (( GeneratedExprSeq ?) a ,( GeneratedExpr ) b );
+                }
             }
 
             Reset(_mark);
@@ -178,16 +204,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] statements at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedSeq? a = null;
 
-                if ((a = ParseOneOrMore(() => Parse_Statement())) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . FlattenStatementSequence ( a ). Cast < GeneratedStmtSeq >();
+                if ((a = ParseOneOrMore(() => Parse_Statement())) != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . FlattenStatementSequence ( a ). Cast < GeneratedStmtSeq >();
+                }
             }
 
             Reset(_mark);
@@ -203,16 +234,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] statement at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedStmt? a = null;
 
-                if ((a = Parse_CompoundStmt()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SingletonSequence (( GeneratedStmt ) a ). Cast < GeneratedStmtSeq >();
+                if ((a = Parse_CompoundStmt()) != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SingletonSequence (( GeneratedStmt ) a ). Cast < GeneratedStmtSeq >();
+                }
             }
 
             // Alternative 2
@@ -222,10 +258,11 @@ namespace SharpPy.Generated
 
                 GeneratedStmtSeq? a = null;
 
-                if ((a = Parse_SimpleStmts()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if ((a = Parse_SimpleStmts()) != null)
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -241,17 +278,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] statement_newline at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedStmt? a = null;
 
-                if ((a = Parse_CompoundStmt()) == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SingletonSequence (( GeneratedStmt ) a ). Cast < GeneratedStmtSeq >();
+                if (
+                    (a = Parse_CompoundStmt()) != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SingletonSequence (( GeneratedStmt ) a ). Cast < GeneratedStmtSeq >();
+                }
             }
 
             // Alternative 2
@@ -259,11 +303,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedStmtSeq? _alt_var = null;
 
-                if (Parse_SimpleStmts() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_SimpleStmts()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 3
@@ -272,10 +318,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SingletonSequence ( Check < GeneratedStmt >( PyAst . Pass ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ))). Cast < GeneratedStmtSeq >();
+                if (ExpectToken(PyToken.Type.NEWLINE) != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SingletonSequence ( Check < GeneratedStmt >( PyAst . Pass ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ))). Cast < GeneratedStmtSeq >();
+                }
             }
 
             // Alternative 4
@@ -284,10 +331,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (Expect(PyToken.Type.ENDMARKER, "ENDMARKER") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . InteractiveExit ();
+                if (ExpectToken(PyToken.Type.ENDMARKER) != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . InteractiveExit ();
+                }
             }
 
             Reset(_mark);
@@ -303,18 +351,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] simple_stmts at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedStmt? a = null;
 
-                if ((a = Parse_SimpleStmt()) == null) return null;
-                if (NegativeLookahead(() => ExpectOp(";")) == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SingletonSequence (( GeneratedStmt ) a ). Cast < GeneratedStmtSeq >();
+                if (
+                    (a = Parse_SimpleStmt()) != null &&
+                    NegativeLookahead(() => ExpectOp(";")) != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SingletonSequence (( GeneratedStmt ) a ). Cast < GeneratedStmtSeq >();
+                }
             }
 
             // Alternative 2
@@ -324,12 +379,15 @@ namespace SharpPy.Generated
 
                 GeneratedSeq? a = null;
 
-                if ((a = ParseGatherPlus(() => ExpectOp(";"), () => Parse_SimpleStmt())) == null) return null;
-                if (ParseOptional(() => ExpectOp(";")) == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-
-                // Action code from grammar
-                return ( GeneratedStmtSeq ) a;
+                if (
+                    (a = ParseGatherPlus(() => ExpectOp(";"), () => Parse_SimpleStmt())) != null &&
+                    (ParseOptional(() => ExpectOp(";")) == null || true) &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null
+                )
+                {
+                    // Action code from grammar
+                    return ( GeneratedStmtSeq ) a;
+                }
             }
 
             Reset(_mark);
@@ -340,20 +398,36 @@ namespace SharpPy.Generated
         /// Rule: simple_stmt
         /// Alternatives: 14
         /// Return Type: GeneratedStmt
+        /// CPython (memo) - uses TryMemoized wrapper
         /// </summary>
         private GeneratedStmt? Parse_SimpleStmt()
         {
+            return (GeneratedStmt?)TryMemoized("simple_stmt", Parse_SimpleStmt_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for memoized rule: simple_stmt
+        /// Called by TryMemoized wrapper
+        /// </summary>
+        private GeneratedStmt? Parse_SimpleStmt_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] simple_stmt at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedStmt? _alt_var = null;
 
-                if (Parse_Assignment() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Assignment()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -362,11 +436,14 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (PositiveLookahead(() => ExpectSoftKeyword("type")) == null) return null;
-                if (Parse_TypeAlias() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if (
+                    PositiveLookahead(() => ExpectSoftKeyword("type")) != null &&
+                    Parse_TypeAlias() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
             }
 
             // Alternative 3
@@ -376,10 +453,11 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? e = null;
 
-                if ((e = Parse_StarExpressions()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Expr (( GeneratedExpr ) e , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if ((e = Parse_StarExpressions()) != null)
+                {
+                    // Action code from grammar
+                    return PyAst . Expr (( GeneratedExpr ) e , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 4
@@ -388,11 +466,14 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (PositiveLookahead(() => ExpectKeyword("return")) == null) return null;
-                if (Parse_ReturnStmt() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if (
+                    PositiveLookahead(() => ExpectKeyword("return")) != null &&
+                    Parse_ReturnStmt() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
             }
 
             // Alternative 5
@@ -401,11 +482,14 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (PositiveLookahead(() => ParseGroup()) == null) return null;
-                if (Parse_ImportStmt() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if (
+                    PositiveLookahead(() => Parse_Tmp1()) != null &&
+                    Parse_ImportStmt() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
             }
 
             // Alternative 6
@@ -414,11 +498,14 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (PositiveLookahead(() => ExpectKeyword("raise")) == null) return null;
-                if (Parse_RaiseStmt() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if (
+                    PositiveLookahead(() => ExpectKeyword("raise")) != null &&
+                    Parse_RaiseStmt() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
             }
 
             // Alternative 7
@@ -427,10 +514,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectKeyword("pass") == null) return null;
-
-                // Action code from grammar
-                return PyAst . Pass ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (ExpectKeyword("pass") != null)
+                {
+                    // Action code from grammar
+                    return PyAst . Pass ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 8
@@ -439,11 +527,14 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (PositiveLookahead(() => ExpectKeyword("del")) == null) return null;
-                if (Parse_DelStmt() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if (
+                    PositiveLookahead(() => ExpectKeyword("del")) != null &&
+                    Parse_DelStmt() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
             }
 
             // Alternative 9
@@ -452,11 +543,14 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (PositiveLookahead(() => ExpectKeyword("yield")) == null) return null;
-                if (Parse_YieldStmt() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if (
+                    PositiveLookahead(() => ExpectKeyword("yield")) != null &&
+                    Parse_YieldStmt() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
             }
 
             // Alternative 10
@@ -465,11 +559,14 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (PositiveLookahead(() => ExpectKeyword("assert")) == null) return null;
-                if (Parse_AssertStmt() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if (
+                    PositiveLookahead(() => ExpectKeyword("assert")) != null &&
+                    Parse_AssertStmt() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
             }
 
             // Alternative 11
@@ -478,10 +575,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectKeyword("break") == null) return null;
-
-                // Action code from grammar
-                return PyAst . Break ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (ExpectKeyword("break") != null)
+                {
+                    // Action code from grammar
+                    return PyAst . Break ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 12
@@ -490,10 +588,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectKeyword("continue") == null) return null;
-
-                // Action code from grammar
-                return PyAst . Continue ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (ExpectKeyword("continue") != null)
+                {
+                    // Action code from grammar
+                    return PyAst . Continue ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 13
@@ -502,11 +601,14 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (PositiveLookahead(() => ExpectKeyword("global")) == null) return null;
-                if (Parse_GlobalStmt() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if (
+                    PositiveLookahead(() => ExpectKeyword("global")) != null &&
+                    Parse_GlobalStmt() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
             }
 
             // Alternative 14
@@ -515,11 +617,14 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (PositiveLookahead(() => ExpectKeyword("nonlocal")) == null) return null;
-                if (Parse_NonlocalStmt() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if (
+                    PositiveLookahead(() => ExpectKeyword("nonlocal")) != null &&
+                    Parse_NonlocalStmt() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
             }
 
             Reset(_mark);
@@ -535,17 +640,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] compound_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedStmt? a = null;
 
-                if (PositiveLookahead(() => ParseGroup()) == null) return null;
-                if ((a = Parse_FunctionDef()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    PositiveLookahead(() => Parse_Tmp2()) != null &&
+                    (a = Parse_FunctionDef()) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 2
@@ -555,11 +667,14 @@ namespace SharpPy.Generated
 
                 GeneratedStmt? a = null;
 
-                if (PositiveLookahead(() => ExpectKeyword("if")) == null) return null;
-                if ((a = Parse_IfStmt()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    PositiveLookahead(() => ExpectKeyword("if")) != null &&
+                    (a = Parse_IfStmt()) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 3
@@ -569,11 +684,14 @@ namespace SharpPy.Generated
 
                 GeneratedStmt? a = null;
 
-                if (PositiveLookahead(() => ParseGroup()) == null) return null;
-                if ((a = Parse_ClassDef()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    PositiveLookahead(() => Parse_Tmp3()) != null &&
+                    (a = Parse_ClassDef()) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 4
@@ -583,11 +701,14 @@ namespace SharpPy.Generated
 
                 GeneratedStmt? a = null;
 
-                if (PositiveLookahead(() => ParseGroup()) == null) return null;
-                if ((a = Parse_WithStmt()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    PositiveLookahead(() => Parse_Tmp4()) != null &&
+                    (a = Parse_WithStmt()) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 5
@@ -597,11 +718,14 @@ namespace SharpPy.Generated
 
                 GeneratedStmt? a = null;
 
-                if (PositiveLookahead(() => ParseGroup()) == null) return null;
-                if ((a = Parse_ForStmt()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    PositiveLookahead(() => Parse_Tmp5()) != null &&
+                    (a = Parse_ForStmt()) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 6
@@ -611,11 +735,14 @@ namespace SharpPy.Generated
 
                 GeneratedStmt? a = null;
 
-                if (PositiveLookahead(() => ExpectKeyword("try")) == null) return null;
-                if ((a = Parse_TryStmt()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    PositiveLookahead(() => ExpectKeyword("try")) != null &&
+                    (a = Parse_TryStmt()) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 7
@@ -625,11 +752,14 @@ namespace SharpPy.Generated
 
                 GeneratedStmt? a = null;
 
-                if (PositiveLookahead(() => ExpectKeyword("while")) == null) return null;
-                if ((a = Parse_WhileStmt()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    PositiveLookahead(() => ExpectKeyword("while")) != null &&
+                    (a = Parse_WhileStmt()) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 8
@@ -639,10 +769,11 @@ namespace SharpPy.Generated
 
                 GeneratedStmt? a = null;
 
-                if ((a = Parse_MatchStmt()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if ((a = Parse_MatchStmt()) != null)
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -658,6 +789,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] assignment at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -666,13 +801,16 @@ namespace SharpPy.Generated
                 GeneratedExpr? b = null;
                 GeneratedPtr? c = null;
 
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((b = Parse_Expression()) == null) return null;
-                if ((c = ParseOptional(() => ParseGroup())) == null) return null;
-
-                // Action code from grammar
-                return CheckVersion ( 6 , "Variable annotation syntax is" , PyAst . AnnAssign ( Check < GeneratedExpr >( PyParserHelpers . SetExprContext ( NameToken ( a ), GeneratedStore.Instance )),( GeneratedExpr ) b ,( GeneratedExpr ?) c , 1 , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                if (
+                    (a = ExpectName()) != null &&
+                    ExpectOp(":") != null &&
+                    (b = Parse_Expression()) != null &&
+                    ((c = ParseOptional(() => Parse_Tmp6())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return CheckVersion ( 6 , "Variable annotation syntax is" , PyAst . AnnAssign ( Check < GeneratedExpr >( PyParserHelpers . SetExprContext ( NameToken ( a ), GeneratedStore.Instance )),( GeneratedExpr ) b ,( GeneratedExpr ?) c , 1 , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                }
             }
 
             // Alternative 2
@@ -684,13 +822,16 @@ namespace SharpPy.Generated
                 GeneratedExpr? b = null;
                 GeneratedPtr? c = null;
 
-                if ((a = ParseGroup()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((b = Parse_Expression()) == null) return null;
-                if ((c = ParseOptional(() => ParseGroup())) == null) return null;
-
-                // Action code from grammar
-                return CheckVersion ( 6 , "Variable annotations syntax is" , PyAst . AnnAssign (( GeneratedExpr ) a ,( GeneratedExpr ) b ,( GeneratedExpr ?) c , 0 , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                if (
+                    (a = Parse_Tmp7()) != null &&
+                    ExpectOp(":") != null &&
+                    (b = Parse_Expression()) != null &&
+                    ((c = ParseOptional(() => Parse_Tmp8())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return CheckVersion ( 6 , "Variable annotations syntax is" , PyAst . AnnAssign (( GeneratedExpr ) a ,( GeneratedExpr ) b ,( GeneratedExpr ?) c , 0 , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                }
             }
 
             // Alternative 3
@@ -702,13 +843,16 @@ namespace SharpPy.Generated
                 GeneratedPtr? b = null;
                 GeneratedTokenInfo? tc = null;
 
-                if ((a = (GeneratedExprSeq)ParseOneOrMore(() => ParseGroup())) == null) return null;
-                if ((b = ParseGroup()) == null) return null;
-                if (NegativeLookahead(() => ExpectOp("=")) == null) return null;
-                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Assign (( GeneratedExprSeq ) a ,( GeneratedExpr ) b , tc . GetCommentValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = (GeneratedExprSeq)ParseOneOrMore(() => Parse_Tmp9())) != null &&
+                    (b = Parse_Tmp10()) != null &&
+                    NegativeLookahead(() => ExpectOp("=")) != null &&
+                    ((tc = (GeneratedTokenInfo)ParseOptional(() => ExpectToken(PyToken.Type.TYPE_COMMENT))) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Assign (( GeneratedExprSeq ) a ,( GeneratedExpr ) b , tc . GetCommentValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 4
@@ -720,12 +864,15 @@ namespace SharpPy.Generated
                 GeneratedOperator? b = null;
                 GeneratedPtr? c = null;
 
-                if ((a = Parse_SingleTarget()) == null) return null;
-                if ((b = Parse_Augassign()) == null) return null;
-                if ((c = ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . AugAssign (( GeneratedExpr ) a ,( GeneratedOperator ) b ,( GeneratedExpr ) c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_SingleTarget()) != null &&
+                    (b = Parse_Augassign()) != null &&
+                    (c = Parse_Tmp11()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . AugAssign (( GeneratedExpr ) a ,( GeneratedOperator ) b ,( GeneratedExpr ) c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 5
@@ -733,11 +880,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedStmt? _alt_var = null;
 
-                if (Parse_InvalidAssignment() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedStmt)Parse_InvalidAssignment()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -753,16 +902,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] annotated_rhs at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if ((a = Parse_YieldExpr()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if ((a = Parse_YieldExpr()) != null)
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 2
@@ -772,10 +926,11 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if ((a = Parse_StarExpressions()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if ((a = Parse_StarExpressions()) != null)
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -791,15 +946,20 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] augassign at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
 
-                if (ExpectOp("+=") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . AugOperator ( GeneratedAdd.Instance );
+                if (ExpectOp("+=") != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . AugOperator ( GeneratedAdd.Instance );
+                }
             }
 
             // Alternative 2
@@ -808,10 +968,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("-=") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . AugOperator ( GeneratedSub.Instance );
+                if (ExpectOp("-=") != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . AugOperator ( GeneratedSub.Instance );
+                }
             }
 
             // Alternative 3
@@ -820,10 +981,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("*=") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . AugOperator ( GeneratedMult.Instance );
+                if (ExpectOp("*=") != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . AugOperator ( GeneratedMult.Instance );
+                }
             }
 
             // Alternative 4
@@ -832,10 +994,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("@=") == null) return null;
-
-                // Action code from grammar
-                return CheckVersion ( 5 , "The '@' operator is" , PyParserHelpers . AugOperator ( GeneratedMatMult.Instance ));
+                if (ExpectOp("@=") != null)
+                {
+                    // Action code from grammar
+                    return CheckVersion ( 5 , "The '@' operator is" , PyParserHelpers . AugOperator ( GeneratedMatMult.Instance ));
+                }
             }
 
             // Alternative 5
@@ -844,10 +1007,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("/=") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . AugOperator ( GeneratedDiv.Instance );
+                if (ExpectOp("/=") != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . AugOperator ( GeneratedDiv.Instance );
+                }
             }
 
             // Alternative 6
@@ -856,10 +1020,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("%=") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . AugOperator ( GeneratedMod_.Instance );
+                if (ExpectOp("%=") != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . AugOperator ( GeneratedMod_.Instance );
+                }
             }
 
             // Alternative 7
@@ -868,10 +1033,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("&=") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . AugOperator ( GeneratedBitAnd.Instance );
+                if (ExpectOp("&=") != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . AugOperator ( GeneratedBitAnd.Instance );
+                }
             }
 
             // Alternative 8
@@ -880,10 +1046,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("|=") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . AugOperator ( GeneratedBitOr.Instance );
+                if (ExpectOp("|=") != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . AugOperator ( GeneratedBitOr.Instance );
+                }
             }
 
             // Alternative 9
@@ -892,10 +1059,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("^=") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . AugOperator ( GeneratedBitXor.Instance );
+                if (ExpectOp("^=") != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . AugOperator ( GeneratedBitXor.Instance );
+                }
             }
 
             // Alternative 10
@@ -904,10 +1072,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("<<=") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . AugOperator ( GeneratedLShift.Instance );
+                if (ExpectOp("<<=") != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . AugOperator ( GeneratedLShift.Instance );
+                }
             }
 
             // Alternative 11
@@ -916,10 +1085,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp(">>=") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . AugOperator ( GeneratedRShift.Instance );
+                if (ExpectOp(">>=") != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . AugOperator ( GeneratedRShift.Instance );
+                }
             }
 
             // Alternative 12
@@ -928,10 +1098,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("**=") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . AugOperator ( GeneratedPow.Instance );
+                if (ExpectOp("**=") != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . AugOperator ( GeneratedPow.Instance );
+                }
             }
 
             // Alternative 13
@@ -940,10 +1111,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("//=") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . AugOperator ( GeneratedFloorDiv.Instance );
+                if (ExpectOp("//=") != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . AugOperator ( GeneratedFloorDiv.Instance );
+                }
             }
 
             Reset(_mark);
@@ -959,17 +1131,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] return_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ExpectKeyword("return") == null) return null;
-                if ((a = (GeneratedExpr)ParseOptional(() => Parse_StarExpressions())) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Return (( GeneratedExpr ?) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("return") != null &&
+                    ((a = (GeneratedExpr)ParseOptional(() => Parse_StarExpressions())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Return (( GeneratedExpr ?) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -985,6 +1164,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] raise_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -992,12 +1175,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedPtr? b = null;
 
-                if (ExpectKeyword("raise") == null) return null;
-                if ((a = Parse_Expression()) == null) return null;
-                if ((b = ParseOptional(() => ParseGroup())) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Raise (( GeneratedExpr ) a ,( GeneratedExpr ?) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("raise") != null &&
+                    (a = Parse_Expression()) != null &&
+                    ((b = ParseOptional(() => Parse_Tmp12())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Raise (( GeneratedExpr ) a ,( GeneratedExpr ?) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -1006,10 +1192,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectKeyword("raise") == null) return null;
-
-                // Action code from grammar
-                return PyAst . Raise ( null , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (ExpectKeyword("raise") != null)
+                {
+                    // Action code from grammar
+                    return PyAst . Raise ( null , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -1025,17 +1212,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] global_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExprSeq? a = null;
 
-                if (ExpectKeyword("global") == null) return null;
-                if ((a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Expect(PyToken.Type.NAME, "NAME"))) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Global ( Check < GeneratedIdentifierSeq >( PyParserHelpers . MapNamesToIds (( GeneratedExprSeq ) a )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("global") != null &&
+                    (a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => ExpectName())) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Global ( Check < GeneratedIdentifierSeq >( PyParserHelpers . MapNamesToIds (( GeneratedExprSeq ) a )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -1051,17 +1245,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] nonlocal_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExprSeq? a = null;
 
-                if (ExpectKeyword("nonlocal") == null) return null;
-                if ((a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Expect(PyToken.Type.NAME, "NAME"))) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Nonlocal ( Check < GeneratedIdentifierSeq >( PyParserHelpers . MapNamesToIds (( GeneratedExprSeq ) a )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("nonlocal") != null &&
+                    (a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => ExpectName())) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Nonlocal ( Check < GeneratedIdentifierSeq >( PyParserHelpers . MapNamesToIds (( GeneratedExprSeq ) a )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -1077,18 +1278,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] del_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExprSeq? a = null;
 
-                if (ExpectKeyword("del") == null) return null;
-                if ((a = Parse_DelTargets()) == null) return null;
-                if (PositiveLookahead(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Delete (( GeneratedExprSeq ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("del") != null &&
+                    (a = Parse_DelTargets()) != null &&
+                    PositiveLookahead(() => Parse_Tmp13()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Delete (( GeneratedExprSeq ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -1096,11 +1304,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedStmt? _alt_var = null;
 
-                if (Parse_InvalidDelStmt() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedStmt)Parse_InvalidDelStmt()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -1116,16 +1326,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] yield_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? y = null;
 
-                if ((y = Parse_YieldExpr()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Expr (( GeneratedExpr ) y , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if ((y = Parse_YieldExpr()) != null)
+                {
+                    // Action code from grammar
+                    return PyAst . Expr (( GeneratedExpr ) y , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -1141,6 +1356,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] assert_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -1148,12 +1367,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedPtr? b = null;
 
-                if (ExpectKeyword("assert") == null) return null;
-                if ((a = Parse_Expression()) == null) return null;
-                if ((b = ParseOptional(() => ParseGroup())) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Assert (( GeneratedExpr ) a ,( GeneratedExpr ?) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("assert") != null &&
+                    (a = Parse_Expression()) != null &&
+                    ((b = ParseOptional(() => Parse_Tmp14())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Assert (( GeneratedExpr ) a ,( GeneratedExpr ?) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -1169,15 +1391,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] import_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedStmt? _alt_var = null;
 
-                if (Parse_InvalidImport() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedStmt)Parse_InvalidImport()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -1185,11 +1413,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedStmt? _alt_var = null;
 
-                if (Parse_ImportName() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_ImportName()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 3
@@ -1197,11 +1427,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedStmt? _alt_var = null;
 
-                if (Parse_ImportFrom() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_ImportFrom()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -1217,17 +1449,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] import_name at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedAliasSeq? a = null;
 
-                if (ExpectKeyword("import") == null) return null;
-                if ((a = Parse_DottedAsNames()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Import (( GeneratedAliasSeq ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("import") != null &&
+                    (a = Parse_DottedAsNames()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Import (( GeneratedAliasSeq ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -1243,6 +1482,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] import_from at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -1251,14 +1494,17 @@ namespace SharpPy.Generated
                 GeneratedExpr? b = null;
                 GeneratedAliasSeq? c = null;
 
-                if (ExpectKeyword("from") == null) return null;
-                if ((a = ParseZeroOrMore(() => ParseGroup())) == null) return null;
-                if ((b = Parse_DottedName()) == null) return null;
-                if (ExpectKeyword("import") == null) return null;
-                if ((c = Parse_ImportFromTargets()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . CheckedFutureImport ( b . GetIdentifier (),( GeneratedAliasSeq ) c , PyParserHelpers . SeqCountDots ( a . ToRawList ()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("from") != null &&
+                    (a = ParseZeroOrMore(() => Parse_Tmp15())) != null &&
+                    (b = Parse_DottedName()) != null &&
+                    ExpectKeyword("import") != null &&
+                    (c = Parse_ImportFromTargets()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . CheckedFutureImport ( b . GetIdentifier (),( GeneratedAliasSeq ) c , PyParserHelpers . SeqCountDots ( a . ToRawList ()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -1269,13 +1515,16 @@ namespace SharpPy.Generated
                 GeneratedSeq? a = null;
                 GeneratedAliasSeq? b = null;
 
-                if (ExpectKeyword("from") == null) return null;
-                if ((a = ParseOneOrMore(() => ParseGroup())) == null) return null;
-                if (ExpectKeyword("import") == null) return null;
-                if ((b = Parse_ImportFromTargets()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . ImportFrom ( null ,( GeneratedAliasSeq ) b , PyParserHelpers . SeqCountDots ( a . ToRawList ()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("from") != null &&
+                    (a = ParseOneOrMore(() => Parse_Tmp16())) != null &&
+                    ExpectKeyword("import") != null &&
+                    (b = Parse_ImportFromTargets()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . ImportFrom ( null ,( GeneratedAliasSeq ) b , PyParserHelpers . SeqCountDots ( a . ToRawList ()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -1291,19 +1540,26 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] import_from_targets at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedAliasSeq? a = null;
 
-                if (ExpectOp("(") == null) return null;
-                if ((a = Parse_ImportFromAsNames()) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-                if (ExpectOp(")") == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    ExpectOp("(") != null &&
+                    (a = Parse_ImportFromAsNames()) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true) &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 2
@@ -1312,11 +1568,14 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (Parse_ImportFromAsNames() == null) return null;
-                if (NegativeLookahead(() => ExpectOp(",")) == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if (
+                    Parse_ImportFromAsNames() != null &&
+                    NegativeLookahead(() => ExpectOp(",")) != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
             }
 
             // Alternative 3
@@ -1325,10 +1584,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("*") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SingletonSequence ( Check < GeneratedAlias >( PyParserHelpers . AliasForStar ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ))). Cast < GeneratedAliasSeq >();
+                if (ExpectOp("*") != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SingletonSequence ( Check < GeneratedAlias >( PyParserHelpers . AliasForStar ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ))). Cast < GeneratedAliasSeq >();
+                }
             }
 
             // Alternative 4
@@ -1336,11 +1596,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedAliasSeq? _alt_var = null;
 
-                if (Parse_InvalidImportFromTargets() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedAliasSeq)Parse_InvalidImportFromTargets()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -1356,16 +1618,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] import_from_as_names at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedAliasSeq? a = null;
 
-                if ((a = (GeneratedAliasSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_ImportFromAsName())) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if ((a = (GeneratedAliasSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_ImportFromAsName())) != null)
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -1381,6 +1648,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] import_from_as_name at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -1388,11 +1659,14 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
                 GeneratedPtr? b = null;
 
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if ((b = ParseOptional(() => ParseGroup())) == null) return null;
-
-                // Action code from grammar
-                return PyAst . alias ( a . GetNameValue (), b . GetNameValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = ExpectName()) != null &&
+                    ((b = ParseOptional(() => Parse_Tmp17())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . alias ( a . GetNameValue (), b . GetNameValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -1408,16 +1682,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] dotted_as_names at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedAliasSeq? a = null;
 
-                if ((a = (GeneratedAliasSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_DottedAsName())) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if ((a = (GeneratedAliasSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_DottedAsName())) != null)
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -1433,6 +1712,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] dotted_as_name at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -1440,11 +1723,14 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedPtr? b = null;
 
-                if ((a = Parse_DottedName()) == null) return null;
-                if ((b = ParseOptional(() => ParseGroup())) == null) return null;
-
-                // Action code from grammar
-                return PyAst . alias ( a . GetIdentifier (), b . GetNameValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_DottedName()) != null &&
+                    ((b = ParseOptional(() => Parse_Tmp18())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . alias ( a . GetIdentifier (), b . GetNameValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -1455,10 +1741,24 @@ namespace SharpPy.Generated
         /// Rule: dotted_name
         /// Alternatives: 2
         /// Return Type: GeneratedExpr
+        /// Left-recursive rule - uses TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_DottedName()
         {
+            return (GeneratedExpr?)TryLeftRecursive("dotted_name", Parse_DottedName_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for left-recursive rule: dotted_name
+        /// Called by TryLeftRecursive wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_DottedName_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] dotted_name at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -1467,12 +1767,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedTokenInfo? b = null;
 
-                if ((a = Parse_DottedName()) == null) return null;
-                if (ExpectOp(".") == null) return null;
-                if ((b = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . JoinNamesWithDot ( a , NameToken ( b ));
+                if (
+                    (a = Parse_DottedName()) != null &&
+                    ExpectOp(".") != null &&
+                    (b = ExpectName()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . JoinNamesWithDot ( a , NameToken ( b ));
+                }
             }
 
             // Alternative 2
@@ -1480,11 +1783,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Expect(PyToken.Type.NAME, "NAME") == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = ExpectNameExpr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -1495,10 +1800,24 @@ namespace SharpPy.Generated
         /// Rule: block
         /// Alternatives: 3
         /// Return Type: GeneratedStmtSeq
+        /// CPython (memo) - uses TryMemoized wrapper
         /// </summary>
         private GeneratedStmtSeq? Parse_Block()
         {
+            return (GeneratedStmtSeq?)TryMemoized("block", Parse_Block_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for memoized rule: block
+        /// Called by TryMemoized wrapper
+        /// </summary>
+        private GeneratedStmtSeq? Parse_Block_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] block at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -1506,13 +1825,16 @@ namespace SharpPy.Generated
 
                 GeneratedStmtSeq? a = null;
 
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if (Expect(PyToken.Type.INDENT, "INDENT") == null) return null;
-                if ((a = Parse_Statements()) == null) return null;
-                if (Expect(PyToken.Type.DEDENT, "DEDENT") == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    ExpectToken(PyToken.Type.INDENT) != null &&
+                    (a = Parse_Statements()) != null &&
+                    ExpectToken(PyToken.Type.DEDENT) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 2
@@ -1520,11 +1842,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedStmtSeq? _alt_var = null;
 
-                if (Parse_SimpleStmts() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_SimpleStmts()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 3
@@ -1532,11 +1856,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedStmtSeq? _alt_var = null;
 
-                if (Parse_InvalidBlock() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedStmtSeq)Parse_InvalidBlock()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -1552,16 +1878,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] decorators at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExprSeq? a = null;
 
-                if ((a = (GeneratedExprSeq)ParseOneOrMore(() => ParseGroup())) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if ((a = (GeneratedExprSeq)ParseOneOrMore(() => Parse_Tmp19())) != null)
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -1577,6 +1908,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] class_def at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -1584,11 +1919,14 @@ namespace SharpPy.Generated
                 GeneratedExprSeq? a = null;
                 GeneratedStmt? b = null;
 
-                if ((a = Parse_Decorators()) == null) return null;
-                if ((b = Parse_ClassDefRaw()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . ClassDefDecorators ( a , b );
+                if (
+                    (a = Parse_Decorators()) != null &&
+                    (b = Parse_ClassDefRaw()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . ClassDefDecorators ( a , b );
+                }
             }
 
             // Alternative 2
@@ -1596,11 +1934,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedStmt? _alt_var = null;
 
-                if (Parse_ClassDefRaw() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_ClassDefRaw()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -1616,15 +1956,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] class_def_raw at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedStmt? _alt_var = null;
 
-                if (Parse_InvalidClassDefRaw() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedStmt)Parse_InvalidClassDefRaw()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -1637,15 +1983,18 @@ namespace SharpPy.Generated
                 GeneratedPtr? b = null;
                 GeneratedStmtSeq? c = null;
 
-                if (ExpectKeyword("class") == null) return null;
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if ((t = (GeneratedTypeParamSeq)ParseOptional(() => Parse_TypeParams())) == null) return null;
-                if ((b = ParseOptional(() => ParseGroup())) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((c = Parse_Block()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . ClassDef ( a . GetNameValue (),( b != null )?(( GeneratedCall ) b ). Args : null !,( b != null )?(( GeneratedCall ) b ). Keywords : null !, c , null !, t , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("class") != null &&
+                    (a = ExpectName()) != null &&
+                    ((t = (GeneratedTypeParamSeq)ParseOptional(() => Parse_TypeParams())) == null || true) &&
+                    ((b = ParseOptional(() => Parse_Tmp20())) == null || true) &&
+                    ExpectOp(":") != null &&
+                    (c = Parse_Block()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . ClassDef ( a . GetNameValue (),( b != null )?(( GeneratedCall ) b ). Args : null !,( b != null )?(( GeneratedCall ) b ). Keywords : null !, c , null !, t , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -1661,6 +2010,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] function_def at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -1668,11 +2021,14 @@ namespace SharpPy.Generated
                 GeneratedExprSeq? d = null;
                 GeneratedStmt? f = null;
 
-                if ((d = Parse_Decorators()) == null) return null;
-                if ((f = Parse_FunctionDefRaw()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . FunctionDefDecorators ( d , f );
+                if (
+                    (d = Parse_Decorators()) != null &&
+                    (f = Parse_FunctionDefRaw()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . FunctionDefDecorators ( d , f );
+                }
             }
 
             // Alternative 2
@@ -1680,11 +2036,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedStmt? _alt_var = null;
 
-                if (Parse_FunctionDefRaw() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_FunctionDefRaw()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -1700,15 +2058,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] function_def_raw at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedStmt? _alt_var = null;
 
-                if (Parse_InvalidDefRaw() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedStmt)Parse_InvalidDefRaw()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -1723,19 +2087,22 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? tc = null;
                 GeneratedStmtSeq? b = null;
 
-                if (ExpectKeyword("def") == null) return null;
-                if ((n = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if ((t = (GeneratedTypeParamSeq)ParseOptional(() => Parse_TypeParams())) == null) return null;
-                if (PositiveLookahead(() => PositiveLookahead(() => ExpectOp("("))) == null) return null;
-                if ((params_ = (GeneratedArguments)ParseOptional(() => Parse_Params())) == null) return null;
-                if (ExpectOp(")") == null) return null;
-                if ((a = ParseOptional(() => ParseGroup())) == null) return null;
-                if (PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) == null) return null;
-                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Parse_FuncTypeComment())) == null) return null;
-                if ((b = Parse_Block()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . FunctionDef ( n . GetNameValue (),( params_ != null )? params_ :( GeneratedArguments ) Check < GeneratedArguments >( PyParserHelpers . EmptyArguments ()), b , null ,( GeneratedExpr ?) a , tc . GetCommentValue (), t , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("def") != null &&
+                    (n = ExpectName()) != null &&
+                    ((t = (GeneratedTypeParamSeq)ParseOptional(() => Parse_TypeParams())) == null || true) &&
+                    PositiveLookahead(() => PositiveLookahead(() => ExpectOp("("))) != null &&
+                    ((params_ = (GeneratedArguments)ParseOptional(() => Parse_Params())) == null || true) &&
+                    ExpectOp(")") != null &&
+                    ((a = ParseOptional(() => Parse_Tmp21())) == null || true) &&
+                    PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) != null &&
+                    ((tc = (GeneratedTokenInfo)ParseOptional(() => Parse_FuncTypeComment())) == null || true) &&
+                    (b = Parse_Block()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . FunctionDef ( n . GetNameValue (),( params_ != null )? params_ :( GeneratedArguments ) Check < GeneratedArguments >( PyParserHelpers . EmptyArguments ()), b , null ,( GeneratedExpr ?) a , tc . GetCommentValue (), t , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -1750,20 +2117,23 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? tc = null;
                 GeneratedStmtSeq? b = null;
 
-                if (Expect(PyToken.Type.ASYNC, "ASYNC") == null) return null;
-                if (ExpectKeyword("def") == null) return null;
-                if ((n = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if ((t = (GeneratedTypeParamSeq)ParseOptional(() => Parse_TypeParams())) == null) return null;
-                if (PositiveLookahead(() => PositiveLookahead(() => ExpectOp("("))) == null) return null;
-                if ((params_ = (GeneratedArguments)ParseOptional(() => Parse_Params())) == null) return null;
-                if (ExpectOp(")") == null) return null;
-                if ((a = ParseOptional(() => ParseGroup())) == null) return null;
-                if (PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) == null) return null;
-                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Parse_FuncTypeComment())) == null) return null;
-                if ((b = Parse_Block()) == null) return null;
-
-                // Action code from grammar
-                return CheckVersion ( 5 , "Async functions are" , PyAst . AsyncFunctionDef ( n . GetNameValue (),( params_ != null )? params_ :( GeneratedArguments ) Check < GeneratedArguments >( PyParserHelpers . EmptyArguments ()), b , null ,( GeneratedExpr ?) a , tc . GetCommentValue (), t , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                if (
+                    ExpectToken(PyToken.Type.ASYNC) != null &&
+                    ExpectKeyword("def") != null &&
+                    (n = ExpectName()) != null &&
+                    ((t = (GeneratedTypeParamSeq)ParseOptional(() => Parse_TypeParams())) == null || true) &&
+                    PositiveLookahead(() => PositiveLookahead(() => ExpectOp("("))) != null &&
+                    ((params_ = (GeneratedArguments)ParseOptional(() => Parse_Params())) == null || true) &&
+                    ExpectOp(")") != null &&
+                    ((a = ParseOptional(() => Parse_Tmp22())) == null || true) &&
+                    PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) != null &&
+                    ((tc = (GeneratedTokenInfo)ParseOptional(() => Parse_FuncTypeComment())) == null || true) &&
+                    (b = Parse_Block()) != null
+                )
+                {
+                    // Action code from grammar
+                    return CheckVersion ( 5 , "Async functions are" , PyAst . AsyncFunctionDef ( n . GetNameValue (),( params_ != null )? params_ :( GeneratedArguments ) Check < GeneratedArguments >( PyParserHelpers . EmptyArguments ()), b , null ,( GeneratedExpr ?) a , tc . GetCommentValue (), t , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                }
             }
 
             Reset(_mark);
@@ -1779,16 +2149,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] params at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedPtr? a = null;
 
-                if ((a = Parse_InvalidParameters()) == null) return null;
-
-                // Action code from grammar
-                return ( GeneratedArguments ) a;
+                if ((a = Parse_InvalidParameters()) != null)
+                {
+                    // Action code from grammar
+                    return ( GeneratedArguments ) a;
+                }
             }
 
             // Alternative 2
@@ -1798,10 +2173,11 @@ namespace SharpPy.Generated
 
                 GeneratedArguments? a = null;
 
-                if ((a = Parse_Parameters()) == null) return null;
-
-                // Action code from grammar
-                return ( GeneratedArguments ) a;
+                if ((a = Parse_Parameters()) != null)
+                {
+                    // Action code from grammar
+                    return ( GeneratedArguments ) a;
+                }
             }
 
             Reset(_mark);
@@ -1817,6 +2193,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] parameters at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -1826,13 +2206,16 @@ namespace SharpPy.Generated
                 GeneratedSeq? c = null;
                 GeneratedStarEtc? d = null;
 
-                if ((a = Parse_SlashNoDefault()) == null) return null;
-                if ((b = (GeneratedArgSeq)ParseZeroOrMore(() => Parse_ParamNoDefault())) == null) return null;
-                if ((c = ParseZeroOrMore(() => Parse_ParamWithDefault())) == null) return null;
-                if ((d = (GeneratedStarEtc)ParseOptional(() => Parse_StarEtc())) == null) return null;
-
-                // Action code from grammar
-                return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments (( GeneratedArgSeq ) a , null , b ,( GeneratedNameDefaultPairSeq ?) c ,( GeneratedStarEtc ?) d ));
+                if (
+                    (a = Parse_SlashNoDefault()) != null &&
+                    (b = (GeneratedArgSeq)ParseZeroOrMore(() => Parse_ParamNoDefault())) != null &&
+                    (c = ParseZeroOrMore(() => Parse_ParamWithDefault())) != null &&
+                    ((d = (GeneratedStarEtc)ParseOptional(() => Parse_StarEtc())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments (( GeneratedArgSeq ) a , null , b ,( GeneratedNameDefaultPairSeq ?) c ,( GeneratedStarEtc ?) d ));
+                }
             }
 
             // Alternative 2
@@ -1844,12 +2227,15 @@ namespace SharpPy.Generated
                 GeneratedSeq? b = null;
                 GeneratedStarEtc? c = null;
 
-                if ((a = Parse_SlashWithDefault()) == null) return null;
-                if ((b = ParseZeroOrMore(() => Parse_ParamWithDefault())) == null) return null;
-                if ((c = (GeneratedStarEtc)ParseOptional(() => Parse_StarEtc())) == null) return null;
-
-                // Action code from grammar
-                return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments ( null ,( GeneratedSlashWithDefault ) a , null ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedStarEtc ?) c ));
+                if (
+                    (a = Parse_SlashWithDefault()) != null &&
+                    (b = ParseZeroOrMore(() => Parse_ParamWithDefault())) != null &&
+                    ((c = (GeneratedStarEtc)ParseOptional(() => Parse_StarEtc())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments ( null ,( GeneratedSlashWithDefault ) a , null ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedStarEtc ?) c ));
+                }
             }
 
             // Alternative 3
@@ -1861,12 +2247,15 @@ namespace SharpPy.Generated
                 GeneratedSeq? b = null;
                 GeneratedStarEtc? c = null;
 
-                if ((a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_ParamNoDefault())) == null) return null;
-                if ((b = ParseZeroOrMore(() => Parse_ParamWithDefault())) == null) return null;
-                if ((c = (GeneratedStarEtc)ParseOptional(() => Parse_StarEtc())) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . MakeArguments ( null , null , a ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedStarEtc ?) c );
+                if (
+                    (a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_ParamNoDefault())) != null &&
+                    (b = ParseZeroOrMore(() => Parse_ParamWithDefault())) != null &&
+                    ((c = (GeneratedStarEtc)ParseOptional(() => Parse_StarEtc())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . MakeArguments ( null , null , a ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedStarEtc ?) c );
+                }
             }
 
             // Alternative 4
@@ -1877,11 +2266,14 @@ namespace SharpPy.Generated
                 GeneratedSeq? a = null;
                 GeneratedStarEtc? b = null;
 
-                if ((a = ParseOneOrMore(() => Parse_ParamWithDefault())) == null) return null;
-                if ((b = (GeneratedStarEtc)ParseOptional(() => Parse_StarEtc())) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . MakeArguments ( null , null , null ,( GeneratedNameDefaultPairSeq ?) a ,( GeneratedStarEtc ?) b );
+                if (
+                    (a = ParseOneOrMore(() => Parse_ParamWithDefault())) != null &&
+                    ((b = (GeneratedStarEtc)ParseOptional(() => Parse_StarEtc())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . MakeArguments ( null , null , null ,( GeneratedNameDefaultPairSeq ?) a ,( GeneratedStarEtc ?) b );
+                }
             }
 
             // Alternative 5
@@ -1891,10 +2283,11 @@ namespace SharpPy.Generated
 
                 GeneratedStarEtc? a = null;
 
-                if ((a = Parse_StarEtc()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . MakeArguments ( null , null , null , null ,( GeneratedStarEtc ) a );
+                if ((a = Parse_StarEtc()) != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . MakeArguments ( null , null , null , null ,( GeneratedStarEtc ) a );
+                }
             }
 
             Reset(_mark);
@@ -1910,18 +2303,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] slash_no_default at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedArgSeq? a = null;
 
-                if ((a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_ParamNoDefault())) == null) return null;
-                if (ExpectOp("/") == null) return null;
-                if (ExpectOp(",") == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    (a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_ParamNoDefault())) != null &&
+                    ExpectOp("/") != null &&
+                    ExpectOp(",") != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 2
@@ -1931,12 +2331,15 @@ namespace SharpPy.Generated
 
                 GeneratedArgSeq? a = null;
 
-                if ((a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_ParamNoDefault())) == null) return null;
-                if (ExpectOp("/") == null) return null;
-                if (PositiveLookahead(() => ExpectOp(")")) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    (a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_ParamNoDefault())) != null &&
+                    ExpectOp("/") != null &&
+                    PositiveLookahead(() => ExpectOp(")")) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -1952,6 +2355,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] slash_with_default at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -1959,13 +2366,16 @@ namespace SharpPy.Generated
                 GeneratedSeq? a = null;
                 GeneratedSeq? b = null;
 
-                if ((a = ParseZeroOrMore(() => Parse_ParamNoDefault())) == null) return null;
-                if ((b = ParseOneOrMore(() => Parse_ParamWithDefault())) == null) return null;
-                if (ExpectOp("/") == null) return null;
-                if (ExpectOp(",") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SlashWithDefault (( GeneratedArgSeq ?) a ,( GeneratedNameDefaultPairSeq ) b );
+                if (
+                    (a = ParseZeroOrMore(() => Parse_ParamNoDefault())) != null &&
+                    (b = ParseOneOrMore(() => Parse_ParamWithDefault())) != null &&
+                    ExpectOp("/") != null &&
+                    ExpectOp(",") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SlashWithDefault (( GeneratedArgSeq ?) a ,( GeneratedNameDefaultPairSeq ) b );
+                }
             }
 
             // Alternative 2
@@ -1976,13 +2386,16 @@ namespace SharpPy.Generated
                 GeneratedSeq? a = null;
                 GeneratedSeq? b = null;
 
-                if ((a = ParseZeroOrMore(() => Parse_ParamNoDefault())) == null) return null;
-                if ((b = ParseOneOrMore(() => Parse_ParamWithDefault())) == null) return null;
-                if (ExpectOp("/") == null) return null;
-                if (PositiveLookahead(() => ExpectOp(")")) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SlashWithDefault (( GeneratedArgSeq ?) a ,( GeneratedNameDefaultPairSeq ) b );
+                if (
+                    (a = ParseZeroOrMore(() => Parse_ParamNoDefault())) != null &&
+                    (b = ParseOneOrMore(() => Parse_ParamWithDefault())) != null &&
+                    ExpectOp("/") != null &&
+                    PositiveLookahead(() => ExpectOp(")")) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SlashWithDefault (( GeneratedArgSeq ?) a ,( GeneratedNameDefaultPairSeq ) b );
+                }
             }
 
             Reset(_mark);
@@ -1998,15 +2411,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] star_etc at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedStarEtc? _alt_var = null;
 
-                if (Parse_InvalidStarEtc() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedStarEtc)Parse_InvalidStarEtc()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -2018,13 +2437,16 @@ namespace SharpPy.Generated
                 GeneratedSeq? b = null;
                 GeneratedArg? c = null;
 
-                if (ExpectOp("*") == null) return null;
-                if ((a = Parse_ParamNoDefault()) == null) return null;
-                if ((b = ParseZeroOrMore(() => Parse_ParamMaybeDefault())) == null) return null;
-                if ((c = (GeneratedArg)ParseOptional(() => Parse_Kwds())) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . StarEtc (( GeneratedArg ) a ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedArg ?) c );
+                if (
+                    ExpectOp("*") != null &&
+                    (a = Parse_ParamNoDefault()) != null &&
+                    (b = ParseZeroOrMore(() => Parse_ParamMaybeDefault())) != null &&
+                    ((c = (GeneratedArg)ParseOptional(() => Parse_Kwds())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . StarEtc (( GeneratedArg ) a ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedArg ?) c );
+                }
             }
 
             // Alternative 3
@@ -2036,13 +2458,16 @@ namespace SharpPy.Generated
                 GeneratedSeq? b = null;
                 GeneratedArg? c = null;
 
-                if (ExpectOp("*") == null) return null;
-                if ((a = Parse_ParamNoDefaultStarAnnotation()) == null) return null;
-                if ((b = ParseZeroOrMore(() => Parse_ParamMaybeDefault())) == null) return null;
-                if ((c = (GeneratedArg)ParseOptional(() => Parse_Kwds())) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . StarEtc (( GeneratedArg ) a ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedArg ?) c );
+                if (
+                    ExpectOp("*") != null &&
+                    (a = Parse_ParamNoDefaultStarAnnotation()) != null &&
+                    (b = ParseZeroOrMore(() => Parse_ParamMaybeDefault())) != null &&
+                    ((c = (GeneratedArg)ParseOptional(() => Parse_Kwds())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . StarEtc (( GeneratedArg ) a ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedArg ?) c );
+                }
             }
 
             // Alternative 4
@@ -2053,13 +2478,16 @@ namespace SharpPy.Generated
                 GeneratedSeq? b = null;
                 GeneratedArg? c = null;
 
-                if (ExpectOp("*") == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if ((b = ParseOneOrMore(() => Parse_ParamMaybeDefault())) == null) return null;
-                if ((c = (GeneratedArg)ParseOptional(() => Parse_Kwds())) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . StarEtc ( null ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedArg ?) c );
+                if (
+                    ExpectOp("*") != null &&
+                    ExpectOp(",") != null &&
+                    (b = ParseOneOrMore(() => Parse_ParamMaybeDefault())) != null &&
+                    ((c = (GeneratedArg)ParseOptional(() => Parse_Kwds())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . StarEtc ( null ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedArg ?) c );
+                }
             }
 
             // Alternative 5
@@ -2069,10 +2497,11 @@ namespace SharpPy.Generated
 
                 GeneratedArg? a = null;
 
-                if ((a = Parse_Kwds()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . StarEtc ( null , null ,( GeneratedArg ) a );
+                if ((a = Parse_Kwds()) != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . StarEtc ( null , null ,( GeneratedArg ) a );
+                }
             }
 
             Reset(_mark);
@@ -2088,15 +2517,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] kwds at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedArg? _alt_var = null;
 
-                if (Parse_InvalidKwds() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedArg)Parse_InvalidKwds()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -2106,11 +2541,14 @@ namespace SharpPy.Generated
 
                 GeneratedArg? a = null;
 
-                if (ExpectOp("**") == null) return null;
-                if ((a = Parse_ParamNoDefault()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    ExpectOp("**") != null &&
+                    (a = Parse_ParamNoDefault()) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -2126,6 +2564,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] param_no_default at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -2133,12 +2575,15 @@ namespace SharpPy.Generated
                 GeneratedArg? a = null;
                 GeneratedTokenInfo? tc = null;
 
-                if ((a = Parse_Param()) == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . AddTypeCommentToArg ( a , tc );
+                if (
+                    (a = Parse_Param()) != null &&
+                    ExpectOp(",") != null &&
+                    ((tc = (GeneratedTokenInfo)ParseOptional(() => ExpectToken(PyToken.Type.TYPE_COMMENT))) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . AddTypeCommentToArg ( a , tc );
+                }
             }
 
             // Alternative 2
@@ -2149,12 +2594,15 @@ namespace SharpPy.Generated
                 GeneratedArg? a = null;
                 GeneratedTokenInfo? tc = null;
 
-                if ((a = Parse_Param()) == null) return null;
-                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
-                if (PositiveLookahead(() => ExpectOp(")")) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . AddTypeCommentToArg ( a , tc );
+                if (
+                    (a = Parse_Param()) != null &&
+                    ((tc = (GeneratedTokenInfo)ParseOptional(() => ExpectToken(PyToken.Type.TYPE_COMMENT))) == null || true) &&
+                    PositiveLookahead(() => ExpectOp(")")) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . AddTypeCommentToArg ( a , tc );
+                }
             }
 
             Reset(_mark);
@@ -2170,6 +2618,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] param_no_default_star_annotation at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -2177,12 +2629,15 @@ namespace SharpPy.Generated
                 GeneratedArg? a = null;
                 GeneratedTokenInfo? tc = null;
 
-                if ((a = Parse_ParamStarAnnotation()) == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . AddTypeCommentToArg ( a , tc );
+                if (
+                    (a = Parse_ParamStarAnnotation()) != null &&
+                    ExpectOp(",") != null &&
+                    ((tc = (GeneratedTokenInfo)ParseOptional(() => ExpectToken(PyToken.Type.TYPE_COMMENT))) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . AddTypeCommentToArg ( a , tc );
+                }
             }
 
             // Alternative 2
@@ -2193,12 +2648,15 @@ namespace SharpPy.Generated
                 GeneratedArg? a = null;
                 GeneratedTokenInfo? tc = null;
 
-                if ((a = Parse_ParamStarAnnotation()) == null) return null;
-                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
-                if (PositiveLookahead(() => ExpectOp(")")) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . AddTypeCommentToArg ( a , tc );
+                if (
+                    (a = Parse_ParamStarAnnotation()) != null &&
+                    ((tc = (GeneratedTokenInfo)ParseOptional(() => ExpectToken(PyToken.Type.TYPE_COMMENT))) == null || true) &&
+                    PositiveLookahead(() => ExpectOp(")")) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . AddTypeCommentToArg ( a , tc );
+                }
             }
 
             Reset(_mark);
@@ -2214,6 +2672,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] param_with_default at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -2222,13 +2684,16 @@ namespace SharpPy.Generated
                 GeneratedExpr? c = null;
                 GeneratedTokenInfo? tc = null;
 
-                if ((a = Parse_Param()) == null) return null;
-                if ((c = Parse_Default()) == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . NameDefaultPair ( a , c , tc ?. Value );
+                if (
+                    (a = Parse_Param()) != null &&
+                    (c = Parse_Default()) != null &&
+                    ExpectOp(",") != null &&
+                    ((tc = (GeneratedTokenInfo)ParseOptional(() => ExpectToken(PyToken.Type.TYPE_COMMENT))) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . NameDefaultPair ( a , c , tc ?. Value );
+                }
             }
 
             // Alternative 2
@@ -2240,13 +2705,16 @@ namespace SharpPy.Generated
                 GeneratedExpr? c = null;
                 GeneratedTokenInfo? tc = null;
 
-                if ((a = Parse_Param()) == null) return null;
-                if ((c = Parse_Default()) == null) return null;
-                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
-                if (PositiveLookahead(() => ExpectOp(")")) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . NameDefaultPair ( a , c , tc ?. Value );
+                if (
+                    (a = Parse_Param()) != null &&
+                    (c = Parse_Default()) != null &&
+                    ((tc = (GeneratedTokenInfo)ParseOptional(() => ExpectToken(PyToken.Type.TYPE_COMMENT))) == null || true) &&
+                    PositiveLookahead(() => ExpectOp(")")) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . NameDefaultPair ( a , c , tc ?. Value );
+                }
             }
 
             Reset(_mark);
@@ -2262,6 +2730,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] param_maybe_default at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -2270,13 +2742,16 @@ namespace SharpPy.Generated
                 GeneratedExpr? c = null;
                 GeneratedTokenInfo? tc = null;
 
-                if ((a = Parse_Param()) == null) return null;
-                if ((c = (GeneratedExpr)ParseOptional(() => Parse_Default())) == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . NameDefaultPair ( a , c , tc ?. Value );
+                if (
+                    (a = Parse_Param()) != null &&
+                    ((c = (GeneratedExpr)ParseOptional(() => Parse_Default())) == null || true) &&
+                    ExpectOp(",") != null &&
+                    ((tc = (GeneratedTokenInfo)ParseOptional(() => ExpectToken(PyToken.Type.TYPE_COMMENT))) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . NameDefaultPair ( a , c , tc ?. Value );
+                }
             }
 
             // Alternative 2
@@ -2288,13 +2763,16 @@ namespace SharpPy.Generated
                 GeneratedExpr? c = null;
                 GeneratedTokenInfo? tc = null;
 
-                if ((a = Parse_Param()) == null) return null;
-                if ((c = (GeneratedExpr)ParseOptional(() => Parse_Default())) == null) return null;
-                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
-                if (PositiveLookahead(() => ExpectOp(")")) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . NameDefaultPair ( a , c , tc ?. Value );
+                if (
+                    (a = Parse_Param()) != null &&
+                    ((c = (GeneratedExpr)ParseOptional(() => Parse_Default())) == null || true) &&
+                    ((tc = (GeneratedTokenInfo)ParseOptional(() => ExpectToken(PyToken.Type.TYPE_COMMENT))) == null || true) &&
+                    PositiveLookahead(() => ExpectOp(")")) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . NameDefaultPair ( a , c , tc ?. Value );
+                }
             }
 
             Reset(_mark);
@@ -2310,6 +2788,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] param at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -2317,11 +2799,14 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if ((b = (GeneratedExpr)ParseOptional(() => Parse_Annotation())) == null) return null;
-
-                // Action code from grammar
-                return PyAst . arg ( a . GetNameValue (), b , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = ExpectName()) != null &&
+                    ((b = (GeneratedExpr)ParseOptional(() => Parse_Annotation())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . arg ( a . GetNameValue (), b , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -2337,6 +2822,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] param_star_annotation at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -2344,11 +2833,14 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if ((b = Parse_StarAnnotation()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . arg ( a . GetNameValue (), b , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = ExpectName()) != null &&
+                    (b = Parse_StarAnnotation()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . arg ( a . GetNameValue (), b , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -2364,17 +2856,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] annotation at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp(":") == null) return null;
-                if ((a = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    ExpectOp(":") != null &&
+                    (a = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -2390,17 +2889,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] star_annotation at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp(":") == null) return null;
-                if ((a = Parse_StarExpression()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    ExpectOp(":") != null &&
+                    (a = Parse_StarExpression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -2416,17 +2922,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] default at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp("=") == null) return null;
-                if ((a = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    ExpectOp("=") != null &&
+                    (a = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 2
@@ -2434,11 +2947,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_InvalidDefault() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedExpr)Parse_InvalidDefault()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -2454,15 +2969,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] if_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedStmt? _alt_var = null;
 
-                if (Parse_InvalidIfStmt() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedStmt)Parse_InvalidIfStmt()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -2474,14 +2995,17 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? b = null;
                 GeneratedStmt? c = null;
 
-                if (ExpectKeyword("if") == null) return null;
-                if ((a = Parse_NamedExpression()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((b = Parse_Block()) == null) return null;
-                if ((c = Parse_ElifStmt()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . If (( GeneratedExpr ) a ,( GeneratedStmtSeq ) b , Check < GeneratedStmtSeq >( PyParserHelpers . SingletonSequence (( GeneratedStmt ) c ). Cast < GeneratedStmtSeq >()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("if") != null &&
+                    (a = Parse_NamedExpression()) != null &&
+                    ExpectOp(":") != null &&
+                    (b = Parse_Block()) != null &&
+                    (c = Parse_ElifStmt()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . If (( GeneratedExpr ) a ,( GeneratedStmtSeq ) b , Check < GeneratedStmtSeq >( PyParserHelpers . SingletonSequence (( GeneratedStmt ) c ). Cast < GeneratedStmtSeq >()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -2493,14 +3017,17 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? b = null;
                 GeneratedStmtSeq? c = null;
 
-                if (ExpectKeyword("if") == null) return null;
-                if ((a = Parse_NamedExpression()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((b = Parse_Block()) == null) return null;
-                if ((c = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null) return null;
-
-                // Action code from grammar
-                return PyAst . If (( GeneratedExpr ) a ,( GeneratedStmtSeq ) b ,( GeneratedStmtSeq ?) c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("if") != null &&
+                    (a = Parse_NamedExpression()) != null &&
+                    ExpectOp(":") != null &&
+                    (b = Parse_Block()) != null &&
+                    ((c = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . If (( GeneratedExpr ) a ,( GeneratedStmtSeq ) b ,( GeneratedStmtSeq ?) c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -2516,15 +3043,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] elif_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedStmt? _alt_var = null;
 
-                if (Parse_InvalidElifStmt() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedStmt)Parse_InvalidElifStmt()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -2536,14 +3069,17 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? b = null;
                 GeneratedStmt? c = null;
 
-                if (ExpectKeyword("elif") == null) return null;
-                if ((a = Parse_NamedExpression()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((b = Parse_Block()) == null) return null;
-                if ((c = Parse_ElifStmt()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . If (( GeneratedExpr ) a ,( GeneratedStmtSeq ) b , Check < GeneratedStmtSeq >( PyParserHelpers . SingletonSequence (( GeneratedStmt ) c ). Cast < GeneratedStmtSeq >()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("elif") != null &&
+                    (a = Parse_NamedExpression()) != null &&
+                    ExpectOp(":") != null &&
+                    (b = Parse_Block()) != null &&
+                    (c = Parse_ElifStmt()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . If (( GeneratedExpr ) a ,( GeneratedStmtSeq ) b , Check < GeneratedStmtSeq >( PyParserHelpers . SingletonSequence (( GeneratedStmt ) c ). Cast < GeneratedStmtSeq >()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -2555,14 +3091,17 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? b = null;
                 GeneratedStmtSeq? c = null;
 
-                if (ExpectKeyword("elif") == null) return null;
-                if ((a = Parse_NamedExpression()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((b = Parse_Block()) == null) return null;
-                if ((c = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null) return null;
-
-                // Action code from grammar
-                return PyAst . If (( GeneratedExpr ) a ,( GeneratedStmtSeq ) b ,( GeneratedStmtSeq ?) c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("elif") != null &&
+                    (a = Parse_NamedExpression()) != null &&
+                    ExpectOp(":") != null &&
+                    (b = Parse_Block()) != null &&
+                    ((c = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . If (( GeneratedExpr ) a ,( GeneratedStmtSeq ) b ,( GeneratedStmtSeq ?) c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -2578,15 +3117,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] else_block at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedStmtSeq? _alt_var = null;
 
-                if (Parse_InvalidElseStmt() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedStmtSeq)Parse_InvalidElseStmt()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -2596,12 +3141,15 @@ namespace SharpPy.Generated
 
                 GeneratedStmtSeq? b = null;
 
-                if (ExpectKeyword("else") == null) return null;
-                if (PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) == null) return null;
-                if ((b = Parse_Block()) == null) return null;
-
-                // Action code from grammar
-                return b;
+                if (
+                    ExpectKeyword("else") != null &&
+                    PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) != null &&
+                    (b = Parse_Block()) != null
+                )
+                {
+                    // Action code from grammar
+                    return b;
+                }
             }
 
             Reset(_mark);
@@ -2617,15 +3165,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] while_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedStmt? _alt_var = null;
 
-                if (Parse_InvalidWhileStmt() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedStmt)Parse_InvalidWhileStmt()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -2637,14 +3191,17 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? b = null;
                 GeneratedStmtSeq? c = null;
 
-                if (ExpectKeyword("while") == null) return null;
-                if ((a = Parse_NamedExpression()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((b = Parse_Block()) == null) return null;
-                if ((c = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null) return null;
-
-                // Action code from grammar
-                return PyAst . While (( GeneratedExpr ) a ,( GeneratedStmtSeq ) b ,( GeneratedStmtSeq ?) c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("while") != null &&
+                    (a = Parse_NamedExpression()) != null &&
+                    ExpectOp(":") != null &&
+                    (b = Parse_Block()) != null &&
+                    ((c = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . While (( GeneratedExpr ) a ,( GeneratedStmtSeq ) b ,( GeneratedStmtSeq ?) c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -2660,15 +3217,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] for_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedStmt? _alt_var = null;
 
-                if (Parse_InvalidForStmt() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedStmt)Parse_InvalidForStmt()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -2682,17 +3245,20 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? b = null;
                 GeneratedStmtSeq? el = null;
 
-                if (ExpectKeyword("for") == null) return null;
-                if ((t = Parse_StarTargets()) == null) return null;
-                if (ExpectKeyword("in") == null) return null;
-                if ((ex = Parse_StarExpressions()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
-                if ((b = Parse_Block()) == null) return null;
-                if ((el = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null) return null;
-
-                // Action code from grammar
-                return PyAst . For (( GeneratedExpr ) t ,( GeneratedExpr ) ex ,( GeneratedStmtSeq ) b ,( GeneratedStmtSeq ?) el , tc . GetCommentValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("for") != null &&
+                    (t = Parse_StarTargets()) != null &&
+                    ExpectKeyword("in") != null &&
+                    (ex = Parse_StarExpressions()) != null &&
+                    ExpectOp(":") != null &&
+                    ((tc = (GeneratedTokenInfo)ParseOptional(() => ExpectToken(PyToken.Type.TYPE_COMMENT))) == null || true) &&
+                    (b = Parse_Block()) != null &&
+                    ((el = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . For (( GeneratedExpr ) t ,( GeneratedExpr ) ex ,( GeneratedStmtSeq ) b ,( GeneratedStmtSeq ?) el , tc . GetCommentValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -2706,18 +3272,21 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? b = null;
                 GeneratedStmtSeq? el = null;
 
-                if (Expect(PyToken.Type.ASYNC, "ASYNC") == null) return null;
-                if (ExpectKeyword("for") == null) return null;
-                if ((t = Parse_StarTargets()) == null) return null;
-                if (ExpectKeyword("in") == null) return null;
-                if ((ex = Parse_StarExpressions()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
-                if ((b = Parse_Block()) == null) return null;
-                if ((el = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null) return null;
-
-                // Action code from grammar
-                return CheckVersion ( 5 , "Async for loops are" , PyAst . AsyncFor (( GeneratedExpr ) t ,( GeneratedExpr ) ex ,( GeneratedStmtSeq ) b ,( GeneratedStmtSeq ?) el , tc . GetCommentValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                if (
+                    ExpectToken(PyToken.Type.ASYNC) != null &&
+                    ExpectKeyword("for") != null &&
+                    (t = Parse_StarTargets()) != null &&
+                    ExpectKeyword("in") != null &&
+                    (ex = Parse_StarExpressions()) != null &&
+                    ExpectOp(":") != null &&
+                    ((tc = (GeneratedTokenInfo)ParseOptional(() => ExpectToken(PyToken.Type.TYPE_COMMENT))) == null || true) &&
+                    (b = Parse_Block()) != null &&
+                    ((el = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return CheckVersion ( 5 , "Async for loops are" , PyAst . AsyncFor (( GeneratedExpr ) t ,( GeneratedExpr ) ex ,( GeneratedStmtSeq ) b ,( GeneratedStmtSeq ?) el , tc . GetCommentValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                }
             }
 
             // Alternative 4
@@ -2725,11 +3294,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedStmt? _alt_var = null;
 
-                if (Parse_InvalidForTarget() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedStmt)Parse_InvalidForTarget()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -2745,15 +3316,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] with_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedStmt? _alt_var = null;
 
-                if (Parse_InvalidWithStmtIndent() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedStmt)Parse_InvalidWithStmtIndent()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -2764,16 +3341,19 @@ namespace SharpPy.Generated
                 GeneratedWithitemSeq? a = null;
                 GeneratedStmtSeq? b = null;
 
-                if (ExpectKeyword("with") == null) return null;
-                if (ExpectOp("(") == null) return null;
-                if ((a = (GeneratedWithitemSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-                if (ExpectOp(")") == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((b = Parse_Block()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . With (( GeneratedWithitemSeq ) a ,( GeneratedStmtSeq ) b , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("with") != null &&
+                    ExpectOp("(") != null &&
+                    (a = (GeneratedWithitemSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true) &&
+                    ExpectOp(")") != null &&
+                    ExpectOp(":") != null &&
+                    (b = Parse_Block()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . With (( GeneratedWithitemSeq ) a ,( GeneratedStmtSeq ) b , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -2785,14 +3365,17 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? tc = null;
                 GeneratedStmtSeq? b = null;
 
-                if (ExpectKeyword("with") == null) return null;
-                if ((a = (GeneratedWithitemSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
-                if ((b = Parse_Block()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . With (( GeneratedWithitemSeq ) a ,( GeneratedStmtSeq ) b , tc . GetCommentValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("with") != null &&
+                    (a = (GeneratedWithitemSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())) != null &&
+                    ExpectOp(":") != null &&
+                    ((tc = (GeneratedTokenInfo)ParseOptional(() => ExpectToken(PyToken.Type.TYPE_COMMENT))) == null || true) &&
+                    (b = Parse_Block()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . With (( GeneratedWithitemSeq ) a ,( GeneratedStmtSeq ) b , tc . GetCommentValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 4
@@ -2803,17 +3386,20 @@ namespace SharpPy.Generated
                 GeneratedWithitemSeq? a = null;
                 GeneratedStmtSeq? b = null;
 
-                if (Expect(PyToken.Type.ASYNC, "ASYNC") == null) return null;
-                if (ExpectKeyword("with") == null) return null;
-                if (ExpectOp("(") == null) return null;
-                if ((a = (GeneratedWithitemSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-                if (ExpectOp(")") == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((b = Parse_Block()) == null) return null;
-
-                // Action code from grammar
-                return CheckVersion ( 5 , "Async with statements are" , PyAst . AsyncWith (( GeneratedWithitemSeq ) a ,( GeneratedStmtSeq ) b , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                if (
+                    ExpectToken(PyToken.Type.ASYNC) != null &&
+                    ExpectKeyword("with") != null &&
+                    ExpectOp("(") != null &&
+                    (a = (GeneratedWithitemSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true) &&
+                    ExpectOp(")") != null &&
+                    ExpectOp(":") != null &&
+                    (b = Parse_Block()) != null
+                )
+                {
+                    // Action code from grammar
+                    return CheckVersion ( 5 , "Async with statements are" , PyAst . AsyncWith (( GeneratedWithitemSeq ) a ,( GeneratedStmtSeq ) b , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                }
             }
 
             // Alternative 5
@@ -2825,15 +3411,18 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? tc = null;
                 GeneratedStmtSeq? b = null;
 
-                if (Expect(PyToken.Type.ASYNC, "ASYNC") == null) return null;
-                if (ExpectKeyword("with") == null) return null;
-                if ((a = (GeneratedWithitemSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((tc = (GeneratedTokenInfo)ParseOptional(() => Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT"))) == null) return null;
-                if ((b = Parse_Block()) == null) return null;
-
-                // Action code from grammar
-                return CheckVersion ( 5 , "Async with statements are" , PyAst . AsyncWith (( GeneratedWithitemSeq ) a ,( GeneratedStmtSeq ) b , tc . GetCommentValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                if (
+                    ExpectToken(PyToken.Type.ASYNC) != null &&
+                    ExpectKeyword("with") != null &&
+                    (a = (GeneratedWithitemSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())) != null &&
+                    ExpectOp(":") != null &&
+                    ((tc = (GeneratedTokenInfo)ParseOptional(() => ExpectToken(PyToken.Type.TYPE_COMMENT))) == null || true) &&
+                    (b = Parse_Block()) != null
+                )
+                {
+                    // Action code from grammar
+                    return CheckVersion ( 5 , "Async with statements are" , PyAst . AsyncWith (( GeneratedWithitemSeq ) a ,( GeneratedStmtSeq ) b , tc . GetCommentValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                }
             }
 
             // Alternative 6
@@ -2841,11 +3430,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedStmt? _alt_var = null;
 
-                if (Parse_InvalidWithStmt() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedStmt)Parse_InvalidWithStmt()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -2861,6 +3452,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] with_item at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -2868,13 +3463,16 @@ namespace SharpPy.Generated
                 GeneratedExpr? e = null;
                 GeneratedExpr? t = null;
 
-                if ((e = Parse_Expression()) == null) return null;
-                if (ExpectKeyword("as") == null) return null;
-                if ((t = Parse_StarTarget()) == null) return null;
-                if (PositiveLookahead(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . withitem (( GeneratedExpr ) e ,( GeneratedExpr ) t );
+                if (
+                    (e = Parse_Expression()) != null &&
+                    ExpectKeyword("as") != null &&
+                    (t = Parse_StarTarget()) != null &&
+                    PositiveLookahead(() => Parse_Tmp23()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . withitem (( GeneratedExpr ) e ,( GeneratedExpr ) t );
+                }
             }
 
             // Alternative 2
@@ -2882,11 +3480,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedWithitem? _alt_var = null;
 
-                if (Parse_InvalidWithItem() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedWithitem)Parse_InvalidWithItem()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 3
@@ -2896,10 +3496,11 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? e = null;
 
-                if ((e = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . withitem (( GeneratedExpr ) e , null );
+                if ((e = Parse_Expression()) != null)
+                {
+                    // Action code from grammar
+                    return PyAst . withitem (( GeneratedExpr ) e , null );
+                }
             }
 
             Reset(_mark);
@@ -2915,15 +3516,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] try_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedStmt? _alt_var = null;
 
-                if (Parse_InvalidTryStmt() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedStmt)Parse_InvalidTryStmt()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -2934,13 +3541,16 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? b = null;
                 GeneratedStmtSeq? f = null;
 
-                if (ExpectKeyword("try") == null) return null;
-                if (PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) == null) return null;
-                if ((b = Parse_Block()) == null) return null;
-                if ((f = Parse_FinallyBlock()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Try (( GeneratedStmtSeq ) b , null , null ,( GeneratedStmtSeq ) f , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("try") != null &&
+                    PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) != null &&
+                    (b = Parse_Block()) != null &&
+                    (f = Parse_FinallyBlock()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Try (( GeneratedStmtSeq ) b , null , null ,( GeneratedStmtSeq ) f , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -2953,15 +3563,18 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? el = null;
                 GeneratedStmtSeq? f = null;
 
-                if (ExpectKeyword("try") == null) return null;
-                if (PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) == null) return null;
-                if ((b = Parse_Block()) == null) return null;
-                if ((ex = (GeneratedExcepthandlerSeq)ParseOneOrMore(() => Parse_ExceptBlock())) == null) return null;
-                if ((el = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null) return null;
-                if ((f = (GeneratedStmtSeq)ParseOptional(() => Parse_FinallyBlock())) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Try (( GeneratedStmtSeq ) b ,( GeneratedExcepthandlerSeq ) ex ,( GeneratedStmtSeq ?) el ,( GeneratedStmtSeq ?) f , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("try") != null &&
+                    PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) != null &&
+                    (b = Parse_Block()) != null &&
+                    (ex = (GeneratedExcepthandlerSeq)ParseOneOrMore(() => Parse_ExceptBlock())) != null &&
+                    ((el = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null || true) &&
+                    ((f = (GeneratedStmtSeq)ParseOptional(() => Parse_FinallyBlock())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Try (( GeneratedStmtSeq ) b ,( GeneratedExcepthandlerSeq ) ex ,( GeneratedStmtSeq ?) el ,( GeneratedStmtSeq ?) f , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 4
@@ -2974,15 +3587,18 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? el = null;
                 GeneratedStmtSeq? f = null;
 
-                if (ExpectKeyword("try") == null) return null;
-                if (PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) == null) return null;
-                if ((b = Parse_Block()) == null) return null;
-                if ((ex = (GeneratedExcepthandlerSeq)ParseOneOrMore(() => Parse_ExceptStarBlock())) == null) return null;
-                if ((el = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null) return null;
-                if ((f = (GeneratedStmtSeq)ParseOptional(() => Parse_FinallyBlock())) == null) return null;
-
-                // Action code from grammar
-                return CheckVersion ( 11 , "Exception groups are" , PyAst . TryStar (( GeneratedStmtSeq ) b ,( GeneratedExcepthandlerSeq ) ex ,( GeneratedStmtSeq ?) el ,( GeneratedStmtSeq ?) f , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                if (
+                    ExpectKeyword("try") != null &&
+                    PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) != null &&
+                    (b = Parse_Block()) != null &&
+                    (ex = (GeneratedExcepthandlerSeq)ParseOneOrMore(() => Parse_ExceptStarBlock())) != null &&
+                    ((el = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null || true) &&
+                    ((f = (GeneratedStmtSeq)ParseOptional(() => Parse_FinallyBlock())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return CheckVersion ( 11 , "Exception groups are" , PyAst . TryStar (( GeneratedStmtSeq ) b ,( GeneratedExcepthandlerSeq ) ex ,( GeneratedStmtSeq ?) el ,( GeneratedStmtSeq ?) f , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                }
             }
 
             Reset(_mark);
@@ -2998,15 +3614,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] except_block at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedExcepthandler? _alt_var = null;
 
-                if (Parse_InvalidExceptStmtIndent() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedExcepthandler)Parse_InvalidExceptStmtIndent()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -3018,14 +3640,17 @@ namespace SharpPy.Generated
                 GeneratedPtr? t = null;
                 GeneratedStmtSeq? b = null;
 
-                if (ExpectKeyword("except") == null) return null;
-                if ((e = Parse_Expression()) == null) return null;
-                if ((t = ParseOptional(() => ParseGroup())) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((b = Parse_Block()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . ExceptHandler (( GeneratedExpr ) e , t != null ?(( GeneratedName ) NameToken (( GeneratedTokenInfo ) t )). Id : null ,( GeneratedStmtSeq ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("except") != null &&
+                    (e = Parse_Expression()) != null &&
+                    ((t = ParseOptional(() => Parse_Tmp24())) == null || true) &&
+                    ExpectOp(":") != null &&
+                    (b = Parse_Block()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . ExceptHandler (( GeneratedExpr ) e , t != null ?(( GeneratedName ) NameToken (( GeneratedTokenInfo ) t )). Id : null ,( GeneratedStmtSeq ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -3035,12 +3660,15 @@ namespace SharpPy.Generated
 
                 GeneratedStmtSeq? b = null;
 
-                if (ExpectKeyword("except") == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((b = Parse_Block()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . ExceptHandler ( null , null ,( GeneratedStmtSeq ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("except") != null &&
+                    ExpectOp(":") != null &&
+                    (b = Parse_Block()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . ExceptHandler ( null , null ,( GeneratedStmtSeq ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 4
@@ -3048,11 +3676,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExcepthandler? _alt_var = null;
 
-                if (Parse_InvalidExceptStmt() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedExcepthandler)Parse_InvalidExceptStmt()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -3068,15 +3698,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] except_star_block at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedExcepthandler? _alt_var = null;
 
-                if (Parse_InvalidExceptStarStmtIndent() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedExcepthandler)Parse_InvalidExceptStarStmtIndent()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -3088,15 +3724,18 @@ namespace SharpPy.Generated
                 GeneratedPtr? t = null;
                 GeneratedStmtSeq? b = null;
 
-                if (ExpectKeyword("except") == null) return null;
-                if (ExpectOp("*") == null) return null;
-                if ((e = Parse_Expression()) == null) return null;
-                if ((t = ParseOptional(() => ParseGroup())) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((b = Parse_Block()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . ExceptHandler (( GeneratedExpr ) e ,( t != null )?(( GeneratedName ) NameToken (( GeneratedTokenInfo ) t )). Id : null ,( GeneratedStmtSeq ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("except") != null &&
+                    ExpectOp("*") != null &&
+                    (e = Parse_Expression()) != null &&
+                    ((t = ParseOptional(() => Parse_Tmp25())) == null || true) &&
+                    ExpectOp(":") != null &&
+                    (b = Parse_Block()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . ExceptHandler (( GeneratedExpr ) e ,( t != null )?(( GeneratedName ) NameToken (( GeneratedTokenInfo ) t )). Id : null ,( GeneratedStmtSeq ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -3104,11 +3743,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExcepthandler? _alt_var = null;
 
-                if (Parse_InvalidExceptStmt() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedExcepthandler)Parse_InvalidExceptStmt()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -3124,15 +3765,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] finally_block at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedStmtSeq? _alt_var = null;
 
-                if (Parse_InvalidFinallyStmt() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedStmtSeq)Parse_InvalidFinallyStmt()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -3142,12 +3789,15 @@ namespace SharpPy.Generated
 
                 GeneratedStmtSeq? a = null;
 
-                if (ExpectKeyword("finally") == null) return null;
-                if (PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) == null) return null;
-                if ((a = Parse_Block()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    ExpectKeyword("finally") != null &&
+                    PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) != null &&
+                    (a = Parse_Block()) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -3163,6 +3813,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] match_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -3170,16 +3824,19 @@ namespace SharpPy.Generated
                 GeneratedExpr? subject = null;
                 GeneratedMatchCaseSeq? cases = null;
 
-                if (ExpectSoftKeyword("match") == null) return null;
-                if ((subject = Parse_SubjectExpr()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if (Expect(PyToken.Type.INDENT, "INDENT") == null) return null;
-                if ((cases = (GeneratedMatchCaseSeq)ParseOneOrMore(() => Parse_CaseBlock())) == null) return null;
-                if (Expect(PyToken.Type.DEDENT, "DEDENT") == null) return null;
-
-                // Action code from grammar
-                return CheckVersion ( 10 , "Pattern matching is" , PyAst . Match (( GeneratedExpr ) subject ,( GeneratedMatchCaseSeq ) cases , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                if (
+                    ExpectSoftKeyword("match") != null &&
+                    (subject = Parse_SubjectExpr()) != null &&
+                    ExpectOp(":") != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    ExpectToken(PyToken.Type.INDENT) != null &&
+                    (cases = (GeneratedMatchCaseSeq)ParseOneOrMore(() => Parse_CaseBlock())) != null &&
+                    ExpectToken(PyToken.Type.DEDENT) != null
+                )
+                {
+                    // Action code from grammar
+                    return CheckVersion ( 10 , "Pattern matching is" , PyAst . Match (( GeneratedExpr ) subject ,( GeneratedMatchCaseSeq ) cases , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                }
             }
 
             // Alternative 2
@@ -3187,11 +3844,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedStmt? _alt_var = null;
 
-                if (Parse_InvalidMatchStmt() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedStmt)Parse_InvalidMatchStmt()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -3207,6 +3866,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] subject_expr at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -3214,12 +3877,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? value = null;
                 GeneratedExprSeq? values = null;
 
-                if ((value = Parse_StarNamedExpression()) == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if ((values = (GeneratedExprSeq)ParseOptional(() => Parse_StarNamedExpressions())) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront (( GeneratedExpr ) value ,( GeneratedExprSeq ?) values ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (value = Parse_StarNamedExpression()) != null &&
+                    ExpectOp(",") != null &&
+                    ((values = (GeneratedExprSeq)ParseOptional(() => Parse_StarNamedExpressions())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront (( GeneratedExpr ) value ,( GeneratedExprSeq ?) values ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -3227,11 +3893,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_NamedExpression() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_NamedExpression()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -3247,15 +3915,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] case_block at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedMatchCase? _alt_var = null;
 
-                if (Parse_InvalidCaseBlock() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedMatchCase)Parse_InvalidCaseBlock()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -3267,14 +3941,17 @@ namespace SharpPy.Generated
                 GeneratedExpr? guard = null;
                 GeneratedStmtSeq? body = null;
 
-                if (ExpectSoftKeyword("case") == null) return null;
-                if ((pattern = Parse_Patterns()) == null) return null;
-                if ((guard = (GeneratedExpr)ParseOptional(() => Parse_Guard())) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((body = Parse_Block()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . match_case (( GeneratedPattern ) pattern ,( GeneratedExpr ?) guard ,( GeneratedStmtSeq ) body );
+                if (
+                    ExpectSoftKeyword("case") != null &&
+                    (pattern = Parse_Patterns()) != null &&
+                    ((guard = (GeneratedExpr)ParseOptional(() => Parse_Guard())) == null || true) &&
+                    ExpectOp(":") != null &&
+                    (body = Parse_Block()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . match_case (( GeneratedPattern ) pattern ,( GeneratedExpr ?) guard ,( GeneratedStmtSeq ) body );
+                }
             }
 
             Reset(_mark);
@@ -3290,17 +3967,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] guard at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? guard = null;
 
-                if (ExpectKeyword("if") == null) return null;
-                if ((guard = Parse_NamedExpression()) == null) return null;
-
-                // Action code from grammar
-                return guard;
+                if (
+                    ExpectKeyword("if") != null &&
+                    (guard = Parse_NamedExpression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return guard;
+                }
             }
 
             Reset(_mark);
@@ -3316,16 +4000,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] patterns at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedPatternSeq? patterns = null;
 
-                if ((patterns = (GeneratedPatternSeq)Parse_OpenSequencePattern()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchSequence (( GeneratedPatternSeq ) patterns , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if ((patterns = (GeneratedPatternSeq)Parse_OpenSequencePattern()) != null)
+                {
+                    // Action code from grammar
+                    return PyAst . MatchSequence (( GeneratedPatternSeq ) patterns , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -3333,11 +4022,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPattern? _alt_var = null;
 
-                if (Parse_Pattern() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Pattern()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -3353,15 +4044,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] pattern at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedPattern? _alt_var = null;
 
-                if (Parse_AsPattern() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_AsPattern()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -3369,11 +4066,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPattern? _alt_var = null;
 
-                if (Parse_OrPattern() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_OrPattern()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -3389,6 +4088,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] as_pattern at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -3396,12 +4099,15 @@ namespace SharpPy.Generated
                 GeneratedPattern? pattern = null;
                 GeneratedExpr? target = null;
 
-                if ((pattern = Parse_OrPattern()) == null) return null;
-                if (ExpectKeyword("as") == null) return null;
-                if ((target = Parse_PatternCaptureTarget()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchAs (( GeneratedPattern ) pattern , target . GetIdentifier (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (pattern = Parse_OrPattern()) != null &&
+                    ExpectKeyword("as") != null &&
+                    (target = Parse_PatternCaptureTarget()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . MatchAs (( GeneratedPattern ) pattern , target . GetIdentifier (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -3409,11 +4115,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPattern? _alt_var = null;
 
-                if (Parse_InvalidAsPattern() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedPattern)Parse_InvalidAsPattern()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -3429,16 +4137,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] or_pattern at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedPatternSeq? patterns = null;
 
-                if ((patterns = (GeneratedPatternSeq)ParseGatherPlus(() => ExpectOp("|"), () => Parse_ClosedPattern())) == null) return null;
-
-                // Action code from grammar
-                return patterns . Count == 1 ?( GeneratedPattern ) patterns [ 0 ]: PyAst . MatchOr (( GeneratedPatternSeq ) patterns , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if ((patterns = (GeneratedPatternSeq)ParseGatherPlus(() => ExpectOp("|"), () => Parse_ClosedPattern())) != null)
+                {
+                    // Action code from grammar
+                    return patterns . Count == 1 ?( GeneratedPattern ) patterns [ 0 ]: PyAst . MatchOr (( GeneratedPatternSeq ) patterns , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -3449,10 +4162,24 @@ namespace SharpPy.Generated
         /// Rule: closed_pattern
         /// Alternatives: 8
         /// Return Type: GeneratedPattern
+        /// CPython (memo) - uses TryMemoized wrapper
         /// </summary>
         private GeneratedPattern? Parse_ClosedPattern()
         {
+            return (GeneratedPattern?)TryMemoized("closed_pattern", Parse_ClosedPattern_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for memoized rule: closed_pattern
+        /// Called by TryMemoized wrapper
+        /// </summary>
+        private GeneratedPattern? Parse_ClosedPattern_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] closed_pattern at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -3460,10 +4187,11 @@ namespace SharpPy.Generated
 
                 GeneratedPattern? a = null;
 
-                if ((a = Parse_LiteralPattern()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if ((a = Parse_LiteralPattern()) != null)
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 2
@@ -3473,10 +4201,11 @@ namespace SharpPy.Generated
 
                 GeneratedPattern? a = null;
 
-                if ((a = Parse_CapturePattern()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if ((a = Parse_CapturePattern()) != null)
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 3
@@ -3486,10 +4215,11 @@ namespace SharpPy.Generated
 
                 GeneratedPattern? a = null;
 
-                if ((a = Parse_WildcardPattern()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if ((a = Parse_WildcardPattern()) != null)
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 4
@@ -3499,10 +4229,11 @@ namespace SharpPy.Generated
 
                 GeneratedPattern? a = null;
 
-                if ((a = Parse_ValuePattern()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if ((a = Parse_ValuePattern()) != null)
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 5
@@ -3512,10 +4243,11 @@ namespace SharpPy.Generated
 
                 GeneratedPattern? a = null;
 
-                if ((a = Parse_GroupPattern()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if ((a = Parse_GroupPattern()) != null)
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 6
@@ -3525,10 +4257,11 @@ namespace SharpPy.Generated
 
                 GeneratedPattern? a = null;
 
-                if ((a = Parse_SequencePattern()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if ((a = Parse_SequencePattern()) != null)
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 7
@@ -3538,10 +4271,11 @@ namespace SharpPy.Generated
 
                 GeneratedPattern? a = null;
 
-                if ((a = Parse_MappingPattern()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if ((a = Parse_MappingPattern()) != null)
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 8
@@ -3551,10 +4285,11 @@ namespace SharpPy.Generated
 
                 GeneratedPattern? a = null;
 
-                if ((a = Parse_ClassPattern()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if ((a = Parse_ClassPattern()) != null)
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -3570,17 +4305,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] literal_pattern at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? value = null;
 
-                if ((value = Parse_SignedNumber()) == null) return null;
-                if (NegativeLookahead(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchValue (( GeneratedExpr ) value , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (value = Parse_SignedNumber()) != null &&
+                    NegativeLookahead(() => Parse_Tmp26()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . MatchValue (( GeneratedExpr ) value , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -3590,10 +4332,11 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? value = null;
 
-                if ((value = Parse_ComplexNumber()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchValue (( GeneratedExpr ) value , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if ((value = Parse_ComplexNumber()) != null)
+                {
+                    // Action code from grammar
+                    return PyAst . MatchValue (( GeneratedExpr ) value , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -3603,10 +4346,11 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? value = null;
 
-                if ((value = Parse_Strings()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchValue (( GeneratedExpr ) value , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if ((value = Parse_Strings()) != null)
+                {
+                    // Action code from grammar
+                    return PyAst . MatchValue (( GeneratedExpr ) value , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 4
@@ -3615,10 +4359,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectKeyword("None") == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchSingleton ( GeneratedPyConstant . None , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (ExpectKeyword("None") != null)
+                {
+                    // Action code from grammar
+                    return PyAst . MatchSingleton ( GeneratedPyConstant . None , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 5
@@ -3627,10 +4372,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectKeyword("True") == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchSingleton ( GeneratedPyConstant . True , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (ExpectKeyword("True") != null)
+                {
+                    // Action code from grammar
+                    return PyAst . MatchSingleton ( GeneratedPyConstant . True , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 6
@@ -3639,10 +4385,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectKeyword("False") == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchSingleton ( GeneratedPyConstant . False , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (ExpectKeyword("False") != null)
+                {
+                    // Action code from grammar
+                    return PyAst . MatchSingleton ( GeneratedPyConstant . False , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -3658,16 +4405,23 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] literal_expr at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
 
-                if (Parse_SignedNumber() == null) return null;
-                if (NegativeLookahead(() => ParseGroup()) == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if (
+                    Parse_SignedNumber() != null &&
+                    NegativeLookahead(() => Parse_Tmp27()) != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
             }
 
             // Alternative 2
@@ -3675,11 +4429,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_ComplexNumber() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_ComplexNumber()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 3
@@ -3687,11 +4443,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_Strings() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Strings()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 4
@@ -3700,10 +4458,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectKeyword("None") == null) return null;
-
-                // Action code from grammar
-                return PyAst . Constant ( GeneratedPyConstant . None , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (ExpectKeyword("None") != null)
+                {
+                    // Action code from grammar
+                    return PyAst . Constant ( GeneratedPyConstant . None , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 5
@@ -3712,10 +4471,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectKeyword("True") == null) return null;
-
-                // Action code from grammar
-                return PyAst . Constant ( GeneratedPyConstant . True , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (ExpectKeyword("True") != null)
+                {
+                    // Action code from grammar
+                    return PyAst . Constant ( GeneratedPyConstant . True , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 6
@@ -3724,10 +4484,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectKeyword("False") == null) return null;
-
-                // Action code from grammar
-                return PyAst . Constant ( GeneratedPyConstant . False , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (ExpectKeyword("False") != null)
+                {
+                    // Action code from grammar
+                    return PyAst . Constant ( GeneratedPyConstant . False , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -3743,6 +4504,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] complex_number at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -3750,12 +4515,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? real = null;
                 GeneratedExpr? imag = null;
 
-                if ((real = Parse_SignedRealNumber()) == null) return null;
-                if (ExpectOp("+") == null) return null;
-                if ((imag = Parse_ImaginaryNumber()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . BinOp (( GeneratedExpr ) real , GeneratedAdd.Instance ,( GeneratedExpr ) imag , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (real = Parse_SignedRealNumber()) != null &&
+                    ExpectOp("+") != null &&
+                    (imag = Parse_ImaginaryNumber()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . BinOp (( GeneratedExpr ) real , GeneratedAdd.Instance ,( GeneratedExpr ) imag , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -3766,12 +4534,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? real = null;
                 GeneratedExpr? imag = null;
 
-                if ((real = Parse_SignedRealNumber()) == null) return null;
-                if (ExpectOp("-") == null) return null;
-                if ((imag = Parse_ImaginaryNumber()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . BinOp (( GeneratedExpr ) real , GeneratedSub.Instance ,( GeneratedExpr ) imag , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (real = Parse_SignedRealNumber()) != null &&
+                    ExpectOp("-") != null &&
+                    (imag = Parse_ImaginaryNumber()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . BinOp (( GeneratedExpr ) real , GeneratedSub.Instance ,( GeneratedExpr ) imag , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -3787,16 +4558,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] signed_number at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? number = null;
 
-                if ((number = Expect(PyToken.Type.NUMBER, "NUMBER")) == null) return null;
-
-                // Action code from grammar
-                return NumberToken ( number );
+                if ((number = ExpectToken(PyToken.Type.NUMBER)) != null)
+                {
+                    // Action code from grammar
+                    return NumberToken ( number );
+                }
             }
 
             // Alternative 2
@@ -3806,11 +4582,14 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? number = null;
 
-                if (ExpectOp("-") == null) return null;
-                if ((number = Expect(PyToken.Type.NUMBER, "NUMBER")) == null) return null;
-
-                // Action code from grammar
-                return PyAst . UnaryOp ( GeneratedUSub.Instance , NumberToken ( number ), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("-") != null &&
+                    (number = ExpectToken(PyToken.Type.NUMBER)) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . UnaryOp ( GeneratedUSub.Instance , NumberToken ( number ), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -3826,15 +4605,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] signed_real_number at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_RealNumber() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_RealNumber()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -3844,11 +4629,14 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? real = null;
 
-                if (ExpectOp("-") == null) return null;
-                if ((real = Parse_RealNumber()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . UnaryOp ( GeneratedUSub.Instance ,( GeneratedExpr ) real , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("-") != null &&
+                    (real = Parse_RealNumber()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . UnaryOp ( GeneratedUSub.Instance ,( GeneratedExpr ) real , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -3864,16 +4652,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] real_number at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? real = null;
 
-                if ((real = Expect(PyToken.Type.NUMBER, "NUMBER")) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . EnsureReal ( NumberToken ( real ));
+                if ((real = ExpectToken(PyToken.Type.NUMBER)) != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . EnsureReal ( NumberToken ( real ));
+                }
             }
 
             Reset(_mark);
@@ -3889,16 +4682,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] imaginary_number at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? imag = null;
 
-                if ((imag = Expect(PyToken.Type.NUMBER, "NUMBER")) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . EnsureImaginary ( NumberToken ( imag ));
+                if ((imag = ExpectToken(PyToken.Type.NUMBER)) != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . EnsureImaginary ( NumberToken ( imag ));
+                }
             }
 
             Reset(_mark);
@@ -3914,16 +4712,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] capture_pattern at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? target = null;
 
-                if ((target = Parse_PatternCaptureTarget()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchAs ( null , target . GetIdentifier (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if ((target = Parse_PatternCaptureTarget()) != null)
+                {
+                    // Action code from grammar
+                    return PyAst . MatchAs ( null , target . GetIdentifier (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -3939,18 +4742,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] pattern_capture_target at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? name = null;
 
-                if (NegativeLookahead(() => ExpectSoftKeyword("_")) == null) return null;
-                if ((name = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if (NegativeLookahead(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SetExprContext ( NameToken ( name ), GeneratedStore.Instance );
+                if (
+                    NegativeLookahead(() => ExpectSoftKeyword("_")) != null &&
+                    (name = ExpectName()) != null &&
+                    NegativeLookahead(() => Parse_Tmp28()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SetExprContext ( NameToken ( name ), GeneratedStore.Instance );
+                }
             }
 
             Reset(_mark);
@@ -3966,15 +4776,20 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] wildcard_pattern at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
 
-                if (ExpectSoftKeyword("_") == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchAs ( null , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (ExpectSoftKeyword("_") != null)
+                {
+                    // Action code from grammar
+                    return PyAst . MatchAs ( null , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -3990,17 +4805,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] value_pattern at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? attr = null;
 
-                if ((attr = Parse_Attr()) == null) return null;
-                if (NegativeLookahead(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchValue (( GeneratedExpr ) attr , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (attr = Parse_Attr()) != null &&
+                    NegativeLookahead(() => Parse_Tmp29()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . MatchValue (( GeneratedExpr ) attr , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -4011,10 +4833,24 @@ namespace SharpPy.Generated
         /// Rule: attr
         /// Alternatives: 1
         /// Return Type: GeneratedExpr
+        /// Left-recursive rule - uses TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_Attr()
         {
+            return (GeneratedExpr?)TryLeftRecursive("attr", Parse_Attr_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for left-recursive rule: attr
+        /// Called by TryLeftRecursive wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_Attr_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] attr at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -4023,12 +4859,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? value = null;
                 GeneratedTokenInfo? attr = null;
 
-                if ((value = Parse_NameOrAttr()) == null) return null;
-                if (ExpectOp(".") == null) return null;
-                if ((attr = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Attribute (( GeneratedExpr ) value , attr . Value , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (value = Parse_NameOrAttr()) != null &&
+                    ExpectOp(".") != null &&
+                    (attr = ExpectName()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Attribute (( GeneratedExpr ) value , attr . Value , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -4039,20 +4878,36 @@ namespace SharpPy.Generated
         /// Rule: name_or_attr
         /// Alternatives: 2
         /// Return Type: GeneratedExpr
+        /// Left-recursive rule - uses TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_NameOrAttr()
         {
+            return (GeneratedExpr?)TryLeftRecursive("name_or_attr", Parse_NameOrAttr_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for left-recursive rule: name_or_attr
+        /// Called by TryLeftRecursive wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_NameOrAttr_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] name_or_attr at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_Attr() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Attr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -4060,11 +4915,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Expect(PyToken.Type.NAME, "NAME") == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = ExpectNameExpr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -4080,18 +4937,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] group_pattern at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedPattern? pattern = null;
 
-                if (ExpectOp("(") == null) return null;
-                if ((pattern = Parse_Pattern()) == null) return null;
-                if (ExpectOp(")") == null) return null;
-
-                // Action code from grammar
-                return pattern;
+                if (
+                    ExpectOp("(") != null &&
+                    (pattern = Parse_Pattern()) != null &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Action code from grammar
+                    return pattern;
+                }
             }
 
             Reset(_mark);
@@ -4107,18 +4971,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] sequence_pattern at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedSeq? patterns = null;
 
-                if (ExpectOp("[") == null) return null;
-                if ((patterns = (GeneratedSeq)ParseOptional(() => Parse_MaybeSequencePattern())) == null) return null;
-                if (ExpectOp("]") == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchSequence (( GeneratedPatternSeq ?) patterns , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("[") != null &&
+                    ((patterns = (GeneratedSeq)ParseOptional(() => Parse_MaybeSequencePattern())) == null || true) &&
+                    ExpectOp("]") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . MatchSequence (( GeneratedPatternSeq ?) patterns , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -4128,12 +4999,15 @@ namespace SharpPy.Generated
 
                 GeneratedSeq? patterns = null;
 
-                if (ExpectOp("(") == null) return null;
-                if ((patterns = (GeneratedSeq)ParseOptional(() => Parse_OpenSequencePattern())) == null) return null;
-                if (ExpectOp(")") == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchSequence (( GeneratedPatternSeq ?) patterns , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("(") != null &&
+                    ((patterns = (GeneratedSeq)ParseOptional(() => Parse_OpenSequencePattern())) == null || true) &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . MatchSequence (( GeneratedPatternSeq ?) patterns , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -4149,6 +5023,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] open_sequence_pattern at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -4156,12 +5034,15 @@ namespace SharpPy.Generated
                 GeneratedPattern? pattern = null;
                 GeneratedSeq? patterns = null;
 
-                if ((pattern = Parse_MaybeStarPattern()) == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if ((patterns = (GeneratedSeq)ParseOptional(() => Parse_MaybeSequencePattern())) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SeqInsertInFront (( GeneratedPattern ) pattern ,( GeneratedSeq ?) patterns ). Cast < GeneratedPatternSeq >();
+                if (
+                    (pattern = Parse_MaybeStarPattern()) != null &&
+                    ExpectOp(",") != null &&
+                    ((patterns = (GeneratedSeq)ParseOptional(() => Parse_MaybeSequencePattern())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SeqInsertInFront (( GeneratedPattern ) pattern ,( GeneratedSeq ?) patterns ). Cast < GeneratedPatternSeq >();
+                }
             }
 
             Reset(_mark);
@@ -4177,17 +5058,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] maybe_sequence_pattern at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedSeq? patterns = null;
 
-                if ((patterns = ParseGatherPlus(() => ExpectOp(","), () => Parse_MaybeStarPattern())) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-
-                // Action code from grammar
-                return patterns;
+                if (
+                    (patterns = ParseGatherPlus(() => ExpectOp(","), () => Parse_MaybeStarPattern())) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return patterns;
+                }
             }
 
             Reset(_mark);
@@ -4203,15 +5091,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] maybe_star_pattern at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedPattern? _alt_var = null;
 
-                if (Parse_StarPattern() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_StarPattern()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -4219,11 +5113,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPattern? _alt_var = null;
 
-                if (Parse_Pattern() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Pattern()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -4234,10 +5130,24 @@ namespace SharpPy.Generated
         /// Rule: star_pattern
         /// Alternatives: 2
         /// Return Type: GeneratedPattern
+        /// CPython (memo) - uses TryMemoized wrapper
         /// </summary>
         private GeneratedPattern? Parse_StarPattern()
         {
+            return (GeneratedPattern?)TryMemoized("star_pattern", Parse_StarPattern_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for memoized rule: star_pattern
+        /// Called by TryMemoized wrapper
+        /// </summary>
+        private GeneratedPattern? Parse_StarPattern_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] star_pattern at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -4245,11 +5155,14 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? target = null;
 
-                if (ExpectOp("*") == null) return null;
-                if ((target = Parse_PatternCaptureTarget()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchStar ( target . GetIdentifier (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("*") != null &&
+                    (target = Parse_PatternCaptureTarget()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . MatchStar ( target . GetIdentifier (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -4258,11 +5171,14 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("*") == null) return null;
-                if (Parse_WildcardPattern() == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchStar ( null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("*") != null &&
+                    Parse_WildcardPattern() != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . MatchStar ( null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -4278,16 +5194,23 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] mapping_pattern at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
 
-                if (ExpectOp("{") == null) return null;
-                if (ExpectOp("}") == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchMapping ( null , null , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("{") != null &&
+                    ExpectOp("}") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . MatchMapping ( null , null , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -4297,13 +5220,16 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? rest = null;
 
-                if (ExpectOp("{") == null) return null;
-                if ((rest = Parse_DoubleStarPattern()) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-                if (ExpectOp("}") == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchMapping ( null , null , rest . GetIdentifier (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("{") != null &&
+                    (rest = Parse_DoubleStarPattern()) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true) &&
+                    ExpectOp("}") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . MatchMapping ( null , null , rest . GetIdentifier (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -4314,15 +5240,18 @@ namespace SharpPy.Generated
                 GeneratedSeq? items = null;
                 GeneratedExpr? rest = null;
 
-                if (ExpectOp("{") == null) return null;
-                if ((items = Parse_ItemsPattern()) == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if ((rest = Parse_DoubleStarPattern()) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-                if (ExpectOp("}") == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchMapping ( Check < GeneratedExprSeq >( PyParserHelpers . GetPatternKeys ( items )), Check < GeneratedPatternSeq >( PyParserHelpers . GetPatterns ( items )), rest . GetIdentifier (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("{") != null &&
+                    (items = Parse_ItemsPattern()) != null &&
+                    ExpectOp(",") != null &&
+                    (rest = Parse_DoubleStarPattern()) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true) &&
+                    ExpectOp("}") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . MatchMapping ( Check < GeneratedExprSeq >( PyParserHelpers . GetPatternKeys ( items )), Check < GeneratedPatternSeq >( PyParserHelpers . GetPatterns ( items )), rest . GetIdentifier (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 4
@@ -4332,13 +5261,16 @@ namespace SharpPy.Generated
 
                 GeneratedSeq? items = null;
 
-                if (ExpectOp("{") == null) return null;
-                if ((items = Parse_ItemsPattern()) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-                if (ExpectOp("}") == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchMapping ( Check < GeneratedExprSeq >( PyParserHelpers . GetPatternKeys ( items )), Check < GeneratedPatternSeq >( PyParserHelpers . GetPatterns ( items )), null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("{") != null &&
+                    (items = Parse_ItemsPattern()) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true) &&
+                    ExpectOp("}") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . MatchMapping ( Check < GeneratedExprSeq >( PyParserHelpers . GetPatternKeys ( items )), Check < GeneratedPatternSeq >( PyParserHelpers . GetPatterns ( items )), null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -4354,15 +5286,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] items_pattern at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedSeq? _alt_var = null;
 
-                if (ParseGatherPlus(() => ExpectOp(","), () => Parse_KeyValuePattern()) == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = ParseGatherPlus(() => ExpectOp(","), () => Parse_KeyValuePattern())) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -4378,6 +5316,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] key_value_pattern at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -4385,12 +5327,15 @@ namespace SharpPy.Generated
                 GeneratedPtr? key = null;
                 GeneratedPattern? pattern = null;
 
-                if ((key = ParseGroup()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((pattern = Parse_Pattern()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . KeyPatternPair (( GeneratedExpr ) key ,( GeneratedPattern ) pattern );
+                if (
+                    (key = Parse_Tmp30()) != null &&
+                    ExpectOp(":") != null &&
+                    (pattern = Parse_Pattern()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . KeyPatternPair (( GeneratedExpr ) key ,( GeneratedPattern ) pattern );
+                }
             }
 
             Reset(_mark);
@@ -4406,17 +5351,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] double_star_pattern at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? target = null;
 
-                if (ExpectOp("**") == null) return null;
-                if ((target = Parse_PatternCaptureTarget()) == null) return null;
-
-                // Action code from grammar
-                return target;
+                if (
+                    ExpectOp("**") != null &&
+                    (target = Parse_PatternCaptureTarget()) != null
+                )
+                {
+                    // Action code from grammar
+                    return target;
+                }
             }
 
             Reset(_mark);
@@ -4432,18 +5384,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] class_pattern at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? cls = null;
 
-                if ((cls = Parse_NameOrAttr()) == null) return null;
-                if (ExpectOp("(") == null) return null;
-                if (ExpectOp(")") == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchClass (( GeneratedExpr ) cls , null , null , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (cls = Parse_NameOrAttr()) != null &&
+                    ExpectOp("(") != null &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . MatchClass (( GeneratedExpr ) cls , null , null , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -4454,14 +5413,17 @@ namespace SharpPy.Generated
                 GeneratedExpr? cls = null;
                 GeneratedPatternSeq? patterns = null;
 
-                if ((cls = Parse_NameOrAttr()) == null) return null;
-                if (ExpectOp("(") == null) return null;
-                if ((patterns = Parse_PositionalPatterns()) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-                if (ExpectOp(")") == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchClass (( GeneratedExpr ) cls ,( GeneratedPatternSeq ) patterns , null , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (cls = Parse_NameOrAttr()) != null &&
+                    ExpectOp("(") != null &&
+                    (patterns = Parse_PositionalPatterns()) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true) &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . MatchClass (( GeneratedExpr ) cls ,( GeneratedPatternSeq ) patterns , null , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -4472,14 +5434,17 @@ namespace SharpPy.Generated
                 GeneratedExpr? cls = null;
                 GeneratedSeq? keywords = null;
 
-                if ((cls = Parse_NameOrAttr()) == null) return null;
-                if (ExpectOp("(") == null) return null;
-                if ((keywords = Parse_KeywordPatterns()) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-                if (ExpectOp(")") == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchClass (( GeneratedExpr ) cls , null , Check < GeneratedIdentifierSeq >( PyParserHelpers . MapNamesToIds ( Check < GeneratedExprSeq >( PyParserHelpers . GetPatternKeys (( GeneratedSeq ) keywords )))), Check < GeneratedPatternSeq >( PyParserHelpers . GetPatterns (( GeneratedSeq ) keywords )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (cls = Parse_NameOrAttr()) != null &&
+                    ExpectOp("(") != null &&
+                    (keywords = Parse_KeywordPatterns()) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true) &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . MatchClass (( GeneratedExpr ) cls , null , Check < GeneratedIdentifierSeq >( PyParserHelpers . MapNamesToIds ( Check < GeneratedExprSeq >( PyParserHelpers . GetPatternKeys (( GeneratedSeq ) keywords )))), Check < GeneratedPatternSeq >( PyParserHelpers . GetPatterns (( GeneratedSeq ) keywords )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 4
@@ -4491,16 +5456,19 @@ namespace SharpPy.Generated
                 GeneratedPatternSeq? patterns = null;
                 GeneratedSeq? keywords = null;
 
-                if ((cls = Parse_NameOrAttr()) == null) return null;
-                if (ExpectOp("(") == null) return null;
-                if ((patterns = Parse_PositionalPatterns()) == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if ((keywords = Parse_KeywordPatterns()) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-                if (ExpectOp(")") == null) return null;
-
-                // Action code from grammar
-                return PyAst . MatchClass (( GeneratedExpr ) cls ,( GeneratedPatternSeq ) patterns , Check < GeneratedIdentifierSeq >( PyParserHelpers . MapNamesToIds ( Check < GeneratedExprSeq >( PyParserHelpers . GetPatternKeys (( GeneratedSeq ) keywords )))), Check < GeneratedPatternSeq >( PyParserHelpers . GetPatterns (( GeneratedSeq ) keywords )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (cls = Parse_NameOrAttr()) != null &&
+                    ExpectOp("(") != null &&
+                    (patterns = Parse_PositionalPatterns()) != null &&
+                    ExpectOp(",") != null &&
+                    (keywords = Parse_KeywordPatterns()) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true) &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . MatchClass (( GeneratedExpr ) cls ,( GeneratedPatternSeq ) patterns , Check < GeneratedIdentifierSeq >( PyParserHelpers . MapNamesToIds ( Check < GeneratedExprSeq >( PyParserHelpers . GetPatternKeys (( GeneratedSeq ) keywords )))), Check < GeneratedPatternSeq >( PyParserHelpers . GetPatterns (( GeneratedSeq ) keywords )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 5
@@ -4508,11 +5476,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPattern? _alt_var = null;
 
-                if (Parse_InvalidClassPattern() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedPattern)Parse_InvalidClassPattern()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -4528,16 +5498,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] positional_patterns at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedPatternSeq? args = null;
 
-                if ((args = (GeneratedPatternSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_Pattern())) == null) return null;
-
-                // Action code from grammar
-                return args;
+                if ((args = (GeneratedPatternSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_Pattern())) != null)
+                {
+                    // Action code from grammar
+                    return args;
+                }
             }
 
             Reset(_mark);
@@ -4553,15 +5528,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] keyword_patterns at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedSeq? _alt_var = null;
 
-                if (ParseGatherPlus(() => ExpectOp(","), () => Parse_KeywordPattern()) == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = ParseGatherPlus(() => ExpectOp(","), () => Parse_KeywordPattern())) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -4577,6 +5558,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] keyword_pattern at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -4584,12 +5569,15 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? arg = null;
                 GeneratedPattern? value = null;
 
-                if ((arg = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if (ExpectOp("=") == null) return null;
-                if ((value = Parse_Pattern()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . KeyPatternPair ( NameToken ( arg ),( GeneratedPattern ) value );
+                if (
+                    (arg = ExpectName()) != null &&
+                    ExpectOp("=") != null &&
+                    (value = Parse_Pattern()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . KeyPatternPair ( NameToken ( arg ),( GeneratedPattern ) value );
+                }
             }
 
             Reset(_mark);
@@ -4605,6 +5593,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] type_alias at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -4613,14 +5605,17 @@ namespace SharpPy.Generated
                 GeneratedTypeParamSeq? t = null;
                 GeneratedExpr? b = null;
 
-                if (ExpectSoftKeyword("type") == null) return null;
-                if ((n = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if ((t = (GeneratedTypeParamSeq)ParseOptional(() => Parse_TypeParams())) == null) return null;
-                if (ExpectOp("=") == null) return null;
-                if ((b = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                return CheckVersion ( 12 , "Type statement is" , PyAst . TypeAlias ( Check < GeneratedExpr >( PyParserHelpers . SetExprContext ( NameToken ( n ), GeneratedStore.Instance )),( GeneratedTypeParamSeq ?) t ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                if (
+                    ExpectSoftKeyword("type") != null &&
+                    (n = ExpectName()) != null &&
+                    ((t = (GeneratedTypeParamSeq)ParseOptional(() => Parse_TypeParams())) == null || true) &&
+                    ExpectOp("=") != null &&
+                    (b = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return CheckVersion ( 12 , "Type statement is" , PyAst . TypeAlias ( Check < GeneratedExpr >( PyParserHelpers . SetExprContext ( NameToken ( n ), GeneratedStore.Instance )),( GeneratedTypeParamSeq ?) t ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                }
             }
 
             Reset(_mark);
@@ -4636,18 +5631,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] type_params at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTypeParamSeq? t = null;
 
-                if (ExpectOp("[") == null) return null;
-                if ((t = Parse_TypeParamSeq()) == null) return null;
-                if (ExpectOp("]") == null) return null;
-
-                // Action code from grammar
-                return CheckVersion ( 12 , "Type parameter lists are" , t );
+                if (
+                    ExpectOp("[") != null &&
+                    (t = Parse_TypeParamSeq()) != null &&
+                    ExpectOp("]") != null
+                )
+                {
+                    // Action code from grammar
+                    return CheckVersion ( 12 , "Type parameter lists are" , t );
+                }
             }
 
             Reset(_mark);
@@ -4663,17 +5665,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] type_param_seq at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTypeParamSeq? a = null;
 
-                if ((a = (GeneratedTypeParamSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_TypeParam())) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    (a = (GeneratedTypeParamSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_TypeParam())) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -4684,10 +5693,24 @@ namespace SharpPy.Generated
         /// Rule: type_param
         /// Alternatives: 5
         /// Return Type: GeneratedTypeParam
+        /// CPython (memo) - uses TryMemoized wrapper
         /// </summary>
         private GeneratedTypeParam? Parse_TypeParam()
         {
+            return (GeneratedTypeParam?)TryMemoized("type_param", Parse_TypeParam_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for memoized rule: type_param
+        /// Called by TryMemoized wrapper
+        /// </summary>
+        private GeneratedTypeParam? Parse_TypeParam_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] type_param at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -4696,11 +5719,14 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if ((b = (GeneratedExpr)ParseOptional(() => Parse_TypeParamBound())) == null) return null;
-
-                // Action code from grammar
-                return PyAst . TypeVar ( a . GetNameValue (),( GeneratedExpr ?) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = ExpectName()) != null &&
+                    ((b = (GeneratedExpr)ParseOptional(() => Parse_TypeParamBound())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . TypeVar ( a . GetNameValue (),( GeneratedExpr ?) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -4712,13 +5738,16 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? colon = null;
                 GeneratedExpr? e = null;
 
-                if (ExpectOp("*") == null) return null;
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if ((colon = ExpectOp(":")) == null) return null;
-                if ((e = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorStartingFrom ( colon ,( GeneratedExpr ) e is GeneratedTuple ? "cannot use constraints with TypeVarTuple" : "cannot use bound with TypeVarTuple" );
+                if (
+                    ExpectOp("*") != null &&
+                    (a = ExpectName()) != null &&
+                    (colon = ExpectOp(":")) != null &&
+                    (e = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorStartingFrom ( colon ,( GeneratedExpr ) e is GeneratedTuple ? "cannot use constraints with TypeVarTuple" : "cannot use bound with TypeVarTuple" );
+                }
             }
 
             // Alternative 3
@@ -4728,11 +5757,14 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (ExpectOp("*") == null) return null;
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-
-                // Action code from grammar
-                return PyAst . TypeVarTuple ( a . GetNameValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("*") != null &&
+                    (a = ExpectName()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . TypeVarTuple ( a . GetNameValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 4
@@ -4744,13 +5776,16 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? colon = null;
                 GeneratedExpr? e = null;
 
-                if (ExpectOp("**") == null) return null;
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if ((colon = ExpectOp(":")) == null) return null;
-                if ((e = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorStartingFrom ( colon ,( GeneratedExpr ) e is GeneratedTuple ? "cannot use constraints with ParamSpec" : "cannot use bound with ParamSpec" );
+                if (
+                    ExpectOp("**") != null &&
+                    (a = ExpectName()) != null &&
+                    (colon = ExpectOp(":")) != null &&
+                    (e = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorStartingFrom ( colon ,( GeneratedExpr ) e is GeneratedTuple ? "cannot use constraints with ParamSpec" : "cannot use bound with ParamSpec" );
+                }
             }
 
             // Alternative 5
@@ -4760,11 +5795,14 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (ExpectOp("**") == null) return null;
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-
-                // Action code from grammar
-                return PyAst . ParamSpec ( a . GetNameValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("**") != null &&
+                    (a = ExpectName()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . ParamSpec ( a . GetNameValue (), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -4780,17 +5818,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] type_param_bound at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? e = null;
 
-                if (ExpectOp(":") == null) return null;
-                if ((e = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                return e;
+                if (
+                    ExpectOp(":") != null &&
+                    (e = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return e;
+                }
             }
 
             Reset(_mark);
@@ -4806,6 +5851,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] expressions at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -4813,12 +5862,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedSeq? b = null;
 
-                if ((a = Parse_Expression()) == null) return null;
-                if ((b = ParseOneOrMore(() => ParseGroup())) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront (( GeneratedExpr ) a ,( GeneratedSeq ) b ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_Expression()) != null &&
+                    (b = ParseOneOrMore(() => Parse_Tmp31())) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront (( GeneratedExpr ) a ,( GeneratedSeq ) b ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -4828,11 +5880,14 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if ((a = Parse_Expression()) == null) return null;
-                if (ExpectOp(",") == null) return null;
-
-                // Action code from grammar
-                return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SingletonSequence (( GeneratedExpr ) a ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_Expression()) != null &&
+                    ExpectOp(",") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SingletonSequence (( GeneratedExpr ) a ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -4840,11 +5895,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_Expression() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Expression()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -4855,20 +5912,36 @@ namespace SharpPy.Generated
         /// Rule: expression
         /// Alternatives: 5
         /// Return Type: GeneratedExpr
+        /// CPython (memo) - uses TryMemoized wrapper
         /// </summary>
         private GeneratedExpr? Parse_Expression()
         {
+            return (GeneratedExpr?)TryMemoized("expression", Parse_Expression_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for memoized rule: expression
+        /// Called by TryMemoized wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_Expression_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] expression at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_InvalidExpression() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedExpr)Parse_InvalidExpression()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -4876,11 +5949,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_InvalidLegacyExpression() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedExpr)Parse_InvalidLegacyExpression()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 3
@@ -4892,14 +5967,17 @@ namespace SharpPy.Generated
                 GeneratedExpr? b = null;
                 GeneratedExpr? c = null;
 
-                if ((a = Parse_Disjunction()) == null) return null;
-                if (ExpectKeyword("if") == null) return null;
-                if ((b = Parse_Disjunction()) == null) return null;
-                if (ExpectKeyword("else") == null) return null;
-                if ((c = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . IfExp (( GeneratedExpr ) b ,( GeneratedExpr ) a ,( GeneratedExpr ) c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_Disjunction()) != null &&
+                    ExpectKeyword("if") != null &&
+                    (b = Parse_Disjunction()) != null &&
+                    ExpectKeyword("else") != null &&
+                    (c = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . IfExp (( GeneratedExpr ) b ,( GeneratedExpr ) a ,( GeneratedExpr ) c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 4
@@ -4907,11 +5985,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_Disjunction() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Disjunction()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 5
@@ -4919,11 +5999,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_Lambdef() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Lambdef()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -4939,18 +6021,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] yield_expr at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ExpectKeyword("yield") == null) return null;
-                if (ExpectKeyword("from") == null) return null;
-                if ((a = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . YieldFrom (( GeneratedExpr ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("yield") != null &&
+                    ExpectKeyword("from") != null &&
+                    (a = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . YieldFrom (( GeneratedExpr ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -4960,11 +6049,14 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if (ExpectKeyword("yield") == null) return null;
-                if ((a = (GeneratedExpr)ParseOptional(() => Parse_StarExpressions())) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Yield (( GeneratedExpr ?) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("yield") != null &&
+                    ((a = (GeneratedExpr)ParseOptional(() => Parse_StarExpressions())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Yield (( GeneratedExpr ?) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -4980,6 +6072,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] star_expressions at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -4987,12 +6083,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedSeq? b = null;
 
-                if ((a = Parse_StarExpression()) == null) return null;
-                if ((b = ParseOneOrMore(() => ParseGroup())) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront (( GeneratedExpr ) a ,( GeneratedSeq ) b ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_StarExpression()) != null &&
+                    (b = ParseOneOrMore(() => Parse_Tmp32())) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront (( GeneratedExpr ) a ,( GeneratedSeq ) b ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -5002,11 +6101,14 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if ((a = Parse_StarExpression()) == null) return null;
-                if (ExpectOp(",") == null) return null;
-
-                // Action code from grammar
-                return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SingletonSequence (( GeneratedExpr ) a ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_StarExpression()) != null &&
+                    ExpectOp(",") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Tuple ( Check < GeneratedExprSeq >( PyParserHelpers . SingletonSequence (( GeneratedExpr ) a ). Cast < GeneratedExprSeq >()), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -5014,11 +6116,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_StarExpression() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_StarExpression()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -5029,10 +6133,24 @@ namespace SharpPy.Generated
         /// Rule: star_expression
         /// Alternatives: 2
         /// Return Type: GeneratedExpr
+        /// CPython (memo) - uses TryMemoized wrapper
         /// </summary>
         private GeneratedExpr? Parse_StarExpression()
         {
+            return (GeneratedExpr?)TryMemoized("star_expression", Parse_StarExpression_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for memoized rule: star_expression
+        /// Called by TryMemoized wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_StarExpression_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] star_expression at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -5040,11 +6158,14 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp("*") == null) return null;
-                if ((a = Parse_BitwiseOr()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Starred (( GeneratedExpr ) a , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("*") != null &&
+                    (a = Parse_BitwiseOr()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Starred (( GeneratedExpr ) a , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -5052,11 +6173,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_Expression() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Expression()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -5072,17 +6195,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] star_named_expressions at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExprSeq? a = null;
 
-                if ((a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_StarNamedExpression())) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    (a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_StarNamedExpression())) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -5098,17 +6228,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] star_named_expression at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp("*") == null) return null;
-                if ((a = Parse_BitwiseOr()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Starred (( GeneratedExpr ) a , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("*") != null &&
+                    (a = Parse_BitwiseOr()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Starred (( GeneratedExpr ) a , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -5116,11 +6253,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_NamedExpression() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_NamedExpression()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -5136,6 +6275,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] assignment_expression at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -5143,12 +6286,15 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if (ExpectOp(":=") == null) return null;
-                if ((b = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                return CheckVersion ( 8 , "Assignment expressions are" , PyAst . NamedExpr ( Check < GeneratedExpr >( PyParserHelpers . SetExprContext ( NameToken ( a ), GeneratedStore.Instance )),( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                if (
+                    (a = ExpectName()) != null &&
+                    ExpectOp(":=") != null &&
+                    (b = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return CheckVersion ( 8 , "Assignment expressions are" , PyAst . NamedExpr ( Check < GeneratedExpr >( PyParserHelpers . SetExprContext ( NameToken ( a ), GeneratedStore.Instance )),( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                }
             }
 
             Reset(_mark);
@@ -5164,15 +6310,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] named_expression at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_AssignmentExpression() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_AssignmentExpression()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -5180,11 +6332,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_InvalidNamedExpression() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedExpr)Parse_InvalidNamedExpression()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 3
@@ -5193,11 +6347,14 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (Parse_Expression() == null) return null;
-                if (NegativeLookahead(() => ExpectOp(":=")) == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if (
+                    Parse_Expression() != null &&
+                    NegativeLookahead(() => ExpectOp(":=")) != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
             }
 
             Reset(_mark);
@@ -5208,10 +6365,24 @@ namespace SharpPy.Generated
         /// Rule: disjunction
         /// Alternatives: 2
         /// Return Type: GeneratedExpr
+        /// CPython (memo) - uses TryMemoized wrapper
         /// </summary>
         private GeneratedExpr? Parse_Disjunction()
         {
+            return (GeneratedExpr?)TryMemoized("disjunction", Parse_Disjunction_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for memoized rule: disjunction
+        /// Called by TryMemoized wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_Disjunction_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] disjunction at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -5220,11 +6391,14 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedSeq? b = null;
 
-                if ((a = Parse_Conjunction()) == null) return null;
-                if ((b = ParseOneOrMore(() => ParseGroup())) == null) return null;
-
-                // Action code from grammar
-                return PyAst . BoolOp ( GeneratedOr.Instance , Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront (( GeneratedExpr ) a ,( GeneratedSeq ) b ). Cast < GeneratedExprSeq >()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_Conjunction()) != null &&
+                    (b = ParseOneOrMore(() => Parse_Tmp33())) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . BoolOp ( GeneratedOr.Instance , Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront (( GeneratedExpr ) a ,( GeneratedSeq ) b ). Cast < GeneratedExprSeq >()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -5232,11 +6406,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_Conjunction() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Conjunction()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -5247,10 +6423,24 @@ namespace SharpPy.Generated
         /// Rule: conjunction
         /// Alternatives: 2
         /// Return Type: GeneratedExpr
+        /// CPython (memo) - uses TryMemoized wrapper
         /// </summary>
         private GeneratedExpr? Parse_Conjunction()
         {
+            return (GeneratedExpr?)TryMemoized("conjunction", Parse_Conjunction_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for memoized rule: conjunction
+        /// Called by TryMemoized wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_Conjunction_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] conjunction at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -5259,11 +6449,14 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedSeq? b = null;
 
-                if ((a = Parse_Inversion()) == null) return null;
-                if ((b = ParseOneOrMore(() => ParseGroup())) == null) return null;
-
-                // Action code from grammar
-                return PyAst . BoolOp ( GeneratedAnd.Instance , Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront (( GeneratedExpr ) a ,( GeneratedSeq ) b ). Cast < GeneratedExprSeq >()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_Inversion()) != null &&
+                    (b = ParseOneOrMore(() => Parse_Tmp34())) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . BoolOp ( GeneratedAnd.Instance , Check < GeneratedExprSeq >( PyParserHelpers . SeqInsertInFront (( GeneratedExpr ) a ,( GeneratedSeq ) b ). Cast < GeneratedExprSeq >()), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -5271,11 +6464,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_Inversion() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Inversion()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -5286,10 +6481,24 @@ namespace SharpPy.Generated
         /// Rule: inversion
         /// Alternatives: 2
         /// Return Type: GeneratedExpr
+        /// CPython (memo) - uses TryMemoized wrapper
         /// </summary>
         private GeneratedExpr? Parse_Inversion()
         {
+            return (GeneratedExpr?)TryMemoized("inversion", Parse_Inversion_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for memoized rule: inversion
+        /// Called by TryMemoized wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_Inversion_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] inversion at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -5297,11 +6506,14 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if (ExpectKeyword("not") == null) return null;
-                if ((a = Parse_Inversion()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . UnaryOp ( GeneratedNot.Instance ,( GeneratedExpr ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("not") != null &&
+                    (a = Parse_Inversion()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . UnaryOp ( GeneratedNot.Instance ,( GeneratedExpr ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -5309,11 +6521,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_Comparison() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Comparison()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -5329,6 +6543,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] comparison at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -5336,11 +6554,14 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedSeq? b = null;
 
-                if ((a = Parse_BitwiseOr()) == null) return null;
-                if ((b = ParseOneOrMore(() => Parse_CompareOpBitwiseOrPair())) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Compare (( GeneratedExpr ) a , Check < GeneratedCmpopSeq >( PyParserHelpers . GetCmpops (( GeneratedSeq ) b ). Cast < GeneratedCmpopSeq >()), Check < GeneratedExprSeq >( PyParserHelpers . GetExprs (( GeneratedSeq ) b )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_BitwiseOr()) != null &&
+                    (b = ParseOneOrMore(() => Parse_CompareOpBitwiseOrPair())) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Compare (( GeneratedExpr ) a , Check < GeneratedCmpopSeq >( PyParserHelpers . GetCmpops (( GeneratedSeq ) b ). Cast < GeneratedCmpopSeq >()), Check < GeneratedExprSeq >( PyParserHelpers . GetExprs (( GeneratedSeq ) b )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -5348,11 +6569,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_BitwiseOr() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_BitwiseOr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -5368,15 +6591,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] compare_op_bitwise_or_pair at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedCmpopExprPair? _alt_var = null;
 
-                if (Parse_EqBitwiseOr() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_EqBitwiseOr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -5384,11 +6613,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedCmpopExprPair? _alt_var = null;
 
-                if (Parse_NoteqBitwiseOr() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_NoteqBitwiseOr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 3
@@ -5396,11 +6627,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedCmpopExprPair? _alt_var = null;
 
-                if (Parse_LteBitwiseOr() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_LteBitwiseOr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 4
@@ -5408,11 +6641,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedCmpopExprPair? _alt_var = null;
 
-                if (Parse_LtBitwiseOr() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_LtBitwiseOr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 5
@@ -5420,11 +6655,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedCmpopExprPair? _alt_var = null;
 
-                if (Parse_GteBitwiseOr() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_GteBitwiseOr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 6
@@ -5432,11 +6669,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedCmpopExprPair? _alt_var = null;
 
-                if (Parse_GtBitwiseOr() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_GtBitwiseOr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 7
@@ -5444,11 +6683,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedCmpopExprPair? _alt_var = null;
 
-                if (Parse_NotinBitwiseOr() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_NotinBitwiseOr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 8
@@ -5456,11 +6697,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedCmpopExprPair? _alt_var = null;
 
-                if (Parse_InBitwiseOr() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_InBitwiseOr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 9
@@ -5468,11 +6711,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedCmpopExprPair? _alt_var = null;
 
-                if (Parse_IsnotBitwiseOr() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_IsnotBitwiseOr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 10
@@ -5480,11 +6725,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedCmpopExprPair? _alt_var = null;
 
-                if (Parse_IsBitwiseOr() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_IsBitwiseOr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -5500,17 +6747,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] eq_bitwise_or at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp("==") == null) return null;
-                if ((a = Parse_BitwiseOr()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . CmpopExprPair ( GeneratedEq.Instance ,( GeneratedExpr ) a );
+                if (
+                    ExpectOp("==") != null &&
+                    (a = Parse_BitwiseOr()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . CmpopExprPair ( GeneratedEq.Instance ,( GeneratedExpr ) a );
+                }
             }
 
             Reset(_mark);
@@ -5526,17 +6780,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] noteq_bitwise_or at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ParseGroup() == null) return null;
-                if ((a = Parse_BitwiseOr()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . CmpopExprPair ( GeneratedNotEq.Instance ,( GeneratedExpr ) a );
+                if (
+                    Parse_Tmp35() != null &&
+                    (a = Parse_BitwiseOr()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . CmpopExprPair ( GeneratedNotEq.Instance ,( GeneratedExpr ) a );
+                }
             }
 
             Reset(_mark);
@@ -5552,17 +6813,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] lte_bitwise_or at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp("<=") == null) return null;
-                if ((a = Parse_BitwiseOr()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . CmpopExprPair ( GeneratedLtE.Instance ,( GeneratedExpr ) a );
+                if (
+                    ExpectOp("<=") != null &&
+                    (a = Parse_BitwiseOr()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . CmpopExprPair ( GeneratedLtE.Instance ,( GeneratedExpr ) a );
+                }
             }
 
             Reset(_mark);
@@ -5578,17 +6846,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] lt_bitwise_or at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp("<") == null) return null;
-                if ((a = Parse_BitwiseOr()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . CmpopExprPair ( GeneratedLt.Instance ,( GeneratedExpr ) a );
+                if (
+                    ExpectOp("<") != null &&
+                    (a = Parse_BitwiseOr()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . CmpopExprPair ( GeneratedLt.Instance ,( GeneratedExpr ) a );
+                }
             }
 
             Reset(_mark);
@@ -5604,17 +6879,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] gte_bitwise_or at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp(">=") == null) return null;
-                if ((a = Parse_BitwiseOr()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . CmpopExprPair ( GeneratedGtE.Instance ,( GeneratedExpr ) a );
+                if (
+                    ExpectOp(">=") != null &&
+                    (a = Parse_BitwiseOr()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . CmpopExprPair ( GeneratedGtE.Instance ,( GeneratedExpr ) a );
+                }
             }
 
             Reset(_mark);
@@ -5630,17 +6912,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] gt_bitwise_or at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp(">") == null) return null;
-                if ((a = Parse_BitwiseOr()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . CmpopExprPair ( GeneratedGt.Instance ,( GeneratedExpr ) a );
+                if (
+                    ExpectOp(">") != null &&
+                    (a = Parse_BitwiseOr()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . CmpopExprPair ( GeneratedGt.Instance ,( GeneratedExpr ) a );
+                }
             }
 
             Reset(_mark);
@@ -5656,18 +6945,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] notin_bitwise_or at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ExpectKeyword("not") == null) return null;
-                if (ExpectKeyword("in") == null) return null;
-                if ((a = Parse_BitwiseOr()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . CmpopExprPair ( GeneratedNotIn.Instance ,( GeneratedExpr ) a );
+                if (
+                    ExpectKeyword("not") != null &&
+                    ExpectKeyword("in") != null &&
+                    (a = Parse_BitwiseOr()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . CmpopExprPair ( GeneratedNotIn.Instance ,( GeneratedExpr ) a );
+                }
             }
 
             Reset(_mark);
@@ -5683,17 +6979,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] in_bitwise_or at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ExpectKeyword("in") == null) return null;
-                if ((a = Parse_BitwiseOr()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . CmpopExprPair ( GeneratedIn.Instance ,( GeneratedExpr ) a );
+                if (
+                    ExpectKeyword("in") != null &&
+                    (a = Parse_BitwiseOr()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . CmpopExprPair ( GeneratedIn.Instance ,( GeneratedExpr ) a );
+                }
             }
 
             Reset(_mark);
@@ -5709,18 +7012,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] isnot_bitwise_or at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ExpectKeyword("is") == null) return null;
-                if (ExpectKeyword("not") == null) return null;
-                if ((a = Parse_BitwiseOr()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . CmpopExprPair ( GeneratedIsNot.Instance ,( GeneratedExpr ) a );
+                if (
+                    ExpectKeyword("is") != null &&
+                    ExpectKeyword("not") != null &&
+                    (a = Parse_BitwiseOr()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . CmpopExprPair ( GeneratedIsNot.Instance ,( GeneratedExpr ) a );
+                }
             }
 
             Reset(_mark);
@@ -5736,17 +7046,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] is_bitwise_or at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ExpectKeyword("is") == null) return null;
-                if ((a = Parse_BitwiseOr()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . CmpopExprPair ( GeneratedIs.Instance ,( GeneratedExpr ) a );
+                if (
+                    ExpectKeyword("is") != null &&
+                    (a = Parse_BitwiseOr()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . CmpopExprPair ( GeneratedIs.Instance ,( GeneratedExpr ) a );
+                }
             }
 
             Reset(_mark);
@@ -5757,10 +7074,24 @@ namespace SharpPy.Generated
         /// Rule: bitwise_or
         /// Alternatives: 2
         /// Return Type: GeneratedExpr
+        /// Left-recursive rule - uses TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_BitwiseOr()
         {
+            return (GeneratedExpr?)TryLeftRecursive("bitwise_or", Parse_BitwiseOr_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for left-recursive rule: bitwise_or
+        /// Called by TryLeftRecursive wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_BitwiseOr_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] bitwise_or at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -5769,12 +7100,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_BitwiseOr()) == null) return null;
-                if (ExpectOp("|") == null) return null;
-                if ((b = Parse_BitwiseXor()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedBitOr.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_BitwiseOr()) != null &&
+                    ExpectOp("|") != null &&
+                    (b = Parse_BitwiseXor()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . BinOp (( GeneratedExpr ) a , GeneratedBitOr.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -5782,11 +7116,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_BitwiseXor() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_BitwiseXor()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -5797,10 +7133,24 @@ namespace SharpPy.Generated
         /// Rule: bitwise_xor
         /// Alternatives: 2
         /// Return Type: GeneratedExpr
+        /// Left-recursive rule - uses TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_BitwiseXor()
         {
+            return (GeneratedExpr?)TryLeftRecursive("bitwise_xor", Parse_BitwiseXor_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for left-recursive rule: bitwise_xor
+        /// Called by TryLeftRecursive wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_BitwiseXor_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] bitwise_xor at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -5809,12 +7159,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_BitwiseXor()) == null) return null;
-                if (ExpectOp("^") == null) return null;
-                if ((b = Parse_BitwiseAnd()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedBitXor.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_BitwiseXor()) != null &&
+                    ExpectOp("^") != null &&
+                    (b = Parse_BitwiseAnd()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . BinOp (( GeneratedExpr ) a , GeneratedBitXor.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -5822,11 +7175,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_BitwiseAnd() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_BitwiseAnd()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -5837,10 +7192,24 @@ namespace SharpPy.Generated
         /// Rule: bitwise_and
         /// Alternatives: 2
         /// Return Type: GeneratedExpr
+        /// Left-recursive rule - uses TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_BitwiseAnd()
         {
+            return (GeneratedExpr?)TryLeftRecursive("bitwise_and", Parse_BitwiseAnd_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for left-recursive rule: bitwise_and
+        /// Called by TryLeftRecursive wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_BitwiseAnd_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] bitwise_and at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -5849,12 +7218,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_BitwiseAnd()) == null) return null;
-                if (ExpectOp("&") == null) return null;
-                if ((b = Parse_ShiftExpr()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedBitAnd.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_BitwiseAnd()) != null &&
+                    ExpectOp("&") != null &&
+                    (b = Parse_ShiftExpr()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . BinOp (( GeneratedExpr ) a , GeneratedBitAnd.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -5862,11 +7234,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_ShiftExpr() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_ShiftExpr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -5877,10 +7251,24 @@ namespace SharpPy.Generated
         /// Rule: shift_expr
         /// Alternatives: 3
         /// Return Type: GeneratedExpr
+        /// Left-recursive rule - uses TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_ShiftExpr()
         {
+            return (GeneratedExpr?)TryLeftRecursive("shift_expr", Parse_ShiftExpr_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for left-recursive rule: shift_expr
+        /// Called by TryLeftRecursive wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_ShiftExpr_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] shift_expr at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -5889,12 +7277,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_ShiftExpr()) == null) return null;
-                if (ExpectOp("<<") == null) return null;
-                if ((b = Parse_Sum()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedLShift.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_ShiftExpr()) != null &&
+                    ExpectOp("<<") != null &&
+                    (b = Parse_Sum()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . BinOp (( GeneratedExpr ) a , GeneratedLShift.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -5905,12 +7296,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_ShiftExpr()) == null) return null;
-                if (ExpectOp(">>") == null) return null;
-                if ((b = Parse_Sum()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedRShift.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_ShiftExpr()) != null &&
+                    ExpectOp(">>") != null &&
+                    (b = Parse_Sum()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . BinOp (( GeneratedExpr ) a , GeneratedRShift.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -5918,11 +7312,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_Sum() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Sum()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -5933,10 +7329,24 @@ namespace SharpPy.Generated
         /// Rule: sum
         /// Alternatives: 3
         /// Return Type: GeneratedExpr
+        /// Left-recursive rule - uses TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_Sum()
         {
+            return (GeneratedExpr?)TryLeftRecursive("sum", Parse_Sum_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for left-recursive rule: sum
+        /// Called by TryLeftRecursive wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_Sum_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] sum at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -5945,12 +7355,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_Sum()) == null) return null;
-                if (ExpectOp("+") == null) return null;
-                if ((b = Parse_Term()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedAdd.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_Sum()) != null &&
+                    ExpectOp("+") != null &&
+                    (b = Parse_Term()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . BinOp (( GeneratedExpr ) a , GeneratedAdd.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -5961,12 +7374,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_Sum()) == null) return null;
-                if (ExpectOp("-") == null) return null;
-                if ((b = Parse_Term()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedSub.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_Sum()) != null &&
+                    ExpectOp("-") != null &&
+                    (b = Parse_Term()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . BinOp (( GeneratedExpr ) a , GeneratedSub.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -5974,11 +7390,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_Term() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Term()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -5989,10 +7407,24 @@ namespace SharpPy.Generated
         /// Rule: term
         /// Alternatives: 6
         /// Return Type: GeneratedExpr
+        /// Left-recursive rule - uses TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_Term()
         {
+            return (GeneratedExpr?)TryLeftRecursive("term", Parse_Term_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for left-recursive rule: term
+        /// Called by TryLeftRecursive wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_Term_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] term at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -6001,12 +7433,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_Term()) == null) return null;
-                if (ExpectOp("*") == null) return null;
-                if ((b = Parse_Factor()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedMult.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_Term()) != null &&
+                    ExpectOp("*") != null &&
+                    (b = Parse_Factor()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . BinOp (( GeneratedExpr ) a , GeneratedMult.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -6017,12 +7452,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_Term()) == null) return null;
-                if (ExpectOp("/") == null) return null;
-                if ((b = Parse_Factor()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedDiv.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_Term()) != null &&
+                    ExpectOp("/") != null &&
+                    (b = Parse_Factor()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . BinOp (( GeneratedExpr ) a , GeneratedDiv.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -6033,12 +7471,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_Term()) == null) return null;
-                if (ExpectOp("//") == null) return null;
-                if ((b = Parse_Factor()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedFloorDiv.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_Term()) != null &&
+                    ExpectOp("//") != null &&
+                    (b = Parse_Factor()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . BinOp (( GeneratedExpr ) a , GeneratedFloorDiv.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 4
@@ -6049,12 +7490,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_Term()) == null) return null;
-                if (ExpectOp("%") == null) return null;
-                if ((b = Parse_Factor()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedMod_.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_Term()) != null &&
+                    ExpectOp("%") != null &&
+                    (b = Parse_Factor()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . BinOp (( GeneratedExpr ) a , GeneratedMod_.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 5
@@ -6065,12 +7509,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_Term()) == null) return null;
-                if (ExpectOp("@") == null) return null;
-                if ((b = Parse_Factor()) == null) return null;
-
-                // Action code from grammar
-                return CheckVersion ( 5 , "The '@' operator is" , PyAst . BinOp (( GeneratedExpr ) a , GeneratedMatMult.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                if (
+                    (a = Parse_Term()) != null &&
+                    ExpectOp("@") != null &&
+                    (b = Parse_Factor()) != null
+                )
+                {
+                    // Action code from grammar
+                    return CheckVersion ( 5 , "The '@' operator is" , PyAst . BinOp (( GeneratedExpr ) a , GeneratedMatMult.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                }
             }
 
             // Alternative 6
@@ -6078,11 +7525,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_Factor() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Factor()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -6093,10 +7542,24 @@ namespace SharpPy.Generated
         /// Rule: factor
         /// Alternatives: 4
         /// Return Type: GeneratedExpr
+        /// CPython (memo) - uses TryMemoized wrapper
         /// </summary>
         private GeneratedExpr? Parse_Factor()
         {
+            return (GeneratedExpr?)TryMemoized("factor", Parse_Factor_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for memoized rule: factor
+        /// Called by TryMemoized wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_Factor_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] factor at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -6104,11 +7567,14 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp("+") == null) return null;
-                if ((a = Parse_Factor()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . UnaryOp ( GeneratedUAdd.Instance ,( GeneratedExpr ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("+") != null &&
+                    (a = Parse_Factor()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . UnaryOp ( GeneratedUAdd.Instance ,( GeneratedExpr ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -6118,11 +7584,14 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp("-") == null) return null;
-                if ((a = Parse_Factor()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . UnaryOp ( GeneratedUSub.Instance ,( GeneratedExpr ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("-") != null &&
+                    (a = Parse_Factor()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . UnaryOp ( GeneratedUSub.Instance ,( GeneratedExpr ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -6132,11 +7601,14 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp("~") == null) return null;
-                if ((a = Parse_Factor()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . UnaryOp ( GeneratedInvert.Instance ,( GeneratedExpr ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("~") != null &&
+                    (a = Parse_Factor()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . UnaryOp ( GeneratedInvert.Instance ,( GeneratedExpr ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 4
@@ -6144,11 +7616,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_Power() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Power()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -6164,6 +7638,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] power at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -6171,12 +7649,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_AwaitPrimary()) == null) return null;
-                if (ExpectOp("**") == null) return null;
-                if ((b = Parse_Factor()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . BinOp (( GeneratedExpr ) a , GeneratedPow.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_AwaitPrimary()) != null &&
+                    ExpectOp("**") != null &&
+                    (b = Parse_Factor()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . BinOp (( GeneratedExpr ) a , GeneratedPow.Instance ,( GeneratedExpr ) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -6184,11 +7665,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_AwaitPrimary() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_AwaitPrimary()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -6199,10 +7682,24 @@ namespace SharpPy.Generated
         /// Rule: await_primary
         /// Alternatives: 2
         /// Return Type: GeneratedExpr
+        /// CPython (memo) - uses TryMemoized wrapper
         /// </summary>
         private GeneratedExpr? Parse_AwaitPrimary()
         {
+            return (GeneratedExpr?)TryMemoized("await_primary", Parse_AwaitPrimary_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for memoized rule: await_primary
+        /// Called by TryMemoized wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_AwaitPrimary_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] await_primary at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -6210,11 +7707,14 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if (Expect(PyToken.Type.AWAIT, "AWAIT") == null) return null;
-                if ((a = Parse_Primary()) == null) return null;
-
-                // Action code from grammar
-                return CheckVersion ( 5 , "Await expressions are" , PyAst . Await (( GeneratedExpr ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                if (
+                    ExpectToken(PyToken.Type.AWAIT) != null &&
+                    (a = Parse_Primary()) != null
+                )
+                {
+                    // Action code from grammar
+                    return CheckVersion ( 5 , "Await expressions are" , PyAst . Await (( GeneratedExpr ) a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset ));
+                }
             }
 
             // Alternative 2
@@ -6222,11 +7722,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_Primary() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Primary()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -6237,10 +7739,24 @@ namespace SharpPy.Generated
         /// Rule: primary
         /// Alternatives: 5
         /// Return Type: GeneratedExpr
+        /// Left-recursive rule - uses TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_Primary()
         {
+            return (GeneratedExpr?)TryLeftRecursive("primary", Parse_Primary_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for left-recursive rule: primary
+        /// Called by TryLeftRecursive wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_Primary_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] primary at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -6249,12 +7765,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedTokenInfo? b = null;
 
-                if ((a = Parse_Primary()) == null) return null;
-                if (ExpectOp(".") == null) return null;
-                if ((b = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Attribute (( GeneratedExpr ) a , b . GetNameValue (), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_Primary()) != null &&
+                    ExpectOp(".") != null &&
+                    (b = ExpectName()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Attribute (( GeneratedExpr ) a , b . GetNameValue (), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -6265,11 +7784,14 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_Primary()) == null) return null;
-                if ((b = Parse_Genexp()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Call (( GeneratedExpr ) a , Check < GeneratedExprSeq >( PyParserHelpers . SingletonSequence (( GeneratedExpr ) b ). Cast < GeneratedExprSeq >()), null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_Primary()) != null &&
+                    (b = Parse_Genexp()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Call (( GeneratedExpr ) a , Check < GeneratedExprSeq >( PyParserHelpers . SingletonSequence (( GeneratedExpr ) b ). Cast < GeneratedExprSeq >()), null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -6280,13 +7802,16 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_Primary()) == null) return null;
-                if (ExpectOp("(") == null) return null;
-                if ((b = (GeneratedExpr)ParseOptional(() => Parse_Arguments())) == null) return null;
-                if (ExpectOp(")") == null) return null;
-
-                // Action code from grammar
-                return PyAst . Call (( GeneratedExpr ) a ,( b != null )?(( GeneratedCall ) b ). Args : null !,( b != null )?(( GeneratedCall ) b ). Keywords : null !, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_Primary()) != null &&
+                    ExpectOp("(") != null &&
+                    ((b = (GeneratedExpr)ParseOptional(() => Parse_Arguments())) == null || true) &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Call (( GeneratedExpr ) a ,( b != null )?(( GeneratedCall ) b ). Args : null !,( b != null )?(( GeneratedCall ) b ). Keywords : null !, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 4
@@ -6297,13 +7822,16 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_Primary()) == null) return null;
-                if (ExpectOp("[") == null) return null;
-                if ((b = Parse_Slices()) == null) return null;
-                if (ExpectOp("]") == null) return null;
-
-                // Action code from grammar
-                return PyAst . Subscript (( GeneratedExpr ) a ,( GeneratedExpr ) b , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_Primary()) != null &&
+                    ExpectOp("[") != null &&
+                    (b = Parse_Slices()) != null &&
+                    ExpectOp("]") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Subscript (( GeneratedExpr ) a ,( GeneratedExpr ) b , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 5
@@ -6311,11 +7839,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_Atom() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Atom()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -6331,17 +7861,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] slices at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if ((a = Parse_Slice()) == null) return null;
-                if (NegativeLookahead(() => ExpectOp(",")) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    (a = Parse_Slice()) != null &&
+                    NegativeLookahead(() => ExpectOp(",")) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 2
@@ -6351,11 +7888,14 @@ namespace SharpPy.Generated
 
                 GeneratedExprSeq? a = null;
 
-                if ((a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => ParseGroup())) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Tuple ( a , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp36())) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Tuple ( a , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -6371,6 +7911,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] slice at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -6379,13 +7923,16 @@ namespace SharpPy.Generated
                 GeneratedExpr? b = null;
                 GeneratedPtr? c = null;
 
-                if ((a = (GeneratedExpr)ParseOptional(() => Parse_Expression())) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((b = (GeneratedExpr)ParseOptional(() => Parse_Expression())) == null) return null;
-                if ((c = ParseOptional(() => ParseGroup())) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Slice (( GeneratedExpr ?) a ,( GeneratedExpr ?) b ,( GeneratedExpr ?) c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ((a = (GeneratedExpr)ParseOptional(() => Parse_Expression())) == null || true) &&
+                    ExpectOp(":") != null &&
+                    ((b = (GeneratedExpr)ParseOptional(() => Parse_Expression())) == null || true) &&
+                    ((c = ParseOptional(() => Parse_Tmp37())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Slice (( GeneratedExpr ?) a ,( GeneratedExpr ?) b ,( GeneratedExpr ?) c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -6395,10 +7942,11 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if ((a = Parse_NamedExpression()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if ((a = Parse_NamedExpression()) != null)
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -6414,16 +7962,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] atom at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? name = null;
 
-                if ((name = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-
-                // Action code from grammar
-                return NameToken ( name );
+                if ((name = ExpectName()) != null)
+                {
+                    // Action code from grammar
+                    return NameToken ( name );
+                }
             }
 
             // Alternative 2
@@ -6432,10 +7985,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectKeyword("True") == null) return null;
-
-                // Action code from grammar
-                return PyAst . Constant ( GeneratedPyConstant . True , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (ExpectKeyword("True") != null)
+                {
+                    // Action code from grammar
+                    return PyAst . Constant ( GeneratedPyConstant . True , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -6444,10 +7998,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectKeyword("False") == null) return null;
-
-                // Action code from grammar
-                return PyAst . Constant ( GeneratedPyConstant . False , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (ExpectKeyword("False") != null)
+                {
+                    // Action code from grammar
+                    return PyAst . Constant ( GeneratedPyConstant . False , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 4
@@ -6456,10 +8011,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectKeyword("None") == null) return null;
-
-                // Action code from grammar
-                return PyAst . Constant ( GeneratedPyConstant . None , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (ExpectKeyword("None") != null)
+                {
+                    // Action code from grammar
+                    return PyAst . Constant ( GeneratedPyConstant . None , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 5
@@ -6468,11 +8024,14 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (PositiveLookahead(() => ParseGroup()) == null) return null;
-                if (Parse_Strings() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if (
+                    PositiveLookahead(() => Parse_Tmp38()) != null &&
+                    Parse_Strings() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
             }
 
             // Alternative 6
@@ -6482,10 +8041,11 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? number = null;
 
-                if ((number = Expect(PyToken.Type.NUMBER, "NUMBER")) == null) return null;
-
-                // Action code from grammar
-                return NumberToken ( number );
+                if ((number = ExpectToken(PyToken.Type.NUMBER)) != null)
+                {
+                    // Action code from grammar
+                    return NumberToken ( number );
+                }
             }
 
             // Alternative 7
@@ -6494,11 +8054,14 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (PositiveLookahead(() => ExpectOp("(")) == null) return null;
-                if (ParseGroup() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if (
+                    PositiveLookahead(() => ExpectOp("(")) != null &&
+                    Parse_Tmp39() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
             }
 
             // Alternative 8
@@ -6507,11 +8070,14 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (PositiveLookahead(() => ExpectOp("[")) == null) return null;
-                if (ParseGroup() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if (
+                    PositiveLookahead(() => ExpectOp("[")) != null &&
+                    Parse_Tmp40() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
             }
 
             // Alternative 9
@@ -6520,11 +8086,14 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (PositiveLookahead(() => ExpectOp("{")) == null) return null;
-                if (ParseGroup() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if (
+                    PositiveLookahead(() => ExpectOp("{")) != null &&
+                    Parse_Tmp41() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
             }
 
             // Alternative 10
@@ -6533,10 +8102,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("...") == null) return null;
-
-                // Action code from grammar
-                return PyAst . Constant ( GeneratedPyConstant . Ellipsis , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (ExpectOp("...") != null)
+                {
+                    // Action code from grammar
+                    return PyAst . Constant ( GeneratedPyConstant . Ellipsis , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -6552,18 +8122,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] group at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedPtr? a = null;
 
-                if (ExpectOp("(") == null) return null;
-                if ((a = ParseGroup()) == null) return null;
-                if (ExpectOp(")") == null) return null;
-
-                // Action code from grammar
-                return ( GeneratedExpr ) a;
+                if (
+                    ExpectOp("(") != null &&
+                    (a = Parse_Tmp42()) != null &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Action code from grammar
+                    return ( GeneratedExpr ) a;
+                }
             }
 
             // Alternative 2
@@ -6571,11 +8148,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_InvalidGroup() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedExpr)Parse_InvalidGroup()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -6591,6 +8170,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] lambdef at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -6598,13 +8181,16 @@ namespace SharpPy.Generated
                 GeneratedArguments? a = null;
                 GeneratedExpr? b = null;
 
-                if (ExpectKeyword("lambda") == null) return null;
-                if ((a = (GeneratedArguments)ParseOptional(() => Parse_LambdaParams())) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((b = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Lambda (( a != null )? a :( GeneratedArguments ) Check < GeneratedArguments >( PyParserHelpers . EmptyArguments ()), b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectKeyword("lambda") != null &&
+                    ((a = (GeneratedArguments)ParseOptional(() => Parse_LambdaParams())) == null || true) &&
+                    ExpectOp(":") != null &&
+                    (b = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Lambda (( a != null )? a :( GeneratedArguments ) Check < GeneratedArguments >( PyParserHelpers . EmptyArguments ()), b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -6620,16 +8206,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] lambda_params at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedPtr? a = null;
 
-                if ((a = Parse_InvalidLambdaParameters()) == null) return null;
-
-                // Action code from grammar
-                return ( GeneratedArguments ) a;
+                if ((a = Parse_InvalidLambdaParameters()) != null)
+                {
+                    // Action code from grammar
+                    return ( GeneratedArguments ) a;
+                }
             }
 
             // Alternative 2
@@ -6639,10 +8230,11 @@ namespace SharpPy.Generated
 
                 GeneratedArguments? a = null;
 
-                if ((a = Parse_LambdaParameters()) == null) return null;
-
-                // Action code from grammar
-                return ( GeneratedArguments ) a;
+                if ((a = Parse_LambdaParameters()) != null)
+                {
+                    // Action code from grammar
+                    return ( GeneratedArguments ) a;
+                }
             }
 
             Reset(_mark);
@@ -6658,6 +8250,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] lambda_parameters at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -6667,13 +8263,16 @@ namespace SharpPy.Generated
                 GeneratedSeq? c = null;
                 GeneratedStarEtc? d = null;
 
-                if ((a = Parse_LambdaSlashNoDefault()) == null) return null;
-                if ((b = (GeneratedArgSeq)ParseZeroOrMore(() => Parse_LambdaParamNoDefault())) == null) return null;
-                if ((c = ParseZeroOrMore(() => Parse_LambdaParamWithDefault())) == null) return null;
-                if ((d = (GeneratedStarEtc)ParseOptional(() => Parse_LambdaStarEtc())) == null) return null;
-
-                // Action code from grammar
-                return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments (( GeneratedArgSeq ) a , null , b ,( GeneratedNameDefaultPairSeq ?) c ,( GeneratedStarEtc ?) d ));
+                if (
+                    (a = Parse_LambdaSlashNoDefault()) != null &&
+                    (b = (GeneratedArgSeq)ParseZeroOrMore(() => Parse_LambdaParamNoDefault())) != null &&
+                    (c = ParseZeroOrMore(() => Parse_LambdaParamWithDefault())) != null &&
+                    ((d = (GeneratedStarEtc)ParseOptional(() => Parse_LambdaStarEtc())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments (( GeneratedArgSeq ) a , null , b ,( GeneratedNameDefaultPairSeq ?) c ,( GeneratedStarEtc ?) d ));
+                }
             }
 
             // Alternative 2
@@ -6685,12 +8284,15 @@ namespace SharpPy.Generated
                 GeneratedSeq? b = null;
                 GeneratedStarEtc? c = null;
 
-                if ((a = Parse_LambdaSlashWithDefault()) == null) return null;
-                if ((b = ParseZeroOrMore(() => Parse_LambdaParamWithDefault())) == null) return null;
-                if ((c = (GeneratedStarEtc)ParseOptional(() => Parse_LambdaStarEtc())) == null) return null;
-
-                // Action code from grammar
-                return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments ( null ,( GeneratedSlashWithDefault ) a , null ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedStarEtc ?) c ));
+                if (
+                    (a = Parse_LambdaSlashWithDefault()) != null &&
+                    (b = ParseZeroOrMore(() => Parse_LambdaParamWithDefault())) != null &&
+                    ((c = (GeneratedStarEtc)ParseOptional(() => Parse_LambdaStarEtc())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments ( null ,( GeneratedSlashWithDefault ) a , null ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedStarEtc ?) c ));
+                }
             }
 
             // Alternative 3
@@ -6702,12 +8304,15 @@ namespace SharpPy.Generated
                 GeneratedSeq? b = null;
                 GeneratedStarEtc? c = null;
 
-                if ((a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_LambdaParamNoDefault())) == null) return null;
-                if ((b = ParseZeroOrMore(() => Parse_LambdaParamWithDefault())) == null) return null;
-                if ((c = (GeneratedStarEtc)ParseOptional(() => Parse_LambdaStarEtc())) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . MakeArguments ( null , null , a ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedStarEtc ?) c );
+                if (
+                    (a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_LambdaParamNoDefault())) != null &&
+                    (b = ParseZeroOrMore(() => Parse_LambdaParamWithDefault())) != null &&
+                    ((c = (GeneratedStarEtc)ParseOptional(() => Parse_LambdaStarEtc())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . MakeArguments ( null , null , a ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedStarEtc ?) c );
+                }
             }
 
             // Alternative 4
@@ -6718,11 +8323,14 @@ namespace SharpPy.Generated
                 GeneratedSeq? a = null;
                 GeneratedStarEtc? b = null;
 
-                if ((a = ParseOneOrMore(() => Parse_LambdaParamWithDefault())) == null) return null;
-                if ((b = (GeneratedStarEtc)ParseOptional(() => Parse_LambdaStarEtc())) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . MakeArguments ( null , null , null ,( GeneratedNameDefaultPairSeq ?) a ,( GeneratedStarEtc ?) b );
+                if (
+                    (a = ParseOneOrMore(() => Parse_LambdaParamWithDefault())) != null &&
+                    ((b = (GeneratedStarEtc)ParseOptional(() => Parse_LambdaStarEtc())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . MakeArguments ( null , null , null ,( GeneratedNameDefaultPairSeq ?) a ,( GeneratedStarEtc ?) b );
+                }
             }
 
             // Alternative 5
@@ -6732,10 +8340,11 @@ namespace SharpPy.Generated
 
                 GeneratedStarEtc? a = null;
 
-                if ((a = Parse_LambdaStarEtc()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . MakeArguments ( null , null , null , null ,( GeneratedStarEtc ) a );
+                if ((a = Parse_LambdaStarEtc()) != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . MakeArguments ( null , null , null , null ,( GeneratedStarEtc ) a );
+                }
             }
 
             Reset(_mark);
@@ -6751,18 +8360,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] lambda_slash_no_default at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedArgSeq? a = null;
 
-                if ((a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_LambdaParamNoDefault())) == null) return null;
-                if (ExpectOp("/") == null) return null;
-                if (ExpectOp(",") == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    (a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_LambdaParamNoDefault())) != null &&
+                    ExpectOp("/") != null &&
+                    ExpectOp(",") != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 2
@@ -6772,12 +8388,15 @@ namespace SharpPy.Generated
 
                 GeneratedArgSeq? a = null;
 
-                if ((a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_LambdaParamNoDefault())) == null) return null;
-                if (ExpectOp("/") == null) return null;
-                if (PositiveLookahead(() => ExpectOp(":")) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    (a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_LambdaParamNoDefault())) != null &&
+                    ExpectOp("/") != null &&
+                    PositiveLookahead(() => ExpectOp(":")) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -6793,6 +8412,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] lambda_slash_with_default at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -6800,13 +8423,16 @@ namespace SharpPy.Generated
                 GeneratedSeq? a = null;
                 GeneratedSeq? b = null;
 
-                if ((a = ParseZeroOrMore(() => Parse_LambdaParamNoDefault())) == null) return null;
-                if ((b = ParseOneOrMore(() => Parse_LambdaParamWithDefault())) == null) return null;
-                if (ExpectOp("/") == null) return null;
-                if (ExpectOp(",") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SlashWithDefault (( GeneratedArgSeq ?) a ,( GeneratedNameDefaultPairSeq ) b );
+                if (
+                    (a = ParseZeroOrMore(() => Parse_LambdaParamNoDefault())) != null &&
+                    (b = ParseOneOrMore(() => Parse_LambdaParamWithDefault())) != null &&
+                    ExpectOp("/") != null &&
+                    ExpectOp(",") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SlashWithDefault (( GeneratedArgSeq ?) a ,( GeneratedNameDefaultPairSeq ) b );
+                }
             }
 
             // Alternative 2
@@ -6817,13 +8443,16 @@ namespace SharpPy.Generated
                 GeneratedSeq? a = null;
                 GeneratedSeq? b = null;
 
-                if ((a = ParseZeroOrMore(() => Parse_LambdaParamNoDefault())) == null) return null;
-                if ((b = ParseOneOrMore(() => Parse_LambdaParamWithDefault())) == null) return null;
-                if (ExpectOp("/") == null) return null;
-                if (PositiveLookahead(() => ExpectOp(":")) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SlashWithDefault (( GeneratedArgSeq ?) a ,( GeneratedNameDefaultPairSeq ) b );
+                if (
+                    (a = ParseZeroOrMore(() => Parse_LambdaParamNoDefault())) != null &&
+                    (b = ParseOneOrMore(() => Parse_LambdaParamWithDefault())) != null &&
+                    ExpectOp("/") != null &&
+                    PositiveLookahead(() => ExpectOp(":")) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SlashWithDefault (( GeneratedArgSeq ?) a ,( GeneratedNameDefaultPairSeq ) b );
+                }
             }
 
             Reset(_mark);
@@ -6839,15 +8468,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] lambda_star_etc at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedStarEtc? _alt_var = null;
 
-                if (Parse_InvalidLambdaStarEtc() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedStarEtc)Parse_InvalidLambdaStarEtc()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -6859,13 +8494,16 @@ namespace SharpPy.Generated
                 GeneratedSeq? b = null;
                 GeneratedArg? c = null;
 
-                if (ExpectOp("*") == null) return null;
-                if ((a = Parse_LambdaParamNoDefault()) == null) return null;
-                if ((b = ParseZeroOrMore(() => Parse_LambdaParamMaybeDefault())) == null) return null;
-                if ((c = (GeneratedArg)ParseOptional(() => Parse_LambdaKwds())) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . StarEtc (( GeneratedArg ) a ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedArg ?) c );
+                if (
+                    ExpectOp("*") != null &&
+                    (a = Parse_LambdaParamNoDefault()) != null &&
+                    (b = ParseZeroOrMore(() => Parse_LambdaParamMaybeDefault())) != null &&
+                    ((c = (GeneratedArg)ParseOptional(() => Parse_LambdaKwds())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . StarEtc (( GeneratedArg ) a ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedArg ?) c );
+                }
             }
 
             // Alternative 3
@@ -6876,13 +8514,16 @@ namespace SharpPy.Generated
                 GeneratedSeq? b = null;
                 GeneratedArg? c = null;
 
-                if (ExpectOp("*") == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if ((b = ParseOneOrMore(() => Parse_LambdaParamMaybeDefault())) == null) return null;
-                if ((c = (GeneratedArg)ParseOptional(() => Parse_LambdaKwds())) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . StarEtc ( null ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedArg ?) c );
+                if (
+                    ExpectOp("*") != null &&
+                    ExpectOp(",") != null &&
+                    (b = ParseOneOrMore(() => Parse_LambdaParamMaybeDefault())) != null &&
+                    ((c = (GeneratedArg)ParseOptional(() => Parse_LambdaKwds())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . StarEtc ( null ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedArg ?) c );
+                }
             }
 
             // Alternative 4
@@ -6892,10 +8533,11 @@ namespace SharpPy.Generated
 
                 GeneratedArg? a = null;
 
-                if ((a = Parse_LambdaKwds()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . StarEtc ( null , null ,( GeneratedArg ) a );
+                if ((a = Parse_LambdaKwds()) != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . StarEtc ( null , null ,( GeneratedArg ) a );
+                }
             }
 
             Reset(_mark);
@@ -6911,15 +8553,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] lambda_kwds at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedArg? _alt_var = null;
 
-                if (Parse_InvalidLambdaKwds() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedArg)Parse_InvalidLambdaKwds()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -6929,11 +8577,14 @@ namespace SharpPy.Generated
 
                 GeneratedArg? a = null;
 
-                if (ExpectOp("**") == null) return null;
-                if ((a = Parse_LambdaParamNoDefault()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    ExpectOp("**") != null &&
+                    (a = Parse_LambdaParamNoDefault()) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -6949,17 +8600,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] lambda_param_no_default at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedArg? a = null;
 
-                if ((a = Parse_LambdaParam()) == null) return null;
-                if (ExpectOp(",") == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    (a = Parse_LambdaParam()) != null &&
+                    ExpectOp(",") != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 2
@@ -6969,11 +8627,14 @@ namespace SharpPy.Generated
 
                 GeneratedArg? a = null;
 
-                if ((a = Parse_LambdaParam()) == null) return null;
-                if (PositiveLookahead(() => ExpectOp(":")) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    (a = Parse_LambdaParam()) != null &&
+                    PositiveLookahead(() => ExpectOp(":")) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -6989,6 +8650,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] lambda_param_with_default at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -6996,12 +8661,15 @@ namespace SharpPy.Generated
                 GeneratedArg? a = null;
                 GeneratedExpr? c = null;
 
-                if ((a = Parse_LambdaParam()) == null) return null;
-                if ((c = Parse_Default()) == null) return null;
-                if (ExpectOp(",") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . NameDefaultPair (( GeneratedArg ) a ,( GeneratedExpr ) c , null );
+                if (
+                    (a = Parse_LambdaParam()) != null &&
+                    (c = Parse_Default()) != null &&
+                    ExpectOp(",") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . NameDefaultPair (( GeneratedArg ) a ,( GeneratedExpr ) c , null );
+                }
             }
 
             // Alternative 2
@@ -7012,12 +8680,15 @@ namespace SharpPy.Generated
                 GeneratedArg? a = null;
                 GeneratedExpr? c = null;
 
-                if ((a = Parse_LambdaParam()) == null) return null;
-                if ((c = Parse_Default()) == null) return null;
-                if (PositiveLookahead(() => ExpectOp(":")) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . NameDefaultPair (( GeneratedArg ) a ,( GeneratedExpr ) c , null );
+                if (
+                    (a = Parse_LambdaParam()) != null &&
+                    (c = Parse_Default()) != null &&
+                    PositiveLookahead(() => ExpectOp(":")) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . NameDefaultPair (( GeneratedArg ) a ,( GeneratedExpr ) c , null );
+                }
             }
 
             Reset(_mark);
@@ -7033,6 +8704,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] lambda_param_maybe_default at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -7040,12 +8715,15 @@ namespace SharpPy.Generated
                 GeneratedArg? a = null;
                 GeneratedExpr? c = null;
 
-                if ((a = Parse_LambdaParam()) == null) return null;
-                if ((c = (GeneratedExpr)ParseOptional(() => Parse_Default())) == null) return null;
-                if (ExpectOp(",") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . NameDefaultPair (( GeneratedArg ) a ,( GeneratedExpr ?) c , null );
+                if (
+                    (a = Parse_LambdaParam()) != null &&
+                    ((c = (GeneratedExpr)ParseOptional(() => Parse_Default())) == null || true) &&
+                    ExpectOp(",") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . NameDefaultPair (( GeneratedArg ) a ,( GeneratedExpr ?) c , null );
+                }
             }
 
             // Alternative 2
@@ -7056,12 +8734,15 @@ namespace SharpPy.Generated
                 GeneratedArg? a = null;
                 GeneratedExpr? c = null;
 
-                if ((a = Parse_LambdaParam()) == null) return null;
-                if ((c = (GeneratedExpr)ParseOptional(() => Parse_Default())) == null) return null;
-                if (PositiveLookahead(() => ExpectOp(":")) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . NameDefaultPair (( GeneratedArg ) a ,( GeneratedExpr ?) c , null );
+                if (
+                    (a = Parse_LambdaParam()) != null &&
+                    ((c = (GeneratedExpr)ParseOptional(() => Parse_Default())) == null || true) &&
+                    PositiveLookahead(() => ExpectOp(":")) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . NameDefaultPair (( GeneratedArg ) a ,( GeneratedExpr ?) c , null );
+                }
             }
 
             Reset(_mark);
@@ -7077,16 +8758,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] lambda_param at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-
-                // Action code from grammar
-                return PyAst . arg ( a . GetNameValue (), null , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if ((a = ExpectName()) != null)
+                {
+                    // Action code from grammar
+                    return PyAst . arg ( a . GetNameValue (), null , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -7102,15 +8788,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] fstring_middle at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_FstringReplacementField() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_FstringReplacementField()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -7120,10 +8812,11 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? t = null;
 
-                if ((t = Expect(PyToken.Type.FSTRING_MIDDLE, "FSTRING_MIDDLE")) == null) return null;
-
-                // Action code from grammar
-                return ConstantFromToken ( t );
+                if ((t = ExpectToken(PyToken.Type.FSTRING_MIDDLE)) != null)
+                {
+                    // Action code from grammar
+                    return ConstantFromToken ( t );
+                }
             }
 
             Reset(_mark);
@@ -7139,6 +8832,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] fstring_replacement_field at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -7149,15 +8846,18 @@ namespace SharpPy.Generated
                 GeneratedResultTokenWithMetadata? format = null;
                 GeneratedTokenInfo? rbrace = null;
 
-                if (ExpectOp("{") == null) return null;
-                if ((a = ParseGroup()) == null) return null;
-                if ((debug_expr = (GeneratedTokenInfo)ParseOptional(() => ExpectOp("="))) == null) return null;
-                if ((conversion = (GeneratedResultTokenWithMetadata)ParseOptional(() => Parse_FstringConversion())) == null) return null;
-                if ((format = (GeneratedResultTokenWithMetadata)ParseOptional(() => Parse_FstringFullFormatSpec())) == null) return null;
-                if ((rbrace = ExpectOp("}")) == null) return null;
-
-                // Action code from grammar
-                return FormattedValue (( GeneratedExpr ) a , debug_expr , conversion , format , rbrace , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("{") != null &&
+                    (a = Parse_Tmp43()) != null &&
+                    ((debug_expr = (GeneratedTokenInfo)ParseOptional(() => ExpectOp("="))) == null || true) &&
+                    ((conversion = (GeneratedResultTokenWithMetadata)ParseOptional(() => Parse_FstringConversion())) == null || true) &&
+                    ((format = (GeneratedResultTokenWithMetadata)ParseOptional(() => Parse_FstringFullFormatSpec())) == null || true) &&
+                    (rbrace = ExpectOp("}")) != null
+                )
+                {
+                    // Action code from grammar
+                    return FormattedValue (( GeneratedExpr ) a , debug_expr , conversion , format , rbrace , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -7165,11 +8865,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_InvalidReplacementField() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedExpr)Parse_InvalidReplacementField()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -7185,6 +8887,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] fstring_conversion at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -7192,11 +8898,14 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? conv_token = null;
                 GeneratedTokenInfo? conv = null;
 
-                if ((conv_token = ExpectSoftKeyword("!")) == null) return null;
-                if ((conv = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-
-                // Action code from grammar
-                return CheckFstringConversion ( conv_token , NameToken ( conv ));
+                if (
+                    (conv_token = ExpectSoftKeyword("!")) != null &&
+                    (conv = ExpectName()) != null
+                )
+                {
+                    // Action code from grammar
+                    return CheckFstringConversion ( conv_token , NameToken ( conv ));
+                }
             }
 
             Reset(_mark);
@@ -7212,6 +8921,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] fstring_full_format_spec at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -7219,11 +8932,14 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? colon = null;
                 GeneratedSeq? spec = null;
 
-                if ((colon = ExpectOp(":")) == null) return null;
-                if ((spec = ParseZeroOrMore(() => Parse_FstringFormatSpec())) == null) return null;
-
-                // Action code from grammar
-                return SetupFullFormatSpec ( colon , spec . Cast < GeneratedExprSeq >(), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (colon = ExpectOp(":")) != null &&
+                    (spec = ParseZeroOrMore(() => Parse_FstringFormatSpec())) != null
+                )
+                {
+                    // Action code from grammar
+                    return SetupFullFormatSpec ( colon , spec . Cast < GeneratedExprSeq >(), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -7239,16 +8955,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] fstring_format_spec at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? t = null;
 
-                if ((t = Expect(PyToken.Type.FSTRING_MIDDLE, "FSTRING_MIDDLE")) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . DecodedConstantFromToken ( t );
+                if ((t = ExpectToken(PyToken.Type.FSTRING_MIDDLE)) != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . DecodedConstantFromToken ( t );
+                }
             }
 
             // Alternative 2
@@ -7256,11 +8977,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_FstringReplacementField() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_FstringReplacementField()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -7276,6 +8999,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] fstring at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -7284,12 +9011,15 @@ namespace SharpPy.Generated
                 GeneratedSeq? b = null;
                 GeneratedTokenInfo? c = null;
 
-                if ((a = Expect(PyToken.Type.FSTRING_START, "FSTRING_START")) == null) return null;
-                if ((b = ParseZeroOrMore(() => Parse_FstringMiddle())) == null) return null;
-                if ((c = Expect(PyToken.Type.FSTRING_END, "FSTRING_END")) == null) return null;
-
-                // Action code from grammar
-                return JoinedStr ( a , b . Cast < GeneratedExprSeq >(), c );
+                if (
+                    (a = ExpectToken(PyToken.Type.FSTRING_START)) != null &&
+                    (b = ParseZeroOrMore(() => Parse_FstringMiddle())) != null &&
+                    (c = ExpectToken(PyToken.Type.FSTRING_END)) != null
+                )
+                {
+                    // Action code from grammar
+                    return JoinedStr ( a , b . Cast < GeneratedExprSeq >(), c );
+                }
             }
 
             Reset(_mark);
@@ -7305,16 +9035,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] string at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? s = null;
 
-                if ((s = Expect(PyToken.Type.STRING, "STRING")) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . ConstantFromString ( s );
+                if ((s = ExpectToken(PyToken.Type.STRING)) != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . ConstantFromString ( s );
+                }
             }
 
             Reset(_mark);
@@ -7325,10 +9060,24 @@ namespace SharpPy.Generated
         /// Rule: strings
         /// Alternatives: 1
         /// Return Type: GeneratedExpr
+        /// CPython (memo) - uses TryMemoized wrapper
         /// </summary>
         private GeneratedExpr? Parse_Strings()
         {
+            return (GeneratedExpr?)TryMemoized("strings", Parse_Strings_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for memoized rule: strings
+        /// Called by TryMemoized wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_Strings_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] strings at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -7336,10 +9085,11 @@ namespace SharpPy.Generated
 
                 GeneratedExprSeq? a = null;
 
-                if ((a = (GeneratedExprSeq)ParseOneOrMore(() => ParseGroup())) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . ConcatenateStrings ( a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if ((a = (GeneratedExprSeq)ParseOneOrMore(() => Parse_Tmp44())) != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . ConcatenateStrings ( a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -7355,18 +9105,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] list at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExprSeq? a = null;
 
-                if (ExpectOp("[") == null) return null;
-                if ((a = (GeneratedExprSeq)ParseOptional(() => Parse_StarNamedExpressions())) == null) return null;
-                if (ExpectOp("]") == null) return null;
-
-                // Action code from grammar
-                return PyAst . List ( a , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("[") != null &&
+                    ((a = (GeneratedExprSeq)ParseOptional(() => Parse_StarNamedExpressions())) == null || true) &&
+                    ExpectOp("]") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . List ( a , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -7382,18 +9139,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] tuple at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedPtr? a = null;
 
-                if (ExpectOp("(") == null) return null;
-                if ((a = ParseOptional(() => ParseGroup())) == null) return null;
-                if (ExpectOp(")") == null) return null;
-
-                // Action code from grammar
-                return PyAst . Tuple (( GeneratedExprSeq ?) a , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("(") != null &&
+                    ((a = ParseOptional(() => Parse_Tmp45())) == null || true) &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Tuple (( GeneratedExprSeq ?) a , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -7409,18 +9173,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] set at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExprSeq? a = null;
 
-                if (ExpectOp("{") == null) return null;
-                if ((a = Parse_StarNamedExpressions()) == null) return null;
-                if (ExpectOp("}") == null) return null;
-
-                // Action code from grammar
-                return PyAst . Set ( a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("{") != null &&
+                    (a = Parse_StarNamedExpressions()) != null &&
+                    ExpectOp("}") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Set ( a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -7436,18 +9207,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] dict at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedSeq? a = null;
 
-                if (ExpectOp("{") == null) return null;
-                if ((a = (GeneratedSeq)ParseOptional(() => Parse_DoubleStarredKvpairs())) == null) return null;
-                if (ExpectOp("}") == null) return null;
-
-                // Action code from grammar
-                return PyAst . Dict ( Check < GeneratedExprSeq >( PyParserHelpers . GetKeys ( a )), Check < GeneratedExprSeq >( PyParserHelpers . GetValues ( a )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("{") != null &&
+                    ((a = (GeneratedSeq)ParseOptional(() => Parse_DoubleStarredKvpairs())) == null || true) &&
+                    ExpectOp("}") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Dict ( Check < GeneratedExprSeq >( PyParserHelpers . GetKeys ( a )), Check < GeneratedExprSeq >( PyParserHelpers . GetValues ( a )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -7456,12 +9234,15 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("{") == null) return null;
-                if (Parse_InvalidDoubleStarredKvpairs() == null) return null;
-                if (ExpectOp("}") == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if (
+                    ExpectOp("{") != null &&
+                    Parse_InvalidDoubleStarredKvpairs() != null &&
+                    ExpectOp("}") != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
             }
 
             Reset(_mark);
@@ -7477,17 +9258,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] double_starred_kvpairs at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedSeq? a = null;
 
-                if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_DoubleStarredKvpair())) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    (a = ParseGatherPlus(() => ExpectOp(","), () => Parse_DoubleStarredKvpair())) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -7503,17 +9291,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] double_starred_kvpair at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp("**") == null) return null;
-                if ((a = Parse_BitwiseOr()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . KeyValuePair ( null , a );
+                if (
+                    ExpectOp("**") != null &&
+                    (a = Parse_BitwiseOr()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . KeyValuePair ( null , a );
+                }
             }
 
             // Alternative 2
@@ -7521,11 +9316,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedKeyValuePair? _alt_var = null;
 
-                if (Parse_Kvpair() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Kvpair()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -7541,6 +9338,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] kvpair at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -7548,12 +9349,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_Expression()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((b = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . KeyValuePair ( a , b );
+                if (
+                    (a = Parse_Expression()) != null &&
+                    ExpectOp(":") != null &&
+                    (b = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . KeyValuePair ( a , b );
+                }
             }
 
             Reset(_mark);
@@ -7569,16 +9373,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] for_if_clauses at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedComprehensionSeq? a = null;
 
-                if ((a = (GeneratedComprehensionSeq)ParseOneOrMore(() => Parse_ForIfClause())) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if ((a = (GeneratedComprehensionSeq)ParseOneOrMore(() => Parse_ForIfClause())) != null)
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -7594,6 +9403,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] for_if_clause at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -7602,15 +9415,18 @@ namespace SharpPy.Generated
                 GeneratedExpr? b = null;
                 GeneratedExprSeq? c = null;
 
-                if (Expect(PyToken.Type.ASYNC, "ASYNC") == null) return null;
-                if (ExpectKeyword("for") == null) return null;
-                if ((a = Parse_StarTargets()) == null) return null;
-                if (ExpectKeyword("in") == null) return null;
-                if ((b = Parse_Disjunction()) == null) return null;
-                if ((c = (GeneratedExprSeq)ParseZeroOrMore(() => ParseGroup())) == null) return null;
-
-                // Action code from grammar
-                return CheckVersion ( 6 , "Async comprehensions are" , PyAst . comprehension (( GeneratedExpr ) a ,( GeneratedExpr ) b , c , is_async : 1 ));
+                if (
+                    ExpectToken(PyToken.Type.ASYNC) != null &&
+                    ExpectKeyword("for") != null &&
+                    (a = Parse_StarTargets()) != null &&
+                    ExpectKeyword("in") != null &&
+                    (b = Parse_Disjunction()) != null &&
+                    (c = (GeneratedExprSeq)ParseZeroOrMore(() => Parse_Tmp46())) != null
+                )
+                {
+                    // Action code from grammar
+                    return CheckVersion ( 6 , "Async comprehensions are" , PyAst . comprehension (( GeneratedExpr ) a ,( GeneratedExpr ) b , c , is_async : 1 ));
+                }
             }
 
             // Alternative 2
@@ -7622,14 +9438,17 @@ namespace SharpPy.Generated
                 GeneratedExpr? b = null;
                 GeneratedExprSeq? c = null;
 
-                if (ExpectKeyword("for") == null) return null;
-                if ((a = Parse_StarTargets()) == null) return null;
-                if (ExpectKeyword("in") == null) return null;
-                if ((b = Parse_Disjunction()) == null) return null;
-                if ((c = (GeneratedExprSeq)ParseZeroOrMore(() => ParseGroup())) == null) return null;
-
-                // Action code from grammar
-                return PyAst . comprehension (( GeneratedExpr ) a ,( GeneratedExpr ) b , c , is_async : 0 );
+                if (
+                    ExpectKeyword("for") != null &&
+                    (a = Parse_StarTargets()) != null &&
+                    ExpectKeyword("in") != null &&
+                    (b = Parse_Disjunction()) != null &&
+                    (c = (GeneratedExprSeq)ParseZeroOrMore(() => Parse_Tmp47())) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . comprehension (( GeneratedExpr ) a ,( GeneratedExpr ) b , c , is_async : 0 );
+                }
             }
 
             // Alternative 3
@@ -7637,11 +9456,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedComprehension? _alt_var = null;
 
-                if (Parse_InvalidForTarget() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedComprehension)Parse_InvalidForTarget()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -7657,6 +9478,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] listcomp at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -7664,13 +9489,16 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedComprehensionSeq? b = null;
 
-                if (ExpectOp("[") == null) return null;
-                if ((a = Parse_NamedExpression()) == null) return null;
-                if ((b = Parse_ForIfClauses()) == null) return null;
-                if (ExpectOp("]") == null) return null;
-
-                // Action code from grammar
-                return PyAst . ListComp ( a , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("[") != null &&
+                    (a = Parse_NamedExpression()) != null &&
+                    (b = Parse_ForIfClauses()) != null &&
+                    ExpectOp("]") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . ListComp ( a , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -7678,11 +9506,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_InvalidComprehension() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedExpr)Parse_InvalidComprehension()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -7698,6 +9528,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] setcomp at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -7705,13 +9539,16 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedComprehensionSeq? b = null;
 
-                if (ExpectOp("{") == null) return null;
-                if ((a = Parse_NamedExpression()) == null) return null;
-                if ((b = Parse_ForIfClauses()) == null) return null;
-                if (ExpectOp("}") == null) return null;
-
-                // Action code from grammar
-                return PyAst . SetComp ( a , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("{") != null &&
+                    (a = Parse_NamedExpression()) != null &&
+                    (b = Parse_ForIfClauses()) != null &&
+                    ExpectOp("}") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . SetComp ( a , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -7719,11 +9556,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_InvalidComprehension() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedExpr)Parse_InvalidComprehension()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -7739,6 +9578,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] genexp at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -7746,13 +9589,16 @@ namespace SharpPy.Generated
                 GeneratedPtr? a = null;
                 GeneratedComprehensionSeq? b = null;
 
-                if (ExpectOp("(") == null) return null;
-                if ((a = ParseGroup()) == null) return null;
-                if ((b = Parse_ForIfClauses()) == null) return null;
-                if (ExpectOp(")") == null) return null;
-
-                // Action code from grammar
-                return PyAst . GeneratorExp (( GeneratedExpr ) a , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("(") != null &&
+                    (a = Parse_Tmp48()) != null &&
+                    (b = Parse_ForIfClauses()) != null &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . GeneratorExp (( GeneratedExpr ) a , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -7760,11 +9606,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_InvalidComprehension() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedExpr)Parse_InvalidComprehension()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -7780,6 +9628,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] dictcomp at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -7787,13 +9639,16 @@ namespace SharpPy.Generated
                 GeneratedKeyValuePair? a = null;
                 GeneratedComprehensionSeq? b = null;
 
-                if (ExpectOp("{") == null) return null;
-                if ((a = Parse_Kvpair()) == null) return null;
-                if ((b = Parse_ForIfClauses()) == null) return null;
-                if (ExpectOp("}") == null) return null;
-
-                // Action code from grammar
-                return PyAst . DictComp ( a . Key , a . Value , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("{") != null &&
+                    (a = Parse_Kvpair()) != null &&
+                    (b = Parse_ForIfClauses()) != null &&
+                    ExpectOp("}") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . DictComp ( a . Key , a . Value , b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -7801,11 +9656,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_InvalidDictComprehension() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedExpr)Parse_InvalidDictComprehension()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -7816,10 +9673,24 @@ namespace SharpPy.Generated
         /// Rule: arguments
         /// Alternatives: 2
         /// Return Type: GeneratedExpr
+        /// CPython (memo) - uses TryMemoized wrapper
         /// </summary>
         private GeneratedExpr? Parse_Arguments()
         {
+            return (GeneratedExpr?)TryMemoized("arguments", Parse_Arguments_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for memoized rule: arguments
+        /// Called by TryMemoized wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_Arguments_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] arguments at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -7827,12 +9698,15 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if ((a = Parse_Args()) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-                if (PositiveLookahead(() => ExpectOp(")")) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    (a = Parse_Args()) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true) &&
+                    PositiveLookahead(() => ExpectOp(")")) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 2
@@ -7840,11 +9714,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_InvalidArguments() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedExpr)Parse_InvalidArguments()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -7860,6 +9736,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] args at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -7867,11 +9747,14 @@ namespace SharpPy.Generated
                 GeneratedExprSeq? a = null;
                 GeneratedPtr? b = null;
 
-                if ((a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => ParseGroup())) == null) return null;
-                if ((b = ParseOptional(() => ParseGroup())) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . CollectCallSeqs ( a ,( GeneratedSeq ?) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp49())) != null &&
+                    ((b = ParseOptional(() => Parse_Tmp50())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . CollectCallSeqs ( a ,( GeneratedSeq ?) b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -7881,10 +9764,11 @@ namespace SharpPy.Generated
 
                 GeneratedSeq? a = null;
 
-                if ((a = Parse_Kwargs()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Call ( PyParserHelpers . DummyName (), CheckNullAllowed < GeneratedExprSeq >( PyParserHelpers . SeqExtractStarredExprs ( a )), CheckNullAllowed < GeneratedKeywordSeq >( PyParserHelpers . SeqDeleteStarredExprs ( a )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if ((a = Parse_Kwargs()) != null)
+                {
+                    // Action code from grammar
+                    return PyAst . Call ( PyParserHelpers . DummyName (), CheckNullAllowed < GeneratedExprSeq >( PyParserHelpers . SeqExtractStarredExprs ( a )), CheckNullAllowed < GeneratedKeywordSeq >( PyParserHelpers . SeqDeleteStarredExprs ( a )), _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -7900,6 +9784,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] kwargs at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -7907,12 +9795,15 @@ namespace SharpPy.Generated
                 GeneratedSeq? a = null;
                 GeneratedSeq? b = null;
 
-                if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_KwargOrStarred())) == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if ((b = ParseGatherPlus(() => ExpectOp(","), () => Parse_KwargOrDoubleStarred())) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . JoinSequences ( a , b );
+                if (
+                    (a = ParseGatherPlus(() => ExpectOp(","), () => Parse_KwargOrStarred())) != null &&
+                    ExpectOp(",") != null &&
+                    (b = ParseGatherPlus(() => ExpectOp(","), () => Parse_KwargOrDoubleStarred())) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . JoinSequences ( a , b );
+                }
             }
 
             // Alternative 2
@@ -7920,11 +9811,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedSeq? _alt_var = null;
 
-                if (ParseGatherPlus(() => ExpectOp(","), () => Parse_KwargOrStarred()) == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = ParseGatherPlus(() => ExpectOp(","), () => Parse_KwargOrStarred())) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 3
@@ -7932,11 +9825,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedSeq? _alt_var = null;
 
-                if (ParseGatherPlus(() => ExpectOp(","), () => Parse_KwargOrDoubleStarred()) == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = ParseGatherPlus(() => ExpectOp(","), () => Parse_KwargOrDoubleStarred())) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -7952,15 +9847,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] starred_expression at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_InvalidStarredExpression() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedExpr)Parse_InvalidStarredExpression()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -7970,11 +9871,14 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp("*") == null) return null;
-                if ((a = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Starred ( a , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("*") != null &&
+                    (a = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Starred ( a , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -7983,10 +9887,11 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("*") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxError ( "Invalid star expression" );
+                if (ExpectOp("*") != null)
+                {
+                    // Action code from grammar
+                    RaiseSyntaxError ( "Invalid star expression" );
+                }
             }
 
             Reset(_mark);
@@ -8002,15 +9907,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] kwarg_or_starred at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedKeywordOrStarred? _alt_var = null;
 
-                if (Parse_InvalidKwarg() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedKeywordOrStarred)Parse_InvalidKwarg()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -8021,12 +9932,15 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if (ExpectOp("=") == null) return null;
-                if ((b = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . KeywordOrStarred ( Check < GeneratedKeyword >( PyAst . keyword ( a . GetNameValue (), b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset )), is_keyword : 1 );
+                if (
+                    (a = ExpectName()) != null &&
+                    ExpectOp("=") != null &&
+                    (b = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . KeywordOrStarred ( Check < GeneratedKeyword >( PyAst . keyword ( a . GetNameValue (), b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset )), is_keyword : 1 );
+                }
             }
 
             // Alternative 3
@@ -8036,10 +9950,11 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if ((a = Parse_StarredExpression()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . KeywordOrStarred ( a , is_keyword : 0 );
+                if ((a = Parse_StarredExpression()) != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . KeywordOrStarred ( a , is_keyword : 0 );
+                }
             }
 
             Reset(_mark);
@@ -8055,15 +9970,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] kwarg_or_double_starred at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedKeywordOrStarred? _alt_var = null;
 
-                if (Parse_InvalidKwarg() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedKeywordOrStarred)Parse_InvalidKwarg()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -8074,12 +9995,15 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if (ExpectOp("=") == null) return null;
-                if ((b = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . KeywordOrStarred ( Check < GeneratedKeyword >( PyAst . keyword ( a . GetNameValue (), b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset )), is_keyword : 1 );
+                if (
+                    (a = ExpectName()) != null &&
+                    ExpectOp("=") != null &&
+                    (b = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . KeywordOrStarred ( Check < GeneratedKeyword >( PyAst . keyword ( a . GetNameValue (), b , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset )), is_keyword : 1 );
+                }
             }
 
             // Alternative 3
@@ -8089,11 +10013,14 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp("**") == null) return null;
-                if ((a = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . KeywordOrStarred ( Check < GeneratedKeyword >( PyAst . keyword ( null , a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset )), is_keyword : 1 );
+                if (
+                    ExpectOp("**") != null &&
+                    (a = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . KeywordOrStarred ( Check < GeneratedKeyword >( PyAst . keyword ( null , a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset )), is_keyword : 1 );
+                }
             }
 
             Reset(_mark);
@@ -8109,17 +10036,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] star_targets at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if ((a = Parse_StarTarget()) == null) return null;
-                if (NegativeLookahead(() => ExpectOp(",")) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    (a = Parse_StarTarget()) != null &&
+                    NegativeLookahead(() => ExpectOp(",")) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             // Alternative 2
@@ -8130,12 +10064,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedSeq? b = null;
 
-                if ((a = Parse_StarTarget()) == null) return null;
-                if ((b = ParseZeroOrMore(() => ParseGroup())) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Tuple (( GeneratedExprSeq ?) Check < GeneratedExprSeq >(( GeneratedExprSeq ) PyParserHelpers . SeqInsertInFront ( a , b )), GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_StarTarget()) != null &&
+                    (b = ParseZeroOrMore(() => Parse_Tmp51())) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Tuple (( GeneratedExprSeq ?) Check < GeneratedExprSeq >(( GeneratedExprSeq ) PyParserHelpers . SeqInsertInFront ( a , b )), GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -8151,17 +10088,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] star_targets_list_seq at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExprSeq? a = null;
 
-                if ((a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_StarTarget())) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    (a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_StarTarget())) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -8177,6 +10121,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] star_targets_tuple_seq at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -8184,12 +10132,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedSeq? b = null;
 
-                if ((a = Parse_StarTarget()) == null) return null;
-                if ((b = ParseOneOrMore(() => ParseGroup())) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SeqInsertInFront ( a , b ). Cast < GeneratedExprSeq >();
+                if (
+                    (a = Parse_StarTarget()) != null &&
+                    (b = ParseOneOrMore(() => Parse_Tmp52())) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SeqInsertInFront ( a , b ). Cast < GeneratedExprSeq >();
+                }
             }
 
             // Alternative 2
@@ -8199,11 +10150,14 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if ((a = Parse_StarTarget()) == null) return null;
-                if (ExpectOp(",") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SingletonSeq ( a ). Cast < GeneratedExprSeq >();
+                if (
+                    (a = Parse_StarTarget()) != null &&
+                    ExpectOp(",") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SingletonSeq ( a ). Cast < GeneratedExprSeq >();
+                }
             }
 
             Reset(_mark);
@@ -8214,10 +10168,24 @@ namespace SharpPy.Generated
         /// Rule: star_target
         /// Alternatives: 2
         /// Return Type: GeneratedExpr
+        /// CPython (memo) - uses TryMemoized wrapper
         /// </summary>
         private GeneratedExpr? Parse_StarTarget()
         {
+            return (GeneratedExpr?)TryMemoized("star_target", Parse_StarTarget_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for memoized rule: star_target
+        /// Called by TryMemoized wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_StarTarget_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] star_target at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -8225,11 +10193,14 @@ namespace SharpPy.Generated
 
                 GeneratedPtr? a = null;
 
-                if (ExpectOp("*") == null) return null;
-                if ((a = ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Starred (( GeneratedExpr ) Check < GeneratedExpr >(( GeneratedExpr ) PyParserHelpers . SetExprContext (( GeneratedExpr ) a , GeneratedStore.Instance )), GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("*") != null &&
+                    (a = Parse_Tmp53()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Starred (( GeneratedExpr ) Check < GeneratedExpr >(( GeneratedExpr ) PyParserHelpers . SetExprContext (( GeneratedExpr ) a , GeneratedStore.Instance )), GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -8237,11 +10208,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_TargetWithStarAtom() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_TargetWithStarAtom()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -8252,10 +10225,24 @@ namespace SharpPy.Generated
         /// Rule: target_with_star_atom
         /// Alternatives: 3
         /// Return Type: GeneratedExpr
+        /// CPython (memo) - uses TryMemoized wrapper
         /// </summary>
         private GeneratedExpr? Parse_TargetWithStarAtom()
         {
+            return (GeneratedExpr?)TryMemoized("target_with_star_atom", Parse_TargetWithStarAtom_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for memoized rule: target_with_star_atom
+        /// Called by TryMemoized wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_TargetWithStarAtom_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] target_with_star_atom at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -8264,13 +10251,16 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedTokenInfo? b = null;
 
-                if ((a = Parse_TPrimary()) == null) return null;
-                if (ExpectOp(".") == null) return null;
-                if ((b = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if (NegativeLookahead(() => Parse_TLookahead()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Attribute ( a , b . GetNameValue (), GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_TPrimary()) != null &&
+                    ExpectOp(".") != null &&
+                    (b = ExpectName()) != null &&
+                    NegativeLookahead(() => Parse_TLookahead()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Attribute ( a , b . GetNameValue (), GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -8281,14 +10271,17 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_TPrimary()) == null) return null;
-                if (ExpectOp("[") == null) return null;
-                if ((b = Parse_Slices()) == null) return null;
-                if (ExpectOp("]") == null) return null;
-                if (NegativeLookahead(() => Parse_TLookahead()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Subscript ( a , b , GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_TPrimary()) != null &&
+                    ExpectOp("[") != null &&
+                    (b = Parse_Slices()) != null &&
+                    ExpectOp("]") != null &&
+                    NegativeLookahead(() => Parse_TLookahead()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Subscript ( a , b , GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -8296,11 +10289,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_StarAtom() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_StarAtom()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -8316,16 +10311,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] star_atom at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SetExprContext ( NameToken ( a ), GeneratedStore.Instance );
+                if ((a = ExpectName()) != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SetExprContext ( NameToken ( a ), GeneratedStore.Instance );
+                }
             }
 
             // Alternative 2
@@ -8335,12 +10335,15 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp("(") == null) return null;
-                if ((a = Parse_TargetWithStarAtom()) == null) return null;
-                if (ExpectOp(")") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SetExprContext ( a , GeneratedStore.Instance );
+                if (
+                    ExpectOp("(") != null &&
+                    (a = Parse_TargetWithStarAtom()) != null &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SetExprContext ( a , GeneratedStore.Instance );
+                }
             }
 
             // Alternative 3
@@ -8350,12 +10353,15 @@ namespace SharpPy.Generated
 
                 GeneratedExprSeq? a = null;
 
-                if (ExpectOp("(") == null) return null;
-                if ((a = (GeneratedExprSeq)ParseOptional(() => Parse_StarTargetsTupleSeq())) == null) return null;
-                if (ExpectOp(")") == null) return null;
-
-                // Action code from grammar
-                return PyAst . Tuple ( a , GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("(") != null &&
+                    ((a = (GeneratedExprSeq)ParseOptional(() => Parse_StarTargetsTupleSeq())) == null || true) &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Tuple ( a , GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 4
@@ -8365,12 +10371,15 @@ namespace SharpPy.Generated
 
                 GeneratedExprSeq? a = null;
 
-                if (ExpectOp("[") == null) return null;
-                if ((a = (GeneratedExprSeq)ParseOptional(() => Parse_StarTargetsListSeq())) == null) return null;
-                if (ExpectOp("]") == null) return null;
-
-                // Action code from grammar
-                return PyAst . List ( a , GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("[") != null &&
+                    ((a = (GeneratedExprSeq)ParseOptional(() => Parse_StarTargetsListSeq())) == null || true) &&
+                    ExpectOp("]") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . List ( a , GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -8386,15 +10395,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] single_target at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_SingleSubscriptAttributeTarget() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_SingleSubscriptAttributeTarget()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -8404,10 +10419,11 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SetExprContext ( NameToken ( a ), GeneratedStore.Instance );
+                if ((a = ExpectName()) != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SetExprContext ( NameToken ( a ), GeneratedStore.Instance );
+                }
             }
 
             // Alternative 3
@@ -8417,12 +10433,15 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp("(") == null) return null;
-                if ((a = Parse_SingleTarget()) == null) return null;
-                if (ExpectOp(")") == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    ExpectOp("(") != null &&
+                    (a = Parse_SingleTarget()) != null &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -8438,6 +10457,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] single_subscript_attribute_target at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -8445,13 +10468,16 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedTokenInfo? b = null;
 
-                if ((a = Parse_TPrimary()) == null) return null;
-                if (ExpectOp(".") == null) return null;
-                if ((b = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if (NegativeLookahead(() => Parse_TLookahead()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Attribute ( a , b . GetNameValue (), GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_TPrimary()) != null &&
+                    ExpectOp(".") != null &&
+                    (b = ExpectName()) != null &&
+                    NegativeLookahead(() => Parse_TLookahead()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Attribute ( a , b . GetNameValue (), GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -8462,14 +10488,17 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_TPrimary()) == null) return null;
-                if (ExpectOp("[") == null) return null;
-                if ((b = Parse_Slices()) == null) return null;
-                if (ExpectOp("]") == null) return null;
-                if (NegativeLookahead(() => Parse_TLookahead()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Subscript ( a , b , GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_TPrimary()) != null &&
+                    ExpectOp("[") != null &&
+                    (b = Parse_Slices()) != null &&
+                    ExpectOp("]") != null &&
+                    NegativeLookahead(() => Parse_TLookahead()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Subscript ( a , b , GeneratedStore.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -8480,10 +10509,24 @@ namespace SharpPy.Generated
         /// Rule: t_primary
         /// Alternatives: 5
         /// Return Type: GeneratedExpr
+        /// Left-recursive rule - uses TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_TPrimary()
         {
+            return (GeneratedExpr?)TryLeftRecursive("t_primary", Parse_TPrimary_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for left-recursive rule: t_primary
+        /// Called by TryLeftRecursive wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_TPrimary_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] t_primary at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -8492,13 +10535,16 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedTokenInfo? b = null;
 
-                if ((a = Parse_TPrimary()) == null) return null;
-                if (ExpectOp(".") == null) return null;
-                if ((b = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if (PositiveLookahead(() => Parse_TLookahead()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Attribute ( a , b . GetNameValue (), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_TPrimary()) != null &&
+                    ExpectOp(".") != null &&
+                    (b = ExpectName()) != null &&
+                    PositiveLookahead(() => Parse_TLookahead()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Attribute ( a , b . GetNameValue (), GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -8509,14 +10555,17 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_TPrimary()) == null) return null;
-                if (ExpectOp("[") == null) return null;
-                if ((b = Parse_Slices()) == null) return null;
-                if (ExpectOp("]") == null) return null;
-                if (PositiveLookahead(() => Parse_TLookahead()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Subscript ( a , b , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_TPrimary()) != null &&
+                    ExpectOp("[") != null &&
+                    (b = Parse_Slices()) != null &&
+                    ExpectOp("]") != null &&
+                    PositiveLookahead(() => Parse_TLookahead()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Subscript ( a , b , GeneratedLoad.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -8527,12 +10576,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_TPrimary()) == null) return null;
-                if ((b = Parse_Genexp()) == null) return null;
-                if (PositiveLookahead(() => Parse_TLookahead()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Call ( a , Check < GeneratedExprSeq >( PyParserHelpers . SingletonSeq ( b ). Cast < GeneratedExprSeq >()), null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_TPrimary()) != null &&
+                    (b = Parse_Genexp()) != null &&
+                    PositiveLookahead(() => Parse_TLookahead()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Call ( a , Check < GeneratedExprSeq >( PyParserHelpers . SingletonSeq ( b ). Cast < GeneratedExprSeq >()), null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 4
@@ -8543,14 +10595,17 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_TPrimary()) == null) return null;
-                if (ExpectOp("(") == null) return null;
-                if ((b = (GeneratedExpr)ParseOptional(() => Parse_Arguments())) == null) return null;
-                if (ExpectOp(")") == null) return null;
-                if (PositiveLookahead(() => Parse_TLookahead()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Call ( a ,( b != null )?(( GeneratedCall ) b ). Args : null !,( b != null )?(( GeneratedCall ) b ). Keywords : null !, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_TPrimary()) != null &&
+                    ExpectOp("(") != null &&
+                    ((b = (GeneratedExpr)ParseOptional(() => Parse_Arguments())) == null || true) &&
+                    ExpectOp(")") != null &&
+                    PositiveLookahead(() => Parse_TLookahead()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Call ( a ,( b != null )?(( GeneratedCall ) b ). Args : null !,( b != null )?(( GeneratedCall ) b ). Keywords : null !, _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 5
@@ -8560,11 +10615,14 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if ((a = Parse_Atom()) == null) return null;
-                if (PositiveLookahead(() => Parse_TLookahead()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    (a = Parse_Atom()) != null &&
+                    PositiveLookahead(() => Parse_TLookahead()) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -8579,15 +10637,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] t_lookahead at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedPtr? _alt_var = null;
 
-                if (ExpectOp("(") == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedPtr)ExpectOp("(")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -8595,11 +10659,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _alt_var = null;
 
-                if (ExpectOp("[") == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedPtr)ExpectOp("[")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 3
@@ -8607,11 +10673,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _alt_var = null;
 
-                if (ExpectOp(".") == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedPtr)ExpectOp(".")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -8627,17 +10695,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] del_targets at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExprSeq? a = null;
 
-                if ((a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_DelTarget())) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    (a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_DelTarget())) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -8648,10 +10723,24 @@ namespace SharpPy.Generated
         /// Rule: del_target
         /// Alternatives: 3
         /// Return Type: GeneratedExpr
+        /// CPython (memo) - uses TryMemoized wrapper
         /// </summary>
         private GeneratedExpr? Parse_DelTarget()
         {
+            return (GeneratedExpr?)TryMemoized("del_target", Parse_DelTarget_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for memoized rule: del_target
+        /// Called by TryMemoized wrapper
+        /// </summary>
+        private GeneratedExpr? Parse_DelTarget_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] del_target at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -8660,13 +10749,16 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedTokenInfo? b = null;
 
-                if ((a = Parse_TPrimary()) == null) return null;
-                if (ExpectOp(".") == null) return null;
-                if ((b = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if (NegativeLookahead(() => Parse_TLookahead()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Attribute ( a , b . GetNameValue (), GeneratedDel.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_TPrimary()) != null &&
+                    ExpectOp(".") != null &&
+                    (b = ExpectName()) != null &&
+                    NegativeLookahead(() => Parse_TLookahead()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Attribute ( a , b . GetNameValue (), GeneratedDel.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -8677,14 +10769,17 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_TPrimary()) == null) return null;
-                if (ExpectOp("[") == null) return null;
-                if ((b = Parse_Slices()) == null) return null;
-                if (ExpectOp("]") == null) return null;
-                if (NegativeLookahead(() => Parse_TLookahead()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . Subscript ( a , b , GeneratedDel.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_TPrimary()) != null &&
+                    ExpectOp("[") != null &&
+                    (b = Parse_Slices()) != null &&
+                    ExpectOp("]") != null &&
+                    NegativeLookahead(() => Parse_TLookahead()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Subscript ( a , b , GeneratedDel.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 3
@@ -8692,11 +10787,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_DelTAtom() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_DelTAtom()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -8712,16 +10809,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] del_t_atom at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SetExprContext ( NameToken ( a ), GeneratedDel.Instance );
+                if ((a = ExpectName()) != null)
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SetExprContext ( NameToken ( a ), GeneratedDel.Instance );
+                }
             }
 
             // Alternative 2
@@ -8731,12 +10833,15 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp("(") == null) return null;
-                if ((a = Parse_DelTarget()) == null) return null;
-                if (ExpectOp(")") == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SetExprContext ( a , GeneratedDel.Instance );
+                if (
+                    ExpectOp("(") != null &&
+                    (a = Parse_DelTarget()) != null &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SetExprContext ( a , GeneratedDel.Instance );
+                }
             }
 
             // Alternative 3
@@ -8746,12 +10851,15 @@ namespace SharpPy.Generated
 
                 GeneratedExprSeq? a = null;
 
-                if (ExpectOp("(") == null) return null;
-                if ((a = (GeneratedExprSeq)ParseOptional(() => Parse_DelTargets())) == null) return null;
-                if (ExpectOp(")") == null) return null;
-
-                // Action code from grammar
-                return PyAst . Tuple ( a , GeneratedDel.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("(") != null &&
+                    ((a = (GeneratedExprSeq)ParseOptional(() => Parse_DelTargets())) == null || true) &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . Tuple ( a , GeneratedDel.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 4
@@ -8761,12 +10869,15 @@ namespace SharpPy.Generated
 
                 GeneratedExprSeq? a = null;
 
-                if (ExpectOp("[") == null) return null;
-                if ((a = (GeneratedExprSeq)ParseOptional(() => Parse_DelTargets())) == null) return null;
-                if (ExpectOp("]") == null) return null;
-
-                // Action code from grammar
-                return PyAst . List ( a , GeneratedDel.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    ExpectOp("[") != null &&
+                    ((a = (GeneratedExprSeq)ParseOptional(() => Parse_DelTargets())) == null || true) &&
+                    ExpectOp("]") != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . List ( a , GeneratedDel.Instance , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             Reset(_mark);
@@ -8782,6 +10893,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] type_expressions at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -8790,16 +10905,19 @@ namespace SharpPy.Generated
                 GeneratedExpr? b = null;
                 GeneratedExpr? c = null;
 
-                if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_Expression())) == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if (ExpectOp("*") == null) return null;
-                if ((b = Parse_Expression()) == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if (ExpectOp("**") == null) return null;
-                if ((c = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SeqAppendToEnd (( Check < GeneratedSeq >( PyParserHelpers . SeqAppendToEnd ( a , b )). Cast < GeneratedExprSeq >()), c ). Cast < GeneratedExprSeq >();
+                if (
+                    (a = ParseGatherPlus(() => ExpectOp(","), () => Parse_Expression())) != null &&
+                    ExpectOp(",") != null &&
+                    ExpectOp("*") != null &&
+                    (b = Parse_Expression()) != null &&
+                    ExpectOp(",") != null &&
+                    ExpectOp("**") != null &&
+                    (c = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SeqAppendToEnd (( Check < GeneratedSeq >( PyParserHelpers . SeqAppendToEnd ( a , b )). Cast < GeneratedExprSeq >()), c ). Cast < GeneratedExprSeq >();
+                }
             }
 
             // Alternative 2
@@ -8810,13 +10928,16 @@ namespace SharpPy.Generated
                 GeneratedSeq? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_Expression())) == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if (ExpectOp("*") == null) return null;
-                if ((b = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SeqAppendToEnd ( a , b ). Cast < GeneratedExprSeq >();
+                if (
+                    (a = ParseGatherPlus(() => ExpectOp(","), () => Parse_Expression())) != null &&
+                    ExpectOp(",") != null &&
+                    ExpectOp("*") != null &&
+                    (b = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SeqAppendToEnd ( a , b ). Cast < GeneratedExprSeq >();
+                }
             }
 
             // Alternative 3
@@ -8827,13 +10948,16 @@ namespace SharpPy.Generated
                 GeneratedSeq? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_Expression())) == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if (ExpectOp("**") == null) return null;
-                if ((b = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SeqAppendToEnd ( a , b ). Cast < GeneratedExprSeq >();
+                if (
+                    (a = ParseGatherPlus(() => ExpectOp(","), () => Parse_Expression())) != null &&
+                    ExpectOp(",") != null &&
+                    ExpectOp("**") != null &&
+                    (b = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SeqAppendToEnd ( a , b ). Cast < GeneratedExprSeq >();
+                }
             }
 
             // Alternative 4
@@ -8844,14 +10968,17 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if (ExpectOp("*") == null) return null;
-                if ((a = Parse_Expression()) == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if (ExpectOp("**") == null) return null;
-                if ((b = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SeqAppendToEnd (( Check < GeneratedSeq >( PyParserHelpers . SingletonSeq ( a )). Cast < GeneratedExprSeq >()), b ). Cast < GeneratedExprSeq >();
+                if (
+                    ExpectOp("*") != null &&
+                    (a = Parse_Expression()) != null &&
+                    ExpectOp(",") != null &&
+                    ExpectOp("**") != null &&
+                    (b = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SeqAppendToEnd (( Check < GeneratedSeq >( PyParserHelpers . SingletonSeq ( a )). Cast < GeneratedExprSeq >()), b ). Cast < GeneratedExprSeq >();
+                }
             }
 
             // Alternative 5
@@ -8861,11 +10988,14 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp("*") == null) return null;
-                if ((a = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SingletonSeq ( a ). Cast < GeneratedExprSeq >();
+                if (
+                    ExpectOp("*") != null &&
+                    (a = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SingletonSeq ( a ). Cast < GeneratedExprSeq >();
+                }
             }
 
             // Alternative 6
@@ -8875,11 +11005,14 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp("**") == null) return null;
-                if ((a = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                return PyParserHelpers . SingletonSeq ( a ). Cast < GeneratedExprSeq >();
+                if (
+                    ExpectOp("**") != null &&
+                    (a = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SingletonSeq ( a ). Cast < GeneratedExprSeq >();
+                }
             }
 
             // Alternative 7
@@ -8889,10 +11022,11 @@ namespace SharpPy.Generated
 
                 GeneratedExprSeq? a = null;
 
-                if ((a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_Expression())) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if ((a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_Expression())) != null)
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -8908,18 +11042,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] func_type_comment at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? t = null;
 
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if ((t = Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT")) == null) return null;
-                if (PositiveLookahead(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                return t;
+                if (
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    (t = ExpectToken(PyToken.Type.TYPE_COMMENT)) != null &&
+                    PositiveLookahead(() => Parse_Tmp54()) != null
+                )
+                {
+                    // Action code from grammar
+                    return t;
+                }
             }
 
             // Alternative 2
@@ -8927,11 +11068,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _alt_var = null;
 
-                if (Parse_InvalidDoubleTypeComments() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedTokenInfo)Parse_InvalidDoubleTypeComments()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 3
@@ -8939,11 +11082,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedTokenInfo? _alt_var = null;
 
-                if (Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT") == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = ExpectToken(PyToken.Type.TYPE_COMMENT)) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -8958,18 +11103,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_arguments at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
 
-                if (ParseGroup() == null) return null;
-                if ((a = ExpectOp(",")) == null) return null;
-                if (ParseGatherPlus(() => ExpectOp(","), () => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorStartingFrom ( a , "iterable argument unpacking follows keyword argument unpacking" );
+                if (
+                    Parse_Tmp55() != null &&
+                    (a = ExpectOp(",")) != null &&
+                    ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp56()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorStartingFrom ( a , "iterable argument unpacking follows keyword argument unpacking" );
+                }
             }
 
             // Alternative 2
@@ -8980,13 +11132,16 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedComprehensionSeq? b = null;
 
-                if ((a = Parse_Expression()) == null) return null;
-                if ((b = Parse_ForIfClauses()) == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if (ParseOptional(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , GetLastComprehensionItem ( LastItem < GeneratedComprehension >( b )), "Generator expression must be parenthesized" );
+                if (
+                    (a = Parse_Expression()) != null &&
+                    (b = Parse_ForIfClauses()) != null &&
+                    ExpectOp(",") != null &&
+                    (ParseOptional(() => Parse_Tmp57()) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownRange ( a , GetLastComprehensionItem ( LastItem < GeneratedComprehension >( b )), "Generator expression must be parenthesized" );
+                }
             }
 
             // Alternative 3
@@ -8997,13 +11152,16 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
                 GeneratedTokenInfo? b = null;
 
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if ((b = ExpectOp("=")) == null) return null;
-                if (Parse_Expression() == null) return null;
-                if (Parse_ForIfClauses() == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , b , "invalid syntax. Maybe you meant '==' or ':=' instead of '='?" );
+                if (
+                    (a = ExpectName()) != null &&
+                    (b = ExpectOp("=")) != null &&
+                    Parse_Expression() != null &&
+                    Parse_ForIfClauses() != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownRange ( a , b , "invalid syntax. Maybe you meant '==' or ':=' instead of '='?" );
+                }
             }
 
             // Alternative 4
@@ -9014,13 +11172,16 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
                 GeneratedTokenInfo? b = null;
 
-                if (ParseOptional(() => ParseGroup()) == null) return null;
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if ((b = ExpectOp("=")) == null) return null;
-                if (PositiveLookahead(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , b , "expected argument value expression" );
+                if (
+                    (ParseOptional(() => Parse_Tmp58()) == null || true) &&
+                    (a = ExpectName()) != null &&
+                    (b = ExpectOp("=")) != null &&
+                    PositiveLookahead(() => Parse_Tmp59()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownRange ( a , b , "expected argument value expression" );
+                }
             }
 
             // Alternative 5
@@ -9031,11 +11192,14 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedComprehensionSeq? b = null;
 
-                if ((a = Parse_Args()) == null) return null;
-                if ((b = Parse_ForIfClauses()) == null) return null;
-
-                // Action code from grammar
-                return NonparenGenexpInCall ( a , b );
+                if (
+                    (a = Parse_Args()) != null &&
+                    (b = Parse_ForIfClauses()) != null
+                )
+                {
+                    // Action code from grammar
+                    return NonparenGenexpInCall ( a , b );
+                }
             }
 
             // Alternative 6
@@ -9046,13 +11210,16 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedComprehensionSeq? b = null;
 
-                if (Parse_Args() == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if ((a = Parse_Expression()) == null) return null;
-                if ((b = Parse_ForIfClauses()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , GetLastComprehensionItem ( LastItem < GeneratedComprehension >( b )), "Generator expression must be parenthesized" );
+                if (
+                    Parse_Args() != null &&
+                    ExpectOp(",") != null &&
+                    (a = Parse_Expression()) != null &&
+                    (b = Parse_ForIfClauses()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownRange ( a , GetLastComprehensionItem ( LastItem < GeneratedComprehension >( b )), "Generator expression must be parenthesized" );
+                }
             }
 
             // Alternative 7
@@ -9062,12 +11229,15 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if ((a = Parse_Args()) == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if (Parse_Args() == null) return null;
-
-                // Action code from grammar
-                return ArgumentsParsingError ( a );
+                if (
+                    (a = Parse_Args()) != null &&
+                    ExpectOp(",") != null &&
+                    Parse_Args() != null
+                )
+                {
+                    // Action code from grammar
+                    return ArgumentsParsingError ( a );
+                }
             }
 
             Reset(_mark);
@@ -9082,6 +11252,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_kwarg at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -9089,11 +11263,14 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
                 GeneratedTokenInfo? b = null;
 
-                if ((a = (GeneratedTokenInfo)ParseGroup()) == null) return null;
-                if ((b = ExpectOp("=")) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , b , "cannot assign to %s" );
+                if (
+                    (a = (GeneratedTokenInfo)Parse_Tmp60()) != null &&
+                    (b = ExpectOp("=")) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownRange ( a , b , "cannot assign to %s" );
+                }
             }
 
             // Alternative 2
@@ -9104,13 +11281,16 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
                 GeneratedTokenInfo? b = null;
 
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if ((b = ExpectOp("=")) == null) return null;
-                if (Parse_Expression() == null) return null;
-                if (Parse_ForIfClauses() == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , b , "invalid syntax. Maybe you meant '==' or ':=' instead of '='?" );
+                if (
+                    (a = ExpectName()) != null &&
+                    (b = ExpectOp("=")) != null &&
+                    Parse_Expression() != null &&
+                    Parse_ForIfClauses() != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownRange ( a , b , "invalid syntax. Maybe you meant '==' or ':=' instead of '='?" );
+                }
             }
 
             // Alternative 3
@@ -9121,12 +11301,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedTokenInfo? b = null;
 
-                if (NegativeLookahead(() => ParseGroup()) == null) return null;
-                if ((a = Parse_Expression()) == null) return null;
-                if ((b = ExpectOp("=")) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , b , "expression cannot contain assignment, perhaps you meant \"==\"?" );
+                if (
+                    NegativeLookahead(() => Parse_Tmp61()) != null &&
+                    (a = Parse_Expression()) != null &&
+                    (b = ExpectOp("=")) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownRange ( a , b , "expression cannot contain assignment, perhaps you meant \"==\"?" );
+                }
             }
 
             // Alternative 4
@@ -9137,13 +11320,16 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = ExpectOp("**")) == null) return null;
-                if (Parse_Expression() == null) return null;
-                if (ExpectOp("=") == null) return null;
-                if ((b = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , b , "cannot assign to keyword argument unpacking" );
+                if (
+                    (a = ExpectOp("**")) != null &&
+                    Parse_Expression() != null &&
+                    ExpectOp("=") != null &&
+                    (b = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownRange ( a , b , "cannot assign to keyword argument unpacking" );
+                }
             }
 
             Reset(_mark);
@@ -9159,6 +11345,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] expression_without_invalid at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -9167,14 +11357,17 @@ namespace SharpPy.Generated
                 GeneratedExpr? b = null;
                 GeneratedExpr? c = null;
 
-                if ((a = Parse_Disjunction()) == null) return null;
-                if (ExpectKeyword("if") == null) return null;
-                if ((b = Parse_Disjunction()) == null) return null;
-                if (ExpectKeyword("else") == null) return null;
-                if ((c = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                return PyAst . IfExp ( b , a , c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                if (
+                    (a = Parse_Disjunction()) != null &&
+                    ExpectKeyword("if") != null &&
+                    (b = Parse_Disjunction()) != null &&
+                    ExpectKeyword("else") != null &&
+                    (c = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyAst . IfExp ( b , a , c , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
+                }
             }
 
             // Alternative 2
@@ -9182,11 +11375,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_Disjunction() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Disjunction()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 3
@@ -9194,11 +11389,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_Lambdef() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Lambdef()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -9213,6 +11410,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_legacy_expression at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -9220,12 +11421,15 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if (NegativeLookahead(() => ExpectOp("(")) == null) return null;
-                if ((b = Parse_StarExpressions()) == null) return null;
-
-                // Action code from grammar
-                return CheckLegacyStmt ( NameToken ( a ))? RaiseSyntaxErrorKnownRange ( NameToken ( a ), b , "Missing parentheses in call to '{a.GetNameValue()}'. Did you mean {a.GetNameValue()}(...)?" ): null;
+                if (
+                    (a = ExpectName()) != null &&
+                    NegativeLookahead(() => ExpectOp("(")) != null &&
+                    (b = Parse_StarExpressions()) != null
+                )
+                {
+                    // Action code from grammar
+                    return CheckLegacyStmt ( NameToken ( a ))? RaiseSyntaxErrorKnownRange ( NameToken ( a ), b , "Missing parentheses in call to '{a.GetNameValue()}'. Did you mean {a.GetNameValue()}(...)?" ): null;
+                }
             }
 
             Reset(_mark);
@@ -9240,6 +11444,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_expression at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -9247,12 +11455,15 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if (NegativeLookahead(() => ParseGroup()) == null) return null;
-                if ((a = Parse_Disjunction()) == null) return null;
-                if ((b = Parse_ExpressionWithoutInvalid()) == null) return null;
-
-                // Action code from grammar
-                return CheckLegacyStmt ( a )? null : _tokens [ _mark - 1 ]. Level == 0 ? null : RaiseSyntaxErrorKnownRange ( a , b , "invalid syntax. Perhaps you forgot a comma?" );
+                if (
+                    NegativeLookahead(() => Parse_Tmp62()) != null &&
+                    (a = Parse_Disjunction()) != null &&
+                    (b = Parse_ExpressionWithoutInvalid()) != null
+                )
+                {
+                    // Action code from grammar
+                    return CheckLegacyStmt ( a )? null : _tokens [ _mark - 1 ]. Level == 0 ? null : RaiseSyntaxErrorKnownRange ( a , b , "invalid syntax. Perhaps you forgot a comma?" );
+                }
             }
 
             // Alternative 2
@@ -9263,13 +11474,16 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Parse_Disjunction()) == null) return null;
-                if (ExpectKeyword("if") == null) return null;
-                if ((b = Parse_Disjunction()) == null) return null;
-                if (NegativeLookahead(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , b , "expected 'else' after 'if' expression" );
+                if (
+                    (a = Parse_Disjunction()) != null &&
+                    ExpectKeyword("if") != null &&
+                    (b = Parse_Disjunction()) != null &&
+                    NegativeLookahead(() => Parse_Tmp63()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownRange ( a , b , "expected 'else' after 'if' expression" );
+                }
             }
 
             // Alternative 3
@@ -9280,13 +11494,16 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
                 GeneratedTokenInfo? b = null;
 
-                if ((a = ExpectKeyword("lambda")) == null) return null;
-                if (ParseOptional(() => Parse_LambdaParams()) == null) return null;
-                if ((b = ExpectOp(":")) == null) return null;
-                if (PositiveLookahead(() => Expect(PyToken.Type.FSTRING_MIDDLE, "FSTRING_MIDDLE")) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , b , "f-string: lambda expressions are not allowed without parentheses" );
+                if (
+                    (a = ExpectKeyword("lambda")) != null &&
+                    (ParseOptional(() => Parse_LambdaParams()) == null || true) &&
+                    (b = ExpectOp(":")) != null &&
+                    PositiveLookahead(() => ExpectToken(PyToken.Type.FSTRING_MIDDLE)) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownRange ( a , b , "f-string: lambda expressions are not allowed without parentheses" );
+                }
             }
 
             Reset(_mark);
@@ -9296,10 +11513,24 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: invalid_named_expression
         /// Alternatives: 3
+        /// CPython (memo) - uses TryMemoized wrapper
         /// </summary>
         private GeneratedPtr? Parse_InvalidNamedExpression()
         {
+            return (GeneratedPtr?)TryMemoized("invalid_named_expression", Parse_InvalidNamedExpression_Raw);
+        }
+
+        /// <summary>
+        /// Raw parsing method for memoized rule: invalid_named_expression
+        /// Called by TryMemoized wrapper
+        /// </summary>
+        private GeneratedPtr? Parse_InvalidNamedExpression_Raw()
+        {
             int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE-RAW] invalid_named_expression at pos={_position}");
+            #endif
 
             Reset(_mark);
             {
@@ -9307,12 +11538,15 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if ((a = Parse_Expression()) == null) return null;
-                if (ExpectOp(":=") == null) return null;
-                if (Parse_Expression() == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "cannot use assignment expressions with %s" , GetExprName ( a ));
+                if (
+                    (a = Parse_Expression()) != null &&
+                    ExpectOp(":=") != null &&
+                    Parse_Expression() != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "cannot use assignment expressions with %s" , GetExprName ( a ));
+                }
             }
 
             // Alternative 2
@@ -9323,13 +11557,16 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if (ExpectOp("=") == null) return null;
-                if ((b = Parse_BitwiseOr()) == null) return null;
-                if (NegativeLookahead(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , b , "invalid syntax. Maybe you meant '==' or ':=' instead of '='?" );
+                if (
+                    (a = ExpectName()) != null &&
+                    ExpectOp("=") != null &&
+                    (b = Parse_BitwiseOr()) != null &&
+                    NegativeLookahead(() => Parse_Tmp64()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownRange ( a , b , "invalid syntax. Maybe you meant '==' or ':=' instead of '='?" );
+                }
             }
 
             // Alternative 3
@@ -9340,14 +11577,17 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedTokenInfo? b = null;
 
-                if (NegativeLookahead(() => ParseGroup()) == null) return null;
-                if ((a = Parse_BitwiseOr()) == null) return null;
-                if ((b = ExpectOp("=")) == null) return null;
-                if (Parse_BitwiseOr() == null) return null;
-                if (NegativeLookahead(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "cannot assign to %s here. Maybe you meant '==' instead of '='?" , GetExprName ( a ));
+                if (
+                    NegativeLookahead(() => Parse_Tmp65()) != null &&
+                    (a = Parse_BitwiseOr()) != null &&
+                    (b = ExpectOp("=")) != null &&
+                    Parse_BitwiseOr() != null &&
+                    NegativeLookahead(() => Parse_Tmp66()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "cannot assign to %s here. Maybe you meant '==' instead of '='?" , GetExprName ( a ));
+                }
             }
 
             Reset(_mark);
@@ -9362,18 +11602,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_assignment at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if ((a = Parse_InvalidAnnAssignTarget()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (Parse_Expression() == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "only single target (not %s) can be annotated" , GetExprName ( a ));
+                if (
+                    (a = Parse_InvalidAnnAssignTarget()) != null &&
+                    ExpectOp(":") != null &&
+                    Parse_Expression() != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "only single target (not %s) can be annotated" , GetExprName ( a ));
+                }
             }
 
             // Alternative 2
@@ -9383,14 +11630,17 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if ((a = Parse_StarNamedExpression()) == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if (ParseZeroOrMore(() => Parse_StarNamedExpressions()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (Parse_Expression() == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "only single target (not tuple) can be annotated" );
+                if (
+                    (a = Parse_StarNamedExpression()) != null &&
+                    ExpectOp(",") != null &&
+                    ParseZeroOrMore(() => Parse_StarNamedExpressions()) != null &&
+                    ExpectOp(":") != null &&
+                    Parse_Expression() != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "only single target (not tuple) can be annotated" );
+                }
             }
 
             // Alternative 3
@@ -9400,12 +11650,15 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if ((a = Parse_Expression()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (Parse_Expression() == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "illegal target for annotation" );
+                if (
+                    (a = Parse_Expression()) != null &&
+                    ExpectOp(":") != null &&
+                    Parse_Expression() != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "illegal target for annotation" );
+                }
             }
 
             // Alternative 4
@@ -9415,12 +11668,15 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if (ParseZeroOrMore(() => ParseGroup()) == null) return null;
-                if ((a = Parse_StarExpressions()) == null) return null;
-                if (ExpectOp("=") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorInvalidTarget ( "assign to" , a );
+                if (
+                    ParseZeroOrMore(() => Parse_Tmp67()) != null &&
+                    (a = Parse_StarExpressions()) != null &&
+                    ExpectOp("=") != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorInvalidTarget ( "assign to" , a );
+                }
             }
 
             // Alternative 5
@@ -9430,12 +11686,15 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if (ParseZeroOrMore(() => ParseGroup()) == null) return null;
-                if ((a = Parse_YieldExpr()) == null) return null;
-                if (ExpectOp("=") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "assignment to yield expression not possible" );
+                if (
+                    ParseZeroOrMore(() => Parse_Tmp68()) != null &&
+                    (a = Parse_YieldExpr()) != null &&
+                    ExpectOp("=") != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "assignment to yield expression not possible" );
+                }
             }
 
             // Alternative 6
@@ -9445,12 +11704,15 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if ((a = Parse_StarExpressions()) == null) return null;
-                if (Parse_Augassign() == null) return null;
-                if (ParseGroup() == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "'%s' is an illegal expression for augmented assignment" , GetExprName ( a ));
+                if (
+                    (a = Parse_StarExpressions()) != null &&
+                    Parse_Augassign() != null &&
+                    Parse_Tmp69() != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "'%s' is an illegal expression for augmented assignment" , GetExprName ( a ));
+                }
             }
 
             Reset(_mark);
@@ -9466,15 +11728,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_ann_assign_target at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_List() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_List()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 2
@@ -9482,11 +11750,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedExpr? _alt_var = null;
 
-                if (Parse_Tuple() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = Parse_Tuple()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             // Alternative 3
@@ -9496,12 +11766,15 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp("(") == null) return null;
-                if ((a = Parse_InvalidAnnAssignTarget()) == null) return null;
-                if (ExpectOp(")") == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    ExpectOp("(") != null &&
+                    (a = Parse_InvalidAnnAssignTarget()) != null &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -9516,17 +11789,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_del_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ExpectKeyword("del") == null) return null;
-                if ((a = Parse_StarExpressions()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorInvalidTarget ( "delete" , a );
+                if (
+                    ExpectKeyword("del") != null &&
+                    (a = Parse_StarExpressions()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorInvalidTarget ( "delete" , a );
+                }
             }
 
             Reset(_mark);
@@ -9541,16 +11821,23 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_block at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
 
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
-
-                // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block" );
+                if (
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
+                )
+                {
+                    // Action code from grammar
+                    return RaiseIndentationError ( "expected an indented block" );
+                }
             }
 
             Reset(_mark);
@@ -9565,18 +11852,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_comprehension at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ParseGroup() == null) return null;
-                if ((a = Parse_StarredExpression()) == null) return null;
-                if (Parse_ForIfClauses() == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "iterable unpacking cannot be used in comprehension" );
+                if (
+                    Parse_Tmp70() != null &&
+                    (a = Parse_StarredExpression()) != null &&
+                    Parse_ForIfClauses() != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "iterable unpacking cannot be used in comprehension" );
+                }
             }
 
             // Alternative 2
@@ -9587,14 +11881,17 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExprSeq? b = null;
 
-                if (ParseGroup() == null) return null;
-                if ((a = Parse_StarNamedExpression()) == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if ((b = Parse_StarNamedExpressions()) == null) return null;
-                if (Parse_ForIfClauses() == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , LastItem < GeneratedExpr >( b ), "did you forget parentheses around the comprehension target?" );
+                if (
+                    Parse_Tmp71() != null &&
+                    (a = Parse_StarNamedExpression()) != null &&
+                    ExpectOp(",") != null &&
+                    (b = Parse_StarNamedExpressions()) != null &&
+                    Parse_ForIfClauses() != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownRange ( a , LastItem < GeneratedExpr >( b ), "did you forget parentheses around the comprehension target?" );
+                }
             }
 
             // Alternative 3
@@ -9605,13 +11902,16 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedTokenInfo? b = null;
 
-                if (ParseGroup() == null) return null;
-                if ((a = Parse_StarNamedExpression()) == null) return null;
-                if ((b = ExpectOp(",")) == null) return null;
-                if (Parse_ForIfClauses() == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , b , "did you forget parentheses around the comprehension target?" );
+                if (
+                    Parse_Tmp72() != null &&
+                    (a = Parse_StarNamedExpression()) != null &&
+                    (b = ExpectOp(",")) != null &&
+                    Parse_ForIfClauses() != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownRange ( a , b , "did you forget parentheses around the comprehension target?" );
+                }
             }
 
             Reset(_mark);
@@ -9626,20 +11926,27 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_dict_comprehension at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
 
-                if (ExpectOp("{") == null) return null;
-                if ((a = ExpectOp("**")) == null) return null;
-                if (Parse_BitwiseOr() == null) return null;
-                if (Parse_ForIfClauses() == null) return null;
-                if (ExpectOp("}") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "dict unpacking cannot be used in dict comprehension" );
+                if (
+                    ExpectOp("{") != null &&
+                    (a = ExpectOp("**")) != null &&
+                    Parse_BitwiseOr() != null &&
+                    Parse_ForIfClauses() != null &&
+                    ExpectOp("}") != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "dict unpacking cannot be used in dict comprehension" );
+                }
             }
 
             Reset(_mark);
@@ -9654,17 +11961,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_parameters at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = ExpectSoftKeyword("/")) == null) return null;
-                if (ExpectOp(",") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "at least one argument must precede /" );
+                if (
+                    (a = ExpectSoftKeyword("/")) != null &&
+                    ExpectOp(",") != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "at least one argument must precede /" );
+                }
             }
 
             // Alternative 2
@@ -9674,12 +11988,15 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (ParseGroup() == null) return null;
-                if (ParseZeroOrMore(() => Parse_ParamMaybeDefault()) == null) return null;
-                if ((a = ExpectOp("/")) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "/ may appear only once" );
+                if (
+                    Parse_Tmp73() != null &&
+                    ParseZeroOrMore(() => Parse_ParamMaybeDefault()) != null &&
+                    (a = ExpectOp("/")) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "/ may appear only once" );
+                }
             }
 
             // Alternative 3
@@ -9689,13 +12006,16 @@ namespace SharpPy.Generated
 
                 GeneratedArg? a = null;
 
-                if (ParseOptional(() => Parse_SlashNoDefault()) == null) return null;
-                if (ParseZeroOrMore(() => Parse_ParamNoDefault()) == null) return null;
-                if (Parse_InvalidParametersHelper() == null) return null;
-                if ((a = Parse_ParamNoDefault()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "parameter without a default follows parameter with a default" );
+                if (
+                    (ParseOptional(() => Parse_SlashNoDefault()) == null || true) &&
+                    ParseZeroOrMore(() => Parse_ParamNoDefault()) != null &&
+                    Parse_InvalidParametersHelper() != null &&
+                    (a = Parse_ParamNoDefault()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "parameter without a default follows parameter with a default" );
+                }
             }
 
             // Alternative 4
@@ -9706,14 +12026,17 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
                 GeneratedTokenInfo? b = null;
 
-                if (ParseZeroOrMore(() => Parse_ParamNoDefault()) == null) return null;
-                if ((a = ExpectOp("(")) == null) return null;
-                if (ParseOneOrMore(() => Parse_ParamNoDefault()) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-                if ((b = ExpectOp(")")) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , b , "Function parameters cannot be parenthesized" );
+                if (
+                    ParseZeroOrMore(() => Parse_ParamNoDefault()) != null &&
+                    (a = ExpectOp("(")) != null &&
+                    ParseOneOrMore(() => Parse_ParamNoDefault()) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true) &&
+                    (b = ExpectOp(")")) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownRange ( a , b , "Function parameters cannot be parenthesized" );
+                }
             }
 
             // Alternative 5
@@ -9723,15 +12046,18 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (ParseOptional(() => ParseGroup()) == null) return null;
-                if (ParseZeroOrMore(() => Parse_ParamMaybeDefault()) == null) return null;
-                if (ExpectOp("*") == null) return null;
-                if (ParseGroup() == null) return null;
-                if (ParseZeroOrMore(() => Parse_ParamMaybeDefault()) == null) return null;
-                if ((a = ExpectOp("/")) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "/ must be ahead of *" );
+                if (
+                    (ParseOptional(() => Parse_Tmp74()) == null || true) &&
+                    ParseZeroOrMore(() => Parse_ParamMaybeDefault()) != null &&
+                    ExpectOp("*") != null &&
+                    Parse_Tmp75() != null &&
+                    ParseZeroOrMore(() => Parse_ParamMaybeDefault()) != null &&
+                    (a = ExpectOp("/")) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "/ must be ahead of *" );
+                }
             }
 
             // Alternative 6
@@ -9741,12 +12067,15 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (ParseOneOrMore(() => Parse_ParamMaybeDefault()) == null) return null;
-                if (ExpectOp("/") == null) return null;
-                if ((a = ExpectOp("*")) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "expected comma between / and *" );
+                if (
+                    ParseOneOrMore(() => Parse_ParamMaybeDefault()) != null &&
+                    ExpectOp("/") != null &&
+                    (a = ExpectOp("*")) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "expected comma between / and *" );
+                }
             }
 
             Reset(_mark);
@@ -9761,17 +12090,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_default at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = ExpectOp("=")) == null) return null;
-                if (PositiveLookahead(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "expected default value expression" );
+                if (
+                    (a = ExpectOp("=")) != null &&
+                    PositiveLookahead(() => Parse_Tmp76()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "expected default value expression" );
+                }
             }
 
             Reset(_mark);
@@ -9786,17 +12122,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_star_etc at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = ExpectOp("*")) == null) return null;
-                if (ParseGroup() == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "named arguments must follow bare *" );
+                if (
+                    (a = ExpectOp("*")) != null &&
+                    Parse_Tmp77() != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "named arguments must follow bare *" );
+                }
             }
 
             // Alternative 2
@@ -9805,12 +12148,15 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("*") == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if (Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxError ( "bare * has associated type comment" );
+                if (
+                    ExpectOp("*") != null &&
+                    ExpectOp(",") != null &&
+                    ExpectToken(PyToken.Type.TYPE_COMMENT) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxError ( "bare * has associated type comment" );
+                }
             }
 
             // Alternative 3
@@ -9820,12 +12166,15 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (ExpectOp("*") == null) return null;
-                if (Parse_Param() == null) return null;
-                if ((a = ExpectOp("=")) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "var-positional argument cannot have default value" );
+                if (
+                    ExpectOp("*") != null &&
+                    Parse_Param() != null &&
+                    (a = ExpectOp("=")) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "var-positional argument cannot have default value" );
+                }
             }
 
             // Alternative 4
@@ -9835,14 +12184,17 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (ExpectOp("*") == null) return null;
-                if (ParseGroup() == null) return null;
-                if (ParseZeroOrMore(() => Parse_ParamMaybeDefault()) == null) return null;
-                if ((a = ExpectOp("*")) == null) return null;
-                if (ParseGroup() == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "* argument may appear only once" );
+                if (
+                    ExpectOp("*") != null &&
+                    Parse_Tmp78() != null &&
+                    ParseZeroOrMore(() => Parse_ParamMaybeDefault()) != null &&
+                    (a = ExpectOp("*")) != null &&
+                    Parse_Tmp79() != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "* argument may appear only once" );
+                }
             }
 
             Reset(_mark);
@@ -9857,18 +12209,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_kwds at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
 
-                if (ExpectOp("**") == null) return null;
-                if (Parse_Param() == null) return null;
-                if ((a = ExpectOp("=")) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "var-keyword argument cannot have default value" );
+                if (
+                    ExpectOp("**") != null &&
+                    Parse_Param() != null &&
+                    (a = ExpectOp("=")) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "var-keyword argument cannot have default value" );
+                }
             }
 
             // Alternative 2
@@ -9878,13 +12237,16 @@ namespace SharpPy.Generated
 
                 GeneratedArg? a = null;
 
-                if (ExpectOp("**") == null) return null;
-                if (Parse_Param() == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if ((a = Parse_Param()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "arguments cannot follow var-keyword argument" );
+                if (
+                    ExpectOp("**") != null &&
+                    Parse_Param() != null &&
+                    ExpectOp(",") != null &&
+                    (a = Parse_Param()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "arguments cannot follow var-keyword argument" );
+                }
             }
 
             // Alternative 3
@@ -9894,13 +12256,16 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (ExpectOp("**") == null) return null;
-                if (Parse_Param() == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if ((a = (GeneratedTokenInfo)ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "arguments cannot follow var-keyword argument" );
+                if (
+                    ExpectOp("**") != null &&
+                    Parse_Param() != null &&
+                    ExpectOp(",") != null &&
+                    (a = (GeneratedTokenInfo)Parse_Tmp80()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "arguments cannot follow var-keyword argument" );
+                }
             }
 
             Reset(_mark);
@@ -9916,16 +12281,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_parameters_helper at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedSlashWithDefault? a = null;
 
-                if ((a = Parse_SlashWithDefault()) == null) return null;
-
-                // Action code from grammar
-                return null;
+                if ((a = Parse_SlashWithDefault()) != null)
+                {
+                    // Action code from grammar
+                    return null;
+                }
             }
 
             // Alternative 2
@@ -9935,10 +12305,11 @@ namespace SharpPy.Generated
 
                 GeneratedSeq? a = null;
 
-                if ((a = ParseOneOrMore(() => Parse_ParamWithDefault())) == null) return null;
-
-                // Action code from grammar
-                return null;
+                if ((a = ParseOneOrMore(() => Parse_ParamWithDefault())) != null)
+                {
+                    // Action code from grammar
+                    return null;
+                }
             }
 
             Reset(_mark);
@@ -9953,17 +12324,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_lambda_parameters at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = ExpectSoftKeyword("/")) == null) return null;
-                if (ExpectOp(",") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "at least one argument must precede /" );
+                if (
+                    (a = ExpectSoftKeyword("/")) != null &&
+                    ExpectOp(",") != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "at least one argument must precede /" );
+                }
             }
 
             // Alternative 2
@@ -9973,12 +12351,15 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (ParseGroup() == null) return null;
-                if (ParseZeroOrMore(() => Parse_LambdaParamMaybeDefault()) == null) return null;
-                if ((a = ExpectOp("/")) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "/ may appear only once" );
+                if (
+                    Parse_Tmp81() != null &&
+                    ParseZeroOrMore(() => Parse_LambdaParamMaybeDefault()) != null &&
+                    (a = ExpectOp("/")) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "/ may appear only once" );
+                }
             }
 
             // Alternative 3
@@ -9988,13 +12369,16 @@ namespace SharpPy.Generated
 
                 GeneratedArg? a = null;
 
-                if (ParseOptional(() => Parse_LambdaSlashNoDefault()) == null) return null;
-                if (ParseZeroOrMore(() => Parse_LambdaParamNoDefault()) == null) return null;
-                if (Parse_InvalidLambdaParametersHelper() == null) return null;
-                if ((a = Parse_LambdaParamNoDefault()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "parameter without a default follows parameter with a default" );
+                if (
+                    (ParseOptional(() => Parse_LambdaSlashNoDefault()) == null || true) &&
+                    ParseZeroOrMore(() => Parse_LambdaParamNoDefault()) != null &&
+                    Parse_InvalidLambdaParametersHelper() != null &&
+                    (a = Parse_LambdaParamNoDefault()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "parameter without a default follows parameter with a default" );
+                }
             }
 
             // Alternative 4
@@ -10005,14 +12389,17 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
                 GeneratedTokenInfo? b = null;
 
-                if (ParseZeroOrMore(() => Parse_LambdaParamNoDefault()) == null) return null;
-                if ((a = ExpectOp("(")) == null) return null;
-                if (ParseGatherPlus(() => ExpectOp(","), () => Parse_LambdaParam()) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-                if ((b = ExpectOp(")")) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , b , "Lambda expression parameters cannot be parenthesized" );
+                if (
+                    ParseZeroOrMore(() => Parse_LambdaParamNoDefault()) != null &&
+                    (a = ExpectOp("(")) != null &&
+                    ParseGatherPlus(() => ExpectOp(","), () => Parse_LambdaParam()) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true) &&
+                    (b = ExpectOp(")")) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownRange ( a , b , "Lambda expression parameters cannot be parenthesized" );
+                }
             }
 
             // Alternative 5
@@ -10022,15 +12409,18 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (ParseOptional(() => ParseGroup()) == null) return null;
-                if (ParseZeroOrMore(() => Parse_LambdaParamMaybeDefault()) == null) return null;
-                if (ExpectOp("*") == null) return null;
-                if (ParseGroup() == null) return null;
-                if (ParseZeroOrMore(() => Parse_LambdaParamMaybeDefault()) == null) return null;
-                if ((a = ExpectOp("/")) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "/ must be ahead of *" );
+                if (
+                    (ParseOptional(() => Parse_Tmp82()) == null || true) &&
+                    ParseZeroOrMore(() => Parse_LambdaParamMaybeDefault()) != null &&
+                    ExpectOp("*") != null &&
+                    Parse_Tmp83() != null &&
+                    ParseZeroOrMore(() => Parse_LambdaParamMaybeDefault()) != null &&
+                    (a = ExpectOp("/")) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "/ must be ahead of *" );
+                }
             }
 
             // Alternative 6
@@ -10040,12 +12430,15 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (ParseOneOrMore(() => Parse_LambdaParamMaybeDefault()) == null) return null;
-                if (ExpectOp("/") == null) return null;
-                if ((a = ExpectOp("*")) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "expected comma between / and *" );
+                if (
+                    ParseOneOrMore(() => Parse_LambdaParamMaybeDefault()) != null &&
+                    ExpectOp("/") != null &&
+                    (a = ExpectOp("*")) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "expected comma between / and *" );
+                }
             }
 
             Reset(_mark);
@@ -10060,16 +12453,21 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_lambda_parameters_helper at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedSlashWithDefault? a = null;
 
-                if ((a = Parse_LambdaSlashWithDefault()) == null) return null;
-
-                // Action code from grammar
-                return SingletonSeq ( a );
+                if ((a = Parse_LambdaSlashWithDefault()) != null)
+                {
+                    // Action code from grammar
+                    return SingletonSeq ( a );
+                }
             }
 
             // Alternative 2
@@ -10077,11 +12475,13 @@ namespace SharpPy.Generated
             {
                 CaptureStart();
 
+                GeneratedPtr? _alt_var = null;
 
-                if (ParseOneOrMore(() => Parse_LambdaParamWithDefault()) == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if ((_alt_var = (GeneratedPtr)ParseOneOrMore(() => Parse_LambdaParamWithDefault())) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
             }
 
             Reset(_mark);
@@ -10096,16 +12496,23 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_lambda_star_etc at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
 
-                if (ExpectOp("*") == null) return null;
-                if (ParseGroup() == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxError ( "named arguments must follow bare *" );
+                if (
+                    ExpectOp("*") != null &&
+                    Parse_Tmp84() != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxError ( "named arguments must follow bare *" );
+                }
             }
 
             // Alternative 2
@@ -10115,12 +12522,15 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (ExpectOp("*") == null) return null;
-                if (Parse_LambdaParam() == null) return null;
-                if ((a = ExpectOp("=")) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "var-positional argument cannot have default value" );
+                if (
+                    ExpectOp("*") != null &&
+                    Parse_LambdaParam() != null &&
+                    (a = ExpectOp("=")) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "var-positional argument cannot have default value" );
+                }
             }
 
             // Alternative 3
@@ -10130,14 +12540,17 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (ExpectOp("*") == null) return null;
-                if (ParseGroup() == null) return null;
-                if (ParseZeroOrMore(() => Parse_LambdaParamMaybeDefault()) == null) return null;
-                if ((a = ExpectOp("*")) == null) return null;
-                if (ParseGroup() == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "* argument may appear only once" );
+                if (
+                    ExpectOp("*") != null &&
+                    Parse_Tmp85() != null &&
+                    ParseZeroOrMore(() => Parse_LambdaParamMaybeDefault()) != null &&
+                    (a = ExpectOp("*")) != null &&
+                    Parse_Tmp86() != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "* argument may appear only once" );
+                }
             }
 
             Reset(_mark);
@@ -10152,18 +12565,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_lambda_kwds at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
 
-                if (ExpectOp("**") == null) return null;
-                if (Parse_LambdaParam() == null) return null;
-                if ((a = ExpectOp("=")) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "var-keyword argument cannot have default value" );
+                if (
+                    ExpectOp("**") != null &&
+                    Parse_LambdaParam() != null &&
+                    (a = ExpectOp("=")) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "var-keyword argument cannot have default value" );
+                }
             }
 
             // Alternative 2
@@ -10173,13 +12593,16 @@ namespace SharpPy.Generated
 
                 GeneratedArg? a = null;
 
-                if (ExpectOp("**") == null) return null;
-                if (Parse_LambdaParam() == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if ((a = Parse_LambdaParam()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "arguments cannot follow var-keyword argument" );
+                if (
+                    ExpectOp("**") != null &&
+                    Parse_LambdaParam() != null &&
+                    ExpectOp(",") != null &&
+                    (a = Parse_LambdaParam()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "arguments cannot follow var-keyword argument" );
+                }
             }
 
             // Alternative 3
@@ -10189,13 +12612,16 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (ExpectOp("**") == null) return null;
-                if (Parse_LambdaParam() == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if ((a = (GeneratedTokenInfo)ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "arguments cannot follow var-keyword argument" );
+                if (
+                    ExpectOp("**") != null &&
+                    Parse_LambdaParam() != null &&
+                    ExpectOp(",") != null &&
+                    (a = (GeneratedTokenInfo)Parse_Tmp87()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "arguments cannot follow var-keyword argument" );
+                }
             }
 
             Reset(_mark);
@@ -10210,19 +12636,26 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_double_type_comments at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
 
-                if (Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT") == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if (Expect(PyToken.Type.TYPE_COMMENT, "TYPE_COMMENT") == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if (Expect(PyToken.Type.INDENT, "INDENT") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxError ( "Cannot have two type comments on def" );
+                if (
+                    ExpectToken(PyToken.Type.TYPE_COMMENT) != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    ExpectToken(PyToken.Type.TYPE_COMMENT) != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    ExpectToken(PyToken.Type.INDENT) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxError ( "Cannot have two type comments on def" );
+                }
             }
 
             Reset(_mark);
@@ -10237,19 +12670,26 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_with_item at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (Parse_Expression() == null) return null;
-                if (ExpectKeyword("as") == null) return null;
-                if ((a = Parse_Expression()) == null) return null;
-                if (PositiveLookahead(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorInvalidTarget ( "assign to" , a );
+                if (
+                    Parse_Expression() != null &&
+                    ExpectKeyword("as") != null &&
+                    (a = Parse_Expression()) != null &&
+                    PositiveLookahead(() => Parse_Tmp88()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorInvalidTarget ( "assign to" , a );
+                }
             }
 
             Reset(_mark);
@@ -10264,18 +12704,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_for_target at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ParseOptional(() => Expect(PyToken.Type.ASYNC, "ASYNC")) == null) return null;
-                if (ExpectKeyword("for") == null) return null;
-                if ((a = Parse_StarExpressions()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorInvalidTarget ( "use in for loop" , a );
+                if (
+                    (ParseOptional(() => ExpectToken(PyToken.Type.ASYNC)) == null || true) &&
+                    ExpectKeyword("for") != null &&
+                    (a = Parse_StarExpressions()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorInvalidTarget ( "use in for loop" , a );
+                }
             }
 
             Reset(_mark);
@@ -10290,18 +12737,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_group at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ExpectOp("(") == null) return null;
-                if ((a = Parse_StarredExpression()) == null) return null;
-                if (ExpectOp(")") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "cannot use starred expression here" );
+                if (
+                    ExpectOp("(") != null &&
+                    (a = Parse_StarredExpression()) != null &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "cannot use starred expression here" );
+                }
             }
 
             // Alternative 2
@@ -10311,13 +12765,16 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (ExpectOp("(") == null) return null;
-                if ((a = ExpectOp("**")) == null) return null;
-                if (Parse_Expression() == null) return null;
-                if (ExpectOp(")") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "cannot use double starred expression here" );
+                if (
+                    ExpectOp("(") != null &&
+                    (a = ExpectOp("**")) != null &&
+                    Parse_Expression() != null &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "cannot use double starred expression here" );
+                }
             }
 
             Reset(_mark);
@@ -10332,19 +12789,26 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_import at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = ExpectKeyword("import")) == null) return null;
-                if (ParseGatherPlus(() => ExpectOp(","), () => Parse_DottedName()) == null) return null;
-                if (ExpectKeyword("from") == null) return null;
-                if (Parse_DottedName() == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorStartingFrom ( a , "Did you mean to use 'from ... import ...' instead?" );
+                if (
+                    (a = ExpectKeyword("import")) != null &&
+                    ParseGatherPlus(() => ExpectOp(","), () => Parse_DottedName()) != null &&
+                    ExpectKeyword("from") != null &&
+                    Parse_DottedName() != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorStartingFrom ( a , "Did you mean to use 'from ... import ...' instead?" );
+                }
             }
 
             Reset(_mark);
@@ -10359,17 +12823,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_import_from_targets at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
 
-                if (Parse_ImportFromAsNames() == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxError ( "trailing comma not allowed without surrounding parentheses" );
+                if (
+                    Parse_ImportFromAsNames() != null &&
+                    ExpectOp(",") != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxError ( "trailing comma not allowed without surrounding parentheses" );
+                }
             }
 
             Reset(_mark);
@@ -10384,18 +12855,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_with_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
 
-                if (ParseOptional(() => Expect(PyToken.Type.ASYNC, "ASYNC")) == null) return null;
-                if (ExpectKeyword("with") == null) return null;
-                if (ParseGatherPlus(() => ExpectOp(","), () => ParseGroup()) == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxError ( "expected ':'" );
+                if (
+                    (ParseOptional(() => ExpectToken(PyToken.Type.ASYNC)) == null || true) &&
+                    ExpectKeyword("with") != null &&
+                    ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp89()) != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxError ( "expected ':'" );
+                }
             }
 
             // Alternative 2
@@ -10404,16 +12882,19 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ParseOptional(() => Expect(PyToken.Type.ASYNC, "ASYNC")) == null) return null;
-                if (ExpectKeyword("with") == null) return null;
-                if (ExpectOp("(") == null) return null;
-                if (ParseGatherPlus(() => ExpectOp(","), () => ParseGroup()) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-                if (ExpectOp(")") == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxError ( "expected ':'" );
+                if (
+                    (ParseOptional(() => ExpectToken(PyToken.Type.ASYNC)) == null || true) &&
+                    ExpectKeyword("with") != null &&
+                    ExpectOp("(") != null &&
+                    ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp90()) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true) &&
+                    ExpectOp(")") != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxError ( "expected ':'" );
+                }
             }
 
             Reset(_mark);
@@ -10428,21 +12909,28 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_with_stmt_indent at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
 
-                if (ParseOptional(() => Expect(PyToken.Type.ASYNC, "ASYNC")) == null) return null;
-                if ((a = ExpectKeyword("with")) == null) return null;
-                if (ParseGatherPlus(() => ExpectOp(","), () => ParseGroup()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
-
-                // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'with' statement on line %d" , a . GetLineNo ());
+                if (
+                    (ParseOptional(() => ExpectToken(PyToken.Type.ASYNC)) == null || true) &&
+                    (a = ExpectKeyword("with")) != null &&
+                    ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp91()) != null &&
+                    ExpectOp(":") != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
+                )
+                {
+                    // Action code from grammar
+                    return RaiseIndentationError ( "expected an indented block after 'with' statement on line %d" , a . GetLineNo ());
+                }
             }
 
             // Alternative 2
@@ -10452,18 +12940,21 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (ParseOptional(() => Expect(PyToken.Type.ASYNC, "ASYNC")) == null) return null;
-                if ((a = ExpectKeyword("with")) == null) return null;
-                if (ExpectOp("(") == null) return null;
-                if (ParseGatherPlus(() => ExpectOp(","), () => ParseGroup()) == null) return null;
-                if (ParseOptional(() => ExpectOp(",")) == null) return null;
-                if (ExpectOp(")") == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
-
-                // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'with' statement on line %d" , a . GetLineNo ());
+                if (
+                    (ParseOptional(() => ExpectToken(PyToken.Type.ASYNC)) == null || true) &&
+                    (a = ExpectKeyword("with")) != null &&
+                    ExpectOp("(") != null &&
+                    ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp92()) != null &&
+                    (ParseOptional(() => ExpectOp(",")) == null || true) &&
+                    ExpectOp(")") != null &&
+                    ExpectOp(":") != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
+                )
+                {
+                    // Action code from grammar
+                    return RaiseIndentationError ( "expected an indented block after 'with' statement on line %d" , a . GetLineNo ());
+                }
             }
 
             Reset(_mark);
@@ -10478,19 +12969,26 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_try_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = ExpectKeyword("try")) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
-
-                // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'try' statement on line %d" , a . GetLineNo ());
+                if (
+                    (a = ExpectKeyword("try")) != null &&
+                    ExpectOp(":") != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
+                )
+                {
+                    // Action code from grammar
+                    return RaiseIndentationError ( "expected an indented block after 'try' statement on line %d" , a . GetLineNo ());
+                }
             }
 
             // Alternative 2
@@ -10499,13 +12997,16 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectKeyword("try") == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (Parse_Block() == null) return null;
-                if (NegativeLookahead(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxError ( "expected 'except' or 'finally' block" );
+                if (
+                    ExpectKeyword("try") != null &&
+                    ExpectOp(":") != null &&
+                    Parse_Block() != null &&
+                    NegativeLookahead(() => Parse_Tmp93()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxError ( "expected 'except' or 'finally' block" );
+                }
             }
 
             // Alternative 3
@@ -10516,18 +13017,21 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
                 GeneratedTokenInfo? b = null;
 
-                if (ExpectKeyword("try") == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (ParseZeroOrMore(() => Parse_Block()) == null) return null;
-                if (ParseOneOrMore(() => Parse_ExceptBlock()) == null) return null;
-                if ((a = ExpectKeyword("except")) == null) return null;
-                if ((b = ExpectOp("*")) == null) return null;
-                if (Parse_Expression() == null) return null;
-                if (ParseOptional(() => ParseGroup()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , b , "cannot have both 'except' and 'except*' on the same 'try'" );
+                if (
+                    ExpectKeyword("try") != null &&
+                    ExpectOp(":") != null &&
+                    ParseZeroOrMore(() => Parse_Block()) != null &&
+                    ParseOneOrMore(() => Parse_ExceptBlock()) != null &&
+                    (a = ExpectKeyword("except")) != null &&
+                    (b = ExpectOp("*")) != null &&
+                    Parse_Expression() != null &&
+                    (ParseOptional(() => Parse_Tmp94()) == null || true) &&
+                    ExpectOp(":") != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownRange ( a , b , "cannot have both 'except' and 'except*' on the same 'try'" );
+                }
             }
 
             // Alternative 4
@@ -10537,16 +13041,19 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (ExpectKeyword("try") == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (ParseZeroOrMore(() => Parse_Block()) == null) return null;
-                if (ParseOneOrMore(() => Parse_ExceptStarBlock()) == null) return null;
-                if ((a = ExpectKeyword("except")) == null) return null;
-                if (ParseOptional(() => ParseGroup()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "cannot have both 'except' and 'except*' on the same 'try'" );
+                if (
+                    ExpectKeyword("try") != null &&
+                    ExpectOp(":") != null &&
+                    ParseZeroOrMore(() => Parse_Block()) != null &&
+                    ParseOneOrMore(() => Parse_ExceptStarBlock()) != null &&
+                    (a = ExpectKeyword("except")) != null &&
+                    (ParseOptional(() => Parse_Tmp95()) == null || true) &&
+                    ExpectOp(":") != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "cannot have both 'except' and 'except*' on the same 'try'" );
+                }
             }
 
             Reset(_mark);
@@ -10561,22 +13068,29 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_except_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if (ExpectKeyword("except") == null) return null;
-                if (ParseOptional(() => ExpectOp("*")) == null) return null;
-                if ((a = Parse_Expression()) == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if (Parse_Expressions() == null) return null;
-                if (ParseOptional(() => ParseGroup()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorStartingFrom ( a , "multiple exception types must be parenthesized" );
+                if (
+                    ExpectKeyword("except") != null &&
+                    (ParseOptional(() => ExpectOp("*")) == null || true) &&
+                    (a = Parse_Expression()) != null &&
+                    ExpectOp(",") != null &&
+                    Parse_Expressions() != null &&
+                    (ParseOptional(() => Parse_Tmp96()) == null || true) &&
+                    ExpectOp(":") != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorStartingFrom ( a , "multiple exception types must be parenthesized" );
+                }
             }
 
             // Alternative 2
@@ -10586,14 +13100,17 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = ExpectKeyword("except")) == null) return null;
-                if (ParseOptional(() => ExpectOp("*")) == null) return null;
-                if (Parse_Expression() == null) return null;
-                if (ParseOptional(() => ParseGroup()) == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxError ( "expected ':'" );
+                if (
+                    (a = ExpectKeyword("except")) != null &&
+                    (ParseOptional(() => ExpectOp("*")) == null || true) &&
+                    Parse_Expression() != null &&
+                    (ParseOptional(() => Parse_Tmp97()) == null || true) &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxError ( "expected ':'" );
+                }
             }
 
             // Alternative 3
@@ -10603,11 +13120,14 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = ExpectKeyword("except")) == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxError ( "expected ':'" );
+                if (
+                    (a = ExpectKeyword("except")) != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxError ( "expected ':'" );
+                }
             }
 
             // Alternative 4
@@ -10617,12 +13137,15 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = ExpectKeyword("except")) == null) return null;
-                if (ExpectOp("*") == null) return null;
-                if (ParseGroup() == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxError ( "expected one or more exception types" );
+                if (
+                    (a = ExpectKeyword("except")) != null &&
+                    ExpectOp("*") != null &&
+                    Parse_Tmp98() != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxError ( "expected one or more exception types" );
+                }
             }
 
             Reset(_mark);
@@ -10637,19 +13160,26 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_finally_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = ExpectKeyword("finally")) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
-
-                // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'finally' statement on line %d" , a . GetLineNo ());
+                if (
+                    (a = ExpectKeyword("finally")) != null &&
+                    ExpectOp(":") != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
+                )
+                {
+                    // Action code from grammar
+                    return RaiseIndentationError ( "expected an indented block after 'finally' statement on line %d" , a . GetLineNo ());
+                }
             }
 
             Reset(_mark);
@@ -10664,21 +13194,28 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_except_stmt_indent at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = ExpectKeyword("except")) == null) return null;
-                if (Parse_Expression() == null) return null;
-                if (ParseOptional(() => ParseGroup()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
-
-                // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'except' statement on line %d" , a . GetLineNo ());
+                if (
+                    (a = ExpectKeyword("except")) != null &&
+                    Parse_Expression() != null &&
+                    (ParseOptional(() => Parse_Tmp99()) == null || true) &&
+                    ExpectOp(":") != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
+                )
+                {
+                    // Action code from grammar
+                    return RaiseIndentationError ( "expected an indented block after 'except' statement on line %d" , a . GetLineNo ());
+                }
             }
 
             // Alternative 2
@@ -10688,13 +13225,16 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = ExpectKeyword("except")) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
-
-                // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'except' statement on line %d" , a . GetLineNo ());
+                if (
+                    (a = ExpectKeyword("except")) != null &&
+                    ExpectOp(":") != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
+                )
+                {
+                    // Action code from grammar
+                    return RaiseIndentationError ( "expected an indented block after 'except' statement on line %d" , a . GetLineNo ());
+                }
             }
 
             Reset(_mark);
@@ -10709,22 +13249,29 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_except_star_stmt_indent at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = ExpectKeyword("except")) == null) return null;
-                if (ExpectOp("*") == null) return null;
-                if (Parse_Expression() == null) return null;
-                if (ParseOptional(() => ParseGroup()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
-
-                // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'except*' statement on line %d" , a . GetLineNo ());
+                if (
+                    (a = ExpectKeyword("except")) != null &&
+                    ExpectOp("*") != null &&
+                    Parse_Expression() != null &&
+                    (ParseOptional(() => Parse_Tmp100()) == null || true) &&
+                    ExpectOp(":") != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
+                )
+                {
+                    // Action code from grammar
+                    return RaiseIndentationError ( "expected an indented block after 'except*' statement on line %d" , a . GetLineNo ());
+                }
             }
 
             Reset(_mark);
@@ -10739,17 +13286,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_match_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
 
-                if (ExpectSoftKeyword("match") == null) return null;
-                if (Parse_SubjectExpr() == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-
-                // Action code from grammar
-                return CheckVersion ( 10 , "Pattern matching is" , RaiseSyntaxError ( "expected ':'" ));
+                if (
+                    ExpectSoftKeyword("match") != null &&
+                    Parse_SubjectExpr() != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null
+                )
+                {
+                    // Action code from grammar
+                    return CheckVersion ( 10 , "Pattern matching is" , RaiseSyntaxError ( "expected ':'" ));
+                }
             }
 
             // Alternative 2
@@ -10760,14 +13314,17 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? subject = null;
 
-                if ((a = ExpectSoftKeyword("match")) == null) return null;
-                if ((subject = Parse_SubjectExpr()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
-
-                // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'match' statement on line %d" , a . GetLineNo ());
+                if (
+                    (a = ExpectSoftKeyword("match")) != null &&
+                    (subject = Parse_SubjectExpr()) != null &&
+                    ExpectOp(":") != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
+                )
+                {
+                    // Action code from grammar
+                    return RaiseIndentationError ( "expected an indented block after 'match' statement on line %d" , a . GetLineNo ());
+                }
             }
 
             Reset(_mark);
@@ -10782,18 +13339,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_case_block at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
 
-                if (ExpectSoftKeyword("case") == null) return null;
-                if (Parse_Patterns() == null) return null;
-                if (ParseOptional(() => Parse_Guard()) == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxError ( "expected ':'" );
+                if (
+                    ExpectSoftKeyword("case") != null &&
+                    Parse_Patterns() != null &&
+                    (ParseOptional(() => Parse_Guard()) == null || true) &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxError ( "expected ':'" );
+                }
             }
 
             // Alternative 2
@@ -10803,15 +13367,18 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = ExpectSoftKeyword("case")) == null) return null;
-                if (Parse_Patterns() == null) return null;
-                if (ParseOptional(() => Parse_Guard()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
-
-                // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'case' statement on line %d" , a . GetLineNo ());
+                if (
+                    (a = ExpectSoftKeyword("case")) != null &&
+                    Parse_Patterns() != null &&
+                    (ParseOptional(() => Parse_Guard()) == null || true) &&
+                    ExpectOp(":") != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
+                )
+                {
+                    // Action code from grammar
+                    return RaiseIndentationError ( "expected an indented block after 'case' statement on line %d" , a . GetLineNo ());
+                }
             }
 
             Reset(_mark);
@@ -10826,18 +13393,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_as_pattern at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
 
-                if (Parse_OrPattern() == null) return null;
-                if (ExpectKeyword("as") == null) return null;
-                if ((a = ExpectSoftKeyword("_")) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "cannot use '_' as a target" );
+                if (
+                    Parse_OrPattern() != null &&
+                    ExpectKeyword("as") != null &&
+                    (a = ExpectSoftKeyword("_")) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "cannot use '_' as a target" );
+                }
             }
 
             // Alternative 2
@@ -10847,13 +13421,16 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
-                if (Parse_OrPattern() == null) return null;
-                if (ExpectKeyword("as") == null) return null;
-                if (NegativeLookahead(() => Expect(PyToken.Type.NAME, "NAME")) == null) return null;
-                if ((a = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "invalid pattern target" );
+                if (
+                    Parse_OrPattern() != null &&
+                    ExpectKeyword("as") != null &&
+                    NegativeLookahead(() => ExpectName()) != null &&
+                    (a = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "invalid pattern target" );
+                }
             }
 
             Reset(_mark);
@@ -10868,18 +13445,25 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_class_pattern at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedPatternSeq? a = null;
 
-                if (Parse_NameOrAttr() == null) return null;
-                if (ExpectOp("(") == null) return null;
-                if ((a = Parse_InvalidClassArgumentPattern()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( FirstItem < GeneratedPattern >( a ), LastItem < GeneratedPattern >( a ), "positional patterns follow keyword patterns" );
+                if (
+                    Parse_NameOrAttr() != null &&
+                    ExpectOp("(") != null &&
+                    (a = Parse_InvalidClassArgumentPattern()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownRange ( FirstItem < GeneratedPattern >( a ), LastItem < GeneratedPattern >( a ), "positional patterns follow keyword patterns" );
+                }
             }
 
             Reset(_mark);
@@ -10895,19 +13479,26 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_class_argument_pattern at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedPatternSeq? a = null;
 
-                if (ParseOptional(() => ParseGroup()) == null) return null;
-                if (Parse_KeywordPatterns() == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if ((a = Parse_PositionalPatterns()) == null) return null;
-
-                // Action code from grammar
-                return a;
+                if (
+                    (ParseOptional(() => Parse_Tmp101()) == null || true) &&
+                    Parse_KeywordPatterns() != null &&
+                    ExpectOp(",") != null &&
+                    (a = Parse_PositionalPatterns()) != null
+                )
+                {
+                    // Action code from grammar
+                    return a;
+                }
             }
 
             Reset(_mark);
@@ -10922,17 +13513,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_if_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
 
-                if (ExpectKeyword("if") == null) return null;
-                if (Parse_NamedExpression() == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxError ( "expected ':'" );
+                if (
+                    ExpectKeyword("if") != null &&
+                    Parse_NamedExpression() != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxError ( "expected ':'" );
+                }
             }
 
             // Alternative 2
@@ -10942,14 +13540,17 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = ExpectKeyword("if")) == null) return null;
-                if (Parse_NamedExpression() == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
-
-                // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'if' statement on line %d" , a . GetLineNo ());
+                if (
+                    (a = ExpectKeyword("if")) != null &&
+                    Parse_NamedExpression() != null &&
+                    ExpectOp(":") != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
+                )
+                {
+                    // Action code from grammar
+                    return RaiseIndentationError ( "expected an indented block after 'if' statement on line %d" , a . GetLineNo ());
+                }
             }
 
             Reset(_mark);
@@ -10964,17 +13565,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_elif_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
 
-                if (ExpectKeyword("elif") == null) return null;
-                if (Parse_NamedExpression() == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxError ( "expected ':'" );
+                if (
+                    ExpectKeyword("elif") != null &&
+                    Parse_NamedExpression() != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxError ( "expected ':'" );
+                }
             }
 
             // Alternative 2
@@ -10984,14 +13592,17 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = ExpectKeyword("elif")) == null) return null;
-                if (Parse_NamedExpression() == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
-
-                // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'elif' statement on line %d" , a . GetLineNo ());
+                if (
+                    (a = ExpectKeyword("elif")) != null &&
+                    Parse_NamedExpression() != null &&
+                    ExpectOp(":") != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
+                )
+                {
+                    // Action code from grammar
+                    return RaiseIndentationError ( "expected an indented block after 'elif' statement on line %d" , a . GetLineNo ());
+                }
             }
 
             Reset(_mark);
@@ -11006,19 +13617,26 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_else_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = ExpectKeyword("else")) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
-
-                // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'else' statement on line %d" , a . GetLineNo ());
+                if (
+                    (a = ExpectKeyword("else")) != null &&
+                    ExpectOp(":") != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
+                )
+                {
+                    // Action code from grammar
+                    return RaiseIndentationError ( "expected an indented block after 'else' statement on line %d" , a . GetLineNo ());
+                }
             }
 
             Reset(_mark);
@@ -11033,17 +13651,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_while_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
 
-                if (ExpectKeyword("while") == null) return null;
-                if (Parse_NamedExpression() == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxError ( "expected ':'" );
+                if (
+                    ExpectKeyword("while") != null &&
+                    Parse_NamedExpression() != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxError ( "expected ':'" );
+                }
             }
 
             // Alternative 2
@@ -11053,14 +13678,17 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = ExpectKeyword("while")) == null) return null;
-                if (Parse_NamedExpression() == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
-
-                // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'while' statement on line %d" , a . GetLineNo ());
+                if (
+                    (a = ExpectKeyword("while")) != null &&
+                    Parse_NamedExpression() != null &&
+                    ExpectOp(":") != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
+                )
+                {
+                    // Action code from grammar
+                    return RaiseIndentationError ( "expected an indented block after 'while' statement on line %d" , a . GetLineNo ());
+                }
             }
 
             Reset(_mark);
@@ -11075,20 +13703,27 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_for_stmt at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
 
-                if (ParseOptional(() => Expect(PyToken.Type.ASYNC, "ASYNC")) == null) return null;
-                if (ExpectKeyword("for") == null) return null;
-                if (Parse_StarTargets() == null) return null;
-                if (ExpectKeyword("in") == null) return null;
-                if (Parse_StarExpressions() == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxError ( "expected ':'" );
+                if (
+                    (ParseOptional(() => ExpectToken(PyToken.Type.ASYNC)) == null || true) &&
+                    ExpectKeyword("for") != null &&
+                    Parse_StarTargets() != null &&
+                    ExpectKeyword("in") != null &&
+                    Parse_StarExpressions() != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxError ( "expected ':'" );
+                }
             }
 
             // Alternative 2
@@ -11098,17 +13733,20 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (ParseOptional(() => Expect(PyToken.Type.ASYNC, "ASYNC")) == null) return null;
-                if ((a = ExpectKeyword("for")) == null) return null;
-                if (Parse_StarTargets() == null) return null;
-                if (ExpectKeyword("in") == null) return null;
-                if (Parse_StarExpressions() == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
-
-                // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after 'for' statement on line %d" , a . GetLineNo ());
+                if (
+                    (ParseOptional(() => ExpectToken(PyToken.Type.ASYNC)) == null || true) &&
+                    (a = ExpectKeyword("for")) != null &&
+                    Parse_StarTargets() != null &&
+                    ExpectKeyword("in") != null &&
+                    Parse_StarExpressions() != null &&
+                    ExpectOp(":") != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
+                )
+                {
+                    // Action code from grammar
+                    return RaiseIndentationError ( "expected an indented block after 'for' statement on line %d" , a . GetLineNo ());
+                }
             }
 
             Reset(_mark);
@@ -11123,26 +13761,33 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_def_raw at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
 
-                if (ParseOptional(() => Expect(PyToken.Type.ASYNC, "ASYNC")) == null) return null;
-                if ((a = ExpectKeyword("def")) == null) return null;
-                if (Expect(PyToken.Type.NAME, "NAME") == null) return null;
-                if (ParseOptional(() => Parse_TypeParams()) == null) return null;
-                if (ExpectOp("(") == null) return null;
-                if (ParseOptional(() => Parse_Params()) == null) return null;
-                if (ExpectOp(")") == null) return null;
-                if (ParseOptional(() => ParseGroup()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
-
-                // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after function definition on line %d" , a . GetLineNo ());
+                if (
+                    (ParseOptional(() => ExpectToken(PyToken.Type.ASYNC)) == null || true) &&
+                    (a = ExpectKeyword("def")) != null &&
+                    ExpectName() != null &&
+                    (ParseOptional(() => Parse_TypeParams()) == null || true) &&
+                    ExpectOp("(") != null &&
+                    (ParseOptional(() => Parse_Params()) == null || true) &&
+                    ExpectOp(")") != null &&
+                    (ParseOptional(() => Parse_Tmp102()) == null || true) &&
+                    ExpectOp(":") != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
+                )
+                {
+                    // Action code from grammar
+                    return RaiseIndentationError ( "expected an indented block after function definition on line %d" , a . GetLineNo ());
+                }
             }
 
             Reset(_mark);
@@ -11157,19 +13802,26 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_class_def_raw at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
 
-                if (ExpectKeyword("class") == null) return null;
-                if (Expect(PyToken.Type.NAME, "NAME") == null) return null;
-                if (ParseOptional(() => Parse_TypeParams()) == null) return null;
-                if (ParseOptional(() => ParseGroup()) == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxError ( "expected ':'" );
+                if (
+                    ExpectKeyword("class") != null &&
+                    ExpectName() != null &&
+                    (ParseOptional(() => Parse_TypeParams()) == null || true) &&
+                    (ParseOptional(() => Parse_Tmp103()) == null || true) &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxError ( "expected ':'" );
+                }
             }
 
             // Alternative 2
@@ -11179,16 +13831,19 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if ((a = ExpectKeyword("class")) == null) return null;
-                if (Expect(PyToken.Type.NAME, "NAME") == null) return null;
-                if (ParseOptional(() => Parse_TypeParams()) == null) return null;
-                if (ParseOptional(() => ParseGroup()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (Expect(PyToken.Type.NEWLINE, "NEWLINE") == null) return null;
-                if (NegativeLookahead(() => Expect(PyToken.Type.INDENT, "INDENT")) == null) return null;
-
-                // Action code from grammar
-                return RaiseIndentationError ( "expected an indented block after class definition on line %d" , a . GetLineNo ());
+                if (
+                    (a = ExpectKeyword("class")) != null &&
+                    ExpectName() != null &&
+                    (ParseOptional(() => Parse_TypeParams()) == null || true) &&
+                    (ParseOptional(() => Parse_Tmp104()) == null || true) &&
+                    ExpectOp(":") != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
+                )
+                {
+                    // Action code from grammar
+                    return RaiseIndentationError ( "expected an indented block after class definition on line %d" , a . GetLineNo ());
+                }
             }
 
             Reset(_mark);
@@ -11203,17 +13858,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_double_starred_kvpairs at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
 
-                if (ParseGatherPlus(() => ExpectOp(","), () => Parse_DoubleStarredKvpair()) == null) return null;
-                if (ExpectOp(",") == null) return null;
-                if (Parse_InvalidKvpair() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if (
+                    ParseGatherPlus(() => ExpectOp(","), () => Parse_DoubleStarredKvpair()) != null &&
+                    ExpectOp(",") != null &&
+                    Parse_InvalidKvpair() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
             }
 
             // Alternative 2
@@ -11223,13 +13885,16 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (Parse_Expression() == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((a = ExpectOp("*")) == null) return null;
-                if (Parse_BitwiseOr() == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorStartingFrom ( a , "cannot use a starred expression in a dictionary value" );
+                if (
+                    Parse_Expression() != null &&
+                    ExpectOp(":") != null &&
+                    (a = ExpectOp("*")) != null &&
+                    Parse_BitwiseOr() != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorStartingFrom ( a , "cannot use a starred expression in a dictionary value" );
+                }
             }
 
             // Alternative 3
@@ -11239,12 +13904,15 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (Parse_Expression() == null) return null;
-                if ((a = ExpectOp(":")) == null) return null;
-                if (PositiveLookahead(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "expression expected after dictionary key and ':'" );
+                if (
+                    Parse_Expression() != null &&
+                    (a = ExpectOp(":")) != null &&
+                    PositiveLookahead(() => Parse_Tmp105()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "expression expected after dictionary key and ':'" );
+                }
             }
 
             Reset(_mark);
@@ -11259,17 +13927,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_kvpair at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedExpr? a = null;
 
-                if ((a = Parse_Expression()) == null) return null;
-                if (NegativeLookahead(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                return RaiseErrorKnownLocation ( typeof ( PySyntaxErrorException ), a . GetLineNo (), a . EndColOffset - 1 , a . EndLineNo ,- 1 , "':' expected after dictionary key" );
+                if (
+                    (a = Parse_Expression()) != null &&
+                    NegativeLookahead(() => Parse_Tmp106()) != null
+                )
+                {
+                    // Action code from grammar
+                    return RaiseErrorKnownLocation ( typeof ( PySyntaxErrorException ), a . GetLineNo (), a . EndColOffset - 1 , a . EndLineNo ,- 1 , "':' expected after dictionary key" );
+                }
             }
 
             // Alternative 2
@@ -11279,13 +13954,16 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (Parse_Expression() == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if ((a = ExpectOp("*")) == null) return null;
-                if (Parse_BitwiseOr() == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorStartingFrom ( a , "cannot use a starred expression in a dictionary value" );
+                if (
+                    Parse_Expression() != null &&
+                    ExpectOp(":") != null &&
+                    (a = ExpectOp("*")) != null &&
+                    Parse_BitwiseOr() != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorStartingFrom ( a , "cannot use a starred expression in a dictionary value" );
+                }
             }
 
             // Alternative 3
@@ -11295,12 +13973,15 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (Parse_Expression() == null) return null;
-                if ((a = ExpectOp(":")) == null) return null;
-                if (PositiveLookahead(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "expression expected after dictionary key and ':'" );
+                if (
+                    Parse_Expression() != null &&
+                    (a = ExpectOp(":")) != null &&
+                    PositiveLookahead(() => Parse_Tmp107()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "expression expected after dictionary key and ':'" );
+                }
             }
 
             Reset(_mark);
@@ -11315,6 +13996,10 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_starred_expression at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
@@ -11322,13 +14007,16 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? b = null;
 
-                if ((a = ExpectOp("*")) == null) return null;
-                if (Parse_Expression() == null) return null;
-                if (ExpectOp("=") == null) return null;
-                if ((b = Parse_Expression()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownRange ( a , b , "cannot assign to iterable argument unpacking" );
+                if (
+                    (a = ExpectOp("*")) != null &&
+                    Parse_Expression() != null &&
+                    ExpectOp("=") != null &&
+                    (b = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownRange ( a , b , "cannot assign to iterable argument unpacking" );
+                }
             }
 
             Reset(_mark);
@@ -11343,17 +14031,24 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_replacement_field at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
                 GeneratedTokenInfo? a = null;
 
-                if (ExpectOp("{") == null) return null;
-                if ((a = ExpectOp("=")) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "f-string: valid expression required before '='" );
+                if (
+                    ExpectOp("{") != null &&
+                    (a = ExpectOp("=")) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "f-string: valid expression required before '='" );
+                }
             }
 
             // Alternative 2
@@ -11363,11 +14058,14 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (ExpectOp("{") == null) return null;
-                if ((a = ExpectOp("!")) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "f-string: valid expression required before '!'" );
+                if (
+                    ExpectOp("{") != null &&
+                    (a = ExpectOp("!")) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "f-string: valid expression required before '!'" );
+                }
             }
 
             // Alternative 3
@@ -11377,11 +14075,14 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (ExpectOp("{") == null) return null;
-                if ((a = ExpectOp(":")) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "f-string: valid expression required before ':'" );
+                if (
+                    ExpectOp("{") != null &&
+                    (a = ExpectOp(":")) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "f-string: valid expression required before ':'" );
+                }
             }
 
             // Alternative 4
@@ -11391,11 +14092,14 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? a = null;
 
-                if (ExpectOp("{") == null) return null;
-                if ((a = ExpectOp("}")) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorKnownLocation ( a , "f-string: valid expression required before '}'" );
+                if (
+                    ExpectOp("{") != null &&
+                    (a = ExpectOp("}")) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorKnownLocation ( a , "f-string: valid expression required before '}'" );
+                }
             }
 
             // Alternative 5
@@ -11404,11 +14108,14 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("{") == null) return null;
-                if (NegativeLookahead(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorOnNextToken ( "f-string: expecting a valid expression after '{'" );
+                if (
+                    ExpectOp("{") != null &&
+                    NegativeLookahead(() => Parse_Tmp108()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorOnNextToken ( "f-string: expecting a valid expression after '{'" );
+                }
             }
 
             // Alternative 6
@@ -11417,12 +14124,15 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("{") == null) return null;
-                if (ParseGroup() == null) return null;
-                if (NegativeLookahead(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                return PyErr_Occurred ()? null : RaiseSyntaxErrorOnNextToken ( "f-string: expecting '=', or '!', or ':', or '}'" );
+                if (
+                    ExpectOp("{") != null &&
+                    Parse_Tmp109() != null &&
+                    NegativeLookahead(() => Parse_Tmp110()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyErr_Occurred ()? null : RaiseSyntaxErrorOnNextToken ( "f-string: expecting '=', or '!', or ':', or '}'" );
+                }
             }
 
             // Alternative 7
@@ -11431,13 +14141,16 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("{") == null) return null;
-                if (ParseGroup() == null) return null;
-                if (ExpectOp("=") == null) return null;
-                if (NegativeLookahead(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                return PyErr_Occurred ()? null : RaiseSyntaxErrorOnNextToken ( "f-string: expecting '!', or ':', or '}'" );
+                if (
+                    ExpectOp("{") != null &&
+                    Parse_Tmp111() != null &&
+                    ExpectOp("=") != null &&
+                    NegativeLookahead(() => Parse_Tmp112()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyErr_Occurred ()? null : RaiseSyntaxErrorOnNextToken ( "f-string: expecting '!', or ':', or '}'" );
+                }
             }
 
             // Alternative 8
@@ -11446,13 +14159,16 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("{") == null) return null;
-                if (ParseGroup() == null) return null;
-                if (ParseOptional(() => ExpectOp("=")) == null) return null;
-                if (Parse_InvalidConversionCharacter() == null) return null;
-
-                // Default action: no captures (unexpected)
-                return null;
+                if (
+                    ExpectOp("{") != null &&
+                    Parse_Tmp113() != null &&
+                    (ParseOptional(() => ExpectOp("=")) == null || true) &&
+                    Parse_InvalidConversionCharacter() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
             }
 
             // Alternative 9
@@ -11461,14 +14177,17 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("{") == null) return null;
-                if (ParseGroup() == null) return null;
-                if (ParseOptional(() => ExpectOp("=")) == null) return null;
-                if (ParseOptional(() => ParseGroup()) == null) return null;
-                if (NegativeLookahead(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                return PyErr_Occurred ()? null : RaiseSyntaxErrorOnNextToken ( "f-string: expecting ':' or '}'" );
+                if (
+                    ExpectOp("{") != null &&
+                    Parse_Tmp114() != null &&
+                    (ParseOptional(() => ExpectOp("=")) == null || true) &&
+                    (ParseOptional(() => Parse_Tmp115()) == null || true) &&
+                    NegativeLookahead(() => Parse_Tmp116()) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyErr_Occurred ()? null : RaiseSyntaxErrorOnNextToken ( "f-string: expecting ':' or '}'" );
+                }
             }
 
             // Alternative 10
@@ -11477,16 +14196,19 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("{") == null) return null;
-                if (ParseGroup() == null) return null;
-                if (ParseOptional(() => ExpectOp("=")) == null) return null;
-                if (ParseOptional(() => ParseGroup()) == null) return null;
-                if (ExpectOp(":") == null) return null;
-                if (ParseZeroOrMore(() => Parse_FstringFormatSpec()) == null) return null;
-                if (NegativeLookahead(() => ExpectOp("}")) == null) return null;
-
-                // Action code from grammar
-                return PyErr_Occurred ()? null : RaiseSyntaxErrorOnNextToken ( "f-string: expecting '}', or format specs" );
+                if (
+                    ExpectOp("{") != null &&
+                    Parse_Tmp117() != null &&
+                    (ParseOptional(() => ExpectOp("=")) == null || true) &&
+                    (ParseOptional(() => Parse_Tmp118()) == null || true) &&
+                    ExpectOp(":") != null &&
+                    ParseZeroOrMore(() => Parse_FstringFormatSpec()) != null &&
+                    NegativeLookahead(() => ExpectOp("}")) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyErr_Occurred ()? null : RaiseSyntaxErrorOnNextToken ( "f-string: expecting '}', or format specs" );
+                }
             }
 
             // Alternative 11
@@ -11495,14 +14217,17 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("{") == null) return null;
-                if (ParseGroup() == null) return null;
-                if (ParseOptional(() => ExpectOp("=")) == null) return null;
-                if (ParseOptional(() => ParseGroup()) == null) return null;
-                if (NegativeLookahead(() => ExpectOp("}")) == null) return null;
-
-                // Action code from grammar
-                return PyErr_Occurred ()? null : RaiseSyntaxErrorOnNextToken ( "f-string: expecting '}'" );
+                if (
+                    ExpectOp("{") != null &&
+                    Parse_Tmp119() != null &&
+                    (ParseOptional(() => ExpectOp("=")) == null || true) &&
+                    (ParseOptional(() => Parse_Tmp120()) == null || true) &&
+                    NegativeLookahead(() => ExpectOp("}")) != null
+                )
+                {
+                    // Action code from grammar
+                    return PyErr_Occurred ()? null : RaiseSyntaxErrorOnNextToken ( "f-string: expecting '}'" );
+                }
             }
 
             Reset(_mark);
@@ -11517,16 +14242,23 @@ namespace SharpPy.Generated
         {
             int _mark = Mark();
 
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] invalid_conversion_character at pos={_position}");
+            #endif
+
             Reset(_mark);
             {
                 CaptureStart();
 
 
-                if (ExpectOp("!") == null) return null;
-                if (PositiveLookahead(() => ParseGroup()) == null) return null;
-
-                // Action code from grammar
-                RaiseSyntaxErrorOnNextToken ( "f-string: missing conversion character" );
+                if (
+                    ExpectOp("!") != null &&
+                    PositiveLookahead(() => Parse_Tmp121()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorOnNextToken ( "f-string: missing conversion character" );
+                }
             }
 
             // Alternative 2
@@ -11535,11 +14267,5465 @@ namespace SharpPy.Generated
                 CaptureStart();
 
 
-                if (ExpectOp("!") == null) return null;
-                if (NegativeLookahead(() => Expect(PyToken.Type.NAME, "NAME")) == null) return null;
+                if (
+                    ExpectOp("!") != null &&
+                    NegativeLookahead(() => ExpectName()) != null
+                )
+                {
+                    // Action code from grammar
+                    RaiseSyntaxErrorOnNextToken ( "f-string: invalid conversion character" );
+                }
+            }
 
-                // Action code from grammar
-                RaiseSyntaxErrorOnNextToken ( "f-string: invalid conversion character" );
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_1
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp1()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_1 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectKeyword("import")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectKeyword("from")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_2
+        /// Alternatives: 3
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp2()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_2 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectKeyword("def")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("@")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 3
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectToken(PyToken.Type.ASYNC)) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_3
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp3()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_3 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectKeyword("class")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("@")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_4
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp4()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_4 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectKeyword("with")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectToken(PyToken.Type.ASYNC)) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_5
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp5()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_5 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectKeyword("for")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectToken(PyToken.Type.ASYNC)) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_6
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp6()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_6 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedExpr? d = null;
+
+                if (
+                    ExpectOp("=") != null &&
+                    (d = Parse_AnnotatedRhs()) != null
+                )
+                {
+                    // Action code from grammar
+                    return d;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_7
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp7()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_7 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedExpr? b = null;
+
+                if (
+                    ExpectOp("(") != null &&
+                    (b = Parse_SingleTarget()) != null &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Action code from grammar
+                    return b;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_SingleSubscriptAttributeTarget()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_8
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp8()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_8 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedExpr? d = null;
+
+                if (
+                    ExpectOp("=") != null &&
+                    (d = Parse_AnnotatedRhs()) != null
+                )
+                {
+                    // Action code from grammar
+                    return d;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_9
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp9()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_9 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedExpr? z = null;
+
+                if (
+                    (z = Parse_StarTargets()) != null &&
+                    ExpectOp("=") != null
+                )
+                {
+                    // Action code from grammar
+                    return z;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_10
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp10()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_10 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_YieldExpr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_StarExpressions()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_11
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp11()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_11 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_YieldExpr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_StarExpressions()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_12
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp12()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_12 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedExpr? z = null;
+
+                if (
+                    ExpectKeyword("from") != null &&
+                    (z = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return z;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_13
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp13()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_13 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(";")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectToken(PyToken.Type.NEWLINE)) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_14
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp14()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_14 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedExpr? z = null;
+
+                if (
+                    ExpectOp(",") != null &&
+                    (z = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return z;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_15
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp15()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_15 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(".")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("...")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_16
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp16()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_16 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(".")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("...")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_17
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp17()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_17 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedTokenInfo? z = null;
+
+                if (
+                    ExpectKeyword("as") != null &&
+                    (z = ExpectName()) != null
+                )
+                {
+                    // Action code from grammar
+                    return z;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_18
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp18()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_18 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedTokenInfo? z = null;
+
+                if (
+                    ExpectKeyword("as") != null &&
+                    (z = ExpectName()) != null
+                )
+                {
+                    // Action code from grammar
+                    return z;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_19
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp19()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_19 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedExpr? f = null;
+
+                if (
+                    ExpectOp("@") != null &&
+                    (f = Parse_NamedExpression()) != null &&
+                    ExpectToken(PyToken.Type.NEWLINE) != null
+                )
+                {
+                    // Action code from grammar
+                    return f;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_20
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp20()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_20 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedExpr? z = null;
+
+                if (
+                    ExpectOp("(") != null &&
+                    ((z = (GeneratedExpr)ParseOptional(() => Parse_Arguments())) == null || true) &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Action code from grammar
+                    return z;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_21
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp21()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_21 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedExpr? z = null;
+
+                if (
+                    ExpectOp("->") != null &&
+                    (z = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return z;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_22
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp22()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_22 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedExpr? z = null;
+
+                if (
+                    ExpectOp("->") != null &&
+                    (z = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return z;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_23
+        /// Alternatives: 3
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp23()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_23 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(",")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(")")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 3
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(":")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_24
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp24()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_24 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedTokenInfo? z = null;
+
+                if (
+                    ExpectKeyword("as") != null &&
+                    (z = ExpectName()) != null
+                )
+                {
+                    // Action code from grammar
+                    return z;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_25
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp25()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_25 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedTokenInfo? z = null;
+
+                if (
+                    ExpectKeyword("as") != null &&
+                    (z = ExpectName()) != null
+                )
+                {
+                    // Action code from grammar
+                    return z;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_26
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp26()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_26 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("+")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("-")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_27
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp27()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_27 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("+")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("-")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_28
+        /// Alternatives: 3
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp28()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_28 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(".")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("(")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 3
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("=")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_29
+        /// Alternatives: 3
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp29()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_29 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(".")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("(")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 3
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("=")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_30
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp30()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_30 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_LiteralExpr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_Attr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_31
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp31()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_31 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedExpr? c = null;
+
+                if (
+                    ExpectOp(",") != null &&
+                    (c = Parse_Expression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return c;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_32
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp32()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_32 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedExpr? c = null;
+
+                if (
+                    ExpectOp(",") != null &&
+                    (c = Parse_StarExpression()) != null
+                )
+                {
+                    // Action code from grammar
+                    return c;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_33
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp33()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_33 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedExpr? c = null;
+
+                if (
+                    ExpectKeyword("or") != null &&
+                    (c = Parse_Conjunction()) != null
+                )
+                {
+                    // Action code from grammar
+                    return c;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_34
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp34()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_34 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedExpr? c = null;
+
+                if (
+                    ExpectKeyword("and") != null &&
+                    (c = Parse_Inversion()) != null
+                )
+                {
+                    // Action code from grammar
+                    return c;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_35
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp35()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_35 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedTokenInfo? tok = null;
+
+                if ((tok = ExpectOp("!=")) != null)
+                {
+                    // Action code from grammar
+                    return ASTHelpers . CheckBarryAsFlufl ( tok )? null : tok;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_36
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp36()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_36 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_Slice()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_StarredExpression()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_37
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp37()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_37 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedExpr? d = null;
+
+                if (
+                    ExpectOp(":") != null &&
+                    ((d = (GeneratedExpr)ParseOptional(() => Parse_Expression())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return d;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_38
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp38()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_38 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectToken(PyToken.Type.STRING)) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectToken(PyToken.Type.FSTRING_START)) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_39
+        /// Alternatives: 3
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp39()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_39 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_Tuple()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_Group()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 3
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_Genexp()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_40
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp40()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_40 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_List()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_Listcomp()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_41
+        /// Alternatives: 4
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp41()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_41 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_Dict()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_Set()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 3
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_Dictcomp()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 4
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_Setcomp()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_42
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp42()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_42 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_YieldExpr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_NamedExpression()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_43
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp43()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_43 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_YieldExpr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_StarExpressions()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_44
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp44()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_44 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_Fstring()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_String()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_45
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp45()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_45 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedExpr? y = null;
+                GeneratedExprSeq? z = null;
+
+                if (
+                    (y = Parse_StarNamedExpression()) != null &&
+                    ExpectOp(",") != null &&
+                    ((z = (GeneratedExprSeq)ParseOptional(() => Parse_StarNamedExpressions())) == null || true)
+                )
+                {
+                    // Action code from grammar
+                    return PyParserHelpers . SeqInsertInFront ( y , z ). Cast < GeneratedExprSeq >();
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_46
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp46()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_46 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedExpr? z = null;
+
+                if (
+                    ExpectKeyword("if") != null &&
+                    (z = Parse_Disjunction()) != null
+                )
+                {
+                    // Action code from grammar
+                    return z;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_47
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp47()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_47 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedExpr? z = null;
+
+                if (
+                    ExpectKeyword("if") != null &&
+                    (z = Parse_Disjunction()) != null
+                )
+                {
+                    // Action code from grammar
+                    return z;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_48
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp48()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_48 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_AssignmentExpression()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    Parse_Expression() != null &&
+                    NegativeLookahead(() => ExpectOp(":=")) != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_49
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp49()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_49 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_StarredExpression()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    Parse_Tmp122() != null &&
+                    NegativeLookahead(() => ExpectOp("=")) != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_50
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp50()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_50 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedSeq? k = null;
+
+                if (
+                    ExpectOp(",") != null &&
+                    (k = Parse_Kwargs()) != null
+                )
+                {
+                    // Action code from grammar
+                    return k;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_51
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp51()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_51 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedExpr? c = null;
+
+                if (
+                    ExpectOp(",") != null &&
+                    (c = Parse_StarTarget()) != null
+                )
+                {
+                    // Action code from grammar
+                    return c;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_52
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp52()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_52 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedExpr? c = null;
+
+                if (
+                    ExpectOp(",") != null &&
+                    (c = Parse_StarTarget()) != null
+                )
+                {
+                    // Action code from grammar
+                    return c;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_53
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp53()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_53 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    NegativeLookahead(() => ExpectOp("*")) != null &&
+                    Parse_StarTarget() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_54
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp54()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_54 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ExpectToken(PyToken.Type.NEWLINE) != null &&
+                    ExpectToken(PyToken.Type.INDENT) != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_55
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp55()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_55 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = Parse_Tmp123()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_Kwargs()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_56
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp56()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_56 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    Parse_StarredExpression() != null &&
+                    NegativeLookahead(() => ExpectOp("=")) != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_57
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp57()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_57 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_Args()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    Parse_Expression() != null &&
+                    Parse_ForIfClauses() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_58
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp58()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_58 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    Parse_Args() != null &&
+                    ExpectOp(",") != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_59
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp59()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_59 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(",")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(")")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_60
+        /// Alternatives: 3
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp60()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_60 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectKeyword("True")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectKeyword("False")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 3
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectKeyword("None")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_61
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp61()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_61 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ExpectName() != null &&
+                    ExpectOp("=") != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_62
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp62()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_62 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ExpectName() != null &&
+                    ExpectToken(PyToken.Type.STRING) != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectToken(PyToken.Type.SOFT_KEYWORD)) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_63
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp63()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_63 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectKeyword("else")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(":")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_64
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp64()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_64 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("=")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(":=")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_65
+        /// Alternatives: 6
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp65()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_65 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_List()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_Tuple()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 3
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_Genexp()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 4
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectKeyword("True")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 5
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectKeyword("None")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 6
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectKeyword("False")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_66
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp66()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_66 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("=")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(":=")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_67
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp67()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_67 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    Parse_StarTargets() != null &&
+                    ExpectOp("=") != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_68
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp68()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_68 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    Parse_StarTargets() != null &&
+                    ExpectOp("=") != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_69
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp69()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_69 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_YieldExpr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_StarExpressions()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_70
+        /// Alternatives: 3
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp70()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_70 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("[")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("(")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 3
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("{")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_71
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp71()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_71 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("[")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("{")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_72
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp72()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_72 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("[")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("{")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_73
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp73()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_73 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_SlashNoDefault()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_SlashWithDefault()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_74
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp74()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_74 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_SlashNoDefault()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_SlashWithDefault()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_75
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp75()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_75 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(",")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_ParamNoDefault()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_76
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp76()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_76 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(")")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(",")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_77
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp77()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_77 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(")")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ExpectOp(",") != null &&
+                    Parse_Tmp124() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_78
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp78()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_78 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_ParamNoDefault()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(",")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_79
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp79()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_79 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_ParamNoDefault()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(",")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_80
+        /// Alternatives: 3
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp80()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_80 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("*")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("**")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 3
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("/")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_81
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp81()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_81 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_LambdaSlashNoDefault()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_LambdaSlashWithDefault()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_82
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp82()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_82 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_LambdaSlashNoDefault()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_LambdaSlashWithDefault()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_83
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp83()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_83 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(",")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_LambdaParamNoDefault()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_84
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp84()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_84 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(":")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ExpectOp(",") != null &&
+                    Parse_Tmp125() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_85
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp85()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_85 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_LambdaParamNoDefault()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(",")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_86
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp86()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_86 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_LambdaParamNoDefault()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(",")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_87
+        /// Alternatives: 3
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp87()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_87 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("*")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("**")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 3
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("/")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_88
+        /// Alternatives: 3
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp88()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_88 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(",")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(")")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 3
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(":")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_89
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp89()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_89 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    Parse_Expression() != null &&
+                    (ParseOptional(() => Parse_Tmp126()) == null || true)
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_90
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp90()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_90 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    Parse_Expressions() != null &&
+                    (ParseOptional(() => Parse_Tmp127()) == null || true)
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_91
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp91()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_91 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    Parse_Expression() != null &&
+                    (ParseOptional(() => Parse_Tmp128()) == null || true)
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_92
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp92()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_92 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    Parse_Expressions() != null &&
+                    (ParseOptional(() => Parse_Tmp129()) == null || true)
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_93
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp93()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_93 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectKeyword("except")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectKeyword("finally")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_94
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp94()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_94 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ExpectKeyword("as") != null &&
+                    ExpectName() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_95
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp95()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_95 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    Parse_Expression() != null &&
+                    (ParseOptional(() => Parse_Tmp130()) == null || true)
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_96
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp96()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_96 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ExpectKeyword("as") != null &&
+                    ExpectName() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_97
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp97()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_97 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ExpectKeyword("as") != null &&
+                    ExpectName() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_98
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp98()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_98 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectToken(PyToken.Type.NEWLINE)) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(":")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_99
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp99()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_99 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ExpectKeyword("as") != null &&
+                    ExpectName() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_100
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp100()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_100 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ExpectKeyword("as") != null &&
+                    ExpectName() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_101
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp101()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_101 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    Parse_PositionalPatterns() != null &&
+                    ExpectOp(",") != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_102
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp102()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_102 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ExpectOp("->") != null &&
+                    Parse_Expression() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_103
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp103()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_103 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ExpectOp("(") != null &&
+                    (ParseOptional(() => Parse_Arguments()) == null || true) &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_104
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp104()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_104 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ExpectOp("(") != null &&
+                    (ParseOptional(() => Parse_Arguments()) == null || true) &&
+                    ExpectOp(")") != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_105
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp105()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_105 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("}")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(",")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_106
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp106()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_106 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(":")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_107
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp107()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_107 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("}")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(",")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_108
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp108()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_108 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_YieldExpr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_StarExpressions()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_109
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp109()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_109 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_YieldExpr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_StarExpressions()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_110
+        /// Alternatives: 4
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp110()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_110 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("=")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("!")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 3
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(":")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 4
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("}")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_111
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp111()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_111 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_YieldExpr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_StarExpressions()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_112
+        /// Alternatives: 3
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp112()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_112 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("!")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(":")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 3
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("}")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_113
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp113()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_113 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_YieldExpr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_StarExpressions()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_114
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp114()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_114 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_YieldExpr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_StarExpressions()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_115
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp115()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_115 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ExpectOp("!") != null &&
+                    ExpectName() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_116
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp116()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_116 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(":")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("}")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_117
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp117()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_117 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_YieldExpr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_StarExpressions()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_118
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp118()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_118 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ExpectOp("!") != null &&
+                    ExpectName() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_119
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp119()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_119 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_YieldExpr()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_StarExpressions()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_120
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp120()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_120 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ExpectOp("!") != null &&
+                    ExpectName() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_121
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp121()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_121 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(":")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("}")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_122
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp122()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_122 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_AssignmentExpression()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    Parse_Expression() != null &&
+                    NegativeLookahead(() => ExpectOp(":=")) != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_123
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp123()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_123 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp131()) != null &&
+                    ExpectOp(",") != null &&
+                    Parse_Kwargs() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_124
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp124()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_124 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(")")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("**")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_125
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp125()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_125 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp(":")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)ExpectOp("**")) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_126
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp126()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_126 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ExpectKeyword("as") != null &&
+                    Parse_StarTarget() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_127
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp127()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_127 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ExpectKeyword("as") != null &&
+                    Parse_StarTarget() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_128
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp128()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_128 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ExpectKeyword("as") != null &&
+                    Parse_StarTarget() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_129
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp129()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_129 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ExpectKeyword("as") != null &&
+                    Parse_StarTarget() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_130
+        /// Alternatives: 1
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp130()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_130 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    ExpectKeyword("as") != null &&
+                    ExpectName() != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_131
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp131()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_131 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_StarredExpression()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    Parse_Tmp132() != null &&
+                    NegativeLookahead(() => ExpectOp("=")) != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
+            }
+
+            Reset(_mark);
+            return null;
+        }
+
+        /// <summary>
+        /// Rule: _tmp_132
+        /// Alternatives: 2
+        /// Return Type: GeneratedPtr
+        /// </summary>
+        private GeneratedPtr? Parse_Tmp132()
+        {
+            int _mark = Mark();
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[RULE] _tmp_132 at pos={_position}");
+            #endif
+
+            Reset(_mark);
+            {
+                CaptureStart();
+
+                GeneratedPtr? _alt_var = null;
+
+                if ((_alt_var = (GeneratedPtr)Parse_AssignmentExpression()) != null)
+                {
+                    // Default action: return single unnamed item
+                    return _alt_var;
+                }
+            }
+
+            // Alternative 2
+            Reset(_mark);
+            {
+                CaptureStart();
+
+
+                if (
+                    Parse_Expression() != null &&
+                    NegativeLookahead(() => ExpectOp(":=")) != null
+                )
+                {
+                    // Default action: no captures (unexpected)
+                    return null;
+                }
             }
 
             Reset(_mark);
