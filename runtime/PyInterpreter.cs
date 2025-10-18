@@ -91,6 +91,7 @@ namespace SharpPy
 
                 if(showAst)
                 {
+                    Console.WriteLine("[===== ast log ====]");
                     // CPython 3.12 compatible AST dump using existing ASTDumper
                     var dumper = new ASTDumper();
 
@@ -107,8 +108,10 @@ namespace SharpPy
                     }
                     Console.WriteLine("  ],");
                     Console.WriteLine("  type_ignores=[])");
+
+                    Console.WriteLine("[===== ast end ====]");
                 }
-                
+
                 // 2단계: 컴파일 (AST → 바이트코드)
 #if DEBUG_LOG
                 Console.WriteLine("\n" + new string('=', 30));
@@ -116,15 +119,17 @@ namespace SharpPy
                 Console.WriteLine(new string('=', 30));
 #endif
                 var codeObject = _compiler.Compile(statements, "<module>", new List<string>(), fileName);
-                
+
 #if DEBUG_LOG
                 Console.WriteLine($"🔍 컴파일 직후 Exception Table entries: {codeObject.ExceptionTable.Count}");
 #endif
-                
+
                 // 3단계: 바이트코드 확인 (ShowBytecode 또는 VerboseMode일 때)
-                if (SharpPyConfig.ShowBytecode)
+                if (SharpPyConfig.ShowBytecode || showBytecode)
                 {
+                    Console.WriteLine("[===== bytecode log ====]");
                     codeObject.Disassemble();
+                    Console.WriteLine("[===== bytecode end ====]");
                 }
 #if DEBUG_LOG
                 else
@@ -136,18 +141,18 @@ namespace SharpPy
                 }
                 Console.WriteLine($"🔍 디스어셈블리 후 Exception Table entries: {codeObject.ExceptionTable.Count}");
 #endif
-                
+
                 // 4단계: VM 실행 (기존 시스템들과 연동)
 #if DEBUG_LOG
                 Console.WriteLine("\n" + new string('=', 30));
                 Console.WriteLine("4️⃣ VM 실행 (기존 LEGB 시스템 사용)");
                 Console.WriteLine(new string('=', 30));
 #endif
-                
+
 #if DEBUG_LOG
                 Console.WriteLine($"🔍 VM 실행 직전 Exception Table entries: {codeObject.ExceptionTable.Count}");
 #endif
-                
+
                 var result = _vm.ExecuteModule(codeObject, _globalScope);
                 
 #if DEBUG_LOG

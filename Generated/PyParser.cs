@@ -78,6 +78,7 @@ namespace SharpPy.Generated
 
                 GeneratedStmtSeq? a = null;
 
+                Console.WriteLine($"[FILE] Calling a=[Parse_Statements()] at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     ((a = (GeneratedStmtSeq)ParseOptional(() => Parse_Statements())) == null || true) &&
                     ExpectToken(PyToken.Type.ENDMARKER) != null
@@ -214,6 +215,7 @@ namespace SharpPy.Generated
 
                 GeneratedSeq? a = null;
 
+                Console.WriteLine($"[STATEMENTS] Calling a=Parse_Statement()+ at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if ((a = ParseOneOrMore(() => Parse_Statement())) != null)
                 {
                     // Action code from grammar
@@ -361,6 +363,7 @@ namespace SharpPy.Generated
 
                 GeneratedStmt? a = null;
 
+                Console.WriteLine($"[SIMPLE_STMTS] Calling a=Parse_SimpleStmt() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_SimpleStmt()) != null &&
                     NegativeLookahead(() => ExpectOp(";")) != null &&
@@ -379,6 +382,7 @@ namespace SharpPy.Generated
 
                 GeneratedSeq? a = null;
 
+                Console.WriteLine($"[SIMPLE_STMTS] Calling a=Expect(';').Parse_SimpleStmt()+ at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = ParseGatherPlus(() => ExpectOp(";"), () => Parse_SimpleStmt())) != null &&
                     (ParseOptional(() => ExpectOp(";")) == null || true) &&
@@ -453,6 +457,7 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? e = null;
 
+                Console.WriteLine($"[SIMPLE_STMT] Calling e=Parse_StarExpressions() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if ((e = Parse_StarExpressions()) != null)
                 {
                     // Action code from grammar
@@ -5967,6 +5972,9 @@ namespace SharpPy.Generated
                 GeneratedExpr? b = null;
                 GeneratedExpr? c = null;
 
+                Console.WriteLine($"[EXPRESSION] Calling a=Parse_Disjunction() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[EXPRESSION] Calling b=Parse_Disjunction() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[EXPRESSION] Calling c=Parse_Expression() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_Disjunction()) != null &&
                     ExpectKeyword("if") != null &&
@@ -6083,6 +6091,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedSeq? b = null;
 
+                Console.WriteLine($"[STAR_EXPRESSIONS] Calling a=Parse_StarExpression() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[STAR_EXPRESSIONS] Calling b=Group+ at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_StarExpression()) != null &&
                     (b = ParseOneOrMore(() => Parse_Tmp32())) != null &&
@@ -6101,6 +6111,7 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
+                Console.WriteLine($"[STAR_EXPRESSIONS] Calling a=Parse_StarExpression() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_StarExpression()) != null &&
                     ExpectOp(",") != null
@@ -6158,6 +6169,7 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
+                Console.WriteLine($"[STAR_EXPRESSION] Calling a=Parse_BitwiseOr() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     ExpectOp("*") != null &&
                     (a = Parse_BitwiseOr()) != null
@@ -6391,6 +6403,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedSeq? b = null;
 
+                Console.WriteLine($"[DISJUNCTION] Calling a=Parse_Conjunction() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[DISJUNCTION] Calling b=Group+ at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_Conjunction()) != null &&
                     (b = ParseOneOrMore(() => Parse_Tmp33())) != null
@@ -6449,6 +6463,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedSeq? b = null;
 
+                Console.WriteLine($"[CONJUNCTION] Calling a=Parse_Inversion() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[CONJUNCTION] Calling b=Group+ at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_Inversion()) != null &&
                     (b = ParseOneOrMore(() => Parse_Tmp34())) != null
@@ -7100,6 +7116,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
+                Console.WriteLine($"[BITWISE_OR] Calling a=Parse_BitwiseOr() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[BITWISE_OR] Calling b=Parse_BitwiseXor() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_BitwiseOr()) != null &&
                     ExpectOp("|") != null &&
@@ -7159,6 +7177,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
+                Console.WriteLine($"[BITWISE_XOR] Calling a=Parse_BitwiseXor() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[BITWISE_XOR] Calling b=Parse_BitwiseAnd() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_BitwiseXor()) != null &&
                     ExpectOp("^") != null &&
@@ -7218,6 +7238,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
+                Console.WriteLine($"[BITWISE_AND] Calling a=Parse_BitwiseAnd() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[BITWISE_AND] Calling b=Parse_ShiftExpr() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_BitwiseAnd()) != null &&
                     ExpectOp("&") != null &&
@@ -7277,6 +7299,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
+                Console.WriteLine($"[SHIFT_EXPR] Calling a=Parse_ShiftExpr() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[SHIFT_EXPR] Calling b=Parse_Sum() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_ShiftExpr()) != null &&
                     ExpectOp("<<") != null &&
@@ -7296,6 +7320,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
+                Console.WriteLine($"[SHIFT_EXPR] Calling a=Parse_ShiftExpr() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[SHIFT_EXPR] Calling b=Parse_Sum() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_ShiftExpr()) != null &&
                     ExpectOp(">>") != null &&
@@ -7355,6 +7381,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
+                Console.WriteLine($"[SUM] Calling a=Parse_Sum() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[SUM] Calling b=Parse_Term() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_Sum()) != null &&
                     ExpectOp("+") != null &&
@@ -7374,6 +7402,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
+                Console.WriteLine($"[SUM] Calling a=Parse_Sum() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[SUM] Calling b=Parse_Term() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_Sum()) != null &&
                     ExpectOp("-") != null &&
@@ -7433,6 +7463,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
+                Console.WriteLine($"[TERM] Calling a=Parse_Term() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[TERM] Calling b=Parse_Factor() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_Term()) != null &&
                     ExpectOp("*") != null &&
@@ -7452,6 +7484,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
+                Console.WriteLine($"[TERM] Calling a=Parse_Term() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[TERM] Calling b=Parse_Factor() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_Term()) != null &&
                     ExpectOp("/") != null &&
@@ -7471,6 +7505,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
+                Console.WriteLine($"[TERM] Calling a=Parse_Term() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[TERM] Calling b=Parse_Factor() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_Term()) != null &&
                     ExpectOp("//") != null &&
@@ -7490,6 +7526,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
+                Console.WriteLine($"[TERM] Calling a=Parse_Term() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[TERM] Calling b=Parse_Factor() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_Term()) != null &&
                     ExpectOp("%") != null &&
@@ -7509,6 +7547,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
+                Console.WriteLine($"[TERM] Calling a=Parse_Term() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[TERM] Calling b=Parse_Factor() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_Term()) != null &&
                     ExpectOp("@") != null &&
@@ -7567,6 +7607,7 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
+                Console.WriteLine($"[FACTOR] Calling a=Parse_Factor() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     ExpectOp("+") != null &&
                     (a = Parse_Factor()) != null
@@ -7584,6 +7625,7 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
+                Console.WriteLine($"[FACTOR] Calling a=Parse_Factor() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     ExpectOp("-") != null &&
                     (a = Parse_Factor()) != null
@@ -7601,6 +7643,7 @@ namespace SharpPy.Generated
 
                 GeneratedExpr? a = null;
 
+                Console.WriteLine($"[FACTOR] Calling a=Parse_Factor() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     ExpectOp("~") != null &&
                     (a = Parse_Factor()) != null
@@ -7649,6 +7692,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
+                Console.WriteLine($"[POWER] Calling a=Parse_AwaitPrimary() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[POWER] Calling b=Parse_Factor() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_AwaitPrimary()) != null &&
                     ExpectOp("**") != null &&
@@ -7765,6 +7810,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedTokenInfo? b = null;
 
+                Console.WriteLine($"[PRIMARY] Calling a=Parse_Primary() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[PRIMARY] Calling b=ExpectToken(NAME) at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_Primary()) != null &&
                     ExpectOp(".") != null &&
@@ -7784,6 +7831,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
+                Console.WriteLine($"[PRIMARY] Calling a=Parse_Primary() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[PRIMARY] Calling b=Parse_Genexp() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_Primary()) != null &&
                     (b = Parse_Genexp()) != null
@@ -7802,6 +7851,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
+                Console.WriteLine($"[PRIMARY] Calling a=Parse_Primary() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[PRIMARY] Calling b=[Parse_Arguments()] at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_Primary()) != null &&
                     ExpectOp("(") != null &&
@@ -7822,6 +7873,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
 
+                Console.WriteLine($"[PRIMARY] Calling a=Parse_Primary() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                Console.WriteLine($"[PRIMARY] Calling b=Parse_Slices() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if (
                     (a = Parse_Primary()) != null &&
                     ExpectOp("[") != null &&
@@ -7972,6 +8025,7 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? name = null;
 
+                Console.WriteLine($"[ATOM] Calling name=ExpectToken(NAME) at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if ((name = ExpectName()) != null)
                 {
                     // Action code from grammar
@@ -8041,6 +8095,7 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? number = null;
 
+                Console.WriteLine($"[ATOM] Calling number=ExpectToken(NUMBER) at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
                 if ((number = ExpectToken(PyToken.Type.NUMBER)) != null)
                 {
                     // Action code from grammar

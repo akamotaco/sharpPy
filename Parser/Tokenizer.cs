@@ -265,6 +265,10 @@ namespace SharpPy.Generated
         private char _fstringQuoteChar = '\0';
         private int _fstringQuoteSize = 0;
 
+        // NEWLINE position tracking for \r\n sequences
+        // When we encounter \r followed by \n, we save the column before Advance() processes \r
+        private int _savedNewlineColumn = -1;
+
         public Tokenizer(string source)
         {
             _source = source ?? throw new ArgumentNullException(nameof(source));
@@ -289,6 +293,9 @@ namespace SharpPy.Generated
             Console.WriteLine($"[DEBUG] Source length: {_source.Length}, Source: '{_source}'");
             #endif
 
+            // TODO: ENCODING token is commented out for .NET Core compatibility
+            // CPython always emits ENCODING as first token (0,0-0,0: ENCODING 'utf-8')
+            // .NET Core handles encoding differently, so this is not critical
             // Skip ENCODING token for compatibility with CPython generate_tokens()
             // AddToken(PyToken.Type.ENCODING, "utf-8", 0, 0);
 
@@ -486,6 +493,9 @@ namespace SharpPy.Generated
                     #if DEBUG_TOKEN_LOG
                     Console.WriteLine($"[DEBUG] Found \r at position {_position}, checking next char...");
                     #endif
+                    // FIXED: Save column BEFORE Advance() for \r\n NEWLINE token position
+                    var savedColumnBeforeAdvance = _column;
+
                     // Check if next character is \n for Windows line ending
                     if (_position + 1 < _source.Length && _source[_position + 1] == '\n')
                     {
@@ -494,6 +504,8 @@ namespace SharpPy.Generated
                         #endif
                         // This is a \r\n sequence, advance past \r and let \n handler process it
                         Advance(); // Skip \r, \n will be processed in next iteration
+                        // Store the saved column for later use in \n handler via a class field
+                        _savedNewlineColumn = savedColumnBeforeAdvance;
                         continue; // Continue loop to process \n character
                     }
                     else
@@ -554,8 +566,11 @@ namespace SharpPy.Generated
                     var newlineValue = "\n";
                     if (_position > 0 && _source[_position - 1] == '\r')
                     {
+                        // FIXED: For \r\n sequences, use the saved column from before \r Advance()
+                        // This gives us the correct position where \r\n started
                         newlineValue = "\r\n";
-                        newlineColumn = _column - 1; // Start from \r position
+                        newlineColumn = _savedNewlineColumn >= 0 ? _savedNewlineColumn : newlineColumn;
+                        _savedNewlineColumn = -1; // Reset after use
                     }
 
                     // CPython 3.12: Inside parentheses always NL, even after colon

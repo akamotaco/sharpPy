@@ -245,6 +245,10 @@ namespace SharpPy.Generated
         /// Handle left-recursive rules using memoization
         /// CPython 3.12: Implements Warth et al. 'Packrat Parsers Can Support Left Recursion'
         /// Algorithm: SEED (FAIL) → BASE CASE → GROW → TERMINATE
+        ///
+        /// CRITICAL FIX: During growth loop, recursive calls to the same rule at the same position
+        /// MUST immediately return the cached SEED value to prevent infinite recursion.
+        /// This is the key difference from normal memoization!
         /// </summary>
         protected GeneratedPtr TryLeftRecursive(string ruleName, Func<GeneratedPtr> ruleFunc)
         {
@@ -259,8 +263,10 @@ namespace SharpPy.Generated
             if (_lrCache.TryGetValue(key, out var lrEntry))
             {
                 #if DEBUG_PARSE_LOG
-                Console.WriteLine($"[LR] {ruleName}: Memo HIT at pos={_position}, returning cached result, newPos={lrEntry.EndPos}");
+                Console.WriteLine($"[LR] {ruleName}: Memo HIT at pos={_position}, IsGrowing={lrEntry.IsGrowing}, returning cached result, newPos={lrEntry.EndPos}");
                 #endif
+                // CRITICAL: During growth, return the SEED immediately to prevent infinite recursion
+                // This allows recursive alternatives to fail and base case to succeed
                 _position = lrEntry.EndPos;
                 return lrEntry.Result;
             }
@@ -275,12 +281,13 @@ namespace SharpPy.Generated
                 // CPython 3.12: Growth loop
                 while (true)
                 {
-                    // Update memo with current result (like UpdateMemo)
+                    // CRITICAL: Update memo with current result BEFORE parsing
+                    // Mark as "growing" so recursive calls know to return this seed immediately
                     // Use _resmark (previous iteration's end position), not _position
-                    _lrCache[key] = new LREntry { Result = _res, EndPos = _resmark, IsGrowing = false };
+                    _lrCache[key] = new LREntry { Result = _res, EndPos = _resmark, IsGrowing = true };
 
                     #if DEBUG_PARSE_LOG
-                    Console.WriteLine($"[LR] {ruleName}: Loop iteration, _mark={_mark}, _resmark={_resmark}");
+                    Console.WriteLine($"[LR] {ruleName}: Loop iteration, _mark={_mark}, _resmark={_resmark}, seeding cache with result={((_res == null) ? "null" : "non-null")}");
                     #endif
 
                     // Reset position and try to parse (like primary_raw)
@@ -304,10 +311,12 @@ namespace SharpPy.Generated
                     _res = _raw;
                 }
 
-                // Restore final position
+                // Restore final position and mark as no longer growing
                 _position = _resmark;
+                _lrCache[key] = new LREntry { Result = _res, EndPos = _resmark, IsGrowing = false };
+
                 #if DEBUG_PARSE_LOG
-                Console.WriteLine($"[LR] {ruleName}: Returning _res at pos={_position}");
+                Console.WriteLine($"[LR] {ruleName}: Returning _res at pos={_position}, final cache updated");
                 #endif
                 return _res;
             }

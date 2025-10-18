@@ -419,6 +419,18 @@ public class ParserGenerator
                                     alt.Items.Count == 1 &&
                                     string.IsNullOrEmpty(alt.Items[0].Name);
 
+        // Targeted debug logging for specific rules
+        bool enableTargetedLog = ruleName == "file" || ruleName == "statements" ||
+            ruleName == "simple_stmts" || ruleName == "simple_stmt" ||
+            ruleName == "star_expressions" || ruleName == "star_expression" ||
+            ruleName == "expression" ||
+            ruleName == "disjunction" || ruleName == "conjunction" ||
+            ruleName == "bitwise_or" || ruleName == "bitwise_xor" ||
+            ruleName == "bitwise_and" || ruleName == "shift_expr" ||
+            ruleName == "sum" || ruleName == "term" ||
+            ruleName == "factor" || ruleName == "power" ||
+            ruleName == "primary" || ruleName == "atom";
+
         // Generate variable declarations
         WriteLine("CaptureStart();");
         WriteLine();
@@ -457,6 +469,13 @@ public class ParserGenerator
                 var code = callInfo.GenerateCode();
                 bool isOptional = item.Atom is Optional;
 
+                // Targeted debug: log before calling the function
+                if (enableTargetedLog)
+                {
+                    var atomDesc = GetAtomDescription(item.Atom);
+                    WriteLine($"Console.WriteLine($\"[{ruleName.ToUpper()}] Calling {item.Name}={atomDesc} at pos={{_position}}, token={{(_position < _tokens.Count ? $\"{{_tokens[_position].Type}}('{{_tokens[_position].Value}}')\" : \"EOF\")}}\");");
+                }
+
                 if (isOptional)
                 {
                     // CPython: (a = rule(p), !p->error_indicator) - comma operator
@@ -475,6 +494,7 @@ public class ParserGenerator
             {
                 // Unnamed item
                 bool isOptional = item.Atom is Optional;
+
                 if (isOptional)
                 {
                     // CPython: (rule(p), !p->error_indicator)
@@ -936,6 +956,24 @@ public class ParserGenerator
         }
 
         return code;
+    }
+
+    private string GetAtomDescription(Atom atom)
+    {
+        return atom switch
+        {
+            RuleRef ruleRef => $"Parse_{ToPascalCase(ruleRef.Name)}()",
+            Token token => $"ExpectToken({token.TokenType})",
+            Keyword kw => $"Expect('{kw.Value}')",
+            Optional opt => $"[{GetAtomDescription(opt.Inner)}]",
+            OneOrMore om => $"{GetAtomDescription(om.Inner)}+",
+            ZeroOrMore zm => $"{GetAtomDescription(zm.Inner)}*",
+            Gather gather => $"{GetAtomDescription(gather.Separator)}.{GetAtomDescription(gather.Item)}{(gather.IsPlus ? "+" : "*")}",
+            Group _ => "Group",
+            PositiveLookahead pl => $"&{GetAtomDescription(pl.Inner)}",
+            NegativeLookahead nl => $"!{GetAtomDescription(nl.Inner)}",
+            _ => atom.GetType().Name
+        };
     }
 
     private string ToPascalCase(string name)
