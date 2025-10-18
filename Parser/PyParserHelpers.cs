@@ -7,34 +7,19 @@ using System.Collections.Generic;
 using System.Linq;
 using static SharpPy.GeneratedParserBridge;
 
-// CPython 3.12: Type aliases for grammar compatibility
-using mod_ty = SharpPy.Generated.GeneratedMod;
-using stmt_ty = SharpPy.Generated.GeneratedStmt;
-using expr_ty = SharpPy.Generated.GeneratedExpr;
-using alias_ty = SharpPy.Generated.GeneratedAlias;
-using arguments_ty = SharpPy.Generated.GeneratedArguments;
-using asdl_stmt_seq = SharpPy.Generated.GeneratedStmtSeq;
-using asdl_expr_seq = SharpPy.Generated.GeneratedExprSeq;
-using asdl_arg_seq = SharpPy.Generated.GeneratedArgSeq;
-using asdl_identifier_seq = SharpPy.Generated.GeneratedIdentifierSeq;
-using asdl_pattern_seq = SharpPy.Generated.GeneratedPatternSeq;
-using asdl_int_seq = SharpPy.Generated.GeneratedCmpopSeq;
-using asdl_keyword_seq = SharpPy.Generated.GeneratedKeywordSeq;
-using asdl_seq = SharpPy.Generated.GeneratedSeq;
-using keyword_ty = SharpPy.Generated.GeneratedKeyword;
-
 namespace SharpPy.Generated
 {
     // ============================================================
-    // _PyAST_* Helper Functions
+    // PyAST Helper Functions (AST Node Factories)
     // ============================================================
 
     /// <summary>
     /// AST node factory functions - CPython 3.12: Python-ast.c
+    /// Renamed from * to PyAst.* for C# naming conventions
     /// </summary>
-    public static partial class AstFactory
+    public static partial class PyAst
     {
-        public static GeneratedMod _PyAST_Module(GeneratedStmtSeq body, GeneratedTypeIgnoreSeq type_ignores)
+        public static GeneratedMod Module(GeneratedStmtSeq body, GeneratedTypeIgnoreSeq type_ignores)
         {
             var node = new GeneratedModule();
             node.Body = body;
@@ -42,21 +27,21 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedMod _PyAST_Interactive(GeneratedStmtSeq body)
+        public static GeneratedMod Interactive(GeneratedStmtSeq body)
         {
             var node = new GeneratedInteractive();
             node.Body = body;
             return node;
         }
 
-        public static GeneratedMod _PyAST_Expression(GeneratedExpr body)
+        public static GeneratedMod Expression(GeneratedExpr body)
         {
             var node = new GeneratedExpression();
             node.Body = body;
             return node;
         }
 
-        public static GeneratedMod _PyAST_FunctionType(GeneratedExprSeq argtypes, GeneratedExpr returns)
+        public static GeneratedMod FunctionType(GeneratedExprSeq argtypes, GeneratedExpr returns)
         {
             var node = new GeneratedFunctionType();
             node.Argtypes = argtypes;
@@ -64,7 +49,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_FunctionDef(string name, GeneratedArguments args, GeneratedStmtSeq body, GeneratedExprSeq decorator_list, GeneratedExpr? returns, string? type_comment, GeneratedTypeParamSeq type_params, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt FunctionDef(string name, GeneratedArguments args, GeneratedStmtSeq body, GeneratedExprSeq decorator_list, GeneratedExpr? returns, string? type_comment, GeneratedTypeParamSeq type_params, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedFunctionDef();
             node.Name = name;
@@ -81,12 +66,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_FunctionDef(string name, GeneratedArguments args, GeneratedStmtSeq body, GeneratedExprSeq decorator_list, GeneratedTypeParamSeq type_params, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt FunctionDef(string name, GeneratedArguments args, GeneratedStmtSeq body, GeneratedExprSeq decorator_list, GeneratedTypeParamSeq type_params, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_FunctionDef(name, args, body, decorator_list, null, null, type_params, lineno, col_offset, end_lineno, end_col_offset);
+            return FunctionDef(name, args, body, decorator_list, null, null, type_params, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedStmt _PyAST_AsyncFunctionDef(string name, GeneratedArguments args, GeneratedStmtSeq body, GeneratedExprSeq decorator_list, GeneratedExpr? returns, string? type_comment, GeneratedTypeParamSeq type_params, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt AsyncFunctionDef(string name, GeneratedArguments args, GeneratedStmtSeq body, GeneratedExprSeq decorator_list, GeneratedExpr? returns, string? type_comment, GeneratedTypeParamSeq type_params, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedAsyncFunctionDef();
             node.Name = name;
@@ -103,12 +88,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_AsyncFunctionDef(string name, GeneratedArguments args, GeneratedStmtSeq body, GeneratedExprSeq decorator_list, GeneratedTypeParamSeq type_params, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt AsyncFunctionDef(string name, GeneratedArguments args, GeneratedStmtSeq body, GeneratedExprSeq decorator_list, GeneratedTypeParamSeq type_params, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_AsyncFunctionDef(name, args, body, decorator_list, null, null, type_params, lineno, col_offset, end_lineno, end_col_offset);
+            return AsyncFunctionDef(name, args, body, decorator_list, null, null, type_params, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedStmt _PyAST_ClassDef(string name, GeneratedExprSeq bases, GeneratedKeywordSeq keywords, GeneratedStmtSeq body, GeneratedExprSeq decorator_list, GeneratedTypeParamSeq type_params, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt ClassDef(string name, GeneratedExprSeq bases, GeneratedKeywordSeq keywords, GeneratedStmtSeq body, GeneratedExprSeq decorator_list, GeneratedTypeParamSeq type_params, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedClassDef();
             node.Name = name;
@@ -124,7 +109,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_Return(GeneratedExpr? value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt Return(GeneratedExpr? value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedReturn();
             node.Value = value;
@@ -135,12 +120,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_Return(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt Return(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_Return(null, lineno, col_offset, end_lineno, end_col_offset);
+            return Return(null, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedStmt _PyAST_Delete(GeneratedExprSeq targets, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt Delete(GeneratedExprSeq targets, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedDelete();
             node.Targets = targets;
@@ -151,7 +136,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_Assign(GeneratedExprSeq targets, GeneratedExpr value, string? type_comment, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt Assign(GeneratedExprSeq targets, GeneratedExpr value, string? type_comment, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedAssign();
             node.Targets = targets;
@@ -164,12 +149,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_Assign(GeneratedExprSeq targets, GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt Assign(GeneratedExprSeq targets, GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_Assign(targets, value, null, lineno, col_offset, end_lineno, end_col_offset);
+            return Assign(targets, value, null, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedStmt _PyAST_TypeAlias(GeneratedExpr name, GeneratedTypeParamSeq type_params, GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt TypeAlias(GeneratedExpr name, GeneratedTypeParamSeq type_params, GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedTypeAlias();
             node.Name = name;
@@ -182,7 +167,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_AugAssign(GeneratedExpr target, GeneratedOperator op, GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt AugAssign(GeneratedExpr target, GeneratedOperator op, GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedAugAssign();
             node.Target = target;
@@ -195,7 +180,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_AnnAssign(GeneratedExpr target, GeneratedExpr annotation, GeneratedExpr? value, int simple, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt AnnAssign(GeneratedExpr target, GeneratedExpr annotation, GeneratedExpr? value, int simple, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedAnnAssign();
             node.Target = target;
@@ -209,12 +194,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_AnnAssign(GeneratedExpr target, GeneratedExpr annotation, int simple, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt AnnAssign(GeneratedExpr target, GeneratedExpr annotation, int simple, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_AnnAssign(target, annotation, null, simple, lineno, col_offset, end_lineno, end_col_offset);
+            return AnnAssign(target, annotation, null, simple, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedStmt _PyAST_For(GeneratedExpr target, GeneratedExpr iter, GeneratedStmtSeq body, GeneratedStmtSeq orelse, string? type_comment, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt For(GeneratedExpr target, GeneratedExpr iter, GeneratedStmtSeq body, GeneratedStmtSeq orelse, string? type_comment, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedFor();
             node.Target = target;
@@ -229,12 +214,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_For(GeneratedExpr target, GeneratedExpr iter, GeneratedStmtSeq body, GeneratedStmtSeq orelse, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt For(GeneratedExpr target, GeneratedExpr iter, GeneratedStmtSeq body, GeneratedStmtSeq orelse, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_For(target, iter, body, orelse, null, lineno, col_offset, end_lineno, end_col_offset);
+            return For(target, iter, body, orelse, null, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedStmt _PyAST_AsyncFor(GeneratedExpr target, GeneratedExpr iter, GeneratedStmtSeq body, GeneratedStmtSeq orelse, string? type_comment, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt AsyncFor(GeneratedExpr target, GeneratedExpr iter, GeneratedStmtSeq body, GeneratedStmtSeq orelse, string? type_comment, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedAsyncFor();
             node.Target = target;
@@ -249,12 +234,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_AsyncFor(GeneratedExpr target, GeneratedExpr iter, GeneratedStmtSeq body, GeneratedStmtSeq orelse, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt AsyncFor(GeneratedExpr target, GeneratedExpr iter, GeneratedStmtSeq body, GeneratedStmtSeq orelse, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_AsyncFor(target, iter, body, orelse, null, lineno, col_offset, end_lineno, end_col_offset);
+            return AsyncFor(target, iter, body, orelse, null, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedStmt _PyAST_While(GeneratedExpr test, GeneratedStmtSeq body, GeneratedStmtSeq orelse, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt While(GeneratedExpr test, GeneratedStmtSeq body, GeneratedStmtSeq orelse, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedWhile();
             node.Test = test;
@@ -267,7 +252,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_If(GeneratedExpr test, GeneratedStmtSeq body, GeneratedStmtSeq orelse, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt If(GeneratedExpr test, GeneratedStmtSeq body, GeneratedStmtSeq orelse, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedIf();
             node.Test = test;
@@ -280,7 +265,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_With(GeneratedWithitemSeq items, GeneratedStmtSeq body, string? type_comment, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt With(GeneratedWithitemSeq items, GeneratedStmtSeq body, string? type_comment, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedWith();
             node.Items = items;
@@ -293,12 +278,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_With(GeneratedWithitemSeq items, GeneratedStmtSeq body, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt With(GeneratedWithitemSeq items, GeneratedStmtSeq body, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_With(items, body, null, lineno, col_offset, end_lineno, end_col_offset);
+            return With(items, body, null, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedStmt _PyAST_AsyncWith(GeneratedWithitemSeq items, GeneratedStmtSeq body, string? type_comment, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt AsyncWith(GeneratedWithitemSeq items, GeneratedStmtSeq body, string? type_comment, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedAsyncWith();
             node.Items = items;
@@ -311,12 +296,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_AsyncWith(GeneratedWithitemSeq items, GeneratedStmtSeq body, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt AsyncWith(GeneratedWithitemSeq items, GeneratedStmtSeq body, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_AsyncWith(items, body, null, lineno, col_offset, end_lineno, end_col_offset);
+            return AsyncWith(items, body, null, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedStmt _PyAST_Match(GeneratedExpr subject, GeneratedMatchCaseSeq cases, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt Match(GeneratedExpr subject, GeneratedMatchCaseSeq cases, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedMatch();
             node.Subject = subject;
@@ -328,7 +313,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_Raise(GeneratedExpr? exc, GeneratedExpr? cause, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt Raise(GeneratedExpr? exc, GeneratedExpr? cause, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedRaise();
             node.Exc = exc;
@@ -340,12 +325,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_Raise(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt Raise(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_Raise(null, null, lineno, col_offset, end_lineno, end_col_offset);
+            return Raise(null, null, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedStmt _PyAST_Try(GeneratedStmtSeq body, GeneratedExcepthandlerSeq handlers, GeneratedStmtSeq orelse, GeneratedStmtSeq finalbody, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt Try(GeneratedStmtSeq body, GeneratedExcepthandlerSeq handlers, GeneratedStmtSeq orelse, GeneratedStmtSeq finalbody, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedTry();
             node.Body = body;
@@ -359,7 +344,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_TryStar(GeneratedStmtSeq body, GeneratedExcepthandlerSeq handlers, GeneratedStmtSeq orelse, GeneratedStmtSeq finalbody, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt TryStar(GeneratedStmtSeq body, GeneratedExcepthandlerSeq handlers, GeneratedStmtSeq orelse, GeneratedStmtSeq finalbody, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedTryStar();
             node.Body = body;
@@ -373,7 +358,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_Assert(GeneratedExpr test, GeneratedExpr? msg, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt Assert(GeneratedExpr test, GeneratedExpr? msg, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedAssert();
             node.Test = test;
@@ -385,12 +370,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_Assert(GeneratedExpr test, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt Assert(GeneratedExpr test, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_Assert(test, null, lineno, col_offset, end_lineno, end_col_offset);
+            return Assert(test, null, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedStmt _PyAST_Import(GeneratedAliasSeq names, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt Import(GeneratedAliasSeq names, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedImport();
             node.Names = names;
@@ -401,7 +386,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_ImportFrom(string? module, GeneratedAliasSeq names, int? level, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt ImportFrom(string? module, GeneratedAliasSeq names, int? level, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedImportFrom();
             node.Module = module;
@@ -414,12 +399,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_ImportFrom(GeneratedAliasSeq names, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt ImportFrom(GeneratedAliasSeq names, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_ImportFrom(null, names, null, lineno, col_offset, end_lineno, end_col_offset);
+            return ImportFrom(null, names, null, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedStmt _PyAST_Global(GeneratedIdentifierSeq names, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt Global(GeneratedIdentifierSeq names, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedGlobal();
             node.Names = names;
@@ -430,7 +415,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_Nonlocal(GeneratedIdentifierSeq names, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt Nonlocal(GeneratedIdentifierSeq names, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedNonlocal();
             node.Names = names;
@@ -441,7 +426,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_Expr(GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt Expr(GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedExprStmt();
             node.Value = value;
@@ -452,7 +437,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_Pass(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt Pass(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedPass.Instance;
             node.LineNo = lineno;
@@ -462,7 +447,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_Break(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt Break(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedBreak.Instance;
             node.LineNo = lineno;
@@ -472,7 +457,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedStmt _PyAST_Continue(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedStmt Continue(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedContinue.Instance;
             node.LineNo = lineno;
@@ -482,7 +467,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_BoolOp(GeneratedBoolop op, GeneratedExprSeq values, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr BoolOp(GeneratedBoolop op, GeneratedExprSeq values, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedBoolOp();
             node.Op = op;
@@ -494,7 +479,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_NamedExpr(GeneratedExpr target, GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr NamedExpr(GeneratedExpr target, GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedNamedExpr();
             node.Target = target;
@@ -506,7 +491,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_BinOp(GeneratedExpr left, GeneratedOperator op, GeneratedExpr right, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr BinOp(GeneratedExpr left, GeneratedOperator op, GeneratedExpr right, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedBinOp();
             node.Left = left;
@@ -519,7 +504,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_UnaryOp(GeneratedUnaryop op, GeneratedExpr operand, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr UnaryOp(GeneratedUnaryop op, GeneratedExpr operand, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedUnaryOp();
             node.Op = op;
@@ -531,7 +516,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_Lambda(GeneratedArguments args, GeneratedExpr body, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr Lambda(GeneratedArguments args, GeneratedExpr body, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedLambda();
             node.Args = args;
@@ -543,7 +528,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_IfExp(GeneratedExpr test, GeneratedExpr body, GeneratedExpr orelse, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr IfExp(GeneratedExpr test, GeneratedExpr body, GeneratedExpr orelse, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedIfExp();
             node.Test = test;
@@ -556,7 +541,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_Dict(GeneratedExprSeq keys, GeneratedExprSeq values, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr Dict(GeneratedExprSeq keys, GeneratedExprSeq values, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedDict();
             node.Keys = keys;
@@ -568,7 +553,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_Set(GeneratedExprSeq elts, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr Set(GeneratedExprSeq elts, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedSet();
             node.Elts = elts;
@@ -579,7 +564,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_ListComp(GeneratedExpr elt, GeneratedComprehensionSeq generators, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr ListComp(GeneratedExpr elt, GeneratedComprehensionSeq generators, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedListComp();
             node.Elt = elt;
@@ -591,7 +576,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_SetComp(GeneratedExpr elt, GeneratedComprehensionSeq generators, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr SetComp(GeneratedExpr elt, GeneratedComprehensionSeq generators, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedSetComp();
             node.Elt = elt;
@@ -603,7 +588,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_DictComp(GeneratedExpr key, GeneratedExpr value, GeneratedComprehensionSeq generators, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr DictComp(GeneratedExpr key, GeneratedExpr value, GeneratedComprehensionSeq generators, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedDictComp();
             node.Key = key;
@@ -616,7 +601,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_GeneratorExp(GeneratedExpr elt, GeneratedComprehensionSeq generators, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr GeneratorExp(GeneratedExpr elt, GeneratedComprehensionSeq generators, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedGeneratorExp();
             node.Elt = elt;
@@ -628,7 +613,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_Await(GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr Await(GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedAwait();
             node.Value = value;
@@ -639,7 +624,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_Yield(GeneratedExpr? value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr Yield(GeneratedExpr? value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedYield();
             node.Value = value;
@@ -650,12 +635,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_Yield(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr Yield(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_Yield(null, lineno, col_offset, end_lineno, end_col_offset);
+            return Yield(null, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedExpr _PyAST_YieldFrom(GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr YieldFrom(GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedYieldFrom();
             node.Value = value;
@@ -666,7 +651,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_Compare(GeneratedExpr left, GeneratedCmpopSeq ops, GeneratedExprSeq comparators, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr Compare(GeneratedExpr left, GeneratedCmpopSeq ops, GeneratedExprSeq comparators, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedCompare();
             node.Left = left;
@@ -679,7 +664,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_Call(GeneratedExpr func, GeneratedExprSeq args, GeneratedKeywordSeq keywords, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr Call(GeneratedExpr func, GeneratedExprSeq args, GeneratedKeywordSeq keywords, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedCall();
             node.Func = func;
@@ -692,7 +677,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_FormattedValue(GeneratedExpr value, int conversion, GeneratedExpr? format_spec, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr FormattedValue(GeneratedExpr value, int conversion, GeneratedExpr? format_spec, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedFormattedValue();
             node.Value = value;
@@ -705,12 +690,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_FormattedValue(GeneratedExpr value, int conversion, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr FormattedValue(GeneratedExpr value, int conversion, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_FormattedValue(value, conversion, null, lineno, col_offset, end_lineno, end_col_offset);
+            return FormattedValue(value, conversion, null, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedExpr _PyAST_JoinedStr(GeneratedExprSeq values, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr JoinedStr(GeneratedExprSeq values, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedJoinedStr();
             node.Values = values;
@@ -721,7 +706,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_Constant(GeneratedPyConstant value, string? kind, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr Constant(GeneratedPyConstant value, string? kind, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedConstant();
             node.Value = value;
@@ -733,12 +718,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_Constant(GeneratedPyConstant value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr Constant(GeneratedPyConstant value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_Constant(value, null, lineno, col_offset, end_lineno, end_col_offset);
+            return Constant(value, null, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedExpr _PyAST_Attribute(GeneratedExpr value, string attr, GeneratedExprContext ctx, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr Attribute(GeneratedExpr value, string attr, GeneratedExprContext ctx, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedAttribute();
             node.Value = value;
@@ -751,7 +736,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_Subscript(GeneratedExpr value, GeneratedExpr slice, GeneratedExprContext ctx, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr Subscript(GeneratedExpr value, GeneratedExpr slice, GeneratedExprContext ctx, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedSubscript();
             node.Value = value;
@@ -764,7 +749,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_Starred(GeneratedExpr value, GeneratedExprContext ctx, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr Starred(GeneratedExpr value, GeneratedExprContext ctx, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedStarred();
             node.Value = value;
@@ -776,7 +761,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_Name(string id, GeneratedExprContext ctx, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr Name(string id, GeneratedExprContext ctx, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedName();
             node.Id = id;
@@ -788,7 +773,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_List(GeneratedExprSeq elts, GeneratedExprContext ctx, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr List(GeneratedExprSeq elts, GeneratedExprContext ctx, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedList();
             node.Elts = elts;
@@ -800,7 +785,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_Tuple(GeneratedExprSeq elts, GeneratedExprContext ctx, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr Tuple(GeneratedExprSeq elts, GeneratedExprContext ctx, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedTuple();
             node.Elts = elts;
@@ -812,7 +797,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_Slice(GeneratedExpr? lower, GeneratedExpr? upper, GeneratedExpr? step, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr Slice(GeneratedExpr? lower, GeneratedExpr? upper, GeneratedExpr? step, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedSlice();
             node.Lower = lower;
@@ -825,12 +810,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExpr _PyAST_Slice(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExpr Slice(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_Slice(null, null, null, lineno, col_offset, end_lineno, end_col_offset);
+            return Slice(null, null, null, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedExprContext _PyAST_Load(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExprContext Load(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedLoad.Instance;
             node.LineNo = lineno;
@@ -840,7 +825,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExprContext _PyAST_Store(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExprContext Store(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedStore.Instance;
             node.LineNo = lineno;
@@ -850,7 +835,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExprContext _PyAST_Del(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExprContext Del(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedDel.Instance;
             node.LineNo = lineno;
@@ -860,7 +845,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedBoolop _PyAST_And(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedBoolop And(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedAnd.Instance;
             node.LineNo = lineno;
@@ -870,7 +855,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedBoolop _PyAST_Or(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedBoolop Or(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedOr.Instance;
             node.LineNo = lineno;
@@ -880,7 +865,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedOperator _PyAST_Add(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedOperator Add(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedAdd.Instance;
             node.LineNo = lineno;
@@ -890,7 +875,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedOperator _PyAST_Sub(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedOperator Sub(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedSub.Instance;
             node.LineNo = lineno;
@@ -900,7 +885,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedOperator _PyAST_Mult(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedOperator Mult(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedMult.Instance;
             node.LineNo = lineno;
@@ -910,7 +895,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedOperator _PyAST_MatMult(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedOperator MatMult(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedMatMult.Instance;
             node.LineNo = lineno;
@@ -920,7 +905,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedOperator _PyAST_Div(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedOperator Div(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedDiv.Instance;
             node.LineNo = lineno;
@@ -930,7 +915,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedOperator _PyAST_Mod(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedOperator Mod(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedMod_.Instance;
             node.LineNo = lineno;
@@ -940,7 +925,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedOperator _PyAST_Pow(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedOperator Pow(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedPow.Instance;
             node.LineNo = lineno;
@@ -950,7 +935,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedOperator _PyAST_LShift(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedOperator LShift(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedLShift.Instance;
             node.LineNo = lineno;
@@ -960,7 +945,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedOperator _PyAST_RShift(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedOperator RShift(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedRShift.Instance;
             node.LineNo = lineno;
@@ -970,7 +955,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedOperator _PyAST_BitOr(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedOperator BitOr(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedBitOr.Instance;
             node.LineNo = lineno;
@@ -980,7 +965,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedOperator _PyAST_BitXor(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedOperator BitXor(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedBitXor.Instance;
             node.LineNo = lineno;
@@ -990,7 +975,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedOperator _PyAST_BitAnd(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedOperator BitAnd(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedBitAnd.Instance;
             node.LineNo = lineno;
@@ -1000,7 +985,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedOperator _PyAST_FloorDiv(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedOperator FloorDiv(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedFloorDiv.Instance;
             node.LineNo = lineno;
@@ -1010,7 +995,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedUnaryop _PyAST_Invert(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedUnaryop Invert(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedInvert.Instance;
             node.LineNo = lineno;
@@ -1020,7 +1005,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedUnaryop _PyAST_Not(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedUnaryop Not(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedNot.Instance;
             node.LineNo = lineno;
@@ -1030,7 +1015,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedUnaryop _PyAST_UAdd(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedUnaryop UAdd(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedUAdd.Instance;
             node.LineNo = lineno;
@@ -1040,7 +1025,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedUnaryop _PyAST_USub(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedUnaryop USub(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedUSub.Instance;
             node.LineNo = lineno;
@@ -1050,7 +1035,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedCmpop _PyAST_Eq(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedCmpop Eq(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedEq.Instance;
             node.LineNo = lineno;
@@ -1060,7 +1045,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedCmpop _PyAST_NotEq(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedCmpop NotEq(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedNotEq.Instance;
             node.LineNo = lineno;
@@ -1070,7 +1055,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedCmpop _PyAST_Lt(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedCmpop Lt(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedLt.Instance;
             node.LineNo = lineno;
@@ -1080,7 +1065,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedCmpop _PyAST_LtE(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedCmpop LtE(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedLtE.Instance;
             node.LineNo = lineno;
@@ -1090,7 +1075,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedCmpop _PyAST_Gt(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedCmpop Gt(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedGt.Instance;
             node.LineNo = lineno;
@@ -1100,7 +1085,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedCmpop _PyAST_GtE(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedCmpop GtE(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedGtE.Instance;
             node.LineNo = lineno;
@@ -1110,7 +1095,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedCmpop _PyAST_Is(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedCmpop Is(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedIs.Instance;
             node.LineNo = lineno;
@@ -1120,7 +1105,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedCmpop _PyAST_IsNot(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedCmpop IsNot(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedIsNot.Instance;
             node.LineNo = lineno;
@@ -1130,7 +1115,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedCmpop _PyAST_In(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedCmpop In(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedIn.Instance;
             node.LineNo = lineno;
@@ -1140,7 +1125,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedCmpop _PyAST_NotIn(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedCmpop NotIn(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = GeneratedNotIn.Instance;
             node.LineNo = lineno;
@@ -1150,7 +1135,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedComprehension _PyAST_comprehension(GeneratedExpr target, GeneratedExpr iter, GeneratedExprSeq ifs, int is_async)
+        public static GeneratedComprehension comprehension(GeneratedExpr target, GeneratedExpr iter, GeneratedExprSeq ifs, int is_async)
         {
             var node = new GeneratedComprehension();
             node.Target = target;
@@ -1160,7 +1145,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExcepthandler _PyAST_ExceptHandler(GeneratedExpr? type, string? name, GeneratedStmtSeq body, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExcepthandler ExceptHandler(GeneratedExpr? type, string? name, GeneratedStmtSeq body, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedExceptHandler();
             node.Type = type;
@@ -1173,12 +1158,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedExcepthandler _PyAST_ExceptHandler(GeneratedStmtSeq body, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedExcepthandler ExceptHandler(GeneratedStmtSeq body, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_ExceptHandler(null, null, body, lineno, col_offset, end_lineno, end_col_offset);
+            return ExceptHandler(null, null, body, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedArguments _PyAST_arguments(GeneratedArgSeq posonlyargs, GeneratedArgSeq args, GeneratedArg? vararg, GeneratedArgSeq kwonlyargs, GeneratedExprSeq kw_defaults, GeneratedArg? kwarg, GeneratedExprSeq defaults)
+        public static GeneratedArguments arguments(GeneratedArgSeq posonlyargs, GeneratedArgSeq args, GeneratedArg? vararg, GeneratedArgSeq kwonlyargs, GeneratedExprSeq kw_defaults, GeneratedArg? kwarg, GeneratedExprSeq defaults)
         {
             var node = new GeneratedArguments();
             node.Posonlyargs = posonlyargs;
@@ -1191,12 +1176,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedArguments _PyAST_arguments(GeneratedArgSeq posonlyargs, GeneratedArgSeq args, GeneratedArgSeq kwonlyargs, GeneratedExprSeq kw_defaults, GeneratedExprSeq defaults)
+        public static GeneratedArguments arguments(GeneratedArgSeq posonlyargs, GeneratedArgSeq args, GeneratedArgSeq kwonlyargs, GeneratedExprSeq kw_defaults, GeneratedExprSeq defaults)
         {
-            return _PyAST_arguments(posonlyargs, args, null, kwonlyargs, kw_defaults, null, defaults);
+            return arguments(posonlyargs, args, null, kwonlyargs, kw_defaults, null, defaults);
         }
 
-        public static GeneratedArg _PyAST_arg(string arg, GeneratedExpr? annotation, string? type_comment, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedArg arg(string arg, GeneratedExpr? annotation, string? type_comment, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedArg();
             node.Arg = arg;
@@ -1209,12 +1194,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedArg _PyAST_arg(string arg, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedArg arg(string arg, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_arg(arg, null, null, lineno, col_offset, end_lineno, end_col_offset);
+            return PyAst.arg(arg, null, null, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedKeyword _PyAST_keyword(string? arg, GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedKeyword keyword(string? arg, GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedKeyword();
             node.Arg = arg;
@@ -1226,12 +1211,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedKeyword _PyAST_keyword(GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedKeyword keyword(GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_keyword(null, value, lineno, col_offset, end_lineno, end_col_offset);
+            return keyword(null, value, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedAlias _PyAST_alias(string name, string? asname, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedAlias alias(string name, string? asname, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedAlias();
             node.Name = name;
@@ -1243,12 +1228,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedAlias _PyAST_alias(string name, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedAlias alias(string name, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_alias(name, null, lineno, col_offset, end_lineno, end_col_offset);
+            return alias(name, null, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedWithitem _PyAST_withitem(GeneratedExpr context_expr, GeneratedExpr? optional_vars)
+        public static GeneratedWithitem withitem(GeneratedExpr context_expr, GeneratedExpr? optional_vars)
         {
             var node = new GeneratedWithitem();
             node.ContextExpr = context_expr;
@@ -1256,12 +1241,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedWithitem _PyAST_withitem(GeneratedExpr context_expr)
+        public static GeneratedWithitem withitem(GeneratedExpr context_expr)
         {
-            return _PyAST_withitem(context_expr, null);
+            return withitem(context_expr, null);
         }
 
-        public static GeneratedMatchCase _PyAST_match_case(GeneratedPattern pattern, GeneratedExpr? guard, GeneratedStmtSeq body)
+        public static GeneratedMatchCase match_case(GeneratedPattern pattern, GeneratedExpr? guard, GeneratedStmtSeq body)
         {
             var node = new GeneratedMatchCase();
             node.Pattern = pattern;
@@ -1270,12 +1255,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedMatchCase _PyAST_match_case(GeneratedPattern pattern, GeneratedStmtSeq body)
+        public static GeneratedMatchCase match_case(GeneratedPattern pattern, GeneratedStmtSeq body)
         {
-            return _PyAST_match_case(pattern, null, body);
+            return match_case(pattern, null, body);
         }
 
-        public static GeneratedPattern _PyAST_MatchValue(GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedPattern MatchValue(GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedMatchValue();
             node.Value = value;
@@ -1286,7 +1271,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedPattern _PyAST_MatchSingleton(GeneratedPyConstant value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedPattern MatchSingleton(GeneratedPyConstant value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedMatchSingleton();
             node.Value = value;
@@ -1297,7 +1282,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedPattern _PyAST_MatchSequence(GeneratedPatternSeq patterns, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedPattern MatchSequence(GeneratedPatternSeq patterns, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedMatchSequence();
             node.Patterns = patterns;
@@ -1308,7 +1293,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedPattern _PyAST_MatchMapping(GeneratedExprSeq keys, GeneratedPatternSeq patterns, string? rest, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedPattern MatchMapping(GeneratedExprSeq keys, GeneratedPatternSeq patterns, string? rest, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedMatchMapping();
             node.Keys = keys;
@@ -1321,12 +1306,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedPattern _PyAST_MatchMapping(GeneratedExprSeq keys, GeneratedPatternSeq patterns, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedPattern MatchMapping(GeneratedExprSeq keys, GeneratedPatternSeq patterns, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_MatchMapping(keys, patterns, null, lineno, col_offset, end_lineno, end_col_offset);
+            return MatchMapping(keys, patterns, null, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedPattern _PyAST_MatchClass(GeneratedExpr cls, GeneratedPatternSeq patterns, GeneratedIdentifierSeq kwd_attrs, GeneratedPatternSeq kwd_patterns, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedPattern MatchClass(GeneratedExpr cls, GeneratedPatternSeq patterns, GeneratedIdentifierSeq kwd_attrs, GeneratedPatternSeq kwd_patterns, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedMatchClass();
             node.Cls = cls;
@@ -1340,7 +1325,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedPattern _PyAST_MatchStar(string? name, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedPattern MatchStar(string? name, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedMatchStar();
             node.Name = name;
@@ -1351,12 +1336,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedPattern _PyAST_MatchStar(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedPattern MatchStar(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_MatchStar(null, lineno, col_offset, end_lineno, end_col_offset);
+            return MatchStar(null, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedPattern _PyAST_MatchAs(GeneratedPattern? pattern, string? name, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedPattern MatchAs(GeneratedPattern? pattern, string? name, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedMatchAs();
             node.Pattern = pattern;
@@ -1368,12 +1353,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedPattern _PyAST_MatchAs(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedPattern MatchAs(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_MatchAs(null, null, lineno, col_offset, end_lineno, end_col_offset);
+            return MatchAs(null, null, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedPattern _PyAST_MatchOr(GeneratedPatternSeq patterns, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedPattern MatchOr(GeneratedPatternSeq patterns, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedMatchOr();
             node.Patterns = patterns;
@@ -1384,7 +1369,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedTypeIgnore _PyAST_TypeIgnore(int lineno, string tag)
+        public static GeneratedTypeIgnore TypeIgnore(int lineno, string tag)
         {
             var node = new GeneratedTypeIgnoreNode();
             node.Lineno = lineno;
@@ -1392,7 +1377,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedTypeParam _PyAST_TypeVar(string name, GeneratedExpr? bound, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedTypeParam TypeVar(string name, GeneratedExpr? bound, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedTypeVar();
             node.Name = name;
@@ -1404,12 +1389,12 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedTypeParam _PyAST_TypeVar(string name, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedTypeParam TypeVar(string name, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            return _PyAST_TypeVar(name, null, lineno, col_offset, end_lineno, end_col_offset);
+            return TypeVar(name, null, lineno, col_offset, end_lineno, end_col_offset);
         }
 
-        public static GeneratedTypeParam _PyAST_ParamSpec(string name, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedTypeParam ParamSpec(string name, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedParamSpec();
             node.Name = name;
@@ -1420,7 +1405,7 @@ namespace SharpPy.Generated
             return node;
         }
 
-        public static GeneratedTypeParam _PyAST_TypeVarTuple(string name, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
+        public static GeneratedTypeParam TypeVarTuple(string name, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
             var node = new GeneratedTypeVarTuple();
             node.Name = name;
@@ -1440,8 +1425,9 @@ namespace SharpPy.Generated
 
     /// <summary>
     /// PEG parser helper functions - CPython 3.12: Parser/pegen.c
+    /// Renamed from _PyPegen_* to PyPegen.* for C# naming conventions
     /// </summary>
-    public static partial class PegenHelpers
+    public static partial class PyPegen
     {
         // CPython: _PyPegen_seq_flatten
         // Flatten list of sequences into single sequence
@@ -2062,7 +2048,7 @@ namespace SharpPy.Generated
 
         // ==================== F-string Helper Methods ====================
         // CPython: _PyPegen_constant_from_token
-        public static GeneratedExpr _PyPegen_constant_from_token(GeneratedTokenInfo tok)
+        public static GeneratedExpr ConstantFromToken(GeneratedTokenInfo tok)
         {
             return GeneratedParserBridge._PyPegen_constant_from_token(tok);
         }
@@ -2093,7 +2079,7 @@ namespace SharpPy.Generated
         // CPython: macro-like helpers for accessing sequence items
 
         // CPython: #define PyPegen_last_item(seq, type) ((type) asdl_seq_GET(seq, asdl_seq_LEN(seq)-1))
-        public static T PyPegen_last_item<T>(GeneratedSeq seq) where T : GeneratedPtr
+        public static T LastItem<T>(GeneratedSeq seq) where T : GeneratedPtr
         {
             if (seq == null || seq.Count == 0)
                 throw new InvalidOperationException("Cannot get last item from empty sequence");
@@ -2101,7 +2087,7 @@ namespace SharpPy.Generated
         }
 
         // CPython: #define PyPegen_first_item(seq, type) ((type) asdl_seq_GET(seq, 0))
-        public static T PyPegen_first_item<T>(GeneratedSeq seq) where T : GeneratedPtr
+        public static T FirstItem<T>(GeneratedSeq seq) where T : GeneratedPtr
         {
             if (seq == null || seq.Count == 0)
                 throw new InvalidOperationException("Cannot get first item from empty sequence");
@@ -2110,7 +2096,7 @@ namespace SharpPy.Generated
 
         // ==================== Expression Name Helpers ====================
         // CPython: _PyPegen_get_expr_name - Gets a string representation of expression for error messages
-        public static string _PyPegen_get_expr_name(GeneratedExpr expr)
+        public static string GetExprName(GeneratedExpr expr)
         {
             // CPython logic: Returns name representation based on expression type
             // For now, return a generic name - TODO: implement full logic
@@ -2147,7 +2133,7 @@ namespace SharpPy.Generated
 
         // ==================== Comprehension Helpers ====================
         // CPython: _PyPegen_get_last_comprehension_item
-        public static GeneratedComprehension _PyPegen_get_last_comprehension_item(GeneratedComprehension comp)
+        public static GeneratedComprehension GetLastComprehensionItem(GeneratedComprehension comp)
         {
             return comp; // Just returns the same item (used for error location tracking)
         }
@@ -2306,7 +2292,7 @@ namespace SharpPy.Generated
 
         // CPython pegen.h:253
         // #define PyPegen_last_item(seq, type) ((type)_PyPegen_seq_last_item((asdl_seq*)seq))
-        public static TResult PyPegen_last_item<TSeq, TResult>(TSeq seq)
+        public static TResult LastItem<TSeq, TResult>(TSeq seq)
             where TSeq : List<GeneratedPtr>
             where TResult : GeneratedPtr
         {
@@ -2315,7 +2301,7 @@ namespace SharpPy.Generated
 
         // CPython pegen.h:255
         // #define PyPegen_first_item(seq, type) ((type)_PyPegen_seq_first_item((asdl_seq*)seq))
-        public static TResult PyPegen_first_item<TSeq, TResult>(TSeq seq)
+        public static TResult FirstItem<TSeq, TResult>(TSeq seq)
             where TSeq : List<GeneratedPtr>
             where TResult : GeneratedPtr
         {
@@ -2328,7 +2314,7 @@ namespace SharpPy.Generated
 
         // CPython action_helpers.c:945
         // const char *_PyPegen_get_expr_name(expr_ty e)
-        public static string _PyPegen_get_expr_name(GeneratedExpr e)
+        public static string GetExprName(GeneratedExpr e)
         {
             if (e == null) return "expression";
 
@@ -2379,7 +2365,7 @@ namespace SharpPy.Generated
 
         // CPython action_helpers.c:1018
         // expr_ty _PyPegen_get_last_comprehension_item(comprehension_ty comprehension)
-        public static GeneratedExpr _PyPegen_get_last_comprehension_item(GeneratedComprehension comprehension)
+        public static GeneratedExpr GetLastComprehensionItem(GeneratedComprehension comprehension)
         {
             if (comprehension == null) return null!;
             if (comprehension.Ifs == null || comprehension.Ifs.Count == 0)
@@ -2435,7 +2421,7 @@ namespace SharpPy.Generated
 
             var last_comprehension = (GeneratedComprehension)comprehensions[comprehensions.Count - 1];
             var lastArg = (GeneratedExpr)call.Args[len - 1];
-            var lastItem = _PyPegen_get_last_comprehension_item(last_comprehension);
+            var lastItem = GetLastComprehensionItem(last_comprehension);
 
             return p.RaiseSyntaxErrorKnownRange(lastArg, lastItem,
                 "Generator expression must be parenthesized");
@@ -2446,508 +2432,8 @@ namespace SharpPy.Generated
     // ============================================================
     // PyAst - C# Style AST Factory Functions
     // ============================================================
-
-    /// <summary>
-    /// C# style AST factory - wraps AstFactory._PyAST_* functions
-    /// Usage in python_cs.gram: PyAst.Interactive(a) instead of _PyAST_Interactive(a)
-    /// </summary>
-    public static class PyAst
-    {
-        /// <summary>
-        /// CPython: _PyAST_Interactive
-        /// Creates Interactive mode AST (REPL)
-        /// </summary>
-        public static GeneratedMod Interactive(GeneratedStmtSeq statements)
-        {
-            return AstFactory._PyAST_Interactive(statements);
-        }
-
-        /// <summary>
-        /// CPython: _PyAST_Expression
-        /// Creates Expression mode AST (eval)
-        /// </summary>
-        public static GeneratedMod Expression(GeneratedExpr expr)
-        {
-            return AstFactory._PyAST_Expression(expr);
-        }
-
-        /// <summary>
-        /// CPython: _PyAST_FunctionType
-        /// Creates FunctionType mode AST (function type comment)
-        /// </summary>
-        public static GeneratedMod FunctionType(GeneratedExprSeq? argTypes, GeneratedExpr returnType)
-        {
-            var args = argTypes ?? new GeneratedExprSeq();
-            return AstFactory._PyAST_FunctionType(args, returnType);
-        }
-
-        /// <summary>
-        /// CPython: _PyAST_Pass
-        /// Creates Pass statement
-        /// </summary>
-        public static GeneratedStmt Pass(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Pass(lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        /// <summary>
-        /// CPython: _PyAST_Break
-        /// Creates Break statement
-        /// </summary>
-        public static GeneratedStmt Break(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Break(lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        /// <summary>
-        /// CPython: _PyAST_Continue
-        /// Creates Continue statement
-        /// </summary>
-        public static GeneratedStmt Continue(int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Continue(lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        // ============================================================
-        // Expression Node Wrappers
-        // ============================================================
-
-        public static GeneratedExpr BinOp(GeneratedExpr left, GeneratedOperator op, GeneratedExpr right,
-                                          int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_BinOp(left, op, right, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr UnaryOp(GeneratedUnaryop op, GeneratedExpr operand,
-                                            int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_UnaryOp(op, operand, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr BoolOp(GeneratedBoolop op, GeneratedExprSeq values,
-                                           int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_BoolOp(op, values, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr Compare(GeneratedExpr left, GeneratedCmpopSeq ops, GeneratedExprSeq comparators,
-                                            int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Compare(left, ops, comparators, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr Call(GeneratedExpr func, GeneratedExprSeq args, GeneratedKeywordSeq keywords,
-                                         int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Call(func, args, keywords, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr Constant(GeneratedPyConstant value, string? kind,
-                                             int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Constant(value, kind, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr Attribute(GeneratedExpr value, GeneratedIdentifier attr, GeneratedExprContext ctx,
-                                              int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Attribute(value, attr, ctx, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr Subscript(GeneratedExpr value, GeneratedExpr slice, GeneratedExprContext ctx,
-                                              int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Subscript(value, slice, ctx, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr Starred(GeneratedExpr value, GeneratedExprContext ctx,
-                                            int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Starred(value, ctx, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr List(GeneratedExprSeq elts, GeneratedExprContext ctx,
-                                         int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_List(elts, ctx, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr Tuple(GeneratedExprSeq elts, GeneratedExprContext ctx,
-                                          int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Tuple(elts, ctx, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr Dict(GeneratedExprSeq keys, GeneratedExprSeq values,
-                                         int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Dict(keys, values, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr Set(GeneratedExprSeq elts,
-                                        int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Set(elts, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr NamedExpr(GeneratedExpr target, GeneratedExpr value,
-                                              int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_NamedExpr(target, value, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr Lambda(GeneratedArguments args, GeneratedExpr body,
-                                           int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Lambda(args, body, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr IfExp(GeneratedExpr test, GeneratedExpr body, GeneratedExpr orelse,
-                                          int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_IfExp(test, body, orelse, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr ListComp(GeneratedExpr elt, GeneratedComprehensionSeq generators,
-                                             int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_ListComp(elt, generators, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr SetComp(GeneratedExpr elt, GeneratedComprehensionSeq generators,
-                                            int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_SetComp(elt, generators, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr DictComp(GeneratedExpr key, GeneratedExpr value, GeneratedComprehensionSeq generators,
-                                             int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_DictComp(key, value, generators, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr GeneratorExp(GeneratedExpr elt, GeneratedComprehensionSeq generators,
-                                                 int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_GeneratorExp(elt, generators, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr Await(GeneratedExpr value,
-                                          int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Await(value, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr Yield(GeneratedExpr value,
-                                          int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Yield(value, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr YieldFrom(GeneratedExpr value,
-                                              int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_YieldFrom(value, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr Slice(GeneratedExpr lower, GeneratedExpr upper, GeneratedExpr step,
-                                          int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Slice(lower, upper, step, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr FormattedValue(GeneratedExpr value, int conversion, GeneratedExpr format_spec,
-                                                   int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_FormattedValue(value, conversion, format_spec, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedExpr JoinedStr(GeneratedExprSeq values,
-                                              int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_JoinedStr(values, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        // ============================================================
-        // Statement Node Wrappers
-        // ============================================================
-
-        public static GeneratedStmt Expr(GeneratedExpr value, int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Expr(value, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt Assign(GeneratedExprSeq targets, GeneratedExpr value, string? type_comment,
-                                           int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Assign(targets, value, type_comment, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt AnnAssign(GeneratedExpr target, GeneratedExpr annotation, GeneratedExpr value, int simple,
-                                              int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_AnnAssign(target, annotation, value, simple, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt AugAssign(GeneratedExpr target, GeneratedOperator op, GeneratedExpr value,
-                                              int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_AugAssign(target, op, value, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt Return(GeneratedExpr value,
-                                           int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Return(value, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt Raise(GeneratedExpr exc, GeneratedExpr cause,
-                                          int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Raise(exc, cause, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt Delete(GeneratedExprSeq targets,
-                                           int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Delete(targets, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt If(GeneratedExpr test, GeneratedStmtSeq body, GeneratedStmtSeq orelse,
-                                       int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_If(test, body, orelse, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt While(GeneratedExpr test, GeneratedStmtSeq body, GeneratedStmtSeq orelse,
-                                          int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_While(test, body, orelse, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt For(GeneratedExpr target, GeneratedExpr iter, GeneratedStmtSeq body, GeneratedStmtSeq orelse, string? type_comment,
-                                        int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_For(target, iter, body, orelse, type_comment, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt AsyncFor(GeneratedExpr target, GeneratedExpr iter, GeneratedStmtSeq body, GeneratedStmtSeq orelse, string? type_comment,
-                                             int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_AsyncFor(target, iter, body, orelse, type_comment, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt With(GeneratedWithitemSeq items, GeneratedStmtSeq body, string? type_comment,
-                                         int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_With(items, body, type_comment, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt AsyncWith(GeneratedWithitemSeq items, GeneratedStmtSeq body, string? type_comment,
-                                              int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_AsyncWith(items, body, type_comment, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt FunctionDef(GeneratedIdentifier name, GeneratedArguments args, GeneratedStmtSeq body,
-                                                GeneratedExprSeq decorator_list, GeneratedExpr returns, string? type_comment, GeneratedTypeParamSeq type_params,
-                                                int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_FunctionDef(name, args, body, decorator_list, returns, type_comment, type_params, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt AsyncFunctionDef(GeneratedIdentifier name, GeneratedArguments args, GeneratedStmtSeq body,
-                                                     GeneratedExprSeq decorator_list, GeneratedExpr returns, string? type_comment, GeneratedTypeParamSeq type_params,
-                                                     int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_AsyncFunctionDef(name, args, body, decorator_list, returns, type_comment, type_params, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt ClassDef(GeneratedIdentifier name, GeneratedExprSeq bases, GeneratedKeywordSeq keywords, GeneratedStmtSeq body,
-                                             GeneratedExprSeq decorator_list, GeneratedTypeParamSeq type_params,
-                                             int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_ClassDef(name, bases, keywords, body, decorator_list, type_params, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt Try(GeneratedStmtSeq body, GeneratedExcepthandlerSeq handlers, GeneratedStmtSeq orelse, GeneratedStmtSeq finalbody,
-                                        int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Try(body, handlers, orelse, finalbody, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt TryStar(GeneratedStmtSeq body, GeneratedExcepthandlerSeq handlers, GeneratedStmtSeq orelse, GeneratedStmtSeq finalbody,
-                                            int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_TryStar(body, handlers, orelse, finalbody, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt Assert(GeneratedExpr test, GeneratedExpr msg,
-                                           int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Assert(test, msg, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt Import(GeneratedAliasSeq names,
-                                           int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Import(names, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt ImportFrom(GeneratedIdentifier module, GeneratedAliasSeq names, int level,
-                                               int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_ImportFrom(module, names, level, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt Global(GeneratedIdentifierSeq names,
-                                           int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Global(names, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt Nonlocal(GeneratedIdentifierSeq names,
-                                             int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Nonlocal(names, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt Match(GeneratedExpr subject, GeneratedMatchCaseSeq cases,
-                                          int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_Match(subject, cases, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedStmt TypeAlias(GeneratedExpr name, GeneratedTypeParamSeq type_params, GeneratedExpr value,
-                                              int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_TypeAlias(name, type_params, value, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        // ============================================================
-        // Other Node Type Wrappers
-        // ============================================================
-
-        public static GeneratedAlias Alias(GeneratedIdentifier name, GeneratedIdentifier asname,
-                                           int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_alias(name, asname, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedWithitem Withitem(GeneratedExpr context_expr, GeneratedExpr optional_vars)
-        {
-            return AstFactory._PyAST_withitem(context_expr, optional_vars);
-        }
-
-        public static GeneratedMatchCase MatchCase(GeneratedPattern pattern, GeneratedExpr guard, GeneratedStmtSeq body)
-        {
-            return AstFactory._PyAST_match_case(pattern, guard, body);
-        }
-
-        public static GeneratedPattern MatchValue(GeneratedExpr value,
-                                                  int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_MatchValue(value, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedPattern MatchSingleton(GeneratedPyConstant value,
-                                                      int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_MatchSingleton(value, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedPattern MatchSequence(GeneratedPatternSeq patterns,
-                                                     int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_MatchSequence(patterns, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedPattern MatchMapping(GeneratedExprSeq keys, GeneratedPatternSeq patterns, GeneratedIdentifier rest,
-                                                    int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_MatchMapping(keys, patterns, rest, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedPattern MatchClass(GeneratedExpr cls, GeneratedPatternSeq patterns, GeneratedIdentifierSeq kwd_attrs, GeneratedPatternSeq kwd_patterns,
-                                                  int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_MatchClass(cls, patterns, kwd_attrs, kwd_patterns, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedPattern MatchStar(GeneratedIdentifier name,
-                                                 int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_MatchStar(name, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedPattern MatchAs(GeneratedPattern pattern, GeneratedIdentifier name,
-                                               int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_MatchAs(pattern, name, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedPattern MatchOr(GeneratedPatternSeq patterns,
-                                               int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_MatchOr(patterns, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedArg Arg(GeneratedIdentifier arg, GeneratedExpr annotation, string? type_comment,
-                                       int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_arg(arg, annotation, type_comment, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedKeyword Keyword(GeneratedIdentifier arg, GeneratedExpr value,
-                                               int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_keyword(arg, value, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedComprehension Comprehension(GeneratedExpr target, GeneratedExpr iter, GeneratedExprSeq ifs, int is_async)
-        {
-            return AstFactory._PyAST_comprehension(target, iter, ifs, is_async);
-        }
-
-        public static GeneratedExcepthandler ExceptHandler(GeneratedExpr type, GeneratedIdentifier name, GeneratedStmtSeq body,
-                                                           int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_ExceptHandler(type, name, body, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedArguments Arguments(GeneratedArgSeq posonlyargs, GeneratedArgSeq args, GeneratedArg vararg,
-                                                   GeneratedArgSeq kwonlyargs, GeneratedExprSeq kw_defaults, GeneratedArg kwarg, GeneratedExprSeq defaults)
-        {
-            return AstFactory._PyAST_arguments(posonlyargs, args, vararg, kwonlyargs, kw_defaults, kwarg, defaults);
-        }
-
-        public static GeneratedTypeParam TypeVar(GeneratedIdentifier name, GeneratedExpr bound,
-                                                 int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_TypeVar(name, bound, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedTypeParam ParamSpec(GeneratedIdentifier name,
-                                                   int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_ParamSpec(name, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        public static GeneratedTypeParam TypeVarTuple(GeneratedIdentifier name,
-                                                      int lineno, int col_offset, int? end_lineno, int? end_col_offset)
-        {
-            return AstFactory._PyAST_TypeVarTuple(name, lineno, col_offset, end_lineno, end_col_offset);
-        }
-
-        // TODO: Add more AST factory methods as needed during grammar rewriting
-    }
-
+    // Duplicate PyAst wrapper class removed - now using partial class PyAst directly
     // ============================================================
-    // PyParserHelpers - C# Style Parser Helper Functions
-    // ============================================================
-
-    /// <summary>
-    /// C# style parser helpers - wraps PegenHelpers._PyPegen_* functions
     /// Usage in python_cs.gram: PyParserHelpers.MakeModule(a) instead of _PyPegen_make_module(a)
     /// </summary>
     public static class PyParserHelpers
@@ -2960,7 +2446,7 @@ namespace SharpPy.Generated
         {
             var body = statements ?? new GeneratedStmtSeq();
             var typeIgnores = new GeneratedTypeIgnoreSeq();
-            return AstFactory._PyAST_Module(body, typeIgnores);
+            return PyAst.Module(body, typeIgnores);
         }
 
         /// <summary>
@@ -2969,7 +2455,7 @@ namespace SharpPy.Generated
         /// </summary>
         public static GeneratedStmtSeq FlattenStatementSequence(GeneratedSeq sequences)
         {
-            return PegenHelpers._PyPegen_seq_flatten(
+            return PyPegen._PyPegen_seq_flatten(
                 sequences.ToCastList<GeneratedStmtSeq>()
             );
         }
@@ -2980,7 +2466,7 @@ namespace SharpPy.Generated
         /// </summary>
         public static GeneratedStmtSeq SingletonSequence(GeneratedStmt item)
         {
-            return PegenHelpers._PyPegen_singleton_seq(item);
+            return PyPegen._PyPegen_singleton_seq(item);
         }
 
         /// <summary>
@@ -2989,7 +2475,7 @@ namespace SharpPy.Generated
         /// </summary>
         public static GeneratedExprSeq InsertInFront(GeneratedExpr item, GeneratedExprSeq? seq)
         {
-            return PegenHelpers._PyPegen_seq_insert_in_front(item, seq);
+            return PyPegen._PyPegen_seq_insert_in_front(item, seq);
         }
 
         /// <summary>
@@ -2998,7 +2484,7 @@ namespace SharpPy.Generated
         /// </summary>
         public static GeneratedExpr SetExprContext(GeneratedExpr expr, GeneratedExprContext ctx)
         {
-            return PegenHelpers._PyPegen_set_expr_context(expr, ctx);
+            return PyPegen._PyPegen_set_expr_context(expr, ctx);
         }
 
         /// <summary>

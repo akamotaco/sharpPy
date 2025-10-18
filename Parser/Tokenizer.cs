@@ -315,6 +315,52 @@ namespace SharpPy.Generated
                     ProcessPendingTokens();
                 }
 
+                // CPython 3.12: Physical line continuation (backslash + newline)
+                // Outside strings: x = 1 + \<newline>    2  →  x = 1 + 2
+                // This is different from escape sequences inside strings
+                if (CurrentChar == '\\' && !_insideFString)
+                {
+                    // Check if next character is newline (line continuation)
+                    if (_position + 1 < _source.Length && (_source[_position + 1] == '\n' || _source[_position + 1] == '\r'))
+                    {
+                        #if DEBUG_TOKEN_LOG
+                        Console.WriteLine($"[DEBUG] Line continuation detected at position {_position}");
+                        #endif
+                        // Skip backslash
+                        _position++;
+                        _column++;
+
+                        // Skip newline characters WITHOUT setting _atLineStart (this is line joining)
+                        if (CurrentChar == '\r' && _position + 1 < _source.Length && _source[_position + 1] == '\n')
+                        {
+                            // \r\n sequence
+                            _position++; // Skip \r
+                            _line++;
+                            _column = 0;
+                            _position++; // Skip \n
+                        }
+                        else if (CurrentChar == '\r')
+                        {
+                            // Standalone \r
+                            _position++;
+                            _line++;
+                            _column = 0;
+                        }
+                        else if (CurrentChar == '\n')
+                        {
+                            // \n
+                            _position++;
+                            _line++;
+                            _column = 0;
+                        }
+
+                        // CRITICAL: Do NOT set _atLineStart - this is a continuation, not a new logical line
+                        // Continue to next iteration - the physical line is joined
+                        continue;
+                    }
+                    // If backslash is not followed by newline, fall through to error handling
+                }
+
                 if (char.IsWhiteSpace(CurrentChar) || CurrentChar == '\r')
                 {
                     #if DEBUG_TOKEN_LOG

@@ -410,7 +410,7 @@ import_from_as_names[GeneratedAliasSeq]:
 # CPython: import_from_as_name[alias_ty]: a=NAME b=['as' z=NAME { z }] { _PyAST_alias(a.GetNameValue(), b?.Value, EXTRA) }
 # C#: Single import alias 'x as y' or just 'x'
 import_from_as_name[GeneratedAlias]:
-    | a=NAME b=['as' z=NAME { z }] { PyAst.Alias(a.GetNameValue(),
+    | a=NAME b=['as' z=NAME { z }] { PyAst.alias(a.GetNameValue(),
                                                b.GetNameValue(),
                                                EXTRA) }
 
@@ -422,7 +422,7 @@ dotted_as_names[GeneratedAliasSeq]:
 # CPython: dotted_as_name[alias_ty]: a=dotted_name b=['as' z=NAME { z }] { _PyAST_alias(a.GetIdentifier(), b?.Value, EXTRA) }
 # C#: Single dotted name 'x.y.z as w' or just 'x.y.z'
 dotted_as_name[GeneratedAlias]:
-    | a=dotted_name b=['as' z=NAME { z }] { PyAst.Alias(a.GetIdentifier(),
+    | a=dotted_name b=['as' z=NAME { z }] { PyAst.alias(a.GetIdentifier(),
                                                       b.GetNameValue(),
                                                       EXTRA) }
 
@@ -600,11 +600,11 @@ param_maybe_default[GeneratedNameDefaultPair]:
 
 # CPython: param[arg_ty]: a=NAME b=annotation? { _PyAST_arg(a.GetNameValue(), b, null, EXTRA) }
 # C#: Single parameter (name and optional type annotation)
-param[GeneratedArg]: a=NAME b=annotation? { PyAst.Arg(a.GetNameValue(), b, null, EXTRA) }
+param[GeneratedArg]: a=NAME b=annotation? { PyAst.arg(a.GetNameValue(), b, null, EXTRA) }
 
 # CPython: param_star_annotation[arg_ty]: a=NAME b=star_annotation { _PyAST_arg(a.GetNameValue(), b, null, EXTRA) }
 # C#: Parameter with star annotation (*expr instead of expr)
-param_star_annotation[GeneratedArg]: a=NAME b=star_annotation { PyAst.Arg(a.GetNameValue(), b, null, EXTRA) }
+param_star_annotation[GeneratedArg]: a=NAME b=star_annotation { PyAst.arg(a.GetNameValue(), b, null, EXTRA) }
 
 # CPython: annotation[expr_ty]: ':' a=expression { a }
 # C#: Type annotation ': type'
@@ -685,9 +685,9 @@ with_stmt[GeneratedStmt]:
 # CPython: with_item[withitem_ty]: e=expression 'as' t=star_target &(',' | ')' | ':') { _PyAST_withitem(e, t) } | ...
 # C#: with item (expression with optional 'as' target)
 with_item[GeneratedWithitem]:
-    | e=expression 'as' t=star_target &(',' | ')' | ':') { PyAst.Withitem((GeneratedExpr)e, (GeneratedExpr)t) }
+    | e=expression 'as' t=star_target &(',' | ')' | ':') { PyAst.withitem((GeneratedExpr)e, (GeneratedExpr)t) }
     | invalid_with_item
-    | e=expression { PyAst.Withitem((GeneratedExpr)e, null) }
+    | e=expression { PyAst.withitem((GeneratedExpr)e, null) }
 
 # Try statement
 # -------------
@@ -751,7 +751,7 @@ subject_expr[GeneratedExpr]:
 case_block[GeneratedMatchCase]:
     | invalid_case_block
     | "case" pattern=patterns guard=guard? ':' body=block {
-        PyAst.MatchCase((GeneratedPattern)pattern, (GeneratedExpr?)guard, (GeneratedStmtSeq)body) }
+        PyAst.match_case((GeneratedPattern)pattern, (GeneratedExpr?)guard, (GeneratedStmtSeq)body) }
 
 # CPython: guard[expr_ty]: 'if' guard=named_expression { guard }
 # C#: guard clause in case block
@@ -1367,7 +1367,7 @@ lambda_param_maybe_default[GeneratedNameDefaultPair]:
 
 # CPython: lambda_param[arg_ty]: a=NAME { _PyAST_arg(a.GetNameValue(), null, null, EXTRA) }
 # C#: Lambda parameter (no annotation)
-lambda_param[GeneratedArg]: a=NAME { PyAst.Arg(a.GetNameValue(), null, null, EXTRA) }
+lambda_param[GeneratedArg]: a=NAME { PyAst.arg(a.GetNameValue(), null, null, EXTRA) }
 
 # LITERALS
 # ========
@@ -1378,7 +1378,7 @@ lambda_param[GeneratedArg]: a=NAME { PyAst.Arg(a.GetNameValue(), null, null, EXT
 # C#: F-string middle component (replacement field or constant text)
 fstring_middle[GeneratedExpr]:
     | fstring_replacement_field
-    | t=FSTRING_MIDDLE { PegenHelpers._PyPegen_constant_from_token(t) }
+    | t=FSTRING_MIDDLE { PyPegen.ConstantFromToken(t) }
 
 # CPython: fstring_replacement_field[expr_ty]: ...
 # C#: F-string {expression} replacement field
@@ -1473,9 +1473,9 @@ for_if_clauses[GeneratedComprehensionSeq]:
 # C#: Single for/if clause (supports async for)
 for_if_clause[GeneratedComprehension]:
     | ASYNC 'for' a=star_targets 'in' ~ b=disjunction c[GeneratedExprSeq]=('if' z=disjunction { z })* {
-        CheckVersion(6, "Async comprehensions are", PyAst.Comprehension((GeneratedExpr)a, (GeneratedExpr)b, c, is_async: 1)) }
+        CheckVersion(6, "Async comprehensions are", PyAst.comprehension((GeneratedExpr)a, (GeneratedExpr)b, c, is_async: 1)) }
     | 'for' a=star_targets 'in' ~ b=disjunction c[GeneratedExprSeq]=('if' z=disjunction { z })* {
-        PyAst.Comprehension((GeneratedExpr)a, (GeneratedExpr)b, c, is_async: 0) }
+        PyAst.comprehension((GeneratedExpr)a, (GeneratedExpr)b, c, is_async: 0) }
     | invalid_for_target
 
 # CPython: listcomp[expr_ty]: '[' a=named_expression b=for_if_clauses ']' { _PyAST_ListComp(a, b, EXTRA) }
@@ -1541,7 +1541,7 @@ starred_expression[GeneratedExpr]:
 kwarg_or_starred[GeneratedKeywordOrStarred]:
     | invalid_kwarg
     | a=NAME '=' b=expression {
-        PyParserHelpers.KeywordOrStarred(Check<GeneratedKeyword>(PyAst.Keyword(a.GetNameValue(), b, EXTRA)), is_keyword: 1) }
+        PyParserHelpers.KeywordOrStarred(Check<GeneratedKeyword>(PyAst.keyword(a.GetNameValue(), b, EXTRA)), is_keyword: 1) }
     | a=starred_expression { PyParserHelpers.KeywordOrStarred(a, is_keyword: 0) }
 
 # CPython: kwarg_or_double_starred[KeywordOrStarred*]: ...
@@ -1549,8 +1549,8 @@ kwarg_or_starred[GeneratedKeywordOrStarred]:
 kwarg_or_double_starred[GeneratedKeywordOrStarred]:
     | invalid_kwarg
     | a=NAME '=' b=expression {
-        PyParserHelpers.KeywordOrStarred(Check<GeneratedKeyword>(PyAst.Keyword(a.GetNameValue(), b, EXTRA)), is_keyword: 1) }
-    | '**' a=expression { PyParserHelpers.KeywordOrStarred(Check<GeneratedKeyword>(PyAst.Keyword(null, a, EXTRA)), is_keyword: 1) }
+        PyParserHelpers.KeywordOrStarred(Check<GeneratedKeyword>(PyAst.keyword(a.GetNameValue(), b, EXTRA)), is_keyword: 1) }
+    | '**' a=expression { PyParserHelpers.KeywordOrStarred(Check<GeneratedKeyword>(PyAst.keyword(null, a, EXTRA)), is_keyword: 1) }
 
 # ASSIGNMENT TARGETS
 # ==================
@@ -1692,14 +1692,14 @@ invalid_arguments:
     | ((','.(starred_expression | ( assignment_expression | expression !':=') !'=')+ ',' kwargs) | kwargs) a=',' ','.(starred_expression !'=')+ {
         RaiseSyntaxErrorStartingFrom(a, "iterable argument unpacking follows keyword argument unpacking") }
     | a=expression b=for_if_clauses ',' [args | expression for_if_clauses] {
-        RaiseSyntaxErrorKnownRange(a, PegenHelpers._PyPegen_get_last_comprehension_item(PegenHelpers.PyPegen_last_item<GeneratedComprehension>(b)), "Generator expression must be parenthesized") }
+        RaiseSyntaxErrorKnownRange(a, PyPegen.GetLastComprehensionItem(PyPegen.LastItem<GeneratedComprehension>(b)), "Generator expression must be parenthesized") }
     | a=NAME b='=' expression for_if_clauses {
         RaiseSyntaxErrorKnownRange(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?")}
     | (args ',')? a=NAME b='=' &(',' | ')') {
         RaiseSyntaxErrorKnownRange(a, b, "expected argument value expression")}
     | a=args b=for_if_clauses { GeneratedParserBridge._PyPegen_nonparen_genexp_in_call(a, b) }
     | args ',' a=expression b=for_if_clauses {
-        RaiseSyntaxErrorKnownRange(a, PegenHelpers._PyPegen_get_last_comprehension_item(PegenHelpers.PyPegen_last_item<GeneratedComprehension>(b)), "Generator expression must be parenthesized") }
+        RaiseSyntaxErrorKnownRange(a, PyPegen.GetLastComprehensionItem(PyPegen.LastItem<GeneratedComprehension>(b)), "Generator expression must be parenthesized") }
     | a=args ',' args { GeneratedParserBridge._PyPegen_arguments_parsing_error(a) }
 invalid_kwarg:
     | a[GeneratedTokenInfo]=('True'|'False'|'None') b='=' {
@@ -1719,13 +1719,13 @@ expression_without_invalid[GeneratedExpr]:
     | lambdef
 invalid_legacy_expression:
     | a=NAME !'(' b=star_expressions {
-        PegenHelpers.CheckLegacyStmt(NameToken(a)) ? RaiseSyntaxErrorKnownRange(NameToken(a), b, $"Missing parentheses in call to '{a.GetNameValue()}'. Did you mean {a.GetNameValue()}(...)?") : null}
+        PyPegen.CheckLegacyStmt(NameToken(a)) ? RaiseSyntaxErrorKnownRange(NameToken(a), b, $"Missing parentheses in call to '{a.GetNameValue()}'. Did you mean {a.GetNameValue()}(...)?") : null}
 
 invalid_expression:
     # !(NAME STRING) is not matched so we don't show this error with some invalid string prefixes like: kf"dsfsdf"
     # Soft keywords need to also be ignored because they can be parsed as NAME NAME
    | !(NAME STRING | SOFT_KEYWORD) a=disjunction b=expression_without_invalid {
-        PegenHelpers.CheckLegacyStmt(a) ? null : _tokens[_mark-1].Level == 0 ? null :
+        PyPegen.CheckLegacyStmt(a) ? null : _tokens[_mark-1].Level == 0 ? null :
         RaiseSyntaxErrorKnownRange(a, b, "invalid syntax. Perhaps you forgot a comma?") }
    | a=disjunction 'if' b=disjunction !('else'|':') { RaiseSyntaxErrorKnownRange(a, b, "expected 'else' after 'if' expression") }
    | a='lambda' [lambda_params] b=':' &FSTRING_MIDDLE  {
@@ -1734,19 +1734,19 @@ invalid_expression:
 invalid_named_expression(memo):
     | a=expression ':=' expression {
         RaiseSyntaxErrorKnownLocation(
-            a, "cannot use assignment expressions with %s", PegenHelpers._PyPegen_get_expr_name(a)) }
+            a, "cannot use assignment expressions with %s", PyPegen.GetExprName(a)) }
     | a=NAME '=' b=bitwise_or !('='|':=') {
         RaiseSyntaxErrorKnownRange(a, b, "invalid syntax. Maybe you meant '==' or ':=' instead of '='?") }
     | !(list|tuple|genexp|'True'|'None'|'False') a=bitwise_or b='=' bitwise_or !('='|':=') {
         RaiseSyntaxErrorKnownLocation(a, "cannot assign to %s here. Maybe you meant '==' instead of '='?",
-                                          PegenHelpers._PyPegen_get_expr_name(a)) }
+                                          PyPegen.GetExprName(a)) }
 
 invalid_assignment:
     | a=invalid_ann_assign_target ':' expression {
         RaiseSyntaxErrorKnownLocation(
             a,
             "only single target (not %s) can be annotated",
-            PegenHelpers._PyPegen_get_expr_name(a)
+            PyPegen.GetExprName(a)
         )}
     | a=star_named_expression ',' star_named_expressions* ':' expression {
         RaiseSyntaxErrorKnownLocation(a, "only single target (not tuple) can be annotated") }
@@ -1759,7 +1759,7 @@ invalid_assignment:
         RaiseSyntaxErrorKnownLocation(
             a,
             "'%s' is an illegal expression for augmented assignment",
-            PegenHelpers._PyPegen_get_expr_name(a)
+            PyPegen.GetExprName(a)
         )}
 invalid_ann_assign_target[GeneratedExpr]:
     | list
@@ -1774,7 +1774,7 @@ invalid_comprehension:
     | ('[' | '(' | '{') a=starred_expression for_if_clauses {
         RaiseSyntaxErrorKnownLocation(a, "iterable unpacking cannot be used in comprehension") }
     | ('[' | '{') a=star_named_expression ',' b=star_named_expressions for_if_clauses {
-        RaiseSyntaxErrorKnownRange(a, PegenHelpers.PyPegen_last_item<GeneratedExpr>(b),
+        RaiseSyntaxErrorKnownRange(a, PyPegen.LastItem<GeneratedExpr>(b),
         "did you forget parentheses around the comprehension target?") }
     | ('[' | '{') a=star_named_expression b=',' for_if_clauses {
         RaiseSyntaxErrorKnownRange(a, b, "did you forget parentheses around the comprehension target?") }
@@ -1904,8 +1904,8 @@ invalid_as_pattern:
     | or_pattern 'as' !NAME a=expression { RaiseSyntaxErrorKnownLocation(a, "invalid pattern target") }
 invalid_class_pattern:
     | name_or_attr '(' a=invalid_class_argument_pattern  { RaiseSyntaxErrorKnownRange(
-        PegenHelpers.PyPegen_first_item<GeneratedPattern>(a),
-        PegenHelpers.PyPegen_last_item<GeneratedPattern>(a),
+        PyPegen.FirstItem<GeneratedPattern>(a),
+        PyPegen.LastItem<GeneratedPattern>(a),
         "positional patterns follow keyword patterns") }
 invalid_class_argument_pattern[GeneratedPatternSeq]:
     | [positional_patterns ','] keyword_patterns ',' a=positional_patterns { a }
