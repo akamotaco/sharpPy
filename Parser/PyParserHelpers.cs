@@ -2701,4 +2701,34 @@ namespace SharpPy.Generated
         // TODO: Add more helper methods as needed during grammar rewriting
     }
 
+    // ============================================================
+    // Extension Methods for GeneratedTokenInfo
+    // ============================================================
+
+    /// <summary>
+    /// Extension methods for GeneratedTokenInfo (CPython pattern)
+    /// Used in grammar action code for null-safe access
+    /// </summary>
+    public static class GeneratedTokenInfoExtensions
+    {
+        /// <summary>
+        /// Get token value (name) - null-safe
+        /// CPython: token->value or NULL
+        /// </summary>
+        public static string? GetNameValue(this GeneratedTokenInfo? token)
+        {
+            return token?.Value;
+        }
+
+        /// <summary>
+        /// Get type comment value - null-safe
+        /// CPython: token != NULL ? token->value : NULL
+        /// Used for TYPE_COMMENT optional tokens
+        /// </summary>
+        public static string? GetCommentValue(this GeneratedTokenInfo? token)
+        {
+            return token?.Value;
+        }
+    }
+
 }

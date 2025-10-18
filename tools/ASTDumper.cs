@@ -91,7 +91,7 @@ namespace SharpPy.Tools
         /// <summary>
         /// AST 노드를 재귀적으로 포맷팅
         /// </summary>
-        private string FormatNode(object node, int indentLevel)
+        public string FormatNode(object node, int indentLevel)
         {
             if (node == null)
                 return "None";
@@ -120,17 +120,7 @@ namespace SharpPy.Tools
                         sb.Append("=");
 
                         var formattedValue = FormatValue(value, indentLevel + _indentSize);
-
-                        // 리스트나 복잡한 객체는 개행
-                        if (value is IList || value is ASTNode)
-                        {
-                            sb.AppendLine();
-                            sb.Append(formattedValue);
-                        }
-                        else
-                        {
-                            sb.Append(formattedValue);
-                        }
+                        sb.Append(formattedValue);
 
                         if (i < fields.Count - 1)
                             sb.Append(",");
@@ -152,6 +142,140 @@ namespace SharpPy.Tools
         }
 
         /// <summary>
+        /// AST 노드를 inline으로 포맷팅 (리스트 안의 아이템용)
+        /// CPython 3.12 스타일: Name(id='x', ctx=Store())
+        /// </summary>
+        private string FormatNodeInline(object node, int indentLevel)
+        {
+            if (node == null)
+                return "None";
+
+            var sb = new StringBuilder();
+
+            // Statement/Expression 노드들 처리
+            if (node is ASTNode astNode)
+            {
+                sb.Append(astNode.NodeType);
+                sb.Append("(");
+
+                var fields = GetNodeFields(astNode);
+                if (fields.Count > 0)
+                {
+                    for (int i = 0; i < fields.Count; i++)
+                    {
+                        var (name, value) = fields[i];
+                        sb.Append(name);
+                        sb.Append("=");
+
+                        var formattedValue = FormatValueInline(value);
+                        sb.Append(formattedValue);
+
+                        if (i < fields.Count - 1)
+                            sb.Append(", ");
+                    }
+                }
+                sb.Append(")");
+            }
+            else
+            {
+                sb.Append(FormatValueInline(node));
+            }
+
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// 값을 inline으로 포맷팅
+        /// </summary>
+        private string FormatValueInline(object value)
+        {
+            if (value == null)
+                return "None";
+
+            // List 처리
+            if (value is IList list)
+            {
+                if (list.Count == 0)
+                    return "[]";
+
+                var sb = new StringBuilder();
+                sb.Append("[");
+
+                for (int i = 0; i < list.Count; i++)
+                {
+                    var item = list[i];
+                    var formatted = FormatNodeInline(item, 0);
+                    sb.Append(formatted);
+
+                    if (i < list.Count - 1)
+                        sb.Append(", ");
+                }
+
+                sb.Append("]");
+                return sb.ToString();
+            }
+
+            // ASTNode 처리
+            if (value is ASTNode node)
+            {
+                return FormatNodeInline(node, 0);
+            }
+
+            // ImportAlias 처리
+            if (value is ImportAlias alias)
+            {
+                var sb = new StringBuilder();
+                sb.Append("alias(");
+                sb.Append($"name='{alias.Name}'");
+                if (!string.IsNullOrEmpty(alias.AsName))
+                {
+                    sb.Append($", asname='{alias.AsName}'");
+                }
+                sb.Append(")");
+                return sb.ToString();
+            }
+
+            // GeneratedCmpop 처리
+            if (value is Generated.GeneratedCmpop cmpop)
+            {
+                var typeName = value.GetType().Name.Replace("Generated", "");
+                return $"{typeName}()";
+            }
+
+            // 기본 타입 처리
+            if (value is string str)
+                return $"'{str}'";
+
+            if (value is bool b)
+                return b ? "True" : "False";
+
+            if (value is int || value is long || value is double || value is float)
+                return value.ToString();
+
+            // PyObject 처리
+            if (value is PyObject pyObj)
+            {
+                if (pyObj is PyString pyStr)
+                    return $"'{pyStr.Value}'";
+                if (pyObj is PyInt pyInt)
+                    return pyInt.Value.ToString();
+                if (pyObj is PyFloat pyFloat)
+                    return pyFloat.Value.ToString();
+                if (pyObj is PyBool pyBool)
+                    return pyBool.Value ? "True" : "False";
+                if (pyObj is PyNone)
+                    return "None";
+                return pyObj.ToString();
+            }
+
+            // Enum 처리
+            if (value is Enum)
+                return value.ToString();
+
+            return value.ToString() ?? "None";
+        }
+
+        /// <summary>
         /// 값을 포맷팅 (리스트, 상수 등)
         /// </summary>
         private string FormatValue(object value, int indentLevel)
@@ -161,37 +285,41 @@ namespace SharpPy.Tools
 
             var indent = new string(' ', indentLevel);
 
-            // List 처리
+            // List 처리 - CPython 3.12 스타일: 아이템이 있으면 개행
             if (value is IList list)
             {
                 if (list.Count == 0)
                     return "[]";
 
                 var sb = new StringBuilder();
-                sb.Append(indent);
                 sb.AppendLine("[");
 
                 for (int i = 0; i < list.Count; i++)
                 {
                     var item = list[i];
-                    var formatted = FormatNode(item, indentLevel + _indentSize);
+                    // 리스트 아이템은 들여쓰기 포함
+                    sb.Append(new string(' ', indentLevel + _indentSize));
+                    var formatted = FormatNodeInline(item, 0);
                     sb.Append(formatted);
 
-                    if (i < list.Count - 1)
-                        sb.Append(",");
-
-                    sb.AppendLine();
+                    // 마지막 아이템: ]를 같은 줄에
+                    if (i == list.Count - 1)
+                    {
+                        sb.Append("]");
+                    }
+                    else
+                    {
+                        sb.AppendLine(",");
+                    }
                 }
 
-                sb.Append(indent);
-                sb.Append("]");
                 return sb.ToString();
             }
 
-            // ASTNode 처리
+            // ASTNode 처리 - inline으로
             if (value is ASTNode node)
             {
-                return FormatNode(node, indentLevel);
+                return FormatNodeInline(node, 0);
             }
 
             // ImportAlias 처리 (CPython 3.12 호환)
@@ -231,6 +359,14 @@ namespace SharpPy.Tools
             {
                 if (pyObj is PyString pyStr)
                     return $"'{pyStr.Value}'";
+                if (pyObj is PyInt pyInt)
+                    return pyInt.Value.ToString();
+                if (pyObj is PyFloat pyFloat)
+                    return pyFloat.Value.ToString();
+                if (pyObj is PyBool pyBool)
+                    return pyBool.Value ? "True" : "False";
+                if (pyObj is PyNone)
+                    return "None";
                 return pyObj.ToString();
             }
 

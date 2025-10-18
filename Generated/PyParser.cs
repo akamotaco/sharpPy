@@ -844,7 +844,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? tc = null;
 
                 if (
-                    (a = (GeneratedExprSeq)ParseOneOrMore(() => Parse_Tmp9())) != null &&
+                    (a = ParseOneOrMore(() => Parse_Tmp9())?.Cast<GeneratedExprSeq>()) != null &&
                     (b = Parse_Tmp10()) != null &&
                     NegativeLookahead(() => ExpectOp("=")) != null &&
                     ((tc = (GeneratedTokenInfo)ParseOptional(() => ExpectToken(PyToken.Type.TYPE_COMMENT))) == null || true)
@@ -1224,7 +1224,7 @@ namespace SharpPy.Generated
 
                 if (
                     ExpectKeyword("global") != null &&
-                    (a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => ExpectName())) != null
+                    (a = ParseGatherPlus(() => ExpectOp(","), () => ExpectName())?.Cast<GeneratedExprSeq>()) != null
                 )
                 {
                     // Action code from grammar
@@ -1257,7 +1257,7 @@ namespace SharpPy.Generated
 
                 if (
                     ExpectKeyword("nonlocal") != null &&
-                    (a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => ExpectName())) != null
+                    (a = ParseGatherPlus(() => ExpectOp(","), () => ExpectName())?.Cast<GeneratedExprSeq>()) != null
                 )
                 {
                     // Action code from grammar
@@ -1628,7 +1628,7 @@ namespace SharpPy.Generated
 
                 GeneratedAliasSeq? a = null;
 
-                if ((a = (GeneratedAliasSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_ImportFromAsName())) != null)
+                if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_ImportFromAsName())?.Cast<GeneratedAliasSeq>()) != null)
                 {
                     // Action code from grammar
                     return a;
@@ -1692,7 +1692,7 @@ namespace SharpPy.Generated
 
                 GeneratedAliasSeq? a = null;
 
-                if ((a = (GeneratedAliasSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_DottedAsName())) != null)
+                if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_DottedAsName())?.Cast<GeneratedAliasSeq>()) != null)
                 {
                     // Action code from grammar
                     return a;
@@ -1888,7 +1888,7 @@ namespace SharpPy.Generated
 
                 GeneratedExprSeq? a = null;
 
-                if ((a = (GeneratedExprSeq)ParseOneOrMore(() => Parse_Tmp19())) != null)
+                if ((a = ParseOneOrMore(() => Parse_Tmp19())?.Cast<GeneratedExprSeq>()) != null)
                 {
                     // Action code from grammar
                     return a;
@@ -2208,7 +2208,7 @@ namespace SharpPy.Generated
 
                 if (
                     (a = Parse_SlashNoDefault()) != null &&
-                    (b = (GeneratedArgSeq)ParseZeroOrMore(() => Parse_ParamNoDefault())) != null &&
+                    (b = ParseZeroOrMore(() => Parse_ParamNoDefault())?.Cast<GeneratedArgSeq>()) != null &&
                     (c = ParseZeroOrMore(() => Parse_ParamWithDefault())) != null &&
                     ((d = (GeneratedStarEtc)ParseOptional(() => Parse_StarEtc())) == null || true)
                 )
@@ -2248,7 +2248,7 @@ namespace SharpPy.Generated
                 GeneratedStarEtc? c = null;
 
                 if (
-                    (a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_ParamNoDefault())) != null &&
+                    (a = ParseOneOrMore(() => Parse_ParamNoDefault())?.Cast<GeneratedArgSeq>()) != null &&
                     (b = ParseZeroOrMore(() => Parse_ParamWithDefault())) != null &&
                     ((c = (GeneratedStarEtc)ParseOptional(() => Parse_StarEtc())) == null || true)
                 )
@@ -2314,7 +2314,7 @@ namespace SharpPy.Generated
                 GeneratedArgSeq? a = null;
 
                 if (
-                    (a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_ParamNoDefault())) != null &&
+                    (a = ParseOneOrMore(() => Parse_ParamNoDefault())?.Cast<GeneratedArgSeq>()) != null &&
                     ExpectOp("/") != null &&
                     ExpectOp(",") != null
                 )
@@ -2332,7 +2332,7 @@ namespace SharpPy.Generated
                 GeneratedArgSeq? a = null;
 
                 if (
-                    (a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_ParamNoDefault())) != null &&
+                    (a = ParseOneOrMore(() => Parse_ParamNoDefault())?.Cast<GeneratedArgSeq>()) != null &&
                     ExpectOp("/") != null &&
                     PositiveLookahead(() => ExpectOp(")")) != null
                 )
@@ -3344,7 +3344,7 @@ namespace SharpPy.Generated
                 if (
                     ExpectKeyword("with") != null &&
                     ExpectOp("(") != null &&
-                    (a = (GeneratedWithitemSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())) != null &&
+                    (a = ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())?.Cast<GeneratedWithitemSeq>()) != null &&
                     (ParseOptional(() => ExpectOp(",")) == null || true) &&
                     ExpectOp(")") != null &&
                     ExpectOp(":") != null &&
@@ -3367,7 +3367,7 @@ namespace SharpPy.Generated
 
                 if (
                     ExpectKeyword("with") != null &&
-                    (a = (GeneratedWithitemSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())) != null &&
+                    (a = ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())?.Cast<GeneratedWithitemSeq>()) != null &&
                     ExpectOp(":") != null &&
                     ((tc = (GeneratedTokenInfo)ParseOptional(() => ExpectToken(PyToken.Type.TYPE_COMMENT))) == null || true) &&
                     (b = Parse_Block()) != null
@@ -3390,7 +3390,7 @@ namespace SharpPy.Generated
                     ExpectToken(PyToken.Type.ASYNC) != null &&
                     ExpectKeyword("with") != null &&
                     ExpectOp("(") != null &&
-                    (a = (GeneratedWithitemSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())) != null &&
+                    (a = ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())?.Cast<GeneratedWithitemSeq>()) != null &&
                     (ParseOptional(() => ExpectOp(",")) == null || true) &&
                     ExpectOp(")") != null &&
                     ExpectOp(":") != null &&
@@ -3414,7 +3414,7 @@ namespace SharpPy.Generated
                 if (
                     ExpectToken(PyToken.Type.ASYNC) != null &&
                     ExpectKeyword("with") != null &&
-                    (a = (GeneratedWithitemSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())) != null &&
+                    (a = ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())?.Cast<GeneratedWithitemSeq>()) != null &&
                     ExpectOp(":") != null &&
                     ((tc = (GeneratedTokenInfo)ParseOptional(() => ExpectToken(PyToken.Type.TYPE_COMMENT))) == null || true) &&
                     (b = Parse_Block()) != null
@@ -3567,7 +3567,7 @@ namespace SharpPy.Generated
                     ExpectKeyword("try") != null &&
                     PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) != null &&
                     (b = Parse_Block()) != null &&
-                    (ex = (GeneratedExcepthandlerSeq)ParseOneOrMore(() => Parse_ExceptBlock())) != null &&
+                    (ex = ParseOneOrMore(() => Parse_ExceptBlock())?.Cast<GeneratedExcepthandlerSeq>()) != null &&
                     ((el = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null || true) &&
                     ((f = (GeneratedStmtSeq)ParseOptional(() => Parse_FinallyBlock())) == null || true)
                 )
@@ -3591,7 +3591,7 @@ namespace SharpPy.Generated
                     ExpectKeyword("try") != null &&
                     PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) != null &&
                     (b = Parse_Block()) != null &&
-                    (ex = (GeneratedExcepthandlerSeq)ParseOneOrMore(() => Parse_ExceptStarBlock())) != null &&
+                    (ex = ParseOneOrMore(() => Parse_ExceptStarBlock())?.Cast<GeneratedExcepthandlerSeq>()) != null &&
                     ((el = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null || true) &&
                     ((f = (GeneratedStmtSeq)ParseOptional(() => Parse_FinallyBlock())) == null || true)
                 )
@@ -3830,7 +3830,7 @@ namespace SharpPy.Generated
                     ExpectOp(":") != null &&
                     ExpectToken(PyToken.Type.NEWLINE) != null &&
                     ExpectToken(PyToken.Type.INDENT) != null &&
-                    (cases = (GeneratedMatchCaseSeq)ParseOneOrMore(() => Parse_CaseBlock())) != null &&
+                    (cases = ParseOneOrMore(() => Parse_CaseBlock())?.Cast<GeneratedMatchCaseSeq>()) != null &&
                     ExpectToken(PyToken.Type.DEDENT) != null
                 )
                 {
@@ -4010,7 +4010,7 @@ namespace SharpPy.Generated
 
                 GeneratedPatternSeq? patterns = null;
 
-                if ((patterns = (GeneratedPatternSeq)Parse_OpenSequencePattern()) != null)
+                if ((patterns = Parse_OpenSequencePattern()?.Cast<GeneratedPatternSeq>()) != null)
                 {
                     // Action code from grammar
                     return PyAst . MatchSequence (( GeneratedPatternSeq ) patterns , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -4147,7 +4147,7 @@ namespace SharpPy.Generated
 
                 GeneratedPatternSeq? patterns = null;
 
-                if ((patterns = (GeneratedPatternSeq)ParseGatherPlus(() => ExpectOp("|"), () => Parse_ClosedPattern())) != null)
+                if ((patterns = ParseGatherPlus(() => ExpectOp("|"), () => Parse_ClosedPattern())?.Cast<GeneratedPatternSeq>()) != null)
                 {
                     // Action code from grammar
                     return patterns . Count == 1 ?( GeneratedPattern ) patterns [ 0 ]: PyAst . MatchOr (( GeneratedPatternSeq ) patterns , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -5508,7 +5508,7 @@ namespace SharpPy.Generated
 
                 GeneratedPatternSeq? args = null;
 
-                if ((args = (GeneratedPatternSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_Pattern())) != null)
+                if ((args = ParseGatherPlus(() => ExpectOp(","), () => Parse_Pattern())?.Cast<GeneratedPatternSeq>()) != null)
                 {
                     // Action code from grammar
                     return args;
@@ -5676,7 +5676,7 @@ namespace SharpPy.Generated
                 GeneratedTypeParamSeq? a = null;
 
                 if (
-                    (a = (GeneratedTypeParamSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_TypeParam())) != null &&
+                    (a = ParseGatherPlus(() => ExpectOp(","), () => Parse_TypeParam())?.Cast<GeneratedTypeParamSeq>()) != null &&
                     (ParseOptional(() => ExpectOp(",")) == null || true)
                 )
                 {
@@ -6206,7 +6206,7 @@ namespace SharpPy.Generated
                 GeneratedExprSeq? a = null;
 
                 if (
-                    (a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_StarNamedExpression())) != null &&
+                    (a = ParseGatherPlus(() => ExpectOp(","), () => Parse_StarNamedExpression())?.Cast<GeneratedExprSeq>()) != null &&
                     (ParseOptional(() => ExpectOp(",")) == null || true)
                 )
                 {
@@ -7889,7 +7889,7 @@ namespace SharpPy.Generated
                 GeneratedExprSeq? a = null;
 
                 if (
-                    (a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp36())) != null &&
+                    (a = ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp36())?.Cast<GeneratedExprSeq>()) != null &&
                     (ParseOptional(() => ExpectOp(",")) == null || true)
                 )
                 {
@@ -8265,7 +8265,7 @@ namespace SharpPy.Generated
 
                 if (
                     (a = Parse_LambdaSlashNoDefault()) != null &&
-                    (b = (GeneratedArgSeq)ParseZeroOrMore(() => Parse_LambdaParamNoDefault())) != null &&
+                    (b = ParseZeroOrMore(() => Parse_LambdaParamNoDefault())?.Cast<GeneratedArgSeq>()) != null &&
                     (c = ParseZeroOrMore(() => Parse_LambdaParamWithDefault())) != null &&
                     ((d = (GeneratedStarEtc)ParseOptional(() => Parse_LambdaStarEtc())) == null || true)
                 )
@@ -8305,7 +8305,7 @@ namespace SharpPy.Generated
                 GeneratedStarEtc? c = null;
 
                 if (
-                    (a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_LambdaParamNoDefault())) != null &&
+                    (a = ParseOneOrMore(() => Parse_LambdaParamNoDefault())?.Cast<GeneratedArgSeq>()) != null &&
                     (b = ParseZeroOrMore(() => Parse_LambdaParamWithDefault())) != null &&
                     ((c = (GeneratedStarEtc)ParseOptional(() => Parse_LambdaStarEtc())) == null || true)
                 )
@@ -8371,7 +8371,7 @@ namespace SharpPy.Generated
                 GeneratedArgSeq? a = null;
 
                 if (
-                    (a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_LambdaParamNoDefault())) != null &&
+                    (a = ParseOneOrMore(() => Parse_LambdaParamNoDefault())?.Cast<GeneratedArgSeq>()) != null &&
                     ExpectOp("/") != null &&
                     ExpectOp(",") != null
                 )
@@ -8389,7 +8389,7 @@ namespace SharpPy.Generated
                 GeneratedArgSeq? a = null;
 
                 if (
-                    (a = (GeneratedArgSeq)ParseOneOrMore(() => Parse_LambdaParamNoDefault())) != null &&
+                    (a = ParseOneOrMore(() => Parse_LambdaParamNoDefault())?.Cast<GeneratedArgSeq>()) != null &&
                     ExpectOp("/") != null &&
                     PositiveLookahead(() => ExpectOp(":")) != null
                 )
@@ -9085,7 +9085,7 @@ namespace SharpPy.Generated
 
                 GeneratedExprSeq? a = null;
 
-                if ((a = (GeneratedExprSeq)ParseOneOrMore(() => Parse_Tmp44())) != null)
+                if ((a = ParseOneOrMore(() => Parse_Tmp44())?.Cast<GeneratedExprSeq>()) != null)
                 {
                     // Action code from grammar
                     return PyParserHelpers . ConcatenateStrings ( a , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -9383,7 +9383,7 @@ namespace SharpPy.Generated
 
                 GeneratedComprehensionSeq? a = null;
 
-                if ((a = (GeneratedComprehensionSeq)ParseOneOrMore(() => Parse_ForIfClause())) != null)
+                if ((a = ParseOneOrMore(() => Parse_ForIfClause())?.Cast<GeneratedComprehensionSeq>()) != null)
                 {
                     // Action code from grammar
                     return a;
@@ -9421,7 +9421,7 @@ namespace SharpPy.Generated
                     (a = Parse_StarTargets()) != null &&
                     ExpectKeyword("in") != null &&
                     (b = Parse_Disjunction()) != null &&
-                    (c = (GeneratedExprSeq)ParseZeroOrMore(() => Parse_Tmp46())) != null
+                    (c = ParseZeroOrMore(() => Parse_Tmp46())?.Cast<GeneratedExprSeq>()) != null
                 )
                 {
                     // Action code from grammar
@@ -9443,7 +9443,7 @@ namespace SharpPy.Generated
                     (a = Parse_StarTargets()) != null &&
                     ExpectKeyword("in") != null &&
                     (b = Parse_Disjunction()) != null &&
-                    (c = (GeneratedExprSeq)ParseZeroOrMore(() => Parse_Tmp47())) != null
+                    (c = ParseZeroOrMore(() => Parse_Tmp47())?.Cast<GeneratedExprSeq>()) != null
                 )
                 {
                     // Action code from grammar
@@ -9748,7 +9748,7 @@ namespace SharpPy.Generated
                 GeneratedPtr? b = null;
 
                 if (
-                    (a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp49())) != null &&
+                    (a = ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp49())?.Cast<GeneratedExprSeq>()) != null &&
                     ((b = ParseOptional(() => Parse_Tmp50())) == null || true)
                 )
                 {
@@ -10099,7 +10099,7 @@ namespace SharpPy.Generated
                 GeneratedExprSeq? a = null;
 
                 if (
-                    (a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_StarTarget())) != null &&
+                    (a = ParseGatherPlus(() => ExpectOp(","), () => Parse_StarTarget())?.Cast<GeneratedExprSeq>()) != null &&
                     (ParseOptional(() => ExpectOp(",")) == null || true)
                 )
                 {
@@ -10706,7 +10706,7 @@ namespace SharpPy.Generated
                 GeneratedExprSeq? a = null;
 
                 if (
-                    (a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_DelTarget())) != null &&
+                    (a = ParseGatherPlus(() => ExpectOp(","), () => Parse_DelTarget())?.Cast<GeneratedExprSeq>()) != null &&
                     (ParseOptional(() => ExpectOp(",")) == null || true)
                 )
                 {
@@ -11022,7 +11022,7 @@ namespace SharpPy.Generated
 
                 GeneratedExprSeq? a = null;
 
-                if ((a = (GeneratedExprSeq)ParseGatherPlus(() => ExpectOp(","), () => Parse_Expression())) != null)
+                if ((a = ParseGatherPlus(() => ExpectOp(","), () => Parse_Expression())?.Cast<GeneratedExprSeq>()) != null)
                 {
                     // Action code from grammar
                     return a;

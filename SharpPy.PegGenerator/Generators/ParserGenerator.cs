@@ -36,10 +36,24 @@ internal class AtomCallInfo
                 }
                 else
                 {
-                    // Type differs → need cast
-                    // (c = (GeneratedAliasSeq)Parse_ImportFromTargets())
-                    // (a = (GeneratedTokenInfo)ParseOptional(...))  // ParseOptional returns GeneratedPtr
-                    return $"({AssignedVariable} = ({AssignedVariableType}){Function})";
+                    // Type differs → need cast or .Cast<T>()
+                    // CRITICAL: GeneratedSeq → GeneratedExprSeq/GeneratedStmtSeq requires .Cast<T>()
+                    // Direct casting (GeneratedExprSeq)GeneratedSeq fails at runtime!
+                    if (ReturnType == "GeneratedSeq" &&
+                        (AssignedVariableType.EndsWith("Seq") && AssignedVariableType != "GeneratedSeq"))
+                    {
+                        // GeneratedSeq → GeneratedExprSeq/GeneratedStmtSeq/etc.
+                        // Use .Cast<T>() method (CPython pattern)
+                        // CRITICAL: Need null check before .Cast<T>() because it's an extension method
+                        return $"({AssignedVariable} = {Function}?.Cast<{AssignedVariableType}>())";
+                    }
+                    else
+                    {
+                        // Normal cast for other types
+                        // (c = (GeneratedAliasSeq)Parse_ImportFromTargets())
+                        // (a = (GeneratedTokenInfo)ParseOptional(...))  // ParseOptional returns GeneratedPtr
+                        return $"({AssignedVariable} = ({AssignedVariableType}){Function})";
+                    }
                 }
             }
             else

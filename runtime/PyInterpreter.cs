@@ -1,4 +1,5 @@
 using SharpPy.Generated;
+using SharpPy.Tools;
 
 namespace SharpPy
 {
@@ -90,13 +91,22 @@ namespace SharpPy
 
                 if(showAst)
                 {
-                    Console.WriteLine("[===== ast log ====]");
+                    // CPython 3.12 compatible AST dump using existing ASTDumper
+                    var dumper = new ASTDumper();
+
+                    Console.WriteLine("Module(");
+                    Console.WriteLine("  body=[");
                     for (int i = 0; i < statements.Count; ++i)
                     {
-                        var stmt = statements[i];
-                        Console.WriteLine($"{i}:(lines: {stmt.LineNo}-{stmt.EndLineNo}/ cols: {stmt.ColOffset}-{stmt.EndColOffset})\t{stmt.NodeType} ({stmt.Parent})");
+                        var formattedStmt = dumper.FormatNode(statements[i], 4);
+                        Console.Write(formattedStmt);
+                        if (i < statements.Count - 1)
+                            Console.WriteLine(",");
+                        else
+                            Console.WriteLine();
                     }
-                    Console.WriteLine("[===== ast end ====]");
+                    Console.WriteLine("  ],");
+                    Console.WriteLine("  type_ignores=[])");
                 }
                 
                 // 2단계: 컴파일 (AST → 바이트코드)
@@ -426,31 +436,31 @@ namespace SharpPy
         private string GetErrorWordFromException(Exception e)
         {
             var message = e.Message;
-            
+
             // Extract variable name from NameError: "name 'variable_name' is not defined"
             if (message.Contains("not defined"))
             {
                 var match = System.Text.RegularExpressions.Regex.Match(message, @"name '([^']+)' is not defined");
                 if (match.Success) return match.Groups[1].Value;
             }
-            
+
             // Extract attribute name from AttributeError: "object has no attribute 'attribute_name'"
             if (message.Contains("has no attribute"))
             {
                 var match = System.Text.RegularExpressions.Regex.Match(message, @"has no attribute '([^']+)'");
                 if (match.Success) return match.Groups[1].Value;
             }
-            
+
             // Extract argument name from TypeError: "missing required argument: 'argument_name'"
             if (message.Contains("required argument"))
             {
                 var match = System.Text.RegularExpressions.Regex.Match(message, @"required argument: '([^']+)'");
                 if (match.Success) return match.Groups[1].Value;
             }
-            
+
             return "";
         }
-        
+
         // 대화형 실행 (REPL 스타일)
         public void Interactive()
         {
