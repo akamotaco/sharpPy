@@ -4335,15 +4335,63 @@ namespace SharpPy
         
         private void CompileAugAssign(AugAssignStatement augAssign)
         {
-            // target += value -> LOAD target, LOAD value, INPLACE_ADD, STORE target
-            EmitLoadName(augAssign.Target);
-            CompileExpression(augAssign.Value);
-            
-            // CPython 3.12: BinaryOperator type directly maps to BinaryOpType
-            var binaryOpType = augAssign.Op.GetOpType();
-            
-            EmitInstruction(ByteCodeOp.BINARY_OP, (int)binaryOpType);
-            EmitStoreName(augAssign.Target);
+            // CPython 3.12: target += value (supports Name, Attribute, Subscript)
+            // Pattern: LOAD_target, LOAD_value, BINARY_OP, STORE_target
+
+            // Load current value from target
+            if (augAssign.TargetExpr is NameExpression nameExpr)
+            {
+                // Simple name: x += 1
+                EmitLoadName(nameExpr.Name);
+                CompileExpression(augAssign.Value);
+
+                // CPython 3.12: BinaryOperator type directly maps to BinaryOpType
+                var binaryOpType = augAssign.Op.GetOpType();
+
+                EmitInstruction(ByteCodeOp.BINARY_OP, (int)binaryOpType);
+                EmitStoreName(nameExpr.Name);
+            }
+            else if (augAssign.TargetExpr is AttributeExpression attrExpr)
+            {
+                // Attribute: self.x += 1
+                // CPython 3.12: LOAD obj, COPY 1, LOAD_ATTR, LOAD value, BINARY_OP, SWAP 2, STORE_ATTR
+                CompileExpression(attrExpr.Value);  // Load object (self)
+                EmitInstruction(ByteCodeOp.COPY, 1);  // Copy object reference
+                EmitLoadAttr(attrExpr.Attr);          // Load attribute value
+                CompileExpression(augAssign.Value);    // Load right-hand value
+
+                // Perform binary operation
+                var binaryOpType = augAssign.Op.GetOpType();
+                EmitInstruction(ByteCodeOp.BINARY_OP, (int)binaryOpType);
+
+                // Store result back to attribute
+                EmitInstruction(ByteCodeOp.SWAP, 2);  // Swap result and object
+                EmitInstruction(ByteCodeOp.STORE_ATTR, GetOrAddName(attrExpr.Attr));
+            }
+            else if (augAssign.TargetExpr is SubscriptExpression subscriptExpr)
+            {
+                // Subscript: list[0] += 1
+                // CPython 3.12 pattern: LOAD container, LOAD index, COPY 2, COPY 2, BINARY_SUBSCR, LOAD value, BINARY_OP, SWAP 3, SWAP 2, STORE_SUBSCR
+                CompileExpression(subscriptExpr.Value);   // Load container (list1)
+                CompileExpression(subscriptExpr.Slice);   // Load index (0)
+                EmitInstruction(ByteCodeOp.COPY, 2);      // Copy top 2: [list1, 0, list1]
+                EmitInstruction(ByteCodeOp.COPY, 2);      // Copy top 2: [list1, 0, list1, 0]
+                EmitInstruction(ByteCodeOp.BINARY_SUBSCR);  // Load current value: [list1, 0, list1[0]]
+                CompileExpression(augAssign.Value);        // Load right-hand value: [list1, 0, list1[0], 10]
+
+                // Perform binary operation
+                var binaryOpType = augAssign.Op.GetOpType();
+                EmitInstruction(ByteCodeOp.BINARY_OP, (int)binaryOpType);  // [list1, 0, result]
+
+                // Store result back: SWAP to get [result, list1, 0], then STORE_SUBSCR
+                EmitInstruction(ByteCodeOp.SWAP, 3);  // [result, 0, list1]
+                EmitInstruction(ByteCodeOp.SWAP, 2);  // [result, list1, 0]
+                EmitInstruction(ByteCodeOp.STORE_SUBSCR);  // list1[0] = result
+            }
+            else
+            {
+                throw new NotImplementedException($"AugAssign target type '{augAssign.TargetExpr.GetType().Name}' not implemented");
+            }
         }
         
         private void CompileAugmentedAssign(AugmentedAssignStatement augAssign)
@@ -9077,6 +9125,7 @@ namespace SharpPy
                 var context = _loopStack.Pop();
 
                 // FOR_ITER 패치: END_FOR 위치로 점프하도록 수정
+                // CPython 3.12: byte offset 기반 계산
                 if (context.ForIterInstruction >= 0)
                 {
                     // EndForPosition이 설정되어 있으면 사용 (일반 for loop)
@@ -9085,10 +9134,18 @@ namespace SharpPy
                         ? context.EndForPosition
                         : _instructions.Count - 1;
 
-                    int relativeJump = endForPosition - context.ForIterInstruction - 1;
+                    // CPython 3.12: FOR_ITER oparg = (target_offset - next_instr_offset) / 2
+                    // next_instr_offset = FOR_ITER 이후의 첫 instruction offset
+                    int forIterByteOffset = PyJumpBackwardUtil.CalculateByteOffset(context.ForIterInstruction, _instructions);
+                    int forIterSize = PyJumpBackwardUtil.GetCPythonInstructionSize(ByteCodeOp.FOR_ITER, 0);
+                    int nextInstrOffset = forIterByteOffset + forIterSize;
+
+                    int endForByteOffset = PyJumpBackwardUtil.CalculateByteOffset(endForPosition, _instructions);
+                    int relativeJump = (endForByteOffset - nextInstrOffset) / 2;
+
                     _instructions[context.ForIterInstruction] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, relativeJump);
                     #if DEBUG_LOG
-                    Console.WriteLine($"    → FOR_ITER 패치: loop start {context.ForIterInstruction}, jump offset {relativeJump}, END_FOR at {endForPosition}");
+                    Console.WriteLine($"    → FOR_ITER 패치: loop start {context.ForIterInstruction} (byte {forIterByteOffset}), jump offset {relativeJump}, END_FOR at {endForPosition} (byte {endForByteOffset})");
                     #endif
                 }
             }
@@ -9540,16 +9597,19 @@ namespace SharpPy
                 #endif
 
                 // FOR_ITER 패치
-                // VM에서는 최적화 OFF일 때도 instruction 인덱스를 사용하므로 (line 2646: InstructionPointer += instruction.Argument)
-                // argument는 항상 instruction 인덱스 차이여야 함
-                int forIterJump = endForPosition - loopStart - 1;
+                // CPython 3.12: byte offset 기반 계산
+                int forIterByteOffset = PyJumpBackwardUtil.CalculateByteOffset(loopStart, _instructions);
+                int forIterSize = PyJumpBackwardUtil.GetCPythonInstructionSize(ByteCodeOp.FOR_ITER, 0);
+                int nextInstrOffset = forIterByteOffset + forIterSize;
+                int endForByteOffset = PyJumpBackwardUtil.CalculateByteOffset(endForPosition, _instructions);
+                int forIterJump = (endForByteOffset - nextInstrOffset) / 2;
 
                 _instructions[loopStart] = new ByteCodeInstruction(
                     ByteCodeOp.FOR_ITER,
                     forIterJump
                 );
                 #if DEBUG_LOG
-                Console.WriteLine($"  🔧 FOR_ITER at {loopStart} patched to jump to END_FOR at {endForPosition}, arg={forIterJump}");
+                Console.WriteLine($"  🔧 FOR_ITER at {loopStart} (byte {forIterByteOffset}) patched to jump to END_FOR at {endForPosition} (byte {endForByteOffset}), arg={forIterJump}");
                 #endif
             }
 
@@ -9668,23 +9728,26 @@ namespace SharpPy
             Console.WriteLine($"    END_FOR 추가 위치: {endForPosition}");
             #endif
             
-            // CPython 3.12와 동일한 오프셋 계산
-            // FOR_ITER 실행 시: InstructionPointer += argument, 그 후 메인 루프 +1
-            // 따라서 END_FOR에 도달하려면: endForPosition - loopStart - 1
-            var relativeJump = endForPosition - loopStart - 1;
+            // CPython 3.12: byte offset 기반 계산
+            int forIterByteOffset = PyJumpBackwardUtil.CalculateByteOffset(loopStart, _instructions);
+            int forIterSize = PyJumpBackwardUtil.GetCPythonInstructionSize(ByteCodeOp.FOR_ITER, 0);
+            int nextInstrOffset = forIterByteOffset + forIterSize;
+            int endForByteOffset = PyJumpBackwardUtil.CalculateByteOffset(endForPosition, _instructions);
+            var relativeJump = (endForByteOffset - nextInstrOffset) / 2;
+
             var originalInstruction = _instructions[loopStart];
             _instructions[loopStart] = new ByteCodeInstruction(
-                ByteCodeOp.FOR_ITER, 
+                ByteCodeOp.FOR_ITER,
                 relativeJump
             );
             #if DEBUG_LOG
             Console.WriteLine($"🔧 FOR_ITER 패치 완료:");
             #endif
             #if DEBUG_LOG
-            Console.WriteLine($"    위치 {loopStart}: 원래 인수 {originalInstruction.Argument} → 새 인수 {relativeJump}");
+            Console.WriteLine($"    위치 {loopStart} (byte {forIterByteOffset}): 원래 인수 {originalInstruction.Argument} → 새 인수 {relativeJump}");
             #endif
             #if DEBUG_LOG
-            Console.WriteLine($"    점프 계산: END_FOR({endForPosition}) - FOR_ITER({loopStart}) - 1 = {relativeJump}");
+            Console.WriteLine($"    점프 계산: ({endForByteOffset} - {nextInstrOffset}) / 2 = {relativeJump}");
             #endif
             #if DEBUG_LOG
             Console.WriteLine($"    VM 실행 시 점프될 위치: {loopStart + 1 + relativeJump}");

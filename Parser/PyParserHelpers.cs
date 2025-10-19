@@ -2533,8 +2533,15 @@ namespace SharpPy.Generated
 
         // ==================== Dictionary Helper Methods ====================
         // CPython: GetKeys - Extracts all keys from KeyValuePair sequence
+        // CPython: asdl_seq_LEN(S) returns 0 if S is NULL
         public static GeneratedExprSeq GetKeys(GeneratedSeq seq)
         {
+            // CPython pattern: asdl_seq_LEN(S) → ((S) == NULL ? 0 : (S)->size)
+            if (seq == null)
+            {
+                return GeneratedSeq.FromList(new List<GeneratedPtr>()).Cast<GeneratedExprSeq>();
+            }
+
             var keys = new List<GeneratedPtr>();
             foreach (var item in seq)
             {
@@ -2545,8 +2552,15 @@ namespace SharpPy.Generated
         }
 
         // CPython: GetValues - Extracts all values from KeyValuePair sequence
+        // CPython: asdl_seq_LEN(S) returns 0 if S is NULL
         public static GeneratedExprSeq GetValues(GeneratedSeq seq)
         {
+            // CPython pattern: asdl_seq_LEN(S) → ((S) == NULL ? 0 : (S)->size)
+            if (seq == null)
+            {
+                return GeneratedSeq.FromList(new List<GeneratedPtr>()).Cast<GeneratedExprSeq>();
+            }
+
             var values = new List<GeneratedPtr>();
             foreach (var item in seq)
             {

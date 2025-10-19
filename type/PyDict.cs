@@ -27,24 +27,37 @@ namespace SharpPy
             }
         }
 
-        protected readonly Dictionary<PyObject, PyObject> _dict;
+        // Python 3.7+: dict는 삽입 순서를 보장해야 함
+        // C# Dictionary는 순서 보장 안 함 → List + Dictionary 혼합 사용
+        protected readonly Dictionary<PyObject, PyObject> _dict;  // O(1) 조회용
+        protected readonly List<PyObject> _keys;  // 삽입 순서 보관
 
         // 내부 딕셔너리 접근용 (타입 생성 등에서 사용)
         internal Dictionary<PyObject, PyObject> InternalDict => _dict;
-        
-        public PyDict() => _dict = new Dictionary<PyObject, PyObject>(new PyObjectEqualityComparer());
+
+        public PyDict()
+        {
+            _dict = new Dictionary<PyObject, PyObject>(new PyObjectEqualityComparer());
+            _keys = new List<PyObject>();
+        }
 
         public PyDict(Dictionary<string, PyObject> items)
         {
             _dict = new Dictionary<PyObject, PyObject>(new PyObjectEqualityComparer());
+            _keys = new List<PyObject>();
             foreach (var kv in items)
             {
-                _dict[new PyString(kv.Key)] = kv.Value;
+                var key = new PyString(kv.Key);
+                _dict[key] = kv.Value;
+                _keys.Add(key);
             }
         }
 
-        public PyDict(Dictionary<PyObject, PyObject> items) =>
+        public PyDict(Dictionary<PyObject, PyObject> items)
+        {
             _dict = new Dictionary<PyObject, PyObject>(items, new PyObjectEqualityComparer());
+            _keys = new List<PyObject>(items.Keys);
+        }
 
         public override PyType GetPyType() => PyType.DictType;
         public override string GetTypeName() => "dict";
@@ -59,7 +72,8 @@ namespace SharpPy
         {
             if (_dict.Count == 0) return new PyString("{}");
 
-            var pairs = _dict.Select(kv => $"{kv.Key.ToRepr().Value}: {kv.Value.ToRepr().Value}");
+            // Python 3.7+: 삽입 순서대로 출력
+            var pairs = _keys.Select(k => $"{k.ToRepr().Value}: {_dict[k].ToRepr().Value}");
             return new PyString($"{{{string.Join(", ", pairs)}}}");
         }
 
@@ -95,19 +109,29 @@ namespace SharpPy
 
         /// <summary>
         /// 키에 값 설정 dict[key] = value
+        /// Python 3.7+: 삽입 순서 보장
         /// </summary>
         public override void SetItem(PyObject key, PyObject value)
         {
+            // 새 키인 경우에만 _keys에 추가 (삽입 순서 보장)
+            if (!_dict.ContainsKey(key))
+            {
+                _keys.Add(key);
+            }
             _dict[key] = value;
         }
 
         /// <summary>
         /// 키 삭제 del dict[key]
+        /// Python 3.7+: 삽입 순서 유지 (_keys에서도 제거)
         /// </summary>
         public virtual PyObject DelItem(PyObject key)
         {
             if (!_dict.Remove(key))
                 throw PyKeyError.Create(key.ToRepr());
+
+            // _keys에서도 제거 (삽입 순서 유지)
+            _keys.Remove(key);
             return PyNone.Instance;
         }
 
@@ -131,12 +155,14 @@ namespace SharpPy
 
         /// <summary>
         /// 키가 있으면 값 반환하고 삭제, 없으면 기본값 반환
+        /// Python 3.7+: 삽입 순서 유지 (_keys에서도 제거)
         /// </summary>
         public PyObject Pop(PyObject key, PyObject defaultValue = null)
         {
             if (_dict.TryGetValue(key, out PyObject value))
             {
                 _dict.Remove(key);
+                _keys.Remove(key);  // 삽입 순서 유지
                 return value;
             }
 
@@ -148,37 +174,51 @@ namespace SharpPy
 
         /// <summary>
         /// 임의의 키-값 쌍을 제거하고 반환
+        /// Python 3.7+: LIFO 순서 (마지막 삽입된 항목 반환)
         /// </summary>
         public PyTuple PopItem()
         {
             if (_dict.Count == 0)
                 throw PyKeyError.Create("popitem(): dictionary is empty");
 
-            var first = _dict.First();
-            _dict.Remove(first.Key);
-            return new PyTuple(first.Key, first.Value);
+            // Python 3.7+: LIFO (Last-In-First-Out) - 마지막 삽입된 키
+            var lastKey = _keys[_keys.Count - 1];
+            var value = _dict[lastKey];
+            _dict.Remove(lastKey);
+            _keys.RemoveAt(_keys.Count - 1);
+            return new PyTuple(lastKey, value);
         }
 
         /// <summary>
         /// 모든 키-값 쌍 제거
+        /// Python 3.7+: 삽입 순서 리스트도 함께 제거
         /// </summary>
         public PyNone Clear()
         {
             _dict.Clear();
+            _keys.Clear();
             return PyNone.Instance;
         }
 
         /// <summary>
         /// 다른 딕셔너리나 매핑의 키-값으로 업데이트 (CPython dict.update 호환)
+        /// Python 3.7+: 삽입 순서 유지
         /// </summary>
         public PyNone Update(PyObject other)
         {
             // CPython 3.12: dict.update() can accept dict, mappingproxy, or any mapping-like object
             if (other is PyDict otherDict)
             {
-                foreach (var kv in otherDict._dict)
+                // 삽입 순서 유지: otherDict의 키 순서대로 업데이트
+                foreach (var key in otherDict._keys)
                 {
-                    _dict[kv.Key] = kv.Value;
+                    var value = otherDict._dict[key];
+                    // SetItem 사용하여 삽입 순서 보장
+                    if (!_dict.ContainsKey(key))
+                    {
+                        _keys.Add(key);
+                    }
+                    _dict[key] = value;
                 }
             }
             else if (other is PyMappingProxy mappingProxy)
@@ -188,6 +228,11 @@ namespace SharpPy
                 {
                     var pyKey = new PyString(key);
                     var value = mappingProxy.GetItem(pyKey);
+                    // SetItem 사용하여 삽입 순서 보장
+                    if (!_dict.ContainsKey(pyKey))
+                    {
+                        _keys.Add(pyKey);
+                    }
                     _dict[pyKey] = value;
                 }
             }
@@ -200,6 +245,7 @@ namespace SharpPy
 
         /// <summary>
         /// 키가 없으면 기본값 설정하고 반환
+        /// Python 3.7+: 삽입 순서 유지
         /// </summary>
         public PyObject SetDefault(PyObject key, PyObject defaultValue = null)
         {
@@ -207,6 +253,8 @@ namespace SharpPy
                 return value;
 
             var newValue = defaultValue ?? PyNone.Instance;
+            // 새 키이므로 _keys에 추가 (삽입 순서 보장)
+            _keys.Add(key);
             _dict[key] = newValue;
             return newValue;
         }
@@ -217,26 +265,33 @@ namespace SharpPy
 
         /// <summary>
         /// 모든 키의 뷰 반환
+        /// Python 3.7+: 삽입 순서 보장
         /// </summary>
         public PyList Keys()
         {
-            return new PyList(_dict.Keys.ToArray());
+            // _keys를 사용하여 삽입 순서 보장
+            return new PyList(_keys.ToArray());
         }
 
         /// <summary>
         /// 모든 값의 뷰 반환
+        /// Python 3.7+: 삽입 순서 보장
         /// </summary>
         public PyList Values()
         {
-            return new PyList(_dict.Values.ToArray());
+            // _keys 순서대로 값을 가져옴
+            var values = _keys.Select(k => _dict[k]).ToArray();
+            return new PyList(values);
         }
 
         /// <summary>
         /// 모든 키-값 쌍의 뷰 반환
+        /// Python 3.7+: 삽입 순서 보장
         /// </summary>
         public PyList Items()
         {
-            var items = _dict.Select(kv => new PyTuple(kv.Key, kv.Value)).Cast<PyObject>().ToArray();
+            // _keys 순서대로 키-값 쌍을 생성
+            var items = _keys.Select(k => new PyTuple(k, _dict[k])).Cast<PyObject>().ToArray();
             return new PyList(items);
         }
 
@@ -294,10 +349,18 @@ namespace SharpPy
 
         /// <summary>
         /// 딕셔너리의 얕은 복사본 생성
+        /// Python 3.7+: 삽입 순서 보장
         /// </summary>
         public PyDict Copy()
         {
-            return new PyDict(new Dictionary<PyObject, PyObject>(_dict));
+            var newDict = new PyDict();
+            // 삽입 순서대로 복사
+            foreach (var key in _keys)
+            {
+                newDict._keys.Add(key);
+                newDict._dict[key] = _dict[key];
+            }
+            return newDict;
         }
 
         #endregion
@@ -375,11 +438,12 @@ namespace SharpPy
         
         /// <summary>
         /// CPython 호환: PyDict를 PyTuple로 변환 (키 목록)
+        /// Python 3.7+: 삽입 순서 보장
         /// </summary>
         public override PyTuple AsTuple()
         {
-            // CPython tuple(dict) 동작: 딕셔너리의 키들을 튜플로 변환
-            return new PyTuple(_dict.Keys.ToArray());
+            // CPython tuple(dict) 동작: 딕셔너리의 키들을 튜플로 변환 (삽입 순서 보장)
+            return new PyTuple(_keys.ToArray());
         }
         
         /// <summary>

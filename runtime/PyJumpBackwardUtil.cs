@@ -89,6 +89,12 @@ namespace SharpPy
         /// <returns>해당 instruction의 총 바이트 크기</returns>
         public static int GetCPythonInstructionSize(ByteCodeOp op, int arg)
         {
+            // CACHE instruction은 크기가 0 (이미 부모 instruction의 inline cache에 포함됨)
+            if (op == ByteCodeOp.CACHE)
+            {
+                return 0;
+            }
+
             int cacheEntries = GetInlineCacheEntries(op);
             return 2 + (cacheEntries * 2); // 기본 2바이트 + 인라인 캐시 엔트리들
         }

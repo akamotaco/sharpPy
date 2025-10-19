@@ -2930,11 +2930,19 @@ namespace SharpPy
                 case ByteCodeOp.BUILD_MAP:
                     var mapSize = instruction.Argument;
                     var pyDict = new PyDict();
+                    // Python 3.7+: dict는 삽입 순서를 보장해야 함
+                    // 스택은 LIFO이므로 pop한 쌍들을 임시 리스트에 저장 후 역순으로 추가
+                    var pairs = new List<(PyObject key, PyObject value)>(mapSize);
                     for (int i = 0; i < mapSize; i++)
                     {
                         var mapValue = frame.ValueStack.Pop();
                         var mapKey = frame.ValueStack.Pop();
-                        pyDict.SetItem(mapKey, mapValue);
+                        pairs.Add((mapKey, mapValue));
+                    }
+                    // 역순으로 dict에 추가 (컴파일 시 순서 보장)
+                    for (int i = pairs.Count - 1; i >= 0; i--)
+                    {
+                        pyDict.SetItem(pairs[i].key, pairs[i].value);
                     }
                     frame.ValueStack.Push(pyDict);
                     break;

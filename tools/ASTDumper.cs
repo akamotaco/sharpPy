@@ -533,6 +533,38 @@ namespace SharpPy.Tools
                     fields.Add(("level", importFrom.Level));
                     break;
 
+                // Comprehension expressions - CPython 3.12 uses 'elt' not 'element'
+                case ListComprehension listComp:
+                    fields.Add(("elt", listComp.Element));
+                    fields.Add(("generators", listComp.Generators));
+                    break;
+
+                case SetComprehension setComp:
+                    fields.Add(("elt", setComp.Element));
+                    fields.Add(("generators", setComp.Generators));
+                    break;
+
+                case DictComprehension dictComp:
+                    fields.Add(("key", dictComp.Key));
+                    fields.Add(("value", dictComp.Value));
+                    fields.Add(("generators", dictComp.Generators));
+                    break;
+
+                case Comprehension comp:
+                    // CPython 3.12: target should have Store context, not Load
+                    // Create a copy of target with Store context
+                    Expression targetWithStore = comp.Target;
+                    if (comp.Target is NameExpression nameExpr)
+                    {
+                        targetWithStore = new NameExpression(nameExpr.Name, Store.Instance);
+                    }
+
+                    fields.Add(("target", targetWithStore));
+                    fields.Add(("iter", comp.Iter));
+                    fields.Add(("ifs", comp.Ifs));
+                    fields.Add(("is_async", 0)); // CPython 3.12: always 0 for now (async comprehensions not supported yet)
+                    break;
+
                 default:
                     // Reflection으로 public 프로퍼티 자동 추출
                     var properties = node.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance);
