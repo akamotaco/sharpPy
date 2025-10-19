@@ -2259,7 +2259,7 @@ namespace SharpPy.Generated
                 )
                 {
                     // Action code from grammar
-                    return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments (( GeneratedArgSeq ) a , null , b ,( GeneratedNameDefaultPairSeq ?) c ,( GeneratedStarEtc ?) d ));
+                    return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments (( GeneratedArgSeq ) a , null , b , c ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) d ));
                 }
             }
 
@@ -2279,7 +2279,7 @@ namespace SharpPy.Generated
                 )
                 {
                     // Action code from grammar
-                    return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments ( null ,( GeneratedSlashWithDefault ) a , null ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedStarEtc ?) c ));
+                    return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments ( null ,( GeneratedSlashWithDefault ) a , null , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) c ));
                 }
             }
 
@@ -2299,7 +2299,7 @@ namespace SharpPy.Generated
                 )
                 {
                     // Action code from grammar
-                    return PyParserHelpers . MakeArguments ( null , null , a ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedStarEtc ?) c );
+                    return PyParserHelpers . MakeArguments ( null , null , a , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) c );
                 }
             }
 
@@ -8487,7 +8487,7 @@ namespace SharpPy.Generated
                 )
                 {
                     // Action code from grammar
-                    return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments (( GeneratedArgSeq ) a , null , b ,( GeneratedNameDefaultPairSeq ?) c ,( GeneratedStarEtc ?) d ));
+                    return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments (( GeneratedArgSeq ) a , null , b , c ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) d ));
                 }
             }
 
@@ -8507,7 +8507,7 @@ namespace SharpPy.Generated
                 )
                 {
                     // Action code from grammar
-                    return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments ( null ,( GeneratedSlashWithDefault ) a , null ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedStarEtc ?) c ));
+                    return CheckVersion ( 8 , "Positional-only parameters are" , PyParserHelpers . MakeArguments ( null ,( GeneratedSlashWithDefault ) a , null , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) c ));
                 }
             }
 
@@ -8527,7 +8527,7 @@ namespace SharpPy.Generated
                 )
                 {
                     // Action code from grammar
-                    return PyParserHelpers . MakeArguments ( null , null , a ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedStarEtc ?) c );
+                    return PyParserHelpers . MakeArguments ( null , null , a , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) c );
                 }
             }
 

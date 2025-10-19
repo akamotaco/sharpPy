@@ -477,7 +477,7 @@ namespace SharpPy
             {
                 var inst = Instructions[i];
                 var extra = "";
-                
+
                 switch (inst.OpCode)
                 {
                     case ByteCodeOp.LOAD_CONST:
@@ -485,9 +485,15 @@ namespace SharpPy
                         break;
                     case ByteCodeOp.LOAD_NAME:
                     case ByteCodeOp.STORE_NAME:
-                    case ByteCodeOp.LOAD_GLOBAL:
                     case ByteCodeOp.STORE_GLOBAL:
                         extra = $"({Names[inst.Argument]})";
+                        break;
+                    case ByteCodeOp.LOAD_GLOBAL:
+                        // CPython 3.12: LOAD_GLOBAL oparg encoding: (nameIndex << 1) | pushNull
+                        int globalNameIndex = inst.Argument >> 1;
+                        bool pushNull = (inst.Argument & 1) == 1;
+                        string nullPrefix = pushNull ? "NULL + " : "";
+                        extra = $"({nullPrefix}{Names[globalNameIndex]})";
                         break;
                     case ByteCodeOp.LOAD_ATTR:
                     case ByteCodeOp.STORE_ATTR:
@@ -496,7 +502,7 @@ namespace SharpPy
                         extra = $"({Names[attrNameIndex]})";
                         break;
                 }
-                
+
                 Console.WriteLine($"  {i*2,3}: {inst,-25} {extra}");
             }
 
@@ -508,6 +514,15 @@ namespace SharpPy
                 {
                     var lastiFlag = entry.Lasti ? " lasti" : "";
                     Console.WriteLine($"  {entry.StartOffset} to {entry.EndOffset} -> {entry.HandlerOffset} [{entry.Depth}]{lastiFlag}");
+                }
+            }
+
+            // CPython 3.12: Recursively disassemble nested code objects (functions, classes, etc.)
+            foreach (var constant in Constants)
+            {
+                if (constant is PyCodeObject nestedCode)
+                {
+                    nestedCode.Disassemble();
                 }
             }
         }

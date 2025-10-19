@@ -520,11 +520,11 @@ params[GeneratedArguments]:
 # C#: Function parameter combinations (positional-only, regular, keyword-only, *args, **kwargs)
 parameters[GeneratedArguments]:
     | a=slash_no_default b[GeneratedArgSeq]=param_no_default* c=param_with_default* d=[star_etc] {
-        CheckVersion(8, "Positional-only parameters are", PyParserHelpers.MakeArguments((GeneratedArgSeq)a, null, b, (GeneratedNameDefaultPairSeq?)c, (GeneratedStarEtc?)d)) }
+        CheckVersion(8, "Positional-only parameters are", PyParserHelpers.MakeArguments((GeneratedArgSeq)a, null, b, c?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)d)) }
     | a=slash_with_default b=param_with_default* c=[star_etc] {
-        CheckVersion(8, "Positional-only parameters are", PyParserHelpers.MakeArguments(null, (GeneratedSlashWithDefault)a, null, (GeneratedNameDefaultPairSeq?)b, (GeneratedStarEtc?)c)) }
+        CheckVersion(8, "Positional-only parameters are", PyParserHelpers.MakeArguments(null, (GeneratedSlashWithDefault)a, null, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)c)) }
     | a[GeneratedArgSeq]=param_no_default+ b=param_with_default* c=[star_etc] {
-        PyParserHelpers.MakeArguments(null, null, a, (GeneratedNameDefaultPairSeq?)b, (GeneratedStarEtc?)c) }
+        PyParserHelpers.MakeArguments(null, null, a, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)c) }
     | a=param_with_default+ b=[star_etc] { PyParserHelpers.MakeArguments(null, null, null, (GeneratedNameDefaultPairSeq?)a, (GeneratedStarEtc?)b)}
     | a=star_etc { PyParserHelpers.MakeArguments(null, null, null, null, (GeneratedStarEtc)a) }
 
@@ -1311,11 +1311,11 @@ lambda_params[GeneratedArguments]:
 # C#: Lambda parameters (same as parameters but without annotations)
 lambda_parameters[GeneratedArguments]:
     | a=lambda_slash_no_default b[GeneratedArgSeq]=lambda_param_no_default* c=lambda_param_with_default* d=[lambda_star_etc] {
-        CheckVersion(8, "Positional-only parameters are", PyParserHelpers.MakeArguments((GeneratedArgSeq)a, null, b, (GeneratedNameDefaultPairSeq?)c, (GeneratedStarEtc?)d)) }
+        CheckVersion(8, "Positional-only parameters are", PyParserHelpers.MakeArguments((GeneratedArgSeq)a, null, b, c?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)d)) }
     | a=lambda_slash_with_default b=lambda_param_with_default* c=[lambda_star_etc] {
-        CheckVersion(8, "Positional-only parameters are", PyParserHelpers.MakeArguments(null, (GeneratedSlashWithDefault)a, null, (GeneratedNameDefaultPairSeq?)b, (GeneratedStarEtc?)c)) }
+        CheckVersion(8, "Positional-only parameters are", PyParserHelpers.MakeArguments(null, (GeneratedSlashWithDefault)a, null, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)c)) }
     | a[GeneratedArgSeq]=lambda_param_no_default+ b=lambda_param_with_default* c=[lambda_star_etc] {
-        PyParserHelpers.MakeArguments(null, null, a, (GeneratedNameDefaultPairSeq?)b, (GeneratedStarEtc?)c) }
+        PyParserHelpers.MakeArguments(null, null, a, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)c) }
     | a=lambda_param_with_default+ b=[lambda_star_etc] { PyParserHelpers.MakeArguments(null, null, null, (GeneratedNameDefaultPairSeq?)a, (GeneratedStarEtc?)b)}
     | a=lambda_star_etc { PyParserHelpers.MakeArguments(null, null, null, null, (GeneratedStarEtc)a) }
 
