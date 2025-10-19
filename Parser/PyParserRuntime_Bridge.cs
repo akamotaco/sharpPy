@@ -20,8 +20,8 @@ namespace SharpPy.Generated
         public static List<GeneratedTokenInfo> LexerSource(string source)
         {
 #if DEBUG_AST_LOG
-            Console.WriteLine($"[DEBUG] PyParserRuntime.ParseSource START for {filename}");
-            Console.WriteLine($"[DEBUG] GeneratedParserBridge: Using auto-generated CPython 3.12 tokenizer + parser for {filename}");
+            Console.WriteLine($"[DEBUG] PyParserRuntime.LexerSource START");
+            Console.WriteLine($"[DEBUG] GeneratedParserBridge: Using auto-generated CPython 3.12 tokenizer + parser");
 #endif
 
 #if DEBUG_AST_LOG
@@ -332,14 +332,38 @@ namespace SharpPy.Generated
                             // Convert operator
                             var opNode = ConvertGeneratedOperator(op);
 
-                            if (targetExpr is NameExpression nameExpr)
+                            // CPython 3.12: AugAssignStatement supports both Name and Attribute targets
+                            if (targetExpr != null && opNode != null && valueExpr != null)
                             {
+                                if (targetExpr is NameExpression nameExpr)
+                                {
 #if DEBUG_AST_LOG
-                                Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Creating AugAssignStatement with target='{nameExpr.Name}', op={opNode.OperatorType}");
+                                    Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Creating AugAssignStatement with Name target='{nameExpr.Name}', op={opNode.OperatorType}");
 #endif
-                                var result = new AugAssignStatement(nameExpr.Name, opNode, valueExpr);
-                                CopySourceLocation(augAssign, result);
-                                return result;
+                                    var result = new AugAssignStatement(nameExpr.Name, opNode, valueExpr);
+                                    CopySourceLocation(augAssign, result);
+                                    return result;
+                                }
+                                else if (targetExpr is AttributeExpression attrExpr)
+                                {
+#if DEBUG_AST_LOG
+                                    Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Creating AugAssignStatement with Attribute target, op={opNode.OperatorType}");
+#endif
+                                    // CPython 3.12: AugAssignStatement with AttributeExpression target
+                                    var result = new AugAssignStatement(targetExpr, opNode, valueExpr);
+                                    CopySourceLocation(augAssign, result);
+                                    return result;
+                                }
+                                else
+                                {
+#if DEBUG_AST_LOG
+                                    Console.WriteLine($"[DEBUG] ConvertStatement AugAssign: Creating AugAssignStatement with generic target, op={opNode.OperatorType}");
+#endif
+                                    // CPython 3.12: Support subscript and other targets
+                                    var result = new AugAssignStatement(targetExpr, opNode, valueExpr);
+                                    CopySourceLocation(augAssign, result);
+                                    return result;
+                                }
                             }
                         }
                     }
@@ -1022,11 +1046,15 @@ namespace SharpPy.Generated
                             if (funcDef.Returns != null)
                             {
                                 returnAnnotation = ConvertAnyExpression(funcDef.Returns);
+#if DEBUG_AST_LOG
                                 Console.WriteLine($"[DEBUG] Function '{name}' has return annotation: {returnAnnotation}");
+#endif
                             }
 
                             // CPython 3.12: Create function with FunctionArguments and return annotation
+#if DEBUG_AST_LOG
                             Console.WriteLine($"[DEBUG] Creating FunctionDefStatement with FunctionArguments: {functionArgs}");
+#endif
                             var functionDef = new FunctionDefStatement(name, functionArgs, bodyStmts, null, decoratorExpressions, returnAnnotation);
                             CopySourceLocation(funcDef, functionDef);
                             return functionDef;

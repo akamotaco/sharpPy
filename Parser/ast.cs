@@ -794,33 +794,123 @@ namespace SharpPy
         }
     }
 
+    /// <summary>
+    /// CPython 3.12: AugAssign(expr target, operator op, expr value)
+    /// Supports Name, Attribute, and Subscript targets
+    /// </summary>
     public class AugAssignStatement : Statement
     {
         public override string NodeType => "AugAssign";
-        public string Target { get; }
+
+        // CPython 3.12: target is expr (can be Name, Attribute, Subscript)
+        public Expression TargetExpr { get; }
+
+        // Legacy: For backward compatibility with string target
+        [Obsolete("Use TargetExpr instead - this is for backward compatibility only")]
+        public string Target => (TargetExpr is NameExpression nameExpr) ? nameExpr.Name : TargetExpr.ToString();
+
         public BinaryOperator Op { get; }
         public Expression Value { get; }
 
+        // CPython 3.12 compatible constructor: target is Expression
+        public AugAssignStatement(Expression target, BinaryOperator op, Expression value)
+        {
+            TargetExpr = target;
+            Op = op;
+            Value = value;
+        }
+
+        // Legacy constructor: target is string (converts to NameExpression)
         public AugAssignStatement(string target, BinaryOperator op, Expression value)
         {
-            Target = target;
+            TargetExpr = new NameExpression(target);
             Op = op;
             Value = value;
         }
 
         public override PyObject Evaluate(PyScope scope)
         {
-            var currentValue = scope.GetVariable(Target);
+            // CPython 3.12: Evaluate right side first
             var rightValue = Value.Evaluate(scope);
 
-            // CPython 3.12: Use operator's Apply method
-            PyObject result = Op.Apply(currentValue, rightValue);
+            // CPython 3.12: Get current value based on target type
+            PyObject currentValue;
 
-            scope.SetVariable(Target, result);
-            return result;
+            if (TargetExpr is NameExpression nameExpr)
+            {
+                // Simple name: x += 1
+                currentValue = scope.GetVariable(nameExpr.Name);
+
+                // Apply operation
+                PyObject result = Op.Apply(currentValue, rightValue);
+
+                // Store result
+                scope.SetVariable(nameExpr.Name, result);
+                return result;
+            }
+            else if (TargetExpr is AttributeExpression attrExpr)
+            {
+                // Attribute: self.x += 1
+                var obj = attrExpr.Value.Evaluate(scope);
+                currentValue = obj.GetAttribute(attrExpr.Attr);
+
+                // Apply operation
+                PyObject result = Op.Apply(currentValue, rightValue);
+
+                // Store result
+                obj.SetAttribute(attrExpr.Attr, result);
+                return result;
+            }
+            else if (TargetExpr is SubscriptExpression subscriptExpr)
+            {
+                // Subscript: list[0] += 1
+                var obj = subscriptExpr.Value.Evaluate(scope);
+                var index = subscriptExpr.Slice.Evaluate(scope);
+
+                // Get current value
+                if (obj is PyDict dict)
+                {
+                    currentValue = dict.GetItem(index);
+                }
+                else if (obj is PyList list && index is PyInt intIndex)
+                {
+                    currentValue = list.GetItem((int)intIndex.Value);
+                }
+                else if (obj is PyString str && index is PyInt intIndex2)
+                {
+                    currentValue = new PyString(str.Value[(int)intIndex2.Value].ToString());
+                }
+                else
+                {
+                    throw new NotImplementedException($"Subscript on {obj.GetType().Name} with index {index.GetType().Name}");
+                }
+
+                // Apply operation
+                PyObject result = Op.Apply(currentValue, rightValue);
+
+                // Store result back
+                if (obj is PyDict dict2)
+                {
+                    dict2.SetItem(index, result);
+                }
+                else if (obj is PyList list2 && index is PyInt intIndex3)
+                {
+                    list2.SetItem((int)intIndex3.Value, result);
+                }
+                else
+                {
+                    throw new NotImplementedException($"Subscript assignment on {obj.GetType().Name}");
+                }
+
+                return result;
+            }
+            else
+            {
+                throw new NotImplementedException($"AugAssign target type not supported: {TargetExpr.GetType().Name}");
+            }
         }
 
-        public override string ToString() => $"{Target} {Op.OperatorType}= {Value}";
+        public override string ToString() => $"{TargetExpr} {Op.OperatorType}= {Value}";
     }
 
     public class WalrusStatement : Statement

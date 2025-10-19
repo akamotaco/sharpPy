@@ -410,6 +410,12 @@ namespace SharpPy.Tools
                     fields.Add(("value", assign.Value));
                     break;
 
+                case AugAssignStatement augAssign:
+                    fields.Add(("target", augAssign.TargetExpr));
+                    fields.Add(("op", augAssign.Op));
+                    fields.Add(("value", augAssign.Value));
+                    break;
+
                 case ExpressionStatement exprStmt:
                     fields.Add(("value", exprStmt.Expression));
                     break;
