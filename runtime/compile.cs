@@ -797,7 +797,37 @@ namespace SharpPy
                 }
             }
         }
-        
+
+        /// <summary>
+        /// CPython: _PyAST_GetDocString in Python/ast.c:1094-1108
+        /// Get the docstring from a sequence of statements if present.
+        /// Returns the docstring value or null if not found.
+        /// </summary>
+        private string? GetDocString(List<Statement> statements)
+        {
+            // CPython: if (!asdl_seq_LEN(body)) return NULL;
+            if (statements == null || statements.Count == 0)
+            {
+                return null;
+            }
+
+            // CPython: if (st->kind != Expr_kind) return NULL;
+            var firstStmt = statements[0];
+            if (!(firstStmt is ExpressionStatement exprStmt))
+            {
+                return null;
+            }
+
+            // CPython: if (e->kind == Constant_kind && PyUnicode_CheckExact(e->v.Constant.value))
+            if (exprStmt.Expression is ConstantExpression constExpr &&
+                constExpr.Value is PyString pyStr)
+            {
+                return pyStr.Value;
+            }
+
+            return null;
+        }
+
         public PyCodeObject Compile(List<Statement> statements, string name, List<string> parameters, string? fileName = null)
         {
             // Clear all compilation state for new compilation
@@ -883,9 +913,32 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.SETUP_ANNOTATIONS);
             }
 
-            foreach (var statement in optimizedStatements)
+            // CPython 3.12: Handle docstring (compile.c:1694-1704)
+            // if not -OO mode, set docstring
+            int startIndex = 0;
+            if (name == "<module>")
             {
-                CompileStatement(statement);
+                string? docstring = GetDocString(optimizedStatements);
+                if (docstring != null)
+                {
+                    // CPython: VISIT(c, expr, st->v.Expr.value);
+                    // Load docstring constant
+                    var docConstIndex = GetOrAddConstant(new PyString(docstring));
+                    EmitInstruction(ByteCodeOp.LOAD_CONST, docConstIndex);
+
+                    // CPython: compiler_nameop(c, NO_LOCATION, &_Py_ID(__doc__), Store);
+                    // Store in __doc__
+                    EmitStoreName("__doc__");
+
+                    // Skip first statement (it's the docstring)
+                    startIndex = 1;
+                }
+            }
+
+            // Compile remaining statements
+            for (int i = startIndex; i < optimizedStatements.Count; i++)
+            {
+                CompileStatement(optimizedStatements[i]);
             }
             
             // CPython 3.12: 모듈은 RETURN_CONST로 None 반환 (Exception Handler 이전에)
@@ -3655,6 +3708,21 @@ namespace SharpPy
             if (_currentLineNumber >= 0)
             {
                 _lineNumberTable[instructionOffset] = _currentLineNumber;
+            }
+
+            // CPython 3.12: Emit inline cache entries for adaptive bytecode instructions
+            // This makes disassembly output match CPython 3.12 exactly
+            int cacheEntries = PyJumpBackwardUtil.GetInlineCacheEntries(opCode);
+            for (int i = 0; i < cacheEntries; i++)
+            {
+                _instructions.Add(new ByteCodeInstruction(
+                    ByteCodeOp.CACHE,
+                    0,
+                    _currentLineNumber,
+                    _currentColumnOffset,
+                    _currentFileName,
+                    exceptHandlerInfo
+                ));
             }
         }
         

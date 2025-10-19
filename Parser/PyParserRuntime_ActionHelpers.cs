@@ -302,13 +302,16 @@ namespace SharpPy.Generated
 
         /// <summary>
         /// CPython: expr_ty ConstantFromToken(Parser *p, Token *tok)
+        /// Equivalent to CPython's _PyPegen_constant_from_string
         /// </summary>
         public static GeneratedExpr ConstantFromToken(GeneratedTokenInfo token)
         {
-            // Parse token value to constant
+            // CPython: PyObject *s = _PyPegen_parse_string(p, tok);
+            // Decode string literal (remove quotes, prefixes, handle escapes)
+            string decoded = DecodeStringLiteral(token.Value);
             return new GeneratedConstant
             {
-                Value = new GeneratedPyConstantString(token.Value)
+                Value = new GeneratedPyConstantString(decoded)
             };
         }
 
@@ -875,27 +878,96 @@ namespace SharpPy.Generated
         }
 
         // Helper: Decode string literal
-        private static string DecodeStringLiteral(string literal)
+        // CPython: _PyPegen_parse_string in Parser/string_parser.c:239-302
+        private static string DecodeStringLiteral(string s)
         {
-            if (string.IsNullOrEmpty(literal)) return literal;
+            if (string.IsNullOrEmpty(s)) return s;
 
-            // Remove quotes
-            if (literal.StartsWith("\"") && literal.EndsWith("\""))
+            int startIdx = 0;
+            bool bytesmode = false;
+            bool rawmode = false;
+
+            // CPython: Skip prefix (r, R, b, B, u, U) - string_parser.c:251-268
+            while (startIdx < s.Length && char.IsLetter(s[startIdx]))
             {
-                literal = literal.Substring(1, literal.Length - 2);
-            }
-            else if (literal.StartsWith("'") && literal.EndsWith("'"))
-            {
-                literal = literal.Substring(1, literal.Length - 2);
+                char prefix = char.ToLower(s[startIdx]);
+                if (prefix == 'b')
+                {
+                    bytesmode = true;
+                    startIdx++;
+                }
+                else if (prefix == 'u')
+                {
+                    startIdx++;  // Just skip 'u' prefix
+                }
+                else if (prefix == 'r')
+                {
+                    rawmode = true;
+                    startIdx++;
+                }
+                else if (prefix == 'f')
+                {
+                    // F-strings are handled separately, but skip if present
+                    startIdx++;
+                }
+                else
+                {
+                    break;
+                }
             }
 
-            // Handle escape sequences
-            literal = literal.Replace("\\n", "\n");
-            literal = literal.Replace("\\r", "\r");
-            literal = literal.Replace("\\t", "\t");
-            literal = literal.Replace("\\\\", "\\");
-            literal = literal.Replace("\\\"", "\"");
-            literal = literal.Replace("\\'", "'");
+            if (startIdx >= s.Length) return "";
+
+            // CPython: Determine quote character - string_parser.c:270-273
+            char quote = s[startIdx];
+            if (quote != '\'' && quote != '\"')
+            {
+                return s;  // Invalid string literal
+            }
+
+            // CPython: Skip leading quote - string_parser.c:275-276
+            startIdx++;
+            int endIdx = s.Length;
+
+            // CPython: Find trailing quote - string_parser.c:286
+            if (endIdx > 0 && s[endIdx - 1] == quote)
+            {
+                endIdx--;
+            }
+            else
+            {
+                return s;  // Invalid string literal
+            }
+
+            // CPython: Handle triple quotes - string_parser.c:291-302
+            if (endIdx - startIdx >= 4 &&
+                startIdx + 1 < s.Length && s[startIdx] == quote && s[startIdx + 1] == quote)
+            {
+                // Triple quoted string: skip two more quotes at start
+                startIdx += 2;
+
+                // Check and skip two more quotes at end
+                if (endIdx >= 2 && s[endIdx - 1] == quote && s[endIdx - 2] == quote)
+                {
+                    endIdx -= 2;
+                }
+            }
+
+            // Extract string content
+            string literal = s.Substring(startIdx, endIdx - startIdx);
+
+            // CPython: Handle escape sequences (only if not raw mode) - string_parser.c:305
+            if (!rawmode)
+            {
+                // Note: This is a simplified version. CPython uses _PyBytes_DecodeEscape2
+                // For full compatibility, we should handle all Python escape sequences
+                literal = literal.Replace("\\n", "\n");
+                literal = literal.Replace("\\r", "\r");
+                literal = literal.Replace("\\t", "\t");
+                literal = literal.Replace("\\\\", "\\");
+                literal = literal.Replace("\\\"", "\"");
+                literal = literal.Replace("\\'", "'");
+            }
 
             return literal;
         }
