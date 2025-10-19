@@ -103,7 +103,9 @@ namespace SharpPy
 
         public override PyObject Next()
         {
+            #if DEBUG_GENERATOR_LOG
             Console.WriteLine($"🔄 PyGenerator.Next() called, _finished: {_finished}, _started: {_started}");
+            #endif
             if (_finished)
                 throw PyStopIteration.Create();
 
@@ -130,14 +132,18 @@ namespace SharpPy
                     _frame.InstructionPointer = 0;
                     _frame.ValueStack.Push(PyNone.Instance); // CPython 3.12: initial sent value is None
                     _started = true;
+                    #if DEBUG_GENERATOR_LOG
                     Console.WriteLine($"🔄 Native Generator: First execution, starting from instruction 0, stack size: {_frame.ValueStack.Count}");
+                    #endif
                 }
                 else
                 {
                     // 재개: CPython 3.12 호환 - sent value를 스택에 push
                     // RESUME + POP_TOP 패턴을 위해 sent value가 스택에 있어야 함
                     _frame.ValueStack.Push(_sentValue);
+                    #if DEBUG_GENERATOR_LOG
                     Console.WriteLine($"🔄 Native Generator: Resumed, stack size: {_frame.ValueStack.Count}");
+                    #endif
                 }
 
                 // 프레임 실행 (yield까지 또는 끝까지)
@@ -145,13 +151,17 @@ namespace SharpPy
                 
                 // 정상 완료된 경우 (return 또는 end of function)
                 _finished = true;
+                #if DEBUG_GENERATOR_LOG
                 Console.WriteLine("🔄 Native Generator: Completed normally");
+                #endif
                 throw PyStopIteration.Create();
             }
             catch (PyYieldException yieldEx)
             {
                 // yield 지점에서 중단 - 이것이 정상적인 제너레이터 동작
+                #if DEBUG_GENERATOR_LOG
                 Console.WriteLine($"🔄 Native Generator: Yielded {yieldEx.Value} at instruction {_frame.InstructionPointer}");
+                #endif
                 
                 // sent value 초기화 (다음 호출까지 기본값)
                 _sentValue = PyNone.Instance;
@@ -167,22 +177,28 @@ namespace SharpPy
             catch (PythonException ex)
             {
                 // 다른 Python 예외가 발생한 경우 전파
+                #if DEBUG_GENERATOR_LOG
                 Console.WriteLine($"🔴 PyGenerator.Next() PythonException: {ex.PyException?.GetType().Name}: {ex.Message}");
+                #endif
                 _finished = true;
                 throw;
             }
             catch (InvalidOperationException ex) when (ex.Message.Contains("Stack empty"))
             {
                 // Generator completion: Stack empty during final cleanup is normal completion
+                #if DEBUG_GENERATOR_LOG
                 Console.WriteLine($"🎉 Generator: Completed successfully (stack empty during cleanup)");
+                #endif
                 _finished = true;
                 throw PyStopIteration.Create();
             }
             catch (Exception ex)
             {
                 // 다른 예외가 발생한 경우
+                #if DEBUG_GENERATOR_LOG
                 Console.WriteLine($"🔴 PyGenerator.Next() Exception: {ex.GetType().Name}: {ex.Message}");
                 Console.WriteLine($"🔴 Stack trace: {ex.StackTrace}");
+                #endif
                 _finished = true;
                 throw;
             }

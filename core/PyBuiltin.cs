@@ -327,7 +327,9 @@ namespace SharpPy
             if (args.Length == 1)
             {
                 var prompt = args[0].ToStr().Value;
+                #if DEBUG_LOG
                 Console.Write(prompt);
+                #endif
             }
 
             // stdin에서 한 줄 읽기
@@ -1596,19 +1598,27 @@ namespace SharpPy
             PyDict prepareDict = null;  // Store the original __prepare__ result to preserve special attributes
             PyObject originalPrepareResult = null;  // Track the original __prepare__ result (PyClassInstance for _EnumDict)
 
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 __build_class__ for {className}: hasMetaclass={hasMetaclass}, metaclass={metaclass?.GetType().Name}");
+            #endif
             if (hasMetaclass && metaclass != null)
             {
                 try
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"  🔎 Looking for __prepare__ on {metaclass}");
+                    #endif
                     var prepareMethod = metaclass.GetAttribute("__prepare__");
+                    #if DEBUG_LOG
                     Console.WriteLine($"  🔎 Got prepareMethod: {prepareMethod?.GetType().Name} (callable={prepareMethod?.IsCallable()})");
+                    #endif
                     if (prepareMethod != null && prepareMethod.IsCallable())
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"🔧 Calling __prepare__ on metaclass {metaclass}");
                         Console.WriteLine($"   prepareMethod type: {prepareMethod.GetType().Name}");
                         Console.WriteLine($"   prepareMethod is PyMethod: {prepareMethod is PyMethod}");
+                        #endif
 
                         // __prepare__(metacls, name, bases, **kwds)
                         // If prepareMethod is a bound method (PyMethod), the first argument is already bound
@@ -1621,7 +1631,9 @@ namespace SharpPy
                                 new PyString(className),
                                 new PyTuple(bases.Cast<PyObject>().ToArray())
                             };
+                            #if DEBUG_LOG
                             Console.WriteLine($"   Using bound method call with {prepareArgs.Length} args (cls, bases)");
+                            #endif
                         }
                         else
                         {
@@ -1631,13 +1643,19 @@ namespace SharpPy
                                 new PyString(className),
                                 new PyTuple(bases.Cast<PyObject>().ToArray())
                             };
+                            #if DEBUG_LOG
                             Console.WriteLine($"   Using unbound method call with {prepareArgs.Length} args (metacls, cls, bases)");
+                            #endif
                         }
 
+                        #if DEBUG_LOG
                         Console.WriteLine($"  📞 About to call __prepare__ with {prepareArgs.Length} args");
+                        #endif
                         var prepareResult = prepareMethod.Call(prepareArgs, null);
+                        #if DEBUG_LOG
                         Console.WriteLine($"  ✅ __prepare__ returned: {prepareResult?.GetType().Name} (Type: {prepareResult?.GetTypeName()})");
                         Console.WriteLine($"     is PyDict: {prepareResult is PyDict}, is PyClassInstance: {prepareResult is PyClassInstance}");
+                        #endif
 
                         // Store the original dict object to preserve special attributes (e.g., _member_names_ for _EnumDict)
                         // CPython 3.12: __prepare__ can return dict subclasses like _EnumDict (PyClassInstance)
@@ -1707,22 +1725,28 @@ namespace SharpPy
                             // Use InternalDict to bypass equality comparator issues
                             prepareDict.InternalDict[new PyString("__prepare_result__")] = prepareResult;
 
+                            #if DEBUG_LOG
                             Console.WriteLine($"  🔑 Stored original object in __prepare_result__ marker");
                             Console.WriteLine($"     prepareDict.InternalDict.Count = {prepareDict.InternalDict.Count}");
                             Console.WriteLine($"     prepareResult type: {prepareResult.GetType().Name}");
+                            #endif
                         }
                     }
                 }
                 catch (PythonException pex) when (pex.PyException is PyAttributeError)
                 {
                     // __prepare__ not found, that's okay
+                    #if DEBUG_LOG
                     Console.WriteLine($"❌ AttributeError during __prepare__: {pex.Message}");
                     Console.WriteLine("   Using empty namespace");
+                    #endif
                 }
                 catch (Exception ex)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"❌ Exception while calling __prepare__: {ex.GetType().Name}: {ex.Message}");
                     Console.WriteLine($"   Stack trace: {ex.StackTrace}");
+                    #endif
                     // CPython 3.12: If __prepare__ exists but fails, the exception should propagate
                     throw;
                 }
@@ -1788,7 +1812,9 @@ namespace SharpPy
                 }
                 catch (Exception ex)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"Error executing class body for {className}: {ex.Message}");
+                    #endif
                     #if DEBUG_LOG
                     Console.WriteLine($"Stack trace: {ex.StackTrace}");
                     #endif
@@ -1852,7 +1878,9 @@ namespace SharpPy
                     if (prepareDict != null && prepareDict.InternalDict.ContainsKey(new PyString("__prepare_result__")))
                     {
                         storedPrepareResult = prepareDict.InternalDict[new PyString("__prepare_result__")];
+                        #if DEBUG_LOG
                         Console.WriteLine($"  🔍 Found __prepare_result__ marker: {storedPrepareResult?.GetType().Name}");
+                        #endif
                     }
 
                     if (originalPrepareResult != null)
@@ -1860,7 +1888,9 @@ namespace SharpPy
                         // CPython 3.12: Use the original __prepare__ result directly (PyClassInstance for _EnumDict)
                         // CRITICAL: We must call Python's __setitem__ to trigger custom dict behavior!
                         // _EnumDict.__setitem__ tracks member names - SetItem bypasses this!
+                        #if DEBUG_LOG
                         Console.WriteLine($"  ✅ Using original __prepare__ result from variable! Type: {originalPrepareResult.GetType().Name}");
+                        #endif
 
                         // CPython behavior: During class body execution, STORE_NAME calls __setitem__ on the namespace dict
                         // This triggers _EnumDict.__setitem__ which populates _member_names
@@ -1868,17 +1898,23 @@ namespace SharpPy
                         var setitemMethod = originalPrepareResult.GetAttribute("__setitem__");
                         if (setitemMethod != null && setitemMethod.IsCallable())
                         {
+                            #if DEBUG_LOG
                             Console.WriteLine($"  🔧 Found __setitem__ method, calling it for each class member");
+                            #endif
                             foreach (var kvp in classNamespace)
                             {
+                                #if DEBUG_LOG
                                 Console.WriteLine($"    Calling __setitem__('{kvp.Key}', {kvp.Value?.GetTypeName()})");
+                                #endif
                                 setitemMethod.Call(new PyObject[] { new PyString(kvp.Key), kvp.Value }, null);
                             }
                         }
                         else
                         {
                             // Fallback: use SetItem if __setitem__ not available
+                            #if DEBUG_LOG
                             Console.WriteLine($"  ⚠️ No __setitem__ found, using SetItem fallback");
+                            #endif
                             foreach (var kvp in classNamespace)
                             {
                                 try
@@ -1892,29 +1928,39 @@ namespace SharpPy
                             }
                         }
                         namespaceObj = originalPrepareResult;  // Use the original _EnumDict instance
+                        #if DEBUG_LOG
                         Console.WriteLine($"📦 Using original __prepare__ result (_EnumDict instance)");
                         Console.WriteLine($"   namespaceObj type after assignment: {namespaceObj?.GetType().Name}, PyType: {namespaceObj?.GetTypeName()}");
+                        #endif
                     }
                     else if (storedPrepareResult != null)
                     {
                         // CPython 3.12: Restore the original __prepare__ result from the marker
                         // CRITICAL: Same as above - call __setitem__ to trigger custom dict behavior
+                        #if DEBUG_LOG
                         Console.WriteLine($"  ✅ Restoring original __prepare__ result from marker! Type: {storedPrepareResult.GetType().Name}");
+                        #endif
 
                         var setitemMethod = storedPrepareResult.GetAttribute("__setitem__");
                         if (setitemMethod != null && setitemMethod.IsCallable())
                         {
+                            #if DEBUG_LOG
                             Console.WriteLine($"  🔧 Found __setitem__ method, calling it for each class member");
+                            #endif
                             foreach (var kvp in classNamespace)
                             {
+                                #if DEBUG_LOG
                                 Console.WriteLine($"    Calling __setitem__('{kvp.Key}', {kvp.Value?.GetTypeName()})");
+                                #endif
                                 setitemMethod.Call(new PyObject[] { new PyString(kvp.Key), kvp.Value }, null);
                             }
                         }
                         else
                         {
                             // Fallback
+                            #if DEBUG_LOG
                             Console.WriteLine($"  ⚠️ No __setitem__ found, using SetItem fallback");
+                            #endif
                             foreach (var kvp in classNamespace)
                             {
                                 try
@@ -1928,8 +1974,10 @@ namespace SharpPy
                             }
                         }
                         namespaceObj = storedPrepareResult;  // Use the original _EnumDict instance
+                        #if DEBUG_LOG
                         Console.WriteLine($"📦 Using restored __prepare__ result (_EnumDict instance)");
                         Console.WriteLine($"   namespaceObj type after assignment: {namespaceObj?.GetType().Name}, PyType: {namespaceObj?.GetTypeName()}");
+                        #endif
                     }
                     else if (prepareDict != null)
                     {
@@ -1976,9 +2024,13 @@ namespace SharpPy
                     }
                     
                     // Get the __new__ method from the metaclass
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔍 Getting __new__ from metaclass: {metaclass}");
+                    #endif
                     var newMethod = metaclass.GetAttribute("__new__");
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔍 Got newMethod: {newMethod?.GetType().Name ?? "null"}");
+                    #endif
                     if (newMethod != null && newMethod.IsCallable())
                     {
                         #if DEBUG_LOG
@@ -2031,7 +2083,9 @@ namespace SharpPy
                             }
                         }
                         
+                        #if DEBUG_LOG
                         Console.WriteLine($"🔍 Before creating newArgs: namespaceObj type={namespaceObj?.GetType().Name}, PyType={namespaceObj?.GetTypeName()}");
+                        #endif
 
                         var newArgs = new PyObject[] {
                             metaclass,                      // cls
@@ -2040,7 +2094,9 @@ namespace SharpPy
                             namespaceObj                    // namespace - PyDict or dict-like object (e.g., _EnumDict)
                         };
 
+                        #if DEBUG_LOG
                         Console.WriteLine($"🔍 After creating newArgs: newArgs[3] type={newArgs[3]?.GetType().Name}, PyType={newArgs[3]?.GetTypeName()}");
+                        #endif
 
                         // CPython 3.12: Pass keyword arguments (like boundary, **kwds) to metaclass.__new__
                         // Metaclasses may have keyword-only parameters after *
@@ -2074,10 +2130,14 @@ namespace SharpPy
                         try
                         {
                             // Execute metaclass.__new__ - this should modify namespaceDict and call type.__new__
+                            #if DEBUG_LOG
                             Console.WriteLine($"🚀 Calling metaclass.__new__ for class: {className}");
                             Console.WriteLine($"  newArgs[3] type: {newArgs[3]?.GetType().Name}, PyType: {newArgs[3]?.GetTypeName()}");
+                            #endif
                             result = newMethod.Call(newArgs, newKwargs);
+                            #if DEBUG_LOG
                             Console.WriteLine($"🚀 metaclass.__new__ returned: {result?.GetType().Name ?? "null"}");
+                            #endif
                         }
                         finally
                         {
@@ -2777,12 +2837,16 @@ namespace SharpPy
             }
 
             var func = args[0];
+            #if DEBUG_LOG
             Console.WriteLine($"[STATICMETHOD] Received: {func?.GetType().Name} / IsCallable={func?.IsCallable()} / value={func}");
+            #endif
 
             // CPython 3.12: If already a staticmethod, return as-is (idempotent)
             if (func is PyStaticmethod pyStaticmethod)
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"[STATICMETHOD] Already a staticmethod, returning as-is");
+                #endif
                 return pyStaticmethod;
             }
 
@@ -3298,7 +3362,9 @@ namespace SharpPy
         /// </summary>
         public override PyObject GetAttribute(string name)
         {
+            #if DEBUG_LOG
             Console.WriteLine($"🔍 PySuper.GetAttribute: Looking for '{name}' in super({Type.Name})");
+            #endif
 
             // Special case: __class__ returns the super class itself
             if (name == "__class__")
@@ -3348,12 +3414,16 @@ namespace SharpPy
 
                         if (attr != null)
                         {
+                            #if DEBUG_LOG
                             Console.WriteLine($"   ✅ Found '{name}' in {baseType.Name}: {attr.GetType().Name}");
+                            #endif
 
                             if (!bindDescriptor || Object == null)
                             {
                                 // Unbound super or no binding needed
+                                #if DEBUG_LOG
                                 Console.WriteLine($"🔧 PySuper returning unbound attr: {attr.GetType().Name}");
+                                #endif
                                 return attr;
                             }
 
@@ -3388,30 +3458,42 @@ namespace SharpPy
                 // Otherwise pass Object (instance-mode super)
                 PyObject instance = (Object == ObjectType) ? null : Object;
 
+                #if DEBUG_LOG
                 Console.WriteLine($"   🔧 Applying descriptor protocol: instance={(instance != null ? instance.GetType().Name : "null")}, owner={ObjectType.Name}");
+                #endif
 
                 var result = descriptor.Get(instance, ObjectType);
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 PySuper returning bound attr: {result?.GetType().Name ?? "null"}");
+                #endif
                 return result;
             }
             else if (attr is PyFunction function)
             {
                 // PyFunction implements descriptor protocol
                 // CPython 3.12: If Object == ObjectType, don't bind (class-mode)
+                #if DEBUG_LOG
                 Console.WriteLine($"   🔧 PyFunction check: Object={Object?.GetType().Name ?? "null"}, ObjectType={ObjectType?.Name ?? "null"}");
                 Console.WriteLine($"   🔧 Object == ObjectType: {Object == ObjectType}, ReferenceEquals: {ReferenceEquals(Object, ObjectType)}");
+                #endif
 
                 if (Object == ObjectType)
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"   🔧 Class-mode super: returning unbound function");
                     Console.WriteLine($"🔧 PySuper returning unbound function");
+                    #endif
                     return function;
                 }
                 else
                 {
+                    #if DEBUG_LOG
                     Console.WriteLine($"   🔧 Instance-mode super: binding function to {Object.GetType().Name}");
+                    #endif
                     var result = new PyMethod(Object, function);
+                    #if DEBUG_LOG
                     Console.WriteLine($"🔧 PySuper returning bound method");
+                    #endif
                     return result;
                 }
             }
@@ -3419,12 +3501,16 @@ namespace SharpPy
             {
                 // StaticBuiltinMethod and BuiltinMethod already implement IDescriptor
                 // This case is already handled above
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 PySuper returning builtin method as-is: {attr.GetType().Name}");
+                #endif
                 return attr;
             }
 
             // Not a descriptor - return as-is
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 PySuper returning non-descriptor attr: {attr.GetType().Name}");
+            #endif
             return attr;
         }
 

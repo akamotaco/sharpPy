@@ -114,7 +114,9 @@ namespace SharpPy
             // CPython 3.12: tp_new behaves like staticmethod - cls is explicit first argument
             classDict["__new__"] = new PyStaticBuiltinMethod("__new__", (args) =>
             {
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 type.__new__ (staticmethod) called with {args.Length} args");
+                #endif
 
                 if (args.Length == 4)
                 {
@@ -123,7 +125,9 @@ namespace SharpPy
                     // args[1] = name
                     // args[2] = bases
                     // args[3] = namespace
+                    #if DEBUG_LOG
                     Console.WriteLine($"   → CreateNewClass with metaclass={args[0]}");
+                    #endif
                     return CreateNewClass(args, skipMetaclassCheck: false);
                 }
                 else
@@ -313,11 +317,13 @@ namespace SharpPy
             var bases = args[2];      // base classes tuple
             var namespaceDict = args[3];  // class namespace dict
 
+            #if DEBUG_LOG
             Console.WriteLine($"🏗️ type.__new__ creating class: {(name is PyString pyStr ? pyStr.Value : name.ToString())}");
             Console.WriteLine($"   cls (metaclass): {cls.GetType().Name} / {cls}");
             Console.WriteLine($"   bases: {bases}");
             Console.WriteLine($"   namespaceDict: {namespaceDict.GetType().Name} / {namespaceDict.GetTypeName()}");
             Console.WriteLine($"   skipMetaclassCheck: {skipMetaclassCheck}");
+            #endif
 
             // Convert arguments
             if (!(name is PyString nameStr))
@@ -382,7 +388,9 @@ namespace SharpPy
             // CPython 3.12: Calculate the winner metaclass
             // This is equivalent to CPython's _PyType_CalculateMetaclass
             PyClass winner = CalculateMetaclass(cls as PyClass ?? Instance, baseTypes);
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 CalculateMetaclass: metatype={cls}, winner={winner.Name}");
+            #endif
 
             // CPython 3.12: Check if we have a custom metaclass before converting namespace
             // If we have a custom metaclass, we should pass the namespace as-is to its __new__
@@ -390,8 +398,10 @@ namespace SharpPy
             if (winner != null && winner != Instance)
             {
                 customMetaclass = winner;
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 Custom metaclass detected early: {customMetaclass.Name}");
                 Console.WriteLine($"   Will pass namespace dict as-is to metaclass.__new__");
+                #endif
             }
 
             // Convert namespace dict to class dict (only if no custom metaclass)
@@ -430,9 +440,11 @@ namespace SharpPy
             PyClass newClass;
             PyClass metatype = cls as PyClass ?? Instance;
 
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 Metaclass check: winner={winner?.Name}, metatype={metatype.Name}");
             Console.WriteLine($"   winner != metatype: {winner != metatype}");
             Console.WriteLine($"   skipMetaclassCheck: {skipMetaclassCheck}");
+            #endif
 
             // CPython: Check if the winner metaclass (or metatype if winner==metatype) has custom __new__
             // We need to call it even when winner == metatype if it's overridden!
@@ -448,7 +460,9 @@ namespace SharpPy
                     if (newMethod != null && newMethod.IsCallable())
                     {
                         bool isTypeNew = IsTypeNew(newMethod);
+                        #if DEBUG_LOG
                         Console.WriteLine($"   winner={winner.Name}, has custom __new__: {!isTypeNew}");
+                        #endif
 
                         if (!isTypeNew)
                         {
@@ -469,9 +483,11 @@ namespace SharpPy
             if (shouldCallCustomNew && customNewMethod != null)
             {
                 // Custom metaclass with overridden __new__ - call it
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 Calling custom metaclass {winner.Name}.__new__");
                 Console.WriteLine($"   Method type: {customNewMethod.GetType().Name}");
                 Console.WriteLine($"   namespaceDict type: {namespaceDict.GetType().Name} / {namespaceDict.GetTypeName()}");
+                #endif
 
                 // Call metaclass.__new__(cls, name, bases, namespace)
                 // Note: The namespace should be passed as-is (could be _EnumDict)
@@ -480,7 +496,9 @@ namespace SharpPy
                 if (result is PyClass resultClass)
                 {
                     newClass = resultClass;
+                    #if DEBUG_LOG
                     Console.WriteLine($"   ✅ {winner.Name}.__new__ returned: {newClass.Name}");
+                    #endif
                 }
                 else
                 {
@@ -490,7 +508,9 @@ namespace SharpPy
             else
             {
                 // Default type.__new__ behavior - create class directly
+                #if DEBUG_LOG
                 Console.WriteLine($"🔧 Creating class directly (no custom metaclass __new__)");
+                #endif
 
                 // Convert namespace if needed
                 if (classDict == null)
@@ -520,8 +540,10 @@ namespace SharpPy
             // PEP 487: Call __set_name__ on all descriptors in the class namespace
             // CPython 3.12: This MUST be called regardless of custom metaclass
             // The custom metaclass creates the class, but type.__new__ still needs to call __set_name__
+            #if DEBUG_LOG
             Console.WriteLine($"🔧 PEP 487: Calling __set_name__ on descriptors in {nameStr.Value}");
             Console.WriteLine($"   newClass.ClassDict has {newClass.ClassDict.Count} attributes");
+            #endif
 
             foreach (var kvp in newClass.ClassDict)
             {
@@ -534,10 +556,14 @@ namespace SharpPy
                     var setNameMethod = attrValue.GetAttribute("__set_name__");
                     if (setNameMethod != null && setNameMethod.IsCallable())
                     {
+                        #if DEBUG_LOG
                         Console.WriteLine($"  Calling __set_name__ on {attrName}: {attrValue.GetType().Name}");
+                        #endif
                         // Call __set_name__(owner, name)
                         setNameMethod.Call(new PyObject[] { newClass, new PyString(attrName) }, null);
+                        #if DEBUG_LOG
                         Console.WriteLine($"  ✅ __set_name__ completed for {attrName}");
+                        #endif
                     }
                 }
                 catch (PythonException ex)

@@ -975,11 +975,15 @@ namespace SharpPy
 
                 case ByteCodeOp.SWAP: // SWAP(n) - TOS와 TOS-(n-1) 교환
                     var oparg = instruction.Argument;
+                    #if DEBUG_VM_LOG
                     Console.WriteLine($"🔍 SWAP({oparg}): Stack.Count = {frame.ValueStack.Count}");
+                    #endif
                     if (frame.ValueStack.Count > 0)
                     {
                         var stackPreview = string.Join(", ", frame.ValueStack.Take(Math.Min(5, frame.ValueStack.Count)).Select(x => x.GetType().Name));
+                        #if DEBUG_VM_LOG
                         Console.WriteLine($"    Stack top items: [{stackPreview}]");
+                        #endif
                     }
 
                     if (frame.ValueStack.Count < oparg)
@@ -999,7 +1003,9 @@ namespace SharpPy
                         frame.ValueStack.Push(stackArray[i]);
                     }
 
+                    #if DEBUG_VM_LOG
                     Console.WriteLine($"    ✅ SWAP completed, Stack.Count = {frame.ValueStack.Count}");
+                    #endif
                     break;
 
                 case ByteCodeOp.LOAD_CONST:
@@ -1055,16 +1061,22 @@ namespace SharpPy
                     var clearArgIndex = instruction.Argument;
 
                     // 🔍 DEBUG: Track execution in no-optimize mode
+                    #if DEBUG_VM_LOG
                     Console.WriteLine($"🔍 LOAD_FAST_AND_CLEAR: arg={clearArgIndex}, VarNames.Count={frame.Code.VarNames.Count}, Stack.Count={frame.ValueStack.Count}");
+                    #endif
                     if (frame.Code.VarNames.Count > 0)
                     {
+                        #if DEBUG_VM_LOG
                         Console.WriteLine($"    VarNames: [{string.Join(", ", frame.Code.VarNames)}]");
+                        #endif
                     }
 
                     if (clearArgIndex < frame.Code.VarNames.Count)
                     {
                         var clearVarName = frame.Code.VarNames[clearArgIndex];
+                        #if DEBUG_VM_LOG
                         Console.WriteLine($"    Looking for variable: '{clearVarName}'");
+                        #endif
 
                         // Try fast locals first
                         if (frame.FastLocals.TryGetValue(clearVarName, out var clearValue))
@@ -1072,7 +1084,9 @@ namespace SharpPy
                             frame.ValueStack.Push(clearValue);
                             // Clear the variable from locals (PEP 709 requirement)
                             frame.FastLocals.Remove(clearVarName);
+                            #if DEBUG_VM_LOG
                             Console.WriteLine($"    ✅ PATH 1: Loaded '{clearVarName}'={clearValue} from fast locals, cleared. Stack.Count={frame.ValueStack.Count}");
+                            #endif
                             #if DEBUG_LOG
                             Console.WriteLine($"🧹 LOAD_FAST_AND_CLEAR: loaded {clearVarName}={clearValue} from fast locals, cleared");
                             #endif
@@ -1086,7 +1100,9 @@ namespace SharpPy
                                 frame.ValueStack.Push(globalVal);
                                 // Store original value in fast locals for proper restoration
                                 frame.FastLocals[clearVarName] = globalVal;
+                                #if DEBUG_VM_LOG
                                 Console.WriteLine($"    ✅ PATH 2: Loaded '{clearVarName}'={globalVal} from global scope. Stack.Count={frame.ValueStack.Count}");
+                                #endif
                                 #if DEBUG_LOG
                                 Console.WriteLine($"🧹 LOAD_FAST_AND_CLEAR: loaded {clearVarName}={globalVal} from global scope, saved to fast locals");
                                 #endif
@@ -1095,7 +1111,9 @@ namespace SharpPy
                             {
                                 // CPython 3.12: Load NULL if variable doesn't exist (for comprehensions)
                                 frame.ValueStack.Push(PyNull.Instance);
+                                #if DEBUG_VM_LOG
                                 Console.WriteLine($"    ✅ PATH 3: Variable '{clearVarName}' not found, loaded NULL. Stack.Count={frame.ValueStack.Count}");
+                                #endif
                                 #if DEBUG_LOG
                                 Console.WriteLine($"🧹 LOAD_FAST_AND_CLEAR: {clearVarName} not found in fast locals or globals, loaded NULL");
                                 #endif
@@ -1104,7 +1122,9 @@ namespace SharpPy
                     }
                     else
                     {
+                        #if DEBUG_VM_LOG
                         Console.WriteLine($"    ❌ ERROR: Argument index out of range!");
+                        #endif
                         throw PyRuntimeError.Create($"LOAD_FAST_AND_CLEAR: index {clearArgIndex} out of range");
                     }
                     break;
@@ -1215,14 +1235,18 @@ namespace SharpPy
 
                     if (isEnumRelated)
                     {
+                        #if DEBUG_VM_LOG
                         Console.WriteLine($"\n[LOAD_GLOBAL] Looking for: {globalName}");
                         Console.WriteLine($"  Current function: {frame.Code.Name}");
                         Console.WriteLine($"  GlobalScope: {frame.ScopeChain.GlobalScope?.Name ?? "null"}");
+                        #endif
                         if (frame.ScopeChain.GlobalScope != null)
                         {
+                            #if DEBUG_VM_LOG
                             Console.WriteLine($"  GlobalScope variable count: {frame.ScopeChain.GlobalScope.Variables.Count}");
                             Console.WriteLine($"  GlobalScope keys: {string.Join(", ", frame.ScopeChain.GlobalScope.Variables.Keys.Take(20))}");
                             Console.WriteLine($"  Has '{globalName}': {frame.ScopeChain.GlobalScope.Variables.ContainsKey(globalName)}");
+                            #endif
                         }
                     }
 
@@ -1257,14 +1281,18 @@ namespace SharpPy
                     {
                         if (isEnumRelated)
                         {
+                            #if DEBUG_VM_LOG
                             Console.WriteLine($"[LOAD_GLOBAL] ❌ Failed to find '{globalName}'!");
+                            #endif
                         }
                         throw PyNameError.Create($"name '{globalName}' is not defined");
                     }
 
                     if (isEnumRelated)
                     {
+                        #if DEBUG_VM_LOG
                         Console.WriteLine($"[LOAD_GLOBAL] ✅ Found '{globalName}': {globalValue?.GetType().Name}");
+                        #endif
                     }
 
                     #if DEBUG_LOG
@@ -1993,13 +2021,17 @@ namespace SharpPy
                             // This is equivalent to CPython's GLOBALS() macro: frame->f_globals
                             var globalsDict = frame.ScopeChain.GlobalScope?.Variables;
 
+                            #if DEBUG_VM_LOG
                             Console.WriteLine($"[GLOBALS CAPTURE] MAKE_FUNCTION for {pyCode.Name}:");
                             Console.WriteLine($"  frame.ScopeChain.GlobalScope.Name: {frame.ScopeChain.GlobalScope?.Name}");
                             Console.WriteLine($"  globalsDict count: {globalsDict?.Count ?? 0}");
+                            #endif
                             if (globalsDict != null)
                             {
+                                #if DEBUG_VM_LOG
                                 Console.WriteLine($"  globalsDict keys: {string.Join(", ", globalsDict.Keys.Take(10))}");
                                 Console.WriteLine($"  globalsDict reference hash: {globalsDict.GetHashCode()}");
+                                #endif
                             }
 
                             // Create function implementation with proper parameter binding
@@ -2007,12 +2039,16 @@ namespace SharpPy
                             {
                             // CPython 3.12: Create new ScopeChain with captured globals
                             // The function's globals are fixed at function definition time
+                            #if DEBUG_VM_LOG
                             Console.WriteLine($"[FUNCTION CALL] Function {pyCode.Name} called:");
                             Console.WriteLine($"  globalsDict count at call time: {globalsDict?.Count ?? 0}");
+                            #endif
                             if (globalsDict != null)
                             {
+                                #if DEBUG_VM_LOG
                                 Console.WriteLine($"  globalsDict keys at call time: {string.Join(", ", globalsDict.Keys.Take(10))}");
                                 Console.WriteLine($"  globalsDict reference hash at call time: {globalsDict.GetHashCode()}");
+                                #endif
                             }
 
                             if (globalsDict == null)
@@ -2022,8 +2058,10 @@ namespace SharpPy
 
                             var functionScopeChain = new PyScopeChain(globalsDict, "<function>");
 
+                            #if DEBUG_VM_LOG
                             Console.WriteLine($"  New ScopeChain GlobalScope count: {functionScopeChain.GlobalScope?.Variables.Count ?? 0}");
                             Console.WriteLine($"  New ScopeChain GlobalScope hash: {functionScopeChain.GlobalScope?.Variables.GetHashCode()}");
+                            #endif
 
                             var functionFrame = closure != null && closure.Length > 0
                                 ? new PyFrame(pyCode, args, functionScopeChain, closure, frame)
@@ -2670,7 +2708,9 @@ namespace SharpPy
                     int currentInstrPos = frame.InstructionPointer;
                     int targetInstrPos;
 
+                    #if DEBUG_VM_LOG
                     Console.WriteLine($"🔧 JUMP_BACKWARD: currentIP={currentInstrPos}, arg={instruction.Argument}");
+                    #endif
 
                     #if DEBUG_LOG
                     Console.WriteLine($"🔧 JUMP_BACKWARD Debug: currentInstrPos={currentInstrPos}, instruction.Argument={instruction.Argument}");
@@ -2694,7 +2734,9 @@ namespace SharpPy
                     {
                         // Quickened Code: instruction offset 사용
                         targetInstrPos = quickenedJumpCode.CalculateJumpBackwardTarget(currentInstrPos, instruction.Argument);
+                        #if DEBUG_VM_LOG
                         Console.WriteLine($"    🔙 JUMP_BACKWARD: QuickenedCode {currentInstrPos} → {targetInstrPos}");
+                        #endif
                         #if DEBUG_LOG
                         Console.WriteLine($"🔙 JUMP_BACKWARD: QuickenedCode {currentInstrPos} → {targetInstrPos}");
                         #endif
@@ -2703,7 +2745,9 @@ namespace SharpPy
                     {
                         // 레거시 방식: PyJumpBackwardUtil 사용
                         targetInstrPos = PyJumpBackwardUtil.CalculateJumpBackwardTarget(currentInstrPos, instruction.Argument, frame.Code.Instructions);
+                        #if DEBUG_VM_LOG
                         Console.WriteLine($"    🔙 JUMP_BACKWARD: Legacy (Util) {currentInstrPos} → {targetInstrPos}");
+                        #endif
                         #if DEBUG_LOG
                         Console.WriteLine($"🔙 JUMP_BACKWARD: Legacy {currentInstrPos} → {targetInstrPos}");
                         #endif
@@ -2745,7 +2789,9 @@ namespace SharpPy
                     // 하지만 FOR_ITER같은 경우는 target이 정확해야 함
                     // PyJumpBackwardUtil이 이미 올바른 target을 계산했으므로 -1 적용
                     frame.InstructionPointer = targetInstrPos - 1;
+                    #if DEBUG_VM_LOG
                     Console.WriteLine($"    🎯 Setting IP to {targetInstrPos - 1}, after main loop++ will be {targetInstrPos}");
+                    #endif
                     return null; // Continue execution from new position
 
                 // CPython-style Container Building Opcodes (Phase 1)
@@ -2977,7 +3023,9 @@ namespace SharpPy
 
                 // CPython-style Iterator Opcodes
                 case ByteCodeOp.GET_ITER:
+                    #if DEBUG_VM_LOG
                     Console.WriteLine($"🔍 GET_ITER: Stack.Count before pop = {frame.ValueStack.Count}");
+                    #endif
                     var iterable = frame.ValueStack.Pop();
                     if (iterable is PyTuple iterTuple)
                     {
@@ -2999,19 +3047,27 @@ namespace SharpPy
                     }
                     var iterator = iterable.GetIterator();
                     frame.ValueStack.Push(iterator);
+                    #if DEBUG_VM_LOG
                     Console.WriteLine($"    ✅ GET_ITER: Created iterator, Stack.Count after push = {frame.ValueStack.Count}");
+                    #endif
                     break;
 
                 case ByteCodeOp.FOR_ITER:
                     // CPython 3.12 compatible FOR_ITER implementation
+                    #if DEBUG_VM_LOG
                     Console.WriteLine($"🔍 FOR_ITER: Stack.Count before Peek = {frame.ValueStack.Count}, IP={frame.InstructionPointer}");
+                    #endif
                     if (frame.ValueStack.Count > 0)
                     {
                         var stackItems = frame.ValueStack.Take(Math.Min(5, frame.ValueStack.Count)).Select((x, i) => $"[{i}]={x.GetType().Name}").ToList();
+                        #if DEBUG_VM_LOG
                         Console.WriteLine($"    Stack items: {string.Join(", ", stackItems)}");
+                        #endif
                     }
                     var iter = frame.ValueStack.Peek(); // Keep iterator on stack for inspection
+                    #if DEBUG_VM_LOG
                     Console.WriteLine($"    Iterator type: {iter.GetType().Name}, value: {iter}");
+                    #endif
                     #if DEBUG_LOG
                     Console.WriteLine($"🔧 FOR_ITER: iterator type = {iter.GetType().Name}, calling Next()...");
                     Console.WriteLine($"    InstructionPointer = {frame.InstructionPointer}");
@@ -3020,7 +3076,9 @@ namespace SharpPy
                     {
                         var nextItem = iter.Next();
                         frame.ValueStack.Push(nextItem); // Push next item on top of iterator
+                        #if DEBUG_VM_LOG
                         Console.WriteLine($"    ✅ FOR_ITER: got next item, Stack.Count after push = {frame.ValueStack.Count}");
+                        #endif
                         #if DEBUG_LOG
                         Console.WriteLine($"🔄 FOR_ITER: got next item {nextItem} from iterator");
                         #endif
@@ -3028,7 +3086,9 @@ namespace SharpPy
                     }
                     catch (PythonException ex) when (ex.PyException is PyStopIteration)
                     {
+                        #if DEBUG_VM_LOG
                         Console.WriteLine($"🔚 FOR_ITER: StopIteration - loop finished, Stack.Count before pop = {frame.ValueStack.Count}");
+                        #endif
                         #if DEBUG_LOG
                         Console.WriteLine($"🔚 FOR_ITER: StopIteration - loop finished");
                         Console.WriteLine($"    스택 상태 (pop 전): count={frame.ValueStack.Count}");
@@ -3041,7 +3101,9 @@ namespace SharpPy
                         // FOR_ITER 스택 구조: [..., value, iterator] (CPython 호환)
                         // StopIteration 시: iterator를 제거하고 value를 유지
                         var removedIterator = frame.ValueStack.Pop(); // iterator 제거 (TOS)
+                        #if DEBUG_VM_LOG
                         Console.WriteLine($"    ✅ FOR_ITER: Popped iterator, Stack.Count after pop = {frame.ValueStack.Count}");
+                        #endif
                         #if DEBUG_LOG
                         Console.WriteLine($"    제거된 객체: {removedIterator} ({removedIterator.GetType().Name})");
                         Console.WriteLine($"    스택 상태 (pop 후): count={frame.ValueStack.Count}");
@@ -3071,7 +3133,9 @@ namespace SharpPy
                             // Jump amount = 1 + oparg + 1 = oparg + 2 instruction indices
                             // Main loop will ++, so set to: current + oparg + 2 - 1 = current + oparg + 1
                             int targetIndex = frame.InstructionPointer + instruction.Argument + 1;
+                            #if DEBUG_VM_LOG
                             Console.WriteLine($"    🔚 FOR_ITER: Jumping from IP={frame.InstructionPointer} to IP={targetIndex + 1} (no-optimize, arg={instruction.Argument})");
+                            #endif
                             frame.InstructionPointer = targetIndex; // main loop will increment
                         }
                         else
@@ -4541,19 +4605,27 @@ namespace SharpPy
                 case ByteCodeOp.LIST_APPEND:
                     // CPython 3.12 호환: LIST_APPEND i
                     // 스택: [..., list, ..., item] → [..., list, ...]
+                    #if DEBUG_VM_LOG
                     Console.WriteLine($"🔧 LIST_APPEND {instruction.Argument}: Stack before pop = {frame.ValueStack.Count}");
+                    #endif
                     if (frame.ValueStack.Count > 0)
                     {
                         var stackBefore = frame.ValueStack.Take(Math.Min(5, frame.ValueStack.Count)).Select((x, i) => $"[{i}]={x.GetType().Name}").ToList();
+                        #if DEBUG_VM_LOG
                         Console.WriteLine($"    Stack: {string.Join(", ", stackBefore)}");
+                        #endif
                     }
 
                     var itemToAppend = frame.ValueStack.Pop();
+                    #if DEBUG_VM_LOG
                     Console.WriteLine($"    Popped item: {itemToAppend.GetType().Name}");
+                    #endif
 
                     // CPython 3.12: LIST_APPEND i에서 타겟 리스트 찾기
                     var targetDepth = instruction.Argument - 1; // 0-based 인덱스
+                    #if DEBUG_VM_LOG
                     Console.WriteLine($"    Looking for list at depth {targetDepth} (arg={instruction.Argument})");
+                    #endif
 
                     if (frame.ValueStack.Count <= targetDepth)
                     {
@@ -4562,7 +4634,9 @@ namespace SharpPy
 
                     // 스택 위치에서 리스트 찾기 - PyNull 건너뛰기
                     var targetList = frame.ValueStack.ElementAt(targetDepth);
+                    #if DEBUG_VM_LOG
                     Console.WriteLine($"    Found at ElementAt({targetDepth}): {targetList.GetType().Name}");
+                    #endif
 
                     // PyNull인 경우 실제 리스트를 찾기 위해 스택을 탐색
                     if (PyNull.IsNull(targetList))
@@ -5920,7 +5994,9 @@ namespace SharpPy
                 catch (Exception ex)
                 {
                     // If execution fails, fall back to awaiter
+                    #if DEBUG_VM_LOG
                     Console.WriteLine($"Coroutine execution failed: {ex.Message}");
+                    #endif
                     return coroutine.GetAwaiter();
                 }
             }
@@ -6011,16 +6087,20 @@ namespace SharpPy
                     PyScopeChain functionScope;
                     if (pyFunc.GlobalsDict != null)
                     {
+                        #if DEBUG_VM_LOG
                         Console.WriteLine($"[FUNCTION SCOPE] Creating ScopeChain for {pyFunc.Name} from globalsDict:");
                         Console.WriteLine($"  globalsDict count: {pyFunc.GlobalsDict.Count}");
                         Console.WriteLine($"  globalsDict keys: {string.Join(", ", pyFunc.GlobalsDict.Keys.Take(10))}");
+                        #endif
 
                         // Use the function's captured globals (CPython 3.12 compatible)
                         functionScope = new PyScopeChain(pyFunc.GlobalsDict, "<function>");
                     }
                     else
                     {
+                        #if DEBUG_VM_LOG
                         Console.WriteLine($"[FUNCTION SCOPE] Using ParentScope for {pyFunc.Name} (GlobalsDict is null)");
+                        #endif
                         // Fallback to ParentScope for backward compatibility
                         functionScope = pyFunc.ParentScope ?? parentScope;
                     }
@@ -6060,16 +6140,20 @@ namespace SharpPy
                     PyScopeChain functionScope;
                     if (pyFunc.GlobalsDict != null)
                     {
+                        #if DEBUG_VM_LOG
                         Console.WriteLine($"[FUNCTION SCOPE] Creating ScopeChain for {pyFunc.Name} from globalsDict:");
                         Console.WriteLine($"  globalsDict count: {pyFunc.GlobalsDict.Count}");
                         Console.WriteLine($"  globalsDict keys: {string.Join(", ", pyFunc.GlobalsDict.Keys.Take(10))}");
+                        #endif
 
                         // Use the function's captured globals (CPython 3.12 compatible)
                         functionScope = new PyScopeChain(pyFunc.GlobalsDict, "<function>");
                     }
                     else
                     {
+                        #if DEBUG_VM_LOG
                         Console.WriteLine($"[FUNCTION SCOPE] Using ParentScope for {pyFunc.Name} (GlobalsDict is null)");
+                        #endif
                         // Fallback to ParentScope for backward compatibility
                         functionScope = pyFunc.ParentScope ?? parentScope;
                     }
