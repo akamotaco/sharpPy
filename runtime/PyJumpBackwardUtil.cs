@@ -119,7 +119,9 @@ namespace SharpPy
                 ByteCodeOp.FOR_ITER => 1,
                 // opcode 95 (STORE_ATTR) - 4 cache entries
                 ByteCodeOp.STORE_ATTR => 4,
-                // opcode 106 (LOAD_ATTR) - 9 cache entries  
+                // opcode 91 (LOAD_GLOBAL) - 4 cache entries (CPython 3.12 verified)
+                ByteCodeOp.LOAD_GLOBAL => 4,
+            // opcode 106 (LOAD_ATTR) - 9 cache entries
                 ByteCodeOp.LOAD_ATTR => 9,
                 // opcode 107 (COMPARE_OP) - 1 cache entry (CPython 3.12 verified)
                 ByteCodeOp.COMPARE_OP => 1,

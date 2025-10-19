@@ -1758,26 +1758,8 @@ namespace SharpPy
             Console.WriteLine($"  CellVars: [{string.Join(", ", cellVars)}]");
 #endif
 
-            // CPython 3.12: COPY_FREE_VARS for functions with free variables
-            if (freeVars.Count > 0)
-            {
-#if DEBUG_COMPILER_LOG
-                Console.WriteLine($"  → Emitting COPY_FREE_VARS for {freeVars.Count} free variables");
-#endif
-                EmitCopyFreeVars(freeVars.Count);
-            }
-
-            // CPython 3.12: MAKE_CELL instructions
-            for (int cellIndex = 0; cellIndex < cellVars.Count; cellIndex++)
-            {
-                var cellVar = cellVars[cellIndex];
-#if DEBUG_COMPILER_LOG
-                Console.WriteLine($"  → Making cell for variable: {cellVar} (cell index {cellIndex})");
-#endif
-                EmitInstruction(ByteCodeOp.MAKE_CELL, cellIndex);
-            }
-
-            // CPython 3.12: RESUME instruction after MAKE_CELL and before function body
+            // CPython 3.12 compile.c line 1340: Add RESUME 0 at function entry
+            // This is added BEFORE compiling the body
             _currentLineNumber = 0;
             EmitInstruction(ByteCodeOp.RESUME, 0);
 
@@ -1812,6 +1794,53 @@ namespace SharpPy
                 Console.WriteLine($"🔍 Generator detected in {name}: Adding CO_GENERATOR flag");
 #endif
                 flags |= PyCodeObject.CO_GENERATOR;
+            }
+
+            // CPython 3.12: Insert prefix instructions BEFORE creating code object
+            // This follows CPython compile.c line 7517-7586 (insert_prefix_instructions)
+            // CPython inserts at specific positions, not just position 0
+
+            bool isGenerator = (flags & PyCodeObject.CO_GENERATOR) != 0;
+            bool isCoroutine = (flags & PyCodeObject.CO_COROUTINE) != 0;
+            bool isAsyncGenerator = (flags & PyCodeObject.CO_ASYNC_GENERATOR) != 0;
+
+            int insertPos = 0;
+
+            // Step 1: Insert COPY_FREE_VARS at position 0 (CPython line 7577-7585)
+            if (freeVars.Count > 0)
+            {
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"  → Inserting COPY_FREE_VARS for {freeVars.Count} free variables at position {insertPos}");
+#endif
+                _instructions.Insert(insertPos, new ByteCodeInstruction(ByteCodeOp.COPY_FREE_VARS, freeVars.Count));
+                insertPos++; // Next insertion will be after COPY_FREE_VARS
+            }
+
+            // Step 2: Insert MAKE_CELL instructions starting from insertPos (CPython line 7543-7575)
+            for (int cellIndex = 0; cellIndex < cellVars.Count; cellIndex++)
+            {
+                var cellVar = cellVars[cellIndex];
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"  → Inserting MAKE_CELL for {cellVar} (index {cellIndex}) at position {insertPos}");
+#endif
+                _instructions.Insert(insertPos, new ByteCodeInstruction(ByteCodeOp.MAKE_CELL, cellIndex));
+                insertPos++; // Next insertion will be after this MAKE_CELL
+            }
+
+            // Step 3: Insert RETURN_GENERATOR + POP_TOP for generators (CPython line 7523-7539)
+            if (isGenerator || isCoroutine || isAsyncGenerator)
+            {
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔍 Inserting generator prefix for {name} at position {insertPos}");
+#endif
+                // Insert RETURN_GENERATOR at current position
+                _instructions.Insert(insertPos, new ByteCodeInstruction(ByteCodeOp.RETURN_GENERATOR, 0));
+                insertPos++;
+                // Insert POP_TOP right after RETURN_GENERATOR
+                _instructions.Insert(insertPos, new ByteCodeInstruction(ByteCodeOp.POP_TOP, 0));
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"  → Inserted RETURN_GENERATOR + POP_TOP at positions {insertPos-1}-{insertPos}");
+#endif
             }
 
             // Create code object
@@ -2261,91 +2290,26 @@ namespace SharpPy
             switch (statement)
             {
                 case AssignStatement assign:
-                    // CPython 3.12: Assign with targets list
-                    // Special case: tuple to tuple assignment optimization (a, b = c, d)
-                    if (assign.Targets.Count == 1 &&
-                        assign.Targets[0] is TupleExpression targetTuple &&
-                        assign.Value is TupleExpression valueTuple &&
-                        targetTuple.Elements.Count == valueTuple.Elements.Count)
+                    // CPython 3.12: compile.c line 3951-3962 (Assign_kind)
+                    // VISIT(c, expr, s->v.Assign.value);
+                    // for each target: if not last, COPY 1; VISIT(c, expr, target);
+
+                    // Step 1: Compile the value expression (right-hand side)
+                    CompileExpression(assign.Value);
+
+                    // Step 2: For each target, COPY if not last, then compile target
+                    for (int i = 0; i < assign.Targets.Count; i++)
                     {
-                        // CPython 3.12 optimization: Load all values, then store in reverse order
-                        // This avoids BUILD_TUPLE + UNPACK_SEQUENCE
-                        // Example: a, b = b, a+b becomes: LOAD b, LOAD a, LOAD b, BINARY_OP, STORE b, STORE a
+                        var target = assign.Targets[i];
 
-                        // Load all right-hand side values onto stack
-                        foreach (var valueElem in valueTuple.Elements)
+                        // If not the last target, copy the value for next assignment
+                        if (i < assign.Targets.Count - 1)
                         {
-                            CompileExpression(valueElem);
+                            EmitInstruction(ByteCodeOp.COPY, 1);
                         }
 
-                        // Store to targets in REVERSE order (CPython 3.12 pattern)
-                        // For a, b = expr1, expr2: after loads, stack is [expr1_result, expr2_result]
-                        // We want: a = expr1_result, b = expr2_result
-                        // Since stack is LIFO, to get b = expr2 and a = expr1, we store to b first (pops expr2), then a (pops expr1)
-                        for (int i = targetTuple.Elements.Count - 1; i >= 0; i--)
-                        {
-                            var elem = targetTuple.Elements[i];
-                            if (elem is NameExpression name)
-                            {
-                                EmitStoreName(name.Name);
-                            }
-                            else if (elem is AttributeExpression attr)
-                            {
-                                CompileExpression(attr.Value);
-                                EmitInstruction(ByteCodeOp.STORE_ATTR, GetOrAddName(attr.Attr));
-                            }
-                            else if (elem is SubscriptExpression subscript)
-                            {
-                                CompileExpression(subscript.Value);
-                                CompileExpression(subscript.Slice);
-                                EmitInstruction(ByteCodeOp.STORE_SUBSCR);
-                            }
-                            else
-                            {
-                                // Fallback: unsupported target type
-                                throw new NotImplementedException($"Unsupported tuple assignment target: {elem.GetType().Name}");
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // Standard assignment path
-                        CompileExpression(assign.Value);
-
-                        // Assign to all targets (for chained assignment or unpacking)
-                        foreach (var target in assign.Targets)
-                        {
-                            if (target is NameExpression name)
-                            {
-                                // For multiple targets, duplicate the value on stack first
-                                if (assign.Targets.Count > 1 && target != assign.Targets[assign.Targets.Count - 1])
-                                {
-                                    EmitInstruction(ByteCodeOp.COPY, 1);  // CPython 3.12 uses COPY instead of DUP_TOP
-                                }
-                                EmitStoreName(name.Name);
-                            }
-                            else if (target is AttributeExpression attr)
-                            {
-                                CompileExpression(attr.Value);
-                                EmitInstruction(ByteCodeOp.STORE_ATTR, GetOrAddName(attr.Attr));
-                            }
-                            else if (target is SubscriptExpression subscript)
-                            {
-                                CompileExpression(subscript.Value);
-                                CompileExpression(subscript.Slice);
-                                EmitInstruction(ByteCodeOp.STORE_SUBSCR);
-                            }
-                            else if (target is TupleExpression tuple)
-                            {
-                                // Tuple unpacking: handled at the AST level
-                                EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, tuple.Elements.Count);
-                                foreach (var elem in tuple.Elements)
-                                {
-                                    if (elem is NameExpression tupleTarget)
-                                        EmitStoreName(tupleTarget.Name);
-                                }
-                            }
-                        }
+                        // Compile target expression (this handles UNPACK_SEQUENCE for tuples)
+                        CompileAssignmentTarget(target);
                     }
                     break;
 
@@ -3066,11 +3030,25 @@ namespace SharpPy
                     break;
                     
                 case TupleExpression tuple:
-                    foreach (var element in tuple.Elements)
+                    // CPython 3.12: Constant folding for tuples with all constant elements
+                    // Reference: CPython ast_opt.c fold_tuple() and make_const_tuple()
+                    // No size restriction - fold any tuple where all elements are constants
+                    if (tuple.Elements.Count > 0 && tuple.Elements.All(e => e is ConstantExpression))
                     {
-                        CompileExpression(element);
+                        // All elements are constants, create tuple constant at compile time
+                        var constantValues = tuple.Elements.Cast<ConstantExpression>().Select(c => c.Value).ToArray();
+                        var tupleConstant = new PyTuple(constantValues);
+                        EmitInstruction(ByteCodeOp.LOAD_CONST, GetOrAddConstant(tupleConstant));
                     }
-                    EmitInstruction(ByteCodeOp.BUILD_TUPLE, tuple.Elements.Count);
+                    else
+                    {
+                        // Non-constant elements: compile each element and BUILD_TUPLE
+                        foreach (var element in tuple.Elements)
+                        {
+                            CompileExpression(element);
+                        }
+                        EmitInstruction(ByteCodeOp.BUILD_TUPLE, tuple.Elements.Count);
+                    }
                     break;
                     
                 case SetExpression set:

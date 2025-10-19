@@ -30,64 +30,25 @@ namespace SharpPy
             Console.WriteLine($"🔧 ByteCodeOptimizer.OptimizeCode 호출: _optimizationEnabled={_optimizationEnabled}");
 #endif
 
-            // CPython 3.12: Add generator/coroutine prefix BEFORE optimization
-            // This must be done even if optimization is disabled
-            var instructions = new List<ByteCodeInstruction>(originalCode.Instructions);
-            bool isGenerator = (originalCode.Flags & PyCodeObject.CO_GENERATOR) != 0;
-            bool isCoroutine = (originalCode.Flags & PyCodeObject.CO_COROUTINE) != 0;
-            bool isAsyncGenerator = (originalCode.Flags & PyCodeObject.CO_ASYNC_GENERATOR) != 0;
-
-            if (isGenerator || isCoroutine || isAsyncGenerator)
-            {
-#if DEBUG_LOG
-                Console.WriteLine($"🔍 Generator/Coroutine detected: Adding RETURN_GENERATOR prefix");
-                Console.WriteLine($"   Flags: Generator={isGenerator}, Coroutine={isCoroutine}, AsyncGenerator={isAsyncGenerator}");
-#endif
-                // CPython compile.c line 7523-7538: Insert generator prefix
-                // RETURN_GENERATOR must be first instruction
-                instructions.Insert(0, new ByteCodeInstruction(ByteCodeOp.RETURN_GENERATOR, 0));
-                instructions.Insert(1, new ByteCodeInstruction(ByteCodeOp.POP_TOP, 0));
-                // RESUME 0 is already at position 0 (now position 2 after inserts)
-
-                // Update originalCode with new instructions
-                var updatedCode = new PyCodeObject(
-                    originalCode.Name,
-                    instructions,
-                    originalCode.Constants,
-                    originalCode.Names,
-                    originalCode.VarNames,
-                    originalCode.ArgCount,
-                    originalCode.PosonlyArgCount,
-                    originalCode.KwonlyArgCount,
-                    originalCode.FreeVars,
-                    originalCode.CellVars,
-                    originalCode.DefaultValues,
-                    originalCode.KwDefaults,
-                    originalCode.Flags,
-                    originalCode.FileName,
-                    originalCode.SourceLines
-                );
-
-                // Copy exception table
-                updatedCode.ExceptionTable.AddRange(originalCode.ExceptionTable);
-                originalCode = updatedCode;
-            }
+            // CPython 3.12: RETURN_GENERATOR prefix is now inserted in compile.cs (insert_prefix_instructions pattern)
+            // PyOptimizer only handles bytecode optimization, not prefix insertion
+            // This follows CPython's design where prefix insertion happens before optimization
 
             if (!_optimizationEnabled)
             {
-    #if DEBUG_LOG
-            Console.WriteLine($"🚫 최적화 비활성화됨 - 원본 코드 반환 (명령어 수: {originalCode.Instructions.Count})");
+#if DEBUG_LOG
+                Console.WriteLine($"🚫 최적화 비활성화됨 - 원본 코드 반환 (명령어 수: {originalCode.Instructions.Count})");
 #endif
                 return originalCode;
             }
 
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-    #if DEBUG_LOG
-            Console.WriteLine("\n🔧 바이트코드 최적화 시작");
+#if DEBUG_LOG
+                Console.WriteLine("\n🔧 바이트코드 최적화 시작");
 #endif
             }
-            
+
             _instructions = new List<ByteCodeInstruction>(originalCode.Instructions);
             _constants = new List<PyObject>(originalCode.Constants);
             _names = new List<string>(originalCode.Names);
@@ -117,8 +78,10 @@ namespace SharpPy
             // 5. CPython 3.12 Superinstructions 생성
             ApplySuperinstructions();
 
-            // 6. 점프 오프셋 재계산 (최적화로 인한 명령어 위치 변경 반영)
-            RecalculateJumpOffsets();
+            // 6. CPython 3.12: Jump offset recalculation is NOT needed
+            // compile.cs already generates correct jump offsets with prefix instructions inserted
+            // CPython doesn't have RecalculateJumpOffsets - jump offsets are calculated once during assembly
+            // RecalculateJumpOffsets(); // REMOVED - CPython 3.12 compatibility
 
             int optimizedCount = _instructions.Count;
             int saved = originalCount - optimizedCount;
@@ -234,6 +197,11 @@ namespace SharpPy
             // CPython 3.12: Tuple literal constant folding optimization
             // Pattern: LOAD_CONST a, LOAD_CONST b, ..., BUILD_TUPLE n → LOAD_CONST (a, b, ...)
             ApplyTupleLiteralOptimization();
+
+            // CPython 3.12: BUILD_TUPLE + UNPACK_SEQUENCE optimization
+            // Pattern: BUILD_TUPLE n + UNPACK_SEQUENCE n → SWAP n (for n=2,3) or NOP (for n=1)
+            // Reference: CPython flowgraph.c line 1487-1499
+            ApplyBuildTupleUnpackOptimization();
         }
 
         /// <summary>
@@ -296,6 +264,81 @@ namespace SharpPy
             Console.WriteLine($"🔄 튤플 상수 접기: {tupleSize}개 LOAD_CONST + BUILD_TUPLE → LOAD_CONST({tupleConstant})");
 #endif
                     i -= tupleSize; // Adjust index after removals
+                }
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12: BUILD_TUPLE + UNPACK_SEQUENCE optimization
+        ///
+        /// Reference: CPython flowgraph.c line 1487-1499
+        ///
+        /// Patterns:
+        /// - BUILD_TUPLE 1 + UNPACK_SEQUENCE 1 → NOP + NOP
+        /// - BUILD_TUPLE 2 + UNPACK_SEQUENCE 2 → NOP + SWAP 2
+        /// - BUILD_TUPLE 3 + UNPACK_SEQUENCE 3 → NOP + SWAP 3
+        ///
+        /// This optimization eliminates unnecessary tuple packing/unpacking in assignments like:
+        ///   a, b = b, a+b
+        /// which compiles to:
+        ///   LOAD b, LOAD a, LOAD b, BINARY_OP, BUILD_TUPLE 2, UNPACK_SEQUENCE 2, STORE a, STORE b
+        /// and optimizes to:
+        ///   LOAD b, LOAD a, LOAD b, BINARY_OP, SWAP 2, STORE a, STORE b
+        /// </summary>
+        private void ApplyBuildTupleUnpackOptimization()
+        {
+            for (int i = 0; i < _instructions.Count - 1; i++)
+            {
+                var buildTupleInstr = _instructions[i];
+                if (buildTupleInstr.OpCode != ByteCodeOp.BUILD_TUPLE)
+                    continue;
+
+                // Check if next instruction (skipping CACHE) is UNPACK_SEQUENCE with same argument
+                int nextIdx = i + 1;
+
+                // Skip CACHE instructions
+                while (nextIdx < _instructions.Count && _instructions[nextIdx].OpCode == ByteCodeOp.CACHE)
+                {
+                    nextIdx++;
+                }
+
+                if (nextIdx >= _instructions.Count)
+                    continue;
+
+                var unpackInstr = _instructions[nextIdx];
+                if (unpackInstr.OpCode != ByteCodeOp.UNPACK_SEQUENCE)
+                    continue;
+
+                // Check if both have the same argument
+                int tupleSize = buildTupleInstr.Argument;
+                if (tupleSize != unpackInstr.Argument)
+                    continue;
+
+                // Apply CPython optimization based on tuple size
+                switch (tupleSize)
+                {
+                    case 1:
+                        // BUILD_TUPLE 1 + UNPACK_SEQUENCE 1 → NOP + NOP
+                        _instructions[i] = new ByteCodeInstruction(ByteCodeOp.NOP, 0);
+                        _instructions[nextIdx] = new ByteCodeInstruction(ByteCodeOp.NOP, 0);
+#if DEBUG_LOG
+                        Console.WriteLine($"🔄 BUILD_TUPLE 1 + UNPACK_SEQUENCE 1 → NOP + NOP at {i}");
+#endif
+                        break;
+
+                    case 2:
+                    case 3:
+                        // BUILD_TUPLE n + UNPACK_SEQUENCE n → NOP + SWAP n (for n=2,3)
+                        _instructions[i] = new ByteCodeInstruction(ByteCodeOp.NOP, 0);
+                        _instructions[nextIdx] = new ByteCodeInstruction(ByteCodeOp.SWAP, tupleSize);
+#if DEBUG_LOG
+                        Console.WriteLine($"🔄 BUILD_TUPLE {tupleSize} + UNPACK_SEQUENCE {tupleSize} → NOP + SWAP {tupleSize} at {i}");
+#endif
+                        break;
+
+                    default:
+                        // For n > 3, keep BUILD_TUPLE + UNPACK_SEQUENCE (CPython doesn't optimize these)
+                        break;
                 }
             }
         }
