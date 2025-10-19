@@ -1623,9 +1623,9 @@ namespace SharpPy
 #if DEBUG_LOG
                 Console.WriteLine($"  → Adding implicit None return for {name}");
 #endif
-                // 함수는 None 반환 (return문이 없을 경우)
-                EmitLoadConst(PyNone.Instance);
-                EmitInstruction(ByteCodeOp.RETURN_VALUE);
+                // CPython 3.12: 함수는 RETURN_CONST로 None 반환 (return문이 없을 경우)
+                var noneConstIndex = GetOrAddConstant(PyNone.Instance);
+                EmitInstruction(ByteCodeOp.RETURN_CONST, noneConstIndex);
             }
 #if DEBUG_LOG
             else
@@ -1803,9 +1803,9 @@ namespace SharpPy
 #if DEBUG_LOG
                 Console.WriteLine($"  → Adding implicit None return for {name}");
 #endif
-                // 함수는 None 반환 (return문이 없을 경우)
-                EmitLoadConst(PyNone.Instance);
-                EmitInstruction(ByteCodeOp.RETURN_VALUE);
+                // CPython 3.12: 함수는 RETURN_CONST로 None 반환 (return문이 없을 경우)
+                var noneConstIndex = GetOrAddConstant(PyNone.Instance);
+                EmitInstruction(ByteCodeOp.RETURN_CONST, noneConstIndex);
             }
 #if DEBUG_LOG
             else

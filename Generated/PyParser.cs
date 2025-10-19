@@ -2317,7 +2317,7 @@ namespace SharpPy.Generated
                 )
                 {
                     // Action code from grammar
-                    return PyParserHelpers . MakeArguments ( null , null , null ,( GeneratedNameDefaultPairSeq ?) a ,( GeneratedStarEtc ?) b );
+                    return PyParserHelpers . MakeArguments ( null , null , null , a ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) b );
                 }
             }
 
@@ -2419,7 +2419,7 @@ namespace SharpPy.Generated
                 )
                 {
                     // Action code from grammar
-                    return PyParserHelpers . SlashWithDefault (( GeneratedArgSeq ?) a ,( GeneratedNameDefaultPairSeq ) b );
+                    return PyParserHelpers . SlashWithDefault ( a ?. Cast < GeneratedArgSeq >(), b ?. Cast < GeneratedNameDefaultPairSeq >());
                 }
             }
 
@@ -2439,7 +2439,7 @@ namespace SharpPy.Generated
                 )
                 {
                     // Action code from grammar
-                    return PyParserHelpers . SlashWithDefault (( GeneratedArgSeq ?) a ,( GeneratedNameDefaultPairSeq ) b );
+                    return PyParserHelpers . SlashWithDefault ( a ?. Cast < GeneratedArgSeq >(), b ?. Cast < GeneratedNameDefaultPairSeq >());
                 }
             }
 
@@ -2490,7 +2490,7 @@ namespace SharpPy.Generated
                 )
                 {
                     // Action code from grammar
-                    return PyParserHelpers . StarEtc (( GeneratedArg ) a ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedArg ?) c );
+                    return PyParserHelpers . StarEtc (( GeneratedArg ) a , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedArg ?) c );
                 }
             }
 
@@ -2511,7 +2511,7 @@ namespace SharpPy.Generated
                 )
                 {
                     // Action code from grammar
-                    return PyParserHelpers . StarEtc (( GeneratedArg ) a ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedArg ?) c );
+                    return PyParserHelpers . StarEtc (( GeneratedArg ) a , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedArg ?) c );
                 }
             }
 
@@ -2531,7 +2531,7 @@ namespace SharpPy.Generated
                 )
                 {
                     // Action code from grammar
-                    return PyParserHelpers . StarEtc ( null ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedArg ?) c );
+                    return PyParserHelpers . StarEtc ( null , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedArg ?) c );
                 }
             }
 
@@ -8545,7 +8545,7 @@ namespace SharpPy.Generated
                 )
                 {
                     // Action code from grammar
-                    return PyParserHelpers . MakeArguments ( null , null , null ,( GeneratedNameDefaultPairSeq ?) a ,( GeneratedStarEtc ?) b );
+                    return PyParserHelpers . MakeArguments ( null , null , null , a ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedStarEtc ?) b );
                 }
             }
 
@@ -8647,7 +8647,7 @@ namespace SharpPy.Generated
                 )
                 {
                     // Action code from grammar
-                    return PyParserHelpers . SlashWithDefault (( GeneratedArgSeq ?) a ,( GeneratedNameDefaultPairSeq ) b );
+                    return PyParserHelpers . SlashWithDefault ( a ?. Cast < GeneratedArgSeq >(), b ?. Cast < GeneratedNameDefaultPairSeq >());
                 }
             }
 
@@ -8667,7 +8667,7 @@ namespace SharpPy.Generated
                 )
                 {
                     // Action code from grammar
-                    return PyParserHelpers . SlashWithDefault (( GeneratedArgSeq ?) a ,( GeneratedNameDefaultPairSeq ) b );
+                    return PyParserHelpers . SlashWithDefault ( a ?. Cast < GeneratedArgSeq >(), b ?. Cast < GeneratedNameDefaultPairSeq >());
                 }
             }
 
@@ -8718,7 +8718,7 @@ namespace SharpPy.Generated
                 )
                 {
                     // Action code from grammar
-                    return PyParserHelpers . StarEtc (( GeneratedArg ) a ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedArg ?) c );
+                    return PyParserHelpers . StarEtc (( GeneratedArg ) a , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedArg ?) c );
                 }
             }
 
@@ -8738,7 +8738,7 @@ namespace SharpPy.Generated
                 )
                 {
                     // Action code from grammar
-                    return PyParserHelpers . StarEtc ( null ,( GeneratedNameDefaultPairSeq ?) b ,( GeneratedArg ?) c );
+                    return PyParserHelpers . StarEtc ( null , b ?. Cast < GeneratedNameDefaultPairSeq >(),( GeneratedArg ?) c );
                 }
             }
 

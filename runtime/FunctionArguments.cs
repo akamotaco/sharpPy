@@ -173,6 +173,80 @@ namespace SharpPy
 
             return $"arguments({string.Join(", ", parts)})";
         }
+
+        /// <summary>
+        /// CPython 3.12 compatible AST dump format
+        /// Returns: arguments(posonlyargs=[], args=[arg(arg='name')], kwonlyargs=[], kw_defaults=[], defaults=[...])
+        /// </summary>
+        public string ToPythonAst()
+        {
+            var parts = new List<string>();
+
+            // posonlyargs - always show even if empty
+            if (PosOnlyArgs.Any())
+                parts.Add($"posonlyargs=[{string.Join(", ", PosOnlyArgs.Select(a => a.ToString()))}]");
+            else
+                parts.Add("posonlyargs=[]");
+
+            // args - always show even if empty
+            if (Args.Any())
+                parts.Add($"args=[{string.Join(", ", Args.Select(a => a.ToString()))}]");
+            else
+                parts.Add("args=[]");
+
+            // vararg - show if present
+            if (VarArg != null)
+                parts.Add($"vararg={VarArg.ToString()}");
+
+            // kwonlyargs - always show even if empty
+            if (KwOnlyArgs.Any())
+                parts.Add($"kwonlyargs=[{string.Join(", ", KwOnlyArgs.Select(a => a.ToString()))}]");
+            else
+                parts.Add("kwonlyargs=[]");
+
+            // kw_defaults - always show even if empty
+            if (KwDefaults.Any())
+                parts.Add($"kw_defaults=[{string.Join(", ", KwDefaults.Select(d => d?.ToString() ?? "None"))}]");
+            else
+                parts.Add("kw_defaults=[]");
+
+            // kwarg - show if present
+            if (KwArg != null)
+                parts.Add($"kwarg={KwArg.ToString()}");
+
+            // defaults - always show even if empty
+            if (Defaults.Any())
+            {
+                var defaultStrs = new List<string>();
+                foreach (var def in Defaults)
+                {
+                    if (def is ConstantExpression constExpr)
+                    {
+                        if (constExpr.Value is PyString pyStr)
+                            defaultStrs.Add($"Constant(value='{pyStr.Value}')");
+                        else if (constExpr.Value is PyInt pyInt)
+                            defaultStrs.Add($"Constant(value={pyInt.Value})");
+                        else if (constExpr.Value is PyFloat pyFloat)
+                            defaultStrs.Add($"Constant(value={pyFloat.Value})");
+                        else if (constExpr.Value is PyBool pyBool)
+                            defaultStrs.Add($"Constant(value={(pyBool.Value ? "True" : "False")})");
+                        else if (constExpr.Value is PyNone)
+                            defaultStrs.Add("Constant(value=None)");
+                        else
+                            defaultStrs.Add($"Constant(value={constExpr.Value})");
+                    }
+                    else
+                    {
+                        defaultStrs.Add(def.ToString());
+                    }
+                }
+                parts.Add($"defaults=[{string.Join(", ", defaultStrs)}]");
+            }
+            else
+                parts.Add("defaults=[]");
+
+            return $"arguments({string.Join(", ", parts)})";
+        }
     }
 
     /// <summary>

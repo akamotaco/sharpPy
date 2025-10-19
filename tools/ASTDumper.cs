@@ -221,6 +221,12 @@ namespace SharpPy.Tools
                 return FormatNodeInline(node, 0);
             }
 
+            // FunctionArguments 처리 (CPython 3.12 호환)
+            if (value is FunctionArguments funcArgs)
+            {
+                return funcArgs.ToPythonAst();
+            }
+
             // ImportAlias 처리
             if (value is ImportAlias alias)
             {
@@ -322,6 +328,12 @@ namespace SharpPy.Tools
                 return FormatNodeInline(node, 0);
             }
 
+            // FunctionArguments 처리 (CPython 3.12 호환)
+            if (value is FunctionArguments funcArgs)
+            {
+                return funcArgs.ToPythonAst();
+            }
+
             // ImportAlias 처리 (CPython 3.12 호환)
             if (value is ImportAlias alias)
             {
@@ -404,10 +416,12 @@ namespace SharpPy.Tools
 
                 case FunctionDefStatement funcDef:
                     fields.Add(("name", funcDef.Name));
-                    fields.Add(("args", funcDef.Parameters));
+                    fields.Add(("args", funcDef.Arguments)); // Use Arguments instead of Parameters
                     fields.Add(("body", funcDef.Body));
                     if (funcDef.Decorators?.Count > 0)
                         fields.Add(("decorator_list", funcDef.Decorators));
+                    if (funcDef.TypeParams?.Count > 0)
+                        fields.Add(("type_params", funcDef.TypeParams));
                     break;
 
                 case ClassDefStatement classDef:

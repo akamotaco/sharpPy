@@ -525,7 +525,7 @@ parameters[GeneratedArguments]:
         CheckVersion(8, "Positional-only parameters are", PyParserHelpers.MakeArguments(null, (GeneratedSlashWithDefault)a, null, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)c)) }
     | a[GeneratedArgSeq]=param_no_default+ b=param_with_default* c=[star_etc] {
         PyParserHelpers.MakeArguments(null, null, a, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)c) }
-    | a=param_with_default+ b=[star_etc] { PyParserHelpers.MakeArguments(null, null, null, (GeneratedNameDefaultPairSeq?)a, (GeneratedStarEtc?)b)}
+    | a=param_with_default+ b=[star_etc] { PyParserHelpers.MakeArguments(null, null, null, a?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)b)}
     | a=star_etc { PyParserHelpers.MakeArguments(null, null, null, null, (GeneratedStarEtc)a) }
 
 # Some duplication here because we can't write (',' | &')'),
@@ -540,19 +540,19 @@ slash_no_default[GeneratedArgSeq]:
 # CPython: slash_with_default[SlashWithDefault*]: a=param_no_default* b=param_with_default+ '/' ',' { _PyPegen_slash_with_default(a, b) } | ...
 # C#: Positional-only parameters with defaults (PEP 570)
 slash_with_default[GeneratedSlashWithDefault]:
-    | a=param_no_default* b=param_with_default+ '/' ',' { PyParserHelpers.SlashWithDefault((GeneratedArgSeq?)a, (GeneratedNameDefaultPairSeq)b) }
-    | a=param_no_default* b=param_with_default+ '/' &')' { PyParserHelpers.SlashWithDefault((GeneratedArgSeq?)a, (GeneratedNameDefaultPairSeq)b) }
+    | a=param_no_default* b=param_with_default+ '/' ',' { PyParserHelpers.SlashWithDefault(a?.Cast<GeneratedArgSeq>(), b?.Cast<GeneratedNameDefaultPairSeq>()) }
+    | a=param_no_default* b=param_with_default+ '/' &')' { PyParserHelpers.SlashWithDefault(a?.Cast<GeneratedArgSeq>(), b?.Cast<GeneratedNameDefaultPairSeq>()) }
 
 # CPython: star_etc[StarEtc*]: ...
 # C#: *args and **kwargs parameters
 star_etc[GeneratedStarEtc]:
     | invalid_star_etc
     | '*' a=param_no_default b=param_maybe_default* c=[kwds] {
-        PyParserHelpers.StarEtc((GeneratedArg)a, (GeneratedNameDefaultPairSeq?)b, (GeneratedArg?)c) }
+        PyParserHelpers.StarEtc((GeneratedArg)a, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedArg?)c) }
     | '*' a=param_no_default_star_annotation b=param_maybe_default* c=[kwds] {
-        PyParserHelpers.StarEtc((GeneratedArg)a, (GeneratedNameDefaultPairSeq?)b, (GeneratedArg?)c) }
+        PyParserHelpers.StarEtc((GeneratedArg)a, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedArg?)c) }
     | '*' ',' b=param_maybe_default+ c=[kwds] {
-        PyParserHelpers.StarEtc(null, (GeneratedNameDefaultPairSeq?)b, (GeneratedArg?)c) }
+        PyParserHelpers.StarEtc(null, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedArg?)c) }
     | a=kwds { PyParserHelpers.StarEtc(null, null, (GeneratedArg)a) }
 
 # CPython: kwds[arg_ty]: invalid_kwds | '**' a=param_no_default { a }
@@ -1316,7 +1316,7 @@ lambda_parameters[GeneratedArguments]:
         CheckVersion(8, "Positional-only parameters are", PyParserHelpers.MakeArguments(null, (GeneratedSlashWithDefault)a, null, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)c)) }
     | a[GeneratedArgSeq]=lambda_param_no_default+ b=lambda_param_with_default* c=[lambda_star_etc] {
         PyParserHelpers.MakeArguments(null, null, a, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)c) }
-    | a=lambda_param_with_default+ b=[lambda_star_etc] { PyParserHelpers.MakeArguments(null, null, null, (GeneratedNameDefaultPairSeq?)a, (GeneratedStarEtc?)b)}
+    | a=lambda_param_with_default+ b=[lambda_star_etc] { PyParserHelpers.MakeArguments(null, null, null, a?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedStarEtc?)b)}
     | a=lambda_star_etc { PyParserHelpers.MakeArguments(null, null, null, null, (GeneratedStarEtc)a) }
 
 # CPython: lambda_slash_no_default[asdl_arg_seq*]: ...
@@ -1328,17 +1328,17 @@ lambda_slash_no_default[GeneratedArgSeq]:
 # CPython: lambda_slash_with_default[SlashWithDefault*]: ...
 # C#: Lambda positional-only parameters with defaults
 lambda_slash_with_default[GeneratedSlashWithDefault]:
-    | a=lambda_param_no_default* b=lambda_param_with_default+ '/' ',' { PyParserHelpers.SlashWithDefault((GeneratedArgSeq?)a, (GeneratedNameDefaultPairSeq)b) }
-    | a=lambda_param_no_default* b=lambda_param_with_default+ '/' &':' { PyParserHelpers.SlashWithDefault((GeneratedArgSeq?)a, (GeneratedNameDefaultPairSeq)b) }
+    | a=lambda_param_no_default* b=lambda_param_with_default+ '/' ',' { PyParserHelpers.SlashWithDefault(a?.Cast<GeneratedArgSeq>(), b?.Cast<GeneratedNameDefaultPairSeq>()) }
+    | a=lambda_param_no_default* b=lambda_param_with_default+ '/' &':' { PyParserHelpers.SlashWithDefault(a?.Cast<GeneratedArgSeq>(), b?.Cast<GeneratedNameDefaultPairSeq>()) }
 
 # CPython: lambda_star_etc[StarEtc*]: ...
 # C#: Lambda *args and **kwargs
 lambda_star_etc[GeneratedStarEtc]:
     | invalid_lambda_star_etc
     | '*' a=lambda_param_no_default b=lambda_param_maybe_default* c=[lambda_kwds] {
-        PyParserHelpers.StarEtc((GeneratedArg)a, (GeneratedNameDefaultPairSeq?)b, (GeneratedArg?)c) }
+        PyParserHelpers.StarEtc((GeneratedArg)a, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedArg?)c) }
     | '*' ',' b=lambda_param_maybe_default+ c=[lambda_kwds] {
-        PyParserHelpers.StarEtc(null, (GeneratedNameDefaultPairSeq?)b, (GeneratedArg?)c) }
+        PyParserHelpers.StarEtc(null, b?.Cast<GeneratedNameDefaultPairSeq>(), (GeneratedArg?)c) }
     | a=lambda_kwds { PyParserHelpers.StarEtc(null, null, (GeneratedArg)a) }
 
 # CPython: lambda_kwds[arg_ty]: ...
