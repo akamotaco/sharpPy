@@ -2262,39 +2262,88 @@ namespace SharpPy
             {
                 case AssignStatement assign:
                     // CPython 3.12: Assign with targets list
-                    CompileExpression(assign.Value);
-
-                    // Assign to all targets (for chained assignment or unpacking)
-                    foreach (var target in assign.Targets)
+                    // Special case: tuple to tuple assignment optimization (a, b = c, d)
+                    if (assign.Targets.Count == 1 &&
+                        assign.Targets[0] is TupleExpression targetTuple &&
+                        assign.Value is TupleExpression valueTuple &&
+                        targetTuple.Elements.Count == valueTuple.Elements.Count)
                     {
-                        if (target is NameExpression name)
+                        // CPython 3.12 optimization: Load all values, then store in reverse order
+                        // This avoids BUILD_TUPLE + UNPACK_SEQUENCE
+                        // Example: a, b = b, a+b becomes: LOAD b, LOAD a, LOAD b, BINARY_OP, STORE b, STORE a
+
+                        // Load all right-hand side values onto stack
+                        foreach (var valueElem in valueTuple.Elements)
                         {
-                            // For multiple targets, duplicate the value on stack first
-                            if (assign.Targets.Count > 1 && target != assign.Targets[assign.Targets.Count - 1])
+                            CompileExpression(valueElem);
+                        }
+
+                        // Store to targets in REVERSE order (CPython 3.12 pattern)
+                        // For a, b = expr1, expr2: after loads, stack is [expr1_result, expr2_result]
+                        // We want: a = expr1_result, b = expr2_result
+                        // Since stack is LIFO, to get b = expr2 and a = expr1, we store to b first (pops expr2), then a (pops expr1)
+                        for (int i = targetTuple.Elements.Count - 1; i >= 0; i--)
+                        {
+                            var elem = targetTuple.Elements[i];
+                            if (elem is NameExpression name)
                             {
-                                EmitInstruction(ByteCodeOp.COPY, 1);  // CPython 3.12 uses COPY instead of DUP_TOP
+                                EmitStoreName(name.Name);
                             }
-                            EmitStoreName(name.Name);
-                        }
-                        else if (target is AttributeExpression attr)
-                        {
-                            CompileExpression(attr.Value);
-                            EmitInstruction(ByteCodeOp.STORE_ATTR, GetOrAddName(attr.Attr));
-                        }
-                        else if (target is SubscriptExpression subscript)
-                        {
-                            CompileExpression(subscript.Value);
-                            CompileExpression(subscript.Slice);
-                            EmitInstruction(ByteCodeOp.STORE_SUBSCR);
-                        }
-                        else if (target is TupleExpression tuple)
-                        {
-                            // Tuple unpacking: handled at the AST level
-                            EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, tuple.Elements.Count);
-                            foreach (var elem in tuple.Elements)
+                            else if (elem is AttributeExpression attr)
                             {
-                                if (elem is NameExpression tupleTarget)
-                                    EmitStoreName(tupleTarget.Name);
+                                CompileExpression(attr.Value);
+                                EmitInstruction(ByteCodeOp.STORE_ATTR, GetOrAddName(attr.Attr));
+                            }
+                            else if (elem is SubscriptExpression subscript)
+                            {
+                                CompileExpression(subscript.Value);
+                                CompileExpression(subscript.Slice);
+                                EmitInstruction(ByteCodeOp.STORE_SUBSCR);
+                            }
+                            else
+                            {
+                                // Fallback: unsupported target type
+                                throw new NotImplementedException($"Unsupported tuple assignment target: {elem.GetType().Name}");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Standard assignment path
+                        CompileExpression(assign.Value);
+
+                        // Assign to all targets (for chained assignment or unpacking)
+                        foreach (var target in assign.Targets)
+                        {
+                            if (target is NameExpression name)
+                            {
+                                // For multiple targets, duplicate the value on stack first
+                                if (assign.Targets.Count > 1 && target != assign.Targets[assign.Targets.Count - 1])
+                                {
+                                    EmitInstruction(ByteCodeOp.COPY, 1);  // CPython 3.12 uses COPY instead of DUP_TOP
+                                }
+                                EmitStoreName(name.Name);
+                            }
+                            else if (target is AttributeExpression attr)
+                            {
+                                CompileExpression(attr.Value);
+                                EmitInstruction(ByteCodeOp.STORE_ATTR, GetOrAddName(attr.Attr));
+                            }
+                            else if (target is SubscriptExpression subscript)
+                            {
+                                CompileExpression(subscript.Value);
+                                CompileExpression(subscript.Slice);
+                                EmitInstruction(ByteCodeOp.STORE_SUBSCR);
+                            }
+                            else if (target is TupleExpression tuple)
+                            {
+                                // Tuple unpacking: handled at the AST level
+                                EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, tuple.Elements.Count);
+                                foreach (var elem in tuple.Elements)
+                                {
+                                    if (elem is NameExpression tupleTarget)
+                                        EmitStoreName(tupleTarget.Name);
+                                }
                             }
                         }
                     }
@@ -2335,11 +2384,9 @@ namespace SharpPy
                     
                 case ExpressionStatement expr:
                     CompileExpression(expr.Expression);
-                    // CPython 3.12: YieldExpression already includes POP_TOP after RESUME
-                    if (expr.Expression is not YieldExpression)
-                    {
-                        EmitInstruction(ByteCodeOp.POP_TOP);
-                    }
+                    // CPython 3.12: After YIELD_VALUE + RESUME, sent value is on stack and needs POP_TOP
+                    // POP_TOP is needed for ALL expressions, including YieldExpression
+                    EmitInstruction(ByteCodeOp.POP_TOP);
                     break;
                     
                 case ReturnStatement ret:
@@ -3163,8 +3210,10 @@ namespace SharpPy
                         EmitLoadConst(PyNone.Instance);
                     EmitInstruction(ByteCodeOp.YIELD_VALUE, 1); // CPython 3.12: yield_value argument 1
                     EmitInstruction(ByteCodeOp.RESUME, 1); // CPython 3.12: Resume after yield
-                    // NOTE: YieldExpression은 값을 생성하므로 RESUME 후 sent value가 스택에 남아야 함
-                    // POP_TOP은 YieldStatement에만 필요함
+                    // CPython 3.12: After RESUME, sent value is on stack
+                    // For 'yield expr' used as statement, POP_TOP is added by ExpressionStatement handler
+                    // For 'x = yield expr' used in assignment, sent value stays on stack for STORE
+                    // So YieldExpression itself doesn't add POP_TOP
                     break;
 
                 case YieldFromExpression yieldFromExpr:

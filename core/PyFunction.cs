@@ -294,7 +294,7 @@ public partial class PyFunction : PyObject, IDescriptor
         // 제너레이터 실행용 Frame 생성 (한 번만 생성하여 재사용)
         // Generator는 정의된 모듈의 GlobalScope를 유지해야 함
         // CPython 3.12: Use captured globals (func.__globals__) - same as regular function calls
-
+#if DEBUG_DEBUG_LOG
         Console.WriteLine($"[CreateGenerator] Function: {Name}");
         Console.WriteLine($"  GlobalsDict: {(GlobalsDict == null ? "NULL" : $"{GlobalsDict.Count} items")}");
         if (GlobalsDict != null && GlobalsDict.Count > 0)
@@ -308,19 +308,23 @@ public partial class PyFunction : PyObject, IDescriptor
             Console.WriteLine($"  ParentScope.GlobalScope.Variables: {ParentScope.GlobalScope.Variables.Count} items");
             Console.WriteLine($"  ParentScope has 'print': {ParentScope.GlobalScope.Variables.ContainsKey("print")}");
         }
-
+#endif
         PyScopeChain generatorScopeChain;
         if (GlobalsDict != null)
         {
-            // Use the globals captured at function definition time
-            generatorScopeChain = new PyScopeChain(GlobalsDict, CodeObject.Name);
+                // Use the globals captured at function definition time
+                generatorScopeChain = new PyScopeChain(GlobalsDict, CodeObject.Name);
+            #if DEBUG_DEBUG_LOG
             Console.WriteLine($"  → Using GlobalsDict");
+            #endif
         }
         else
         {
-            // Fallback to ParentScope for backwards compatibility
-            generatorScopeChain = ParentScope ?? new PyScopeChain();
+                // Fallback to ParentScope for backwards compatibility
+                generatorScopeChain = ParentScope ?? new PyScopeChain();
+            #if DEBUG_DEBUG_LOG
             Console.WriteLine($"  → Using ParentScope (fallback)");
+            #endif
         }
 
         var frame = new PyFrame(CodeObject, args, generatorScopeChain, Closure);

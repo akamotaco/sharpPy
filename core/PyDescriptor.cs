@@ -101,14 +101,16 @@ namespace SharpPy
 
         public override PyObject Call(PyObject[] args, PyDict kwargs)
         {
+#if DEBUG_DESCRIPTORS_LOG
             Console.WriteLine($"🎯 PyBoundMethodDescriptor.Call: Method={MethodDescriptor.Name}, Instance={Instance?.GetType().Name}");
             Console.WriteLine($"   Instance details: {Instance}");
             Console.WriteLine($"   Instance GetTypeName: {Instance?.GetTypeName()}");
-
+#endif
             // Bound method: self는 이미 바인딩되어 있음
             var result = MethodDescriptor._implementation(Instance, args, kwargs);
-
+#if DEBUG_DESCRIPTORS_LOG
             Console.WriteLine($"   Result: {result?.GetType().Name}");
+#endif
             return result;
         }
 
