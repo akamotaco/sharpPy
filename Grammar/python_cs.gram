@@ -1565,7 +1565,7 @@ kwarg_or_double_starred[GeneratedKeywordOrStarred]:
 star_targets[GeneratedExpr]:
     | a=star_target !',' { a }
     | a=star_target b=(',' c=star_target { c })* [','] {
-        PyAst.Tuple((GeneratedExprSeq?)Check<GeneratedExprSeq>((GeneratedExprSeq)PyParserHelpers.SeqInsertInFront(a, b)), Store, EXTRA) }
+        PyAst.Tuple((GeneratedExprSeq?)Check<GeneratedExprSeq>(PyParserHelpers.SeqInsertInFront(a, b).Cast<GeneratedExprSeq>()), Store, EXTRA) }
 
 # CPython: star_targets_list_seq[asdl_expr_seq*]: a[asdl_expr_seq*]=','.star_target+ [','] { a }
 # C#: Star targets as list sequence [a, b, *rest] = ...

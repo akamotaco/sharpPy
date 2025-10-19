@@ -47,14 +47,13 @@ namespace SharpPy.Tokenizer
 
             WriteLine("static public int GetLiteralIndex(string srcString, int srcPosition)");
             WriteLine("{");
-            WriteLine("    int index = -1;");
             WriteLine("    for(int i=0;i<Literals.Count;++i)");
             WriteLine("    {");
             WriteLine("        var lit = Literals[i];");
             WriteLine("        if (string.Compare(srcString, srcPosition, lit.name, 0, lit.name.Length) == 0)");
-            WriteLine("            index = i;");
+            WriteLine("            return i;  // Longest match first (literals are sorted by length)");
             WriteLine("    }");
-            WriteLine("    return index;");
+            WriteLine("    return -1;");
             WriteLine("}");
             WriteLine("");
 

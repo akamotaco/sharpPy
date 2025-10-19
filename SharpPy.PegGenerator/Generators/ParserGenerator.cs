@@ -511,7 +511,9 @@ public class ParserGenerator
                 if (enableTargetedLog)
                 {
                     var atomDesc = GetAtomDescription(item.Atom);
+                    WriteLine($"#if DEBUG_PARSE_LOG");
                     WriteLine($"Console.WriteLine($\"[{ruleName.ToUpper()}] Calling {item.Name}={atomDesc} at pos={{_position}}, token={{(_position < _tokens.Count ? $\"{{_tokens[_position].Type}}('{{_tokens[_position].Value}}')\" : \"EOF\")}}\");");
+                    WriteLine($"#endif");
                 }
 
                 if (isOptional)

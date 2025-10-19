@@ -3200,6 +3200,11 @@ namespace SharpPy
                     frame.ValueStack.Push(boolResult);
                     break;
 
+                case ByteCodeOp.UNARY_INVERT:
+                    var invertValue = frame.ValueStack.Pop();
+                    frame.ValueStack.Push(invertValue.BitwiseNot());
+                    break;
+
                 // CPython 3.12: SETUP_EXCEPT removed - using Exception Table instead
                 // case ByteCodeOp.SETUP_EXCEPT: // Legacy - no longer used in CPython 3.12
 

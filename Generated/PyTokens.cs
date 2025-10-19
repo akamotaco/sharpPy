@@ -132,14 +132,13 @@ namespace SharpPy.Generated
 
     static public int GetLiteralIndex(string srcString, int srcPosition)
     {
-        int index = -1;
         for(int i=0;i<Literals.Count;++i)
         {
             var lit = Literals[i];
             if (string.Compare(srcString, srcPosition, lit.name, 0, lit.name.Length) == 0)
-                index = i;
+                return i;  // Longest match first (literals are sorted by length)
         }
-        return index;
+        return -1;
     }
 
     }
