@@ -9865,230 +9865,129 @@ namespace SharpPy
         /// </summary>
         private void CompileDictComprehension(DictComprehension dictComp)
         {
-            CompileDictComprehensionRecursive(dictComp, 0);
-        }
-
-        /// <summary>
-        /// 재귀적 dict comprehension 컴파일 - CPython 3.12 패턴
-        /// </summary>
-        private void CompileDictComprehensionRecursive(DictComprehension dictComp, int nestingLevel)
-        {
             #if DEBUG_LOG
-            Console.WriteLine($"🚀 재귀적 Dict Comprehension 컴파일 (Level {nestingLevel})");
+            Console.WriteLine("🚀 PEP 709: Dict comprehension 바이트코드 인라인 컴파일 (CPython 3.12 호환)");
             #endif
 
             // CPython 3.12: 컴프리헨션 컨텍스트 시작
             var savedIsInComprehension = _isInComprehension;
             _isInComprehension = true;
 
-            // 1. 현재 레벨부터 최하위까지 모든 변수 수집 (CPython 3.12 패턴)
-            var allVarsFromThisLevel = CollectNestedVarsFromLevel(dictComp, nestingLevel);
-
+            // 중첩 깊이 추적 시작
+            _comprehensionNestingDepth++;
             #if DEBUG_LOG
-            Console.WriteLine($"🔧 Level {nestingLevel} vars: [{string.Join(", ", allVarsFromThisLevel)}] (count: {allVarsFromThisLevel.Count})");
+            Console.WriteLine($"🔍 Dict comprehension 중첩 깊이 증가: {_comprehensionNestingDepth}");
             #endif
 
-            // 2. 첫 번째 generator의 iterable 컴파일
-            var firstGenerator = dictComp.Generators[0];
-            CompileExpression(firstGenerator.Iter);
-            EmitInstruction(ByteCodeOp.GET_ITER);
+            // CPython 3.12 패턴: 컴프리헨션 변수 사전 할당 및 정리
+            var comprehensionVars = new List<string>();
+            CollectAllComprehensionVars(dictComp, comprehensionVars);
 
-            // 3. CPython 3.12 패턴: 현재 레벨부터 최하위까지 모든 변수를 LOAD_FAST_AND_CLEAR
-            foreach (var varName in allVarsFromThisLevel)
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 Dict comprehension vars: {string.Join(", ", comprehensionVars)} (count: {comprehensionVars.Count})");
+            #endif
+
+            // 1. First compile the iterator source (CPython 3.12 pattern)
+            var firstGenerator = dictComp.Generators[0];
+
+            // 첫 번째 generator 처리
+            bool firstGeneratorOptimized = false;
+
+            if (!firstGeneratorOptimized)
+            {
+                // 첫 번째 generator가 일반 루프인 경우: GET_ITER 생성
+                if (firstGenerator.Iter is ListExpression iterList &&
+                    iterList.Elements.All(e => e is ConstantExpression))
+                {
+                    // 상수 리스트 → 상수 튜플로 변환
+                    var constantElements = iterList.Elements.Cast<ConstantExpression>()
+                                                          .Select(c => c.Value)
+                                                          .ToArray();
+                    var tupleConstant = new PyTuple(constantElements);
+                    EmitLoadConst(tupleConstant);
+                }
+                else
+                {
+                    CompileExpression(firstGenerator.Iter);
+                }
+
+                EmitInstruction(ByteCodeOp.GET_ITER);
+            }
+
+            // 2. LOAD_FAST_AND_CLEAR: 모든 컴프리헨션 변수 초기화
+            foreach (var varName in comprehensionVars)
             {
                 EmitInstruction(ByteCodeOp.LOAD_FAST_AND_CLEAR, GetOrAddVarName(varName));
             }
 
-            // 4. CPython 3.12: SWAP + BUILD_MAP + SWAP 패턴
-            if (allVarsFromThisLevel.Count > 0)
+            // 3. 첫 번째 SWAP: 스택 재배치
+            if (comprehensionVars.Count > 0)
             {
-                int swapArg = allVarsFromThisLevel.Count + 1;
+                int swapArg = firstGeneratorOptimized ? comprehensionVars.Count : comprehensionVars.Count + 1;
                 EmitInstruction(ByteCodeOp.SWAP, swapArg);
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 Level {nestingLevel} Initial SWAP: vars={allVarsFromThisLevel.Count}, swapArg={swapArg}");
-                #endif
             }
 
-            EmitInstruction(ByteCodeOp.BUILD_MAP, 0);
+            // 4. BUILD_MAP 생성 (Dict comprehension의 핵심 차이점!)
+            EmitInstruction(ByteCodeOp.BUILD_MAP, 0); // {} 빈 딕셔너리 생성
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 CPython 3.12 BUILD_MAP 0 생성");
+            #endif
 
-            if (allVarsFromThisLevel.Count > 0)
-            {
-                EmitInstruction(ByteCodeOp.SWAP, 2);
-            }
+            // 5. 두 번째 SWAP: 딕셔너리를 올바른 위치로 이동
+            EmitInstruction(ByteCodeOp.SWAP, 2);
 
-            // 5. 중첩된 루프 컴파일
+            // 6. Exception table 시작점
             var exceptionTableStart = _instructions.Count;
-            var loopStart = _instructions.Count;
-            EmitInstruction(ByteCodeOp.FOR_ITER, 0); // 패치 대상
 
-            // 현재 레벨 변수만 저장 (타겟 변수)
-            var currentLevelVars = new List<string>();
-            CollectComprehensionVars(firstGenerator.Target, currentLevelVars);
-            CompileComprehensionTarget(firstGenerator.Target, currentLevelVars);
+            // 7. CPython 3.12 재귀 구조 사용
+            var (result, outerEndForPos) = CompileSyncComprehensionGenerator(
+                generators: dictComp.Generators,
+                genIndex: 0,
+                depth: 0,
+                elt: dictComp.Key,        // Dict는 key 사용
+                val: dictComp.Value,      // Dict는 value도 전달
+                type: ComprehensionType.DictComp,
+                comprehensionVars: comprehensionVars,
+                iterOnStack: true
+            );
 
-            // 첫 번째 generator의 조건 검사 - CPython 3.12 패턴 (list/set comprehension과 동일)
-            List<int> conditionJumps = new List<int>();
-            foreach (var condition in firstGenerator.Ifs)
+            if (result < 0)
             {
-                CompileExpression(condition);
-                conditionJumps.Add(_instructions.Count);
-                EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // 조건이 거짓이면 JUMP_BACKWARD로 점프 (패치 대상)
+                throw new Exception("Failed to compile dict comprehension generators");
             }
 
-            // 6. 나머지 generator들과 내부 블록 처리
-            if (dictComp.Generators.Count > 1)
+            // 8. 변수 복원
+            if (comprehensionVars.Count > 0)
             {
-                CompileNestedGenerators(dictComp.Generators, 1, currentLevelVars, () =>
+                EmitInstruction(ByteCodeOp.SWAP, comprehensionVars.Count + 1);
+
+                for (int i = comprehensionVars.Count - 1; i >= 0; i--)
                 {
-                    CompileInnerBlock();
-                });
-            }
-            else
-            {
-                CompileInnerBlock();
-            }
-
-            // 조건부 점프 패치: POP_JUMP_IF_FALSE가 JUMP_BACKWARD로 점프하도록
-            var jumpBackwardTargetPos = _instructions.Count;
-            foreach (var jumpPos in conditionJumps)
-            {
-                // CPython 3.12: POP_JUMP_IF_FALSE는 JUMP_BACKWARD 위치로 점프
-                int condJumpDist;
-                if (SharpPyConfig._enable_optimizer)
-                {
-                    condJumpDist = jumpBackwardTargetPos - jumpPos - 1;
-                }
-                else
-                {
-                    int currentByteOffset = PyJumpBackwardUtil.CalculateByteOffset(jumpPos, _instructions);
-                    int targetByteOffset = PyJumpBackwardUtil.CalculateByteOffset(jumpBackwardTargetPos, _instructions);
-                    condJumpDist = (targetByteOffset - currentByteOffset - 2) / 2;
-                }
-                _instructions[jumpPos] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, condJumpDist);
-            }
-
-            void CompileInnerBlock()
-            {
-                // Key 컴파일
-                CompileExpression(dictComp.Key);
-
-                // Value 컴파일 - 중첩 comprehension이면 재귀 호출
-                if (dictComp.Value is DictComprehension nestedComp)
-                {
-                    // 재귀 호출: 중첩된 comprehension 컴파일
-                    CompileDictComprehensionRecursive(nestedComp, nestingLevel + 1);
-                }
-                else
-                {
-                    // 일반 표현식
-                    CompileExpression(dictComp.Value);
-                }
-
-                // CPython 3.12 MAP_ADD offset 계산 - 개선된 nested comprehension 처리
-                int forLoopCount = dictComp.Generators.Count;
-                int mapAddArg;
-
-                if (_comprehensionNestingDepth >= 1)
-                {
-                    // 중첩된 dict comprehension: LIST_APPEND와 같은 공식 시도
-                    // LIST_APPEND가 성공한 공식: generatorCount + 1
-                    mapAddArg = forLoopCount + 1;
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 MAP_ADD depth 계산 (중첩): nesting={_comprehensionNestingDepth}, generators={forLoopCount}, depth={mapAddArg}");
-                    #endif
-                }
-                else
-                {
-                    // 일반적인 경우: generator 수 + 1
-                    mapAddArg = forLoopCount + 1;
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 MAP_ADD depth 계산 (단독): {forLoopCount} generators → depth {mapAddArg}");
-                    #endif
-                }
-                EmitInstruction(ByteCodeOp.MAP_ADD, mapAddArg);
-                #if DEBUG_LOG
-                Console.WriteLine($"🗝️ Level {nestingLevel} MAP_ADD {mapAddArg} (allVars: {allVarsFromThisLevel.Count})");
-                #endif
-            }
-
-            // 7. FOR_ITER 루프 마무리
-            var jumpBackwardArg = CalculateJumpBackwardArg(_instructions.Count, loopStart);
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
-
-            // FOR_ITER 패치
-            var endForPosition = _instructions.Count;
-            EmitInstruction(ByteCodeOp.END_FOR);
-            var jumpDistance = endForPosition - loopStart - 1;
-            _instructions[loopStart] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, jumpDistance);
-
-            // 8. CPython 3.12: 변수들 복원 (SWAP + STORE_FAST 역순)
-            if (allVarsFromThisLevel.Count > 0)
-            {
-                int swapValue = allVarsFromThisLevel.Count + 1;
-                EmitInstruction(ByteCodeOp.SWAP, swapValue);
-
-                // 변수들을 역순으로 저장 (CPython 3.12 패턴)
-                for (int i = allVarsFromThisLevel.Count - 1; i >= 0; i--)
-                {
-                    EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(allVarsFromThisLevel[i]));
+                    var varName = comprehensionVars[i];
+                    EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(varName));
                 }
             }
 
-            // 9. Exception handler 등록
-            var exceptionTableEnd = _instructions.Count;
+            // 9. Exception table 등록
+            var exceptionTableEnd = outerEndForPos > 0 ? outerEndForPos : _instructions.Count;
             var pendingHandler = new PendingExceptionHandler
             {
                 StartOffset = exceptionTableStart,
                 EndOffset = exceptionTableEnd,
-                ComprehensionVars = new List<string>(allVarsFromThisLevel),
-                Depth = allVarsFromThisLevel.Count + 1
+                ComprehensionVars = new List<string>(comprehensionVars),
+                Depth = 2
             };
             _pendingExceptionHandlers.Add(pendingHandler);
 
-            // 컴프리헨션 컨텍스트 종료
+            // 10. 컨텍스트 종료
             _isInComprehension = savedIsInComprehension;
+            _comprehensionNestingDepth--;
 
             #if DEBUG_LOG
-            Console.WriteLine($"✅ 재귀적 Dict comprehension Level {nestingLevel} 완료 ({dictComp.Generators.Count}개 generator)");
+            Console.WriteLine($"✅ Dict comprehension 바이트코드 CPython 3.12 호환 완료");
             #endif
         }
 
-
-
-        /// <summary>
-        /// 중첩 dict comprehension에서 현재 레벨부터 최하위까지의 모든 변수 수집
-        /// CPython 3.12 패턴: Level N → [자신부터 최하위까지 모든 변수]
-        /// </summary>
-        private List<string> CollectNestedVarsFromLevel(DictComprehension dictComp, int currentLevel = 0)
-        {
-            var vars = new List<string>();
-
-            // 현재 레벨 변수 수집
-            foreach (var generator in dictComp.Generators)
-            {
-                CollectComprehensionVars(generator.Target, vars);
-            }
-
-            // 중첩된 comprehension이 있으면 재귀적으로 수집
-            if (dictComp.Value is DictComprehension nestedComp)
-            {
-                var nestedVars = CollectNestedVarsFromLevel(nestedComp, currentLevel + 1);
-                // 중복 제거하면서 추가
-                foreach (var nestedVar in nestedVars)
-                {
-                    if (!vars.Contains(nestedVar))
-                    {
-                        vars.Add(nestedVar);
-                    }
-                }
-            }
-
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 CollectNestedVarsFromLevel({currentLevel}): [{string.Join(", ", vars)}]");
-            #endif
-
-            return vars;
-        }
 
         /// <summary>
         /// 중첩 dict comprehension의 깊이 계산
