@@ -1813,6 +1813,21 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
+        /// Convert GeneratedExprContext to SharpPy ExprContext
+        /// CPython 3.12: Load, Store, Del
+        /// </summary>
+        private static ExprContext ConvertContext(GeneratedExprContext genCtx)
+        {
+            return genCtx switch
+            {
+                GeneratedLoad => Load.Instance,
+                GeneratedStore => Store.Instance,
+                GeneratedDel => Del.Instance,
+                _ => Load.Instance  // 기본값
+            };
+        }
+
+        /// <summary>
         /// Convert GeneratedExpr to SharpPy Expression using pattern matching
         /// CPython 3.12: All expression types have concrete Generated classes
         /// </summary>
@@ -1854,7 +1869,7 @@ namespace SharpPy.Generated
                     ConvertGeneratedPyConstantToPyObject(constant.Value)
                 ),
 
-                GeneratedName name => new NameExpression(name.Id),
+                GeneratedName name => new NameExpression(name.Id, ConvertContext(name.Ctx)),
 
                 // Binary and comparison operations
                 GeneratedBinOp binOp => new BinOpExpression(
@@ -1874,21 +1889,25 @@ namespace SharpPy.Generated
 
                 GeneratedAttribute attr => new AttributeExpression(
                     ConvertAnyExpression(attr.Value),
-                    attr.Attr
+                    attr.Attr,
+                    ConvertContext(attr.Ctx)
                 ),
 
                 GeneratedSubscript subscript => new SubscriptExpression(
                     ConvertAnyExpression(subscript.Value),
-                    ConvertAnyExpression(subscript.Slice)
+                    ConvertAnyExpression(subscript.Slice),
+                    ConvertContext(subscript.Ctx)
                 ),
 
                 // Collections
                 GeneratedList list => new ListExpression(
-                    list.Elts?.ToEnumerable<GeneratedExpr>().Select(e => ConvertAnyExpression(e)).ToList() ?? new List<Expression>()
+                    list.Elts?.ToEnumerable<GeneratedExpr>().Select(e => ConvertAnyExpression(e)).ToList() ?? new List<Expression>(),
+                    ConvertContext(list.Ctx)
                 ),
 
                 GeneratedTuple tuple => new TupleExpression(
-                    tuple.Elts?.ToEnumerable<GeneratedExpr>().Select(e => ConvertAnyExpression(e)).ToList() ?? new List<Expression>()
+                    tuple.Elts?.ToEnumerable<GeneratedExpr>().Select(e => ConvertAnyExpression(e)).ToList() ?? new List<Expression>(),
+                    ConvertContext(tuple.Ctx)
                 ),
 
                 GeneratedDict dict => new DictExpression(
@@ -1953,7 +1972,8 @@ namespace SharpPy.Generated
 
                 // Starred expression (unpacking)
                 GeneratedStarred starred => new StarredExpression(
-                    ConvertAnyExpression(starred.Value)
+                    ConvertAnyExpression(starred.Value),
+                    ConvertContext(starred.Ctx)
                 ),
 
                 // Slice expression

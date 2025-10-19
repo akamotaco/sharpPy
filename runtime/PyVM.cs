@@ -975,6 +975,13 @@ namespace SharpPy
 
                 case ByteCodeOp.SWAP: // SWAP(n) - TOS와 TOS-(n-1) 교환
                     var oparg = instruction.Argument;
+                    Console.WriteLine($"🔍 SWAP({oparg}): Stack.Count = {frame.ValueStack.Count}");
+                    if (frame.ValueStack.Count > 0)
+                    {
+                        var stackPreview = string.Join(", ", frame.ValueStack.Take(Math.Min(5, frame.ValueStack.Count)).Select(x => x.GetType().Name));
+                        Console.WriteLine($"    Stack top items: [{stackPreview}]");
+                    }
+
                     if (frame.ValueStack.Count < oparg)
                     {
                         throw PyRuntimeError.Create($"SWAP({oparg}): Not enough items on stack (need {oparg}, got {frame.ValueStack.Count})");
@@ -992,6 +999,7 @@ namespace SharpPy
                         frame.ValueStack.Push(stackArray[i]);
                     }
 
+                    Console.WriteLine($"    ✅ SWAP completed, Stack.Count = {frame.ValueStack.Count}");
                     break;
 
                 case ByteCodeOp.LOAD_CONST:
@@ -1045,9 +1053,18 @@ namespace SharpPy
                 case ByteCodeOp.LOAD_FAST_AND_CLEAR:
                     // CPython 3.12 PEP 709: Load variable and clear it from locals (for comprehensions)
                     var clearArgIndex = instruction.Argument;
+
+                    // 🔍 DEBUG: Track execution in no-optimize mode
+                    Console.WriteLine($"🔍 LOAD_FAST_AND_CLEAR: arg={clearArgIndex}, VarNames.Count={frame.Code.VarNames.Count}, Stack.Count={frame.ValueStack.Count}");
+                    if (frame.Code.VarNames.Count > 0)
+                    {
+                        Console.WriteLine($"    VarNames: [{string.Join(", ", frame.Code.VarNames)}]");
+                    }
+
                     if (clearArgIndex < frame.Code.VarNames.Count)
                     {
                         var clearVarName = frame.Code.VarNames[clearArgIndex];
+                        Console.WriteLine($"    Looking for variable: '{clearVarName}'");
 
                         // Try fast locals first
                         if (frame.FastLocals.TryGetValue(clearVarName, out var clearValue))
@@ -1055,6 +1072,7 @@ namespace SharpPy
                             frame.ValueStack.Push(clearValue);
                             // Clear the variable from locals (PEP 709 requirement)
                             frame.FastLocals.Remove(clearVarName);
+                            Console.WriteLine($"    ✅ PATH 1: Loaded '{clearVarName}'={clearValue} from fast locals, cleared. Stack.Count={frame.ValueStack.Count}");
                             #if DEBUG_LOG
                             Console.WriteLine($"🧹 LOAD_FAST_AND_CLEAR: loaded {clearVarName}={clearValue} from fast locals, cleared");
                             #endif
@@ -1068,6 +1086,7 @@ namespace SharpPy
                                 frame.ValueStack.Push(globalVal);
                                 // Store original value in fast locals for proper restoration
                                 frame.FastLocals[clearVarName] = globalVal;
+                                Console.WriteLine($"    ✅ PATH 2: Loaded '{clearVarName}'={globalVal} from global scope. Stack.Count={frame.ValueStack.Count}");
                                 #if DEBUG_LOG
                                 Console.WriteLine($"🧹 LOAD_FAST_AND_CLEAR: loaded {clearVarName}={globalVal} from global scope, saved to fast locals");
                                 #endif
@@ -1076,6 +1095,7 @@ namespace SharpPy
                             {
                                 // CPython 3.12: Load NULL if variable doesn't exist (for comprehensions)
                                 frame.ValueStack.Push(PyNull.Instance);
+                                Console.WriteLine($"    ✅ PATH 3: Variable '{clearVarName}' not found, loaded NULL. Stack.Count={frame.ValueStack.Count}");
                                 #if DEBUG_LOG
                                 Console.WriteLine($"🧹 LOAD_FAST_AND_CLEAR: {clearVarName} not found in fast locals or globals, loaded NULL");
                                 #endif
@@ -1084,6 +1104,7 @@ namespace SharpPy
                     }
                     else
                     {
+                        Console.WriteLine($"    ❌ ERROR: Argument index out of range!");
                         throw PyRuntimeError.Create($"LOAD_FAST_AND_CLEAR: index {clearArgIndex} out of range");
                     }
                     break;
@@ -2649,6 +2670,8 @@ namespace SharpPy
                     int currentInstrPos = frame.InstructionPointer;
                     int targetInstrPos;
 
+                    Console.WriteLine($"🔧 JUMP_BACKWARD: currentIP={currentInstrPos}, arg={instruction.Argument}");
+
                     #if DEBUG_LOG
                     Console.WriteLine($"🔧 JUMP_BACKWARD Debug: currentInstrPos={currentInstrPos}, instruction.Argument={instruction.Argument}");
                     Console.WriteLine($"    현재 instruction: {frame.Code.Instructions[currentInstrPos].OpCode} (arg: {frame.Code.Instructions[currentInstrPos].Argument})");
@@ -2671,6 +2694,7 @@ namespace SharpPy
                     {
                         // Quickened Code: instruction offset 사용
                         targetInstrPos = quickenedJumpCode.CalculateJumpBackwardTarget(currentInstrPos, instruction.Argument);
+                        Console.WriteLine($"    🔙 JUMP_BACKWARD: QuickenedCode {currentInstrPos} → {targetInstrPos}");
                         #if DEBUG_LOG
                         Console.WriteLine($"🔙 JUMP_BACKWARD: QuickenedCode {currentInstrPos} → {targetInstrPos}");
                         #endif
@@ -2679,6 +2703,7 @@ namespace SharpPy
                     {
                         // 레거시 방식: PyJumpBackwardUtil 사용
                         targetInstrPos = PyJumpBackwardUtil.CalculateJumpBackwardTarget(currentInstrPos, instruction.Argument, frame.Code.Instructions);
+                        Console.WriteLine($"    🔙 JUMP_BACKWARD: Legacy (Util) {currentInstrPos} → {targetInstrPos}");
                         #if DEBUG_LOG
                         Console.WriteLine($"🔙 JUMP_BACKWARD: Legacy {currentInstrPos} → {targetInstrPos}");
                         #endif
@@ -2716,8 +2741,11 @@ namespace SharpPy
                         }
                     }
 
-                    // Direct jump to target position (subtract 1 because main loop will increment)
+                    // CPython 3.12 호환: 점프 후 main loop가 ++하므로 -1 필요
+                    // 하지만 FOR_ITER같은 경우는 target이 정확해야 함
+                    // PyJumpBackwardUtil이 이미 올바른 target을 계산했으므로 -1 적용
                     frame.InstructionPointer = targetInstrPos - 1;
+                    Console.WriteLine($"    🎯 Setting IP to {targetInstrPos - 1}, after main loop++ will be {targetInstrPos}");
                     return null; // Continue execution from new position
 
                 // CPython-style Container Building Opcodes (Phase 1)
@@ -2949,6 +2977,7 @@ namespace SharpPy
 
                 // CPython-style Iterator Opcodes
                 case ByteCodeOp.GET_ITER:
+                    Console.WriteLine($"🔍 GET_ITER: Stack.Count before pop = {frame.ValueStack.Count}");
                     var iterable = frame.ValueStack.Pop();
                     if (iterable is PyTuple iterTuple)
                     {
@@ -2970,11 +2999,19 @@ namespace SharpPy
                     }
                     var iterator = iterable.GetIterator();
                     frame.ValueStack.Push(iterator);
+                    Console.WriteLine($"    ✅ GET_ITER: Created iterator, Stack.Count after push = {frame.ValueStack.Count}");
                     break;
 
                 case ByteCodeOp.FOR_ITER:
                     // CPython 3.12 compatible FOR_ITER implementation
+                    Console.WriteLine($"🔍 FOR_ITER: Stack.Count before Peek = {frame.ValueStack.Count}, IP={frame.InstructionPointer}");
+                    if (frame.ValueStack.Count > 0)
+                    {
+                        var stackItems = frame.ValueStack.Take(Math.Min(5, frame.ValueStack.Count)).Select((x, i) => $"[{i}]={x.GetType().Name}").ToList();
+                        Console.WriteLine($"    Stack items: {string.Join(", ", stackItems)}");
+                    }
                     var iter = frame.ValueStack.Peek(); // Keep iterator on stack for inspection
+                    Console.WriteLine($"    Iterator type: {iter.GetType().Name}, value: {iter}");
                     #if DEBUG_LOG
                     Console.WriteLine($"🔧 FOR_ITER: iterator type = {iter.GetType().Name}, calling Next()...");
                     Console.WriteLine($"    InstructionPointer = {frame.InstructionPointer}");
@@ -2983,6 +3020,7 @@ namespace SharpPy
                     {
                         var nextItem = iter.Next();
                         frame.ValueStack.Push(nextItem); // Push next item on top of iterator
+                        Console.WriteLine($"    ✅ FOR_ITER: got next item, Stack.Count after push = {frame.ValueStack.Count}");
                         #if DEBUG_LOG
                         Console.WriteLine($"🔄 FOR_ITER: got next item {nextItem} from iterator");
                         #endif
@@ -2990,6 +3028,7 @@ namespace SharpPy
                     }
                     catch (PythonException ex) when (ex.PyException is PyStopIteration)
                     {
+                        Console.WriteLine($"🔚 FOR_ITER: StopIteration - loop finished, Stack.Count before pop = {frame.ValueStack.Count}");
                         #if DEBUG_LOG
                         Console.WriteLine($"🔚 FOR_ITER: StopIteration - loop finished");
                         Console.WriteLine($"    스택 상태 (pop 전): count={frame.ValueStack.Count}");
@@ -3002,6 +3041,7 @@ namespace SharpPy
                         // FOR_ITER 스택 구조: [..., value, iterator] (CPython 호환)
                         // StopIteration 시: iterator를 제거하고 value를 유지
                         var removedIterator = frame.ValueStack.Pop(); // iterator 제거 (TOS)
+                        Console.WriteLine($"    ✅ FOR_ITER: Popped iterator, Stack.Count after pop = {frame.ValueStack.Count}");
                         #if DEBUG_LOG
                         Console.WriteLine($"    제거된 객체: {removedIterator} ({removedIterator.GetType().Name})");
                         Console.WriteLine($"    스택 상태 (pop 후): count={frame.ValueStack.Count}");
@@ -3025,11 +3065,14 @@ namespace SharpPy
                         }
                         else if (!frame.Code.IsOptimized)
                         {
-                            // 최적화 OFF: argument는 instruction 단위
-                            frame.InstructionPointer += instruction.Argument;
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔚 FOR_ITER: Jumping to position {frame.InstructionPointer + 1} (unoptimized)");
-                            #endif
+                            // CPython 3.12 호환: FOR_ITER StopIteration 점프
+                            // bytecodes.c:2341: JUMPBY(INLINE_CACHE_ENTRIES_FOR_ITER + oparg + 1)
+                            // INLINE_CACHE_ENTRIES_FOR_ITER = 1 (one CACHE instruction)
+                            // Jump amount = 1 + oparg + 1 = oparg + 2 instruction indices
+                            // Main loop will ++, so set to: current + oparg + 2 - 1 = current + oparg + 1
+                            int targetIndex = frame.InstructionPointer + instruction.Argument + 1;
+                            Console.WriteLine($"    🔚 FOR_ITER: Jumping from IP={frame.InstructionPointer} to IP={targetIndex + 1} (no-optimize, arg={instruction.Argument})");
+                            frame.InstructionPointer = targetIndex; // main loop will increment
                         }
                         else
                         {
@@ -4498,10 +4541,19 @@ namespace SharpPy
                 case ByteCodeOp.LIST_APPEND:
                     // CPython 3.12 호환: LIST_APPEND i
                     // 스택: [..., list, ..., item] → [..., list, ...]
+                    Console.WriteLine($"🔧 LIST_APPEND {instruction.Argument}: Stack before pop = {frame.ValueStack.Count}");
+                    if (frame.ValueStack.Count > 0)
+                    {
+                        var stackBefore = frame.ValueStack.Take(Math.Min(5, frame.ValueStack.Count)).Select((x, i) => $"[{i}]={x.GetType().Name}").ToList();
+                        Console.WriteLine($"    Stack: {string.Join(", ", stackBefore)}");
+                    }
+
                     var itemToAppend = frame.ValueStack.Pop();
+                    Console.WriteLine($"    Popped item: {itemToAppend.GetType().Name}");
 
                     // CPython 3.12: LIST_APPEND i에서 타겟 리스트 찾기
                     var targetDepth = instruction.Argument - 1; // 0-based 인덱스
+                    Console.WriteLine($"    Looking for list at depth {targetDepth} (arg={instruction.Argument})");
 
                     if (frame.ValueStack.Count <= targetDepth)
                     {
@@ -4510,6 +4562,7 @@ namespace SharpPy
 
                     // 스택 위치에서 리스트 찾기 - PyNull 건너뛰기
                     var targetList = frame.ValueStack.ElementAt(targetDepth);
+                    Console.WriteLine($"    Found at ElementAt({targetDepth}): {targetList.GetType().Name}");
 
                     // PyNull인 경우 실제 리스트를 찾기 위해 스택을 탐색
                     if (PyNull.IsNull(targetList))

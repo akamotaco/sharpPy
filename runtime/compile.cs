@@ -1955,7 +1955,11 @@ namespace SharpPy
                     
                 case ExpressionStatement expr:
                     CompileExpression(expr.Expression);
-                    EmitInstruction(ByteCodeOp.POP_TOP);
+                    // CPython 3.12: YieldExpression already includes POP_TOP after RESUME
+                    if (expr.Expression is not YieldExpression)
+                    {
+                        EmitInstruction(ByteCodeOp.POP_TOP);
+                    }
                     break;
                     
                 case ReturnStatement ret:

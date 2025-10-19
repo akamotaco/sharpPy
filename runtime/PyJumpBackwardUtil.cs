@@ -177,16 +177,20 @@ namespace SharpPy
         /// <returns>JUMP_BACKWARD의 oparg 값</returns>
         public static int CalculateJumpBackwardOpArg(int currentInstrPos, int targetInstrPos, List<ByteCodeInstruction> instructions)
         {
-            // CPython 3.12: 항상 바이트 오프셋 기반 계산 (instruction 단위가 아님)
-            // next_instr_position: JUMP_BACKWARD 다음 명령어의 바이트 오프셋
-            int currentByteOffset = CalculateByteOffset(currentInstrPos, instructions);
-            currentByteOffset += 2; // JUMP_BACKWARD 명령어 자체 크기
+            // CPython 3.12: JUMP_BACKWARD oparg는 instruction word 단위 (2바이트)
+            //
+            // 🎯 핵심: CACHE instruction도 하나의 instruction word로 계산
+            // - Index 13: FOR_ITER (1 word)
+            // - Index 14: CACHE (1 word) ← 이것도 카운트됨!
+            // - Index 15-17: 다른 instructions (3 words)
+            // - Index 18: JUMP_BACKWARD (현재 위치)
+            //
+            // oparg = 18 - 13 = 5 instruction words
+            //
+            // ⚠️ 주의: GetCPythonInstructionSize는 CACHE의 size를 0으로 반환하지만,
+            // JUMP_BACKWARD의 oparg 계산에서는 CACHE도 1 instruction word로 카운트해야 함
 
-            // target_position: 점프할 타겟의 바이트 오프셋
-            int targetByteOffset = CalculateByteOffset(targetInstrPos, instructions);
-
-            // CPython 3.12 공식: oparg = (next_instr_position - target_position) / 2
-            return (currentByteOffset - targetByteOffset) / 2;
+            return currentInstrPos - targetInstrPos;
         }
 
         /// <summary>
@@ -331,37 +335,16 @@ namespace SharpPy
         /// <returns>점프할 타겟의 instruction index</returns>
         public static int CalculateJumpBackwardTarget(int currentInstrPos, int opArg, List<ByteCodeInstruction> instructions)
         {
-            // 최적화된 코드에서는 instruction 단위 계산
-            if (SharpPyConfig._enable_optimizer)
-            {
-                // CPython 3.12 최적화 모드: instruction 단위 계산
-                // oparg = current_position - target_position
-                // 따라서: target_position = current_position - oparg
-                int targetIndex = currentInstrPos - opArg;
+            // CPython 3.12 호환: JUMPBY(-oparg) → next_instr -= oparg
+            // Optimize ON/OFF 모두 동일한 instruction 단위 계산 사용
+            // CPython 소스: Python/bytecodes.c:2161 JUMPBY(-oparg)
+            int targetIndex = currentInstrPos - opArg;
 
 #if DEBUG_LOG
-                Console.WriteLine($"🔍 JUMP_BACKWARD 타겟 계산 (최적화): currentInstr={currentInstrPos}, opArg={opArg}");
-                Console.WriteLine($"    targetIndex={targetIndex}");
+            Console.WriteLine($"🔍 JUMP_BACKWARD 타겟 계산 (CPython 3.12 호환): currentInstr={currentInstrPos}, opArg={opArg}");
+            Console.WriteLine($"    targetIndex={targetIndex}");
 #endif
-                return targetIndex;
-            }
-            else
-            {
-                // 최적화 비활성화: 기존 바이트 단위 계산
-                int currentByteOffset = CalculateByteOffset(currentInstrPos, instructions);
-                int targetByteOffset = currentByteOffset + 2 - (opArg * 2);
-
-#if DEBUG_LOG
-                Console.WriteLine($"🔍 JUMP_BACKWARD 타겟 계산 (바이트): currentInstr={currentInstrPos}, opArg={opArg}");
-                Console.WriteLine($"    currentByteOffset={currentByteOffset}, targetByteOffset={targetByteOffset}");
-#endif
-
-                int targetIndex = ByteOffsetToInstructionIndex(targetByteOffset, instructions);
-#if DEBUG_LOG
-                Console.WriteLine($"    targetIndex={targetIndex}");
-#endif
-                return targetIndex;
-            }
+            return targetIndex;
         }
 
         /// <summary>

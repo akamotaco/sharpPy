@@ -3174,20 +3174,22 @@ namespace SharpPy
         public override string NodeType => "Attribute";
         public Expression Value { get; }
         public string Attr { get; }
-        
-        public AttributeExpression(Expression value, string attr)
+        public ExprContext? Ctx { get; set; }  // CPython 3.12: Store, Load, Del
+
+        public AttributeExpression(Expression value, string attr, ExprContext? ctx = null)
         {
             Value = value;
             Attr = attr;
+            Ctx = ctx ?? Load.Instance;  // 기본값: Load context
         }
-        
+
         public override PyObject Evaluate(PyScope scope)
         {
             var obj = Value.Evaluate(scope);
             return obj.GetAttribute(Attr);
         }
-        
-        public override string ToString() => $"{Value}.{Attr}";
+
+        public override string ToString() => Ctx != null ? $"Attribute(value={Value}, attr='{Attr}', ctx={Ctx})" : $"{Value}.{Attr}";
     }
 
     public class SubscriptExpression : Expression
@@ -3195,18 +3197,20 @@ namespace SharpPy
         public override string NodeType => "Subscript";
         public Expression Value { get; }
         public Expression Slice { get; }
-        
-        public SubscriptExpression(Expression value, Expression slice)
+        public ExprContext? Ctx { get; set; }  // CPython 3.12: Store, Load, Del
+
+        public SubscriptExpression(Expression value, Expression slice, ExprContext? ctx = null)
         {
             Value = value;
             Slice = slice;
+            Ctx = ctx ?? Load.Instance;  // 기본값: Load context
         }
-        
+
         public override PyObject Evaluate(PyScope scope)
         {
             var obj = Value.Evaluate(scope);
             var index = Slice.Evaluate(scope);
-            
+
             // GetItem 대신 기존 메서드 사용
             if (obj is PyDict dict)
                 return dict.GetItem(index);
@@ -3215,8 +3219,8 @@ namespace SharpPy
             else
                 return PyNone.Instance;
         }
-        
-        public override string ToString() => $"{Value}[{Slice}]";
+
+        public override string ToString() => Ctx != null ? $"Subscript(value={Value}, slice={Slice}, ctx={Ctx})" : $"{Value}[{Slice}]";
     }
 
     // Starred expression: *variable (for unpacking)
@@ -3244,12 +3248,14 @@ namespace SharpPy
     {
         public override string NodeType => "List";
         public List<Expression> Elements { get; }
-        
-        public ListExpression(List<Expression> elements)
+        public ExprContext? Ctx { get; set; }  // CPython 3.12: Store, Load, Del
+
+        public ListExpression(List<Expression> elements, ExprContext? ctx = null)
         {
             Elements = elements;
+            Ctx = ctx ?? Load.Instance;  // 기본값: Load context
         }
-        
+
         public override PyObject Evaluate(PyScope scope)
         {
             var list = new PyList();
@@ -3259,27 +3265,29 @@ namespace SharpPy
             }
             return list;
         }
-        
-        public override string ToString() => $"[{string.Join(", ", Elements)}]";
+
+        public override string ToString() => Ctx != null ? $"List(elts=[{string.Join(", ", Elements)}], ctx={Ctx})" : $"[{string.Join(", ", Elements)}]";
     }
 
     public class TupleExpression : Expression
     {
         public override string NodeType => "Tuple";
         public List<Expression> Elements { get; }
-        
-        public TupleExpression(List<Expression> elements)
+        public ExprContext? Ctx { get; set; }  // CPython 3.12: Store, Load, Del
+
+        public TupleExpression(List<Expression> elements, ExprContext? ctx = null)
         {
             Elements = elements;
+            Ctx = ctx ?? Load.Instance;  // 기본값: Load context
         }
-        
+
         public override PyObject Evaluate(PyScope scope)
         {
             var items = Elements.Select(element => element.Evaluate(scope)).ToArray();
             return new PyTuple(items);
         }
-        
-        public override string ToString() => $"({string.Join(", ", Elements)})";
+
+        public override string ToString() => Ctx != null ? $"Tuple(elts=[{string.Join(", ", Elements)}], ctx={Ctx})" : $"({string.Join(", ", Elements)})";
     }
 
     public class SetExpression : Expression
@@ -3539,12 +3547,14 @@ namespace SharpPy
     {
         public override string NodeType => "Starred";
         public Expression Value { get; }
-        
-        public StarredExpression(Expression value)
+        public ExprContext? Ctx { get; set; }  // CPython 3.12: Store, Load, Del
+
+        public StarredExpression(Expression value, ExprContext? ctx = null)
         {
             Value = value;
+            Ctx = ctx ?? Load.Instance;  // 기본값: Load context
         }
-        
+
         public override PyObject Evaluate(PyScope scope)
         {
             // Starred expression - 주로 unpacking에서 사용
@@ -3552,8 +3562,8 @@ namespace SharpPy
             // 실제로는 unpacking 로직이 필요하지만 여기서는 그냥 반환
             return value;
         }
-        
-        public override string ToString() => $"*{Value}";
+
+        public override string ToString() => Ctx != null ? $"Starred(value={Value}, ctx={Ctx})" : $"*{Value}";
     }
 
     public class NamedExpression : Expression

@@ -1172,12 +1172,11 @@ namespace SharpPy
 
         private void AnalyzeAssignment(AssignStatement assign)
         {
-            // For simple assignments like "x = value"
-            // CPython 3.12: Extract names from targets
+            // For assignments like "x = value" or "a, b = value1, value2"
+            // CPython 3.12: Extract names from all targets (including tuple unpacking)
             foreach (var target in assign.Targets)
             {
-                if (target is NameExpression nameExpr)
-                    _currentTable?.DefineSymbol(nameExpr.Name, SymbolFlags.Assigned);
+                AnalyzeAssignmentTarget(target);  // Use helper to handle all target types
             }
 
             // Also analyze the right-hand side expression
