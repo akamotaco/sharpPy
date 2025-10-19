@@ -475,7 +475,8 @@ namespace SharpPy.Generated
 
         private void AddToken(PyToken.Type type, string value, int startLine, int startColumn)
         {
-            var token = new GeneratedTokenInfo(type, value, startLine, startColumn, startLine, startColumn + value.Length);
+            // CPython 3.12: Use current _line, _column as end position (already points to end of token)
+            var token = new GeneratedTokenInfo(type, value, startLine, startColumn, _line, _column);
             token.Level = _level; // CPython 3.12: Assign current parenthesis nesting level
             _tokens.Add(token);
         }
