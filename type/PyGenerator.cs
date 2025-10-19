@@ -127,22 +127,33 @@ namespace SharpPy
                 if (!_started)
                 {
                     // 첫 번째 실행: CPython 3.12 패턴
-                    // RETURN_GENERATOR -> POP_TOP -> RESUME 순서
+                    // RETURN_GENERATOR는 generator 생성 시 이미 처리되었으므로
+                    // POP_TOP부터 시작 (RETURN_GENERATOR를 skip)
                     // POP_TOP를 위해 초기 None 값을 스택에 push
-                    _frame.InstructionPointer = 0;
+                    _frame.InstructionPointer = 2; // Skip RETURN_GENERATOR, start from POP_TOP
                     _frame.ValueStack.Push(PyNone.Instance); // CPython 3.12: initial sent value is None
                     _started = true;
                     #if DEBUG_GENERATOR_LOG
-                    Console.WriteLine($"🔄 Native Generator: First execution, starting from instruction 0, stack size: {_frame.ValueStack.Count}");
+                    Console.WriteLine($"🔄 Native Generator: First execution, starting from instruction 2 (after RETURN_GENERATOR), stack size: {_frame.ValueStack.Count}");
                     #endif
                 }
                 else
                 {
                     // 재개: CPython 3.12 호환 - sent value를 스택에 push
                     // RESUME + POP_TOP 패턴을 위해 sent value가 스택에 있어야 함
+                    #if DEBUG_GENERATOR_LOG
+                    Console.WriteLine($"🔄 Native Generator: Before push, stack size: {_frame.ValueStack.Count}, IP: {_frame.InstructionPointer}");
+                    var stackArray = _frame.ValueStack.ToArray();
+                    Array.Reverse(stackArray);
+                    for (int i = 0; i < stackArray.Length; i++)
+                    {
+                        Console.WriteLine($"    Stack[{i}]: {stackArray[i]?.GetType().Name} = {stackArray[i]}");
+                    }
+                    Console.WriteLine($"    Pushing sentValue: {_sentValue}");
+                    #endif
                     _frame.ValueStack.Push(_sentValue);
                     #if DEBUG_GENERATOR_LOG
-                    Console.WriteLine($"🔄 Native Generator: Resumed, stack size: {_frame.ValueStack.Count}");
+                    Console.WriteLine($"🔄 Native Generator: After push, stack size: {_frame.ValueStack.Count}");
                     #endif
                 }
 

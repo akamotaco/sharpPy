@@ -287,15 +287,45 @@ public partial class PyFunction : PyObject, IDescriptor
         {
             throw new InvalidOperationException("Cannot create generator without code object");
         }
-        
+
         // 제너레이터용 VM 인스턴스 사용
         var vm = PyVM.Instance;
-        
+
         // 제너레이터 실행용 Frame 생성 (한 번만 생성하여 재사용)
         // Generator는 정의된 모듈의 GlobalScope를 유지해야 함
-        var frame = new PyFrame(CodeObject, args, ParentScope, Closure);
+        // CPython 3.12: Use captured globals (func.__globals__) - same as regular function calls
+
+        Console.WriteLine($"[CreateGenerator] Function: {Name}");
+        Console.WriteLine($"  GlobalsDict: {(GlobalsDict == null ? "NULL" : $"{GlobalsDict.Count} items")}");
+        if (GlobalsDict != null && GlobalsDict.Count > 0)
+        {
+            Console.WriteLine($"  GlobalsDict keys: {string.Join(", ", GlobalsDict.Keys.Take(10))}");
+            Console.WriteLine($"  Has 'print': {GlobalsDict.ContainsKey("print")}");
+        }
+        Console.WriteLine($"  ParentScope: {(ParentScope == null ? "NULL" : ParentScope.GlobalScope?.Name ?? "no global")}");
+        if (ParentScope?.GlobalScope?.Variables != null)
+        {
+            Console.WriteLine($"  ParentScope.GlobalScope.Variables: {ParentScope.GlobalScope.Variables.Count} items");
+            Console.WriteLine($"  ParentScope has 'print': {ParentScope.GlobalScope.Variables.ContainsKey("print")}");
+        }
+
+        PyScopeChain generatorScopeChain;
+        if (GlobalsDict != null)
+        {
+            // Use the globals captured at function definition time
+            generatorScopeChain = new PyScopeChain(GlobalsDict, CodeObject.Name);
+            Console.WriteLine($"  → Using GlobalsDict");
+        }
+        else
+        {
+            // Fallback to ParentScope for backwards compatibility
+            generatorScopeChain = ParentScope ?? new PyScopeChain();
+            Console.WriteLine($"  → Using ParentScope (fallback)");
+        }
+
+        var frame = new PyFrame(CodeObject, args, generatorScopeChain, Closure);
         frame.IsGenerator = true;  // CPython 3.12: generator frame 표시
-        
+
         // CPython 3.12 완전 호환 PyGenerator 사용
         return new PyGenerator(frame, vm, Name);
     }

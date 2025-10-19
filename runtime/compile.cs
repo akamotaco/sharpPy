@@ -1362,9 +1362,9 @@ namespace SharpPy
             var (paramNames, defaults, flags, argCount, posonlyArgCount, annotations) = ParseFunctionParameters(parameters);
             return (paramNames, defaults, flags, argCount, posonlyArgCount, annotations); // CPython 3.12: annotations 포함
         }
-        
+
         /// <summary>
-        /// Async function body 컴파일 - CO_COROUTINE 플래그 추가
+        /// CPython 3.12: Compile async function body with CO_COROUTINE flag
         /// </summary>
         private PyCodeObject CompileAsyncFunctionBody(AsyncFunctionDefStatement asyncFunc, List<string> freeVars, List<string> cellVars)
         {
@@ -1375,13 +1375,9 @@ namespace SharpPy
             foreach (var defaultExpr in defaultExprs)
             {
                 if (defaultExpr is ConstantExpression constExpr)
-                {
                     defaults.Add(constExpr.Value);
-                }
                 else
-                {
                     defaults.Add(PyNone.Instance);
-                }
             }
 
             // Convert keyword-only default expressions
@@ -1389,36 +1385,33 @@ namespace SharpPy
             foreach (var kwDefaultExpr in kwDefaultExprs)
             {
                 if (kwDefaultExpr == null)
-                {
                     kwDefaults.Add(PyNone.Instance);
-                }
                 else if (kwDefaultExpr is ConstantExpression constExpr)
-                {
                     kwDefaults.Add(constExpr.Value);
-                }
                 else
-                {
                     kwDefaults.Add(PyNone.Instance);
-                }
             }
 
-            // CO_COROUTINE 플래그 추가
+            // CPython 3.12: CO_COROUTINE flag for async functions
             flags |= PyCodeObject.CO_COROUTINE;
 
+            // Use new CompilerFunctionBody following CPython pattern
             var compiler = new PythonCompiler();
             compiler.SetupClosureCompilation(cellVars, freeVars);
-            // CPython 3.12: Pass source location information
             compiler.SetSourceLocation(_currentFileName, _sourceLines);
-            var codeObject = compiler.CompileWithClosureAndDefaults(asyncFunc.Body, asyncFunc.Name, paramNames, defaults, kwDefaults, freeVars, cellVars, flags, argCount, posonlyArgCount, kwonlyArgCount);
-            
-            // yield가 있는 async 함수는 async generator
+
+            var codeObject = compiler.CompilerFunctionBody(
+                asyncFunc.Body, asyncFunc.Name, paramNames,
+                defaults, kwDefaults, freeVars, cellVars,
+                flags, argCount, posonlyArgCount, kwonlyArgCount);
+
+            // CPython 3.12: Async generator detection (yield in async function)
             if (codeObject.IsGenerator())
             {
-                // CO_ASYNC_GENERATOR 플래그 추가 및 CO_GENERATOR 제거
+                // Set CO_ASYNC_GENERATOR and clear CO_GENERATOR
                 var newFlags = codeObject.Flags | PyCodeObject.CO_ASYNC_GENERATOR;
-                newFlags &= ~PyCodeObject.CO_GENERATOR; // CO_GENERATOR 플래그 제거
-                
-                // 새로운 플래그로 코드 객체 재생성
+                newFlags &= ~PyCodeObject.CO_GENERATOR;
+
                 codeObject = new PyCodeObject(
                     codeObject.Name,
                     codeObject.Instructions,
@@ -1437,7 +1430,7 @@ namespace SharpPy
                     codeObject.SourceLines
                 );
             }
-            
+
             return codeObject;
         }
         
@@ -1502,7 +1495,8 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// CPython 호환: 클로저와 기본값을 모두 지원하는 컴파일
+        /// DEPRECATED: Use CompilerFunctionBody instead (CPython 3.12 pattern)
+        /// Legacy method kept for compatibility with PEP 695 generic functions and generator expressions
         /// </summary>
         public PyCodeObject CompileWithClosureAndDefaults(List<Statement> statements, string name, List<string> paramNames, List<PyObject> defaults, List<PyObject> kwDefaults, List<string> freeVars, List<string> cellVars, int flags = 0, int argCount = -1, int posonlyArgCount = 0, int kwonlyArgCount = 0)
         {
@@ -1633,7 +1627,17 @@ namespace SharpPy
                 Console.WriteLine($"  → Skipping implicit None return for {name} (already ends with return)");
             }
 #endif
-            
+
+            // CPython 3.12: Generator 함수 감지 - YIELD_VALUE instruction이 있으면 CO_GENERATOR 플래그 추가
+            bool hasYield = _instructions.Any(inst => inst.OpCode == ByteCodeOp.YIELD_VALUE);
+            if (hasYield && (flags & PyCodeObject.CO_GENERATOR) == 0)
+            {
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔍 Generator detected in {name}: Adding CO_GENERATOR flag");
+#endif
+                flags |= PyCodeObject.CO_GENERATOR;
+            }
+
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames,
                                             finalArgCount, posonlyArgCount, kwonlyArgCount, freeVars, cellVars, defaults, kwDefaults, flags, _currentFileName, _sourceLines);
             
@@ -1684,7 +1688,377 @@ namespace SharpPy
             _currentFunctionName = null; // Reset function name
             return optimizedCode;
         }
-        
+
+        /// <summary>
+        /// CPython 3.12: compiler_function_body
+        /// Compiles function body statements and returns PyCodeObject
+        /// This is the CPython-compatible function body compilation method
+        /// </summary>
+        private PyCodeObject CompilerFunctionBody(
+            List<Statement> statements,
+            string name,
+            List<string> paramNames,
+            List<PyObject> defaults,
+            List<PyObject> kwDefaults,
+            List<string> freeVars,
+            List<string> cellVars,
+            int flags,
+            int argCount,
+            int posonlyArgCount,
+            int kwonlyArgCount)
+        {
+            // Clear all compilation state for new compilation
+            _instructions.Clear();
+            _constants.Clear();
+            _names.Clear();
+            _varNames.Clear();
+            _exceptionTable.Clear();
+            _lineNumberTable.Clear();
+            _isInFunction = true;
+            _currentFunctionName = name;
+
+            // Calculate correct argCount for CPython 3.12 compatibility
+            int finalArgCount = (argCount >= 0) ? argCount : paramNames.Count;
+
+            // Add function parameters to _varNames (for LOAD_FAST/STORE_FAST)
+            foreach (var param in paramNames)
+            {
+                // Remove ** or * prefix from parameter names
+                string localVarName = param;
+                if (param.StartsWith("**"))
+                {
+                    localVarName = param.Substring(2);
+                }
+                else if (param.StartsWith("*"))
+                {
+                    localVarName = param.Substring(1);
+                }
+
+                _varNames.Add(localVarName);
+            }
+
+            // Collect local variables from function body
+            var localVarNames = new List<string>(paramNames);
+            CollectLocalVariables(statements, localVarNames);
+
+            // Add non-parameter local variables to _varNames
+            foreach (var localVar in localVarNames)
+            {
+                if (!_varNames.Contains(localVar))
+                {
+                    _varNames.Add(localVar);
+                }
+            }
+
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"\n🔧 CompilerFunctionBody: {name}");
+            Console.WriteLine($"  Parameters: [{string.Join(", ", paramNames)}]");
+            Console.WriteLine($"  Defaults: [{string.Join(", ", defaults.Select(d => d?.ToString() ?? "None"))}]");
+            Console.WriteLine($"  FreeVars: [{string.Join(", ", freeVars)}]");
+            Console.WriteLine($"  CellVars: [{string.Join(", ", cellVars)}]");
+#endif
+
+            // CPython 3.12: COPY_FREE_VARS for functions with free variables
+            if (freeVars.Count > 0)
+            {
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"  → Emitting COPY_FREE_VARS for {freeVars.Count} free variables");
+#endif
+                EmitCopyFreeVars(freeVars.Count);
+            }
+
+            // CPython 3.12: MAKE_CELL instructions
+            for (int cellIndex = 0; cellIndex < cellVars.Count; cellIndex++)
+            {
+                var cellVar = cellVars[cellIndex];
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"  → Making cell for variable: {cellVar} (cell index {cellIndex})");
+#endif
+                EmitInstruction(ByteCodeOp.MAKE_CELL, cellIndex);
+            }
+
+            // CPython 3.12: RESUME instruction after MAKE_CELL and before function body
+            _currentLineNumber = 0;
+            EmitInstruction(ByteCodeOp.RESUME, 0);
+
+            // Compile function body statements
+            foreach (var statement in statements)
+            {
+                CompileStatement(statement);
+            }
+
+            // CPython 3.12: Add implicit None return if function doesn't end with return
+            bool endsWithReturn = false;
+            if (statements.Count > 0)
+            {
+                var lastStmt = statements[statements.Count - 1];
+                endsWithReturn = EndsWithReturn(lastStmt);
+            }
+
+            if (!endsWithReturn)
+            {
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"  → Adding implicit None return for {name}");
+#endif
+                var noneConstIndex = GetOrAddConstant(PyNone.Instance);
+                EmitInstruction(ByteCodeOp.RETURN_CONST, noneConstIndex);
+            }
+
+            // CPython 3.12: Generator detection - add CO_GENERATOR flag if YIELD_VALUE exists
+            bool hasYield = _instructions.Any(inst => inst.OpCode == ByteCodeOp.YIELD_VALUE);
+            if (hasYield && (flags & PyCodeObject.CO_GENERATOR) == 0)
+            {
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔍 Generator detected in {name}: Adding CO_GENERATOR flag");
+#endif
+                flags |= PyCodeObject.CO_GENERATOR;
+            }
+
+            // Create code object
+            var codeObject = new PyCodeObject(
+                name, _instructions, _constants, _names, _varNames,
+                finalArgCount, posonlyArgCount, kwonlyArgCount,
+                freeVars, cellVars, defaults, kwDefaults,
+                flags, _currentFileName, _sourceLines
+            );
+
+            // Resolve Exception Table labels to offsets (CPython 3.12 compatible)
+            ResolveExceptionTable();
+
+            // Add Exception Table entries (CPython 3.12 compatible)
+            if (_exceptionTable.Count > 0)
+            {
+                codeObject.ExceptionTable.AddRange(_exceptionTable);
+            }
+
+            // CPython 3.12: Generate pending exception handlers at end of bytecode
+            GeneratePendingExceptionHandlers();
+
+            // Apply bytecode optimization (includes RETURN_GENERATOR insertion for generators)
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"🔧 Calling optimizer: _enable_optimizer={_enable_optimizer}");
+#endif
+            var optimizer = new ByteCodeOptimizer(_enable_optimizer);
+            var optimizedCode = optimizer.OptimizeCode(codeObject);
+
+            _isInFunction = false;
+            _currentFunctionName = null;
+            return optimizedCode;
+        }
+
+        /// <summary>
+        /// CPython 3.12: compiler_decorators
+        /// Compiles decorator expressions (called before function compilation)
+        /// Loads decorators in bottom-to-top order (reverse of source order)
+        /// </summary>
+        private void CompilerDecorators(List<DecoratorExpression>? decorators)
+        {
+            if (decorators == null || decorators.Count == 0)
+                return;
+
+            #if DEBUG_COMPILER_LOG
+            Console.WriteLine($"🎨 CompilerDecorators: Loading {decorators.Count} decorators in reverse order");
+            #endif
+
+            // CPython 3.12: Load decorators in REVERSE order (bottom to top in source)
+            for (int i = decorators.Count - 1; i >= 0; i--)
+            {
+                var decorator = decorators[i];
+
+                if (decorator.Arguments.Count > 0)
+                {
+                    // Parametric decorator: @decorator(args) - needs PUSH_NULL
+                    EmitInstruction(ByteCodeOp.PUSH_NULL);
+                    CompileExpression(decorator.DecoratorFunction);
+
+                    // Separate positional and keyword arguments
+                    var positionalArgs = new List<Expression>();
+                    var keywordArgs = new List<KeywordExpression>();
+
+                    foreach (var arg in decorator.Arguments)
+                    {
+                        if (arg is KeywordExpression keyword)
+                            keywordArgs.Add(keyword);
+                        else
+                            positionalArgs.Add(arg);
+                    }
+
+                    // Compile positional arguments first
+                    foreach (var arg in positionalArgs)
+                        CompileExpression(arg);
+
+                    // Compile keyword argument values
+                    foreach (var keyword in keywordArgs)
+                        CompileExpression(keyword.Value);
+
+                    // Handle keyword arguments with KW_NAMES (CPython 3.12 pattern)
+                    if (keywordArgs.Count > 0)
+                    {
+                        var kwNames = keywordArgs.Select(kw => new PyString(kw.Arg ?? "")).ToArray();
+                        var kwNamesTuple = new PyTuple(kwNames);
+                        var kwNamesIndex = GetOrAddConstant(kwNamesTuple);
+
+                        EmitInstruction(ByteCodeOp.KW_NAMES, kwNamesIndex);
+                        EmitInstruction(ByteCodeOp.CALL, positionalArgs.Count + keywordArgs.Count);
+                    }
+                    else
+                    {
+                        EmitInstruction(ByteCodeOp.CALL, positionalArgs.Count);
+                    }
+                }
+                else
+                {
+                    // Simple decorator: @decorator - just load the function
+                    CompileExpression(decorator.DecoratorFunction);
+                }
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12: compiler_apply_decorators
+        /// Applies decorators to the function on top of stack
+        /// Decorators were loaded in reverse order, now call them forward
+        /// </summary>
+        private void CompilerApplyDecorators(List<DecoratorExpression>? decorators)
+        {
+            if (decorators == null || decorators.Count == 0)
+                return;
+
+            #if DEBUG_COMPILER_LOG
+            Console.WriteLine($"🎨 CompilerApplyDecorators: Calling {decorators.Count} decorators");
+            #endif
+
+            // CPython 3.12: Apply decorators in forward order
+            for (int i = 0; i < decorators.Count; i++)
+            {
+                // Call decorator with function (no arguments - they were already processed)
+                EmitInstruction(ByteCodeOp.CALL, 0);
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12: compiler_default_arguments
+        /// Compiles default argument values and returns function flags
+        /// </summary>
+        private int CompilerDefaultArguments(List<Expression> defaultExprs, List<Expression> kwDefaultExprs)
+        {
+            int funcflags = 0;
+
+            // Positional defaults
+            if (defaultExprs.Count > 0)
+            {
+                foreach (var defaultExpr in defaultExprs)
+                    CompileExpression(defaultExpr);
+
+                EmitInstruction(ByteCodeOp.BUILD_TUPLE, defaultExprs.Count);
+                funcflags |= MakeFunctionFlags.DEFAULTS;
+
+                #if DEBUG_COMPILER_LOG
+                Console.WriteLine($"  → Built defaults tuple: {defaultExprs.Count} defaults");
+                #endif
+            }
+
+            // Keyword-only defaults (not implemented yet in SharpPy, but prepared for future)
+            // CPython: if kwonlyargs has defaults, create dict and set flag 0x02
+
+            return funcflags;
+        }
+
+        /// <summary>
+        /// CPython 3.12: compiler_visit_annotations
+        /// Compiles type annotations and returns annotation count (or -1 if none)
+        /// </summary>
+        private int CompilerVisitAnnotations(Dictionary<string, Expression> annotations)
+        {
+            if (annotations.Count == 0)
+                return 0;
+
+            // CPython 3.12 pattern: ('key', type_obj, 'key2', type_obj2, ...)
+            foreach (var annotation in annotations)
+            {
+                EmitLoadConst(new PyString(annotation.Key));
+                CompileExpression(annotation.Value);
+            }
+
+            EmitInstruction(ByteCodeOp.BUILD_TUPLE, annotations.Count * 2);
+
+            #if DEBUG_COMPILER_LOG
+            Console.WriteLine($"  → Built annotations tuple: {annotations.Count} annotations");
+            #endif
+
+            return annotations.Count;
+        }
+
+        /// <summary>
+        /// CPython 3.12: compiler_make_closure
+        /// Creates closure tuple and emits MAKE_FUNCTION with proper flags
+        /// Returns updated funcflags with CLOSURE bit set if needed
+        /// </summary>
+        private int CompilerMakeClosure(PyCodeObject codeObject, List<string> freeVars, int funcflags)
+        {
+            // Build closure if function has free variables
+            if (freeVars.Count > 0)
+            {
+                #if DEBUG_COMPILER_LOG
+                Console.WriteLine($"  → Creating closure for {freeVars.Count} free variables");
+                #endif
+
+                // Load closure cells for each free variable
+                foreach (var freeVar in freeVars)
+                {
+                    int closureIndex = -1;
+                    string source = "";
+
+                    // First check in free variables (from outer closure)
+                    var freeVarIndex = _freeVars.IndexOf(freeVar);
+                    if (freeVarIndex >= 0)
+                    {
+                        closureIndex = freeVarIndex;
+                        source = "free";
+                    }
+                    else
+                    {
+                        // Then check in cell variables (current function's cells)
+                        var cellVarIndex = _cellVars.IndexOf(freeVar);
+                        if (cellVarIndex >= 0)
+                        {
+                            closureIndex = _freeVars.Count + cellVarIndex;
+                            source = "cell";
+                        }
+                    }
+
+                    if (closureIndex >= 0)
+                    {
+                        EmitInstruction(ByteCodeOp.LOAD_CLOSURE, closureIndex);
+                        #if DEBUG_COMPILER_LOG
+                        Console.WriteLine($"    → LOAD_CLOSURE for {freeVar} ({source} index {closureIndex})");
+                        #endif
+                    }
+                    else
+                    {
+                        #if DEBUG_COMPILER_LOG
+                        Console.WriteLine($"    ⚠️ Warning: Free variable {freeVar} not available");
+                        #endif
+                        EmitInstruction(ByteCodeOp.LOAD_CLOSURE, 0); // Fallback
+                    }
+                }
+
+                EmitInstruction(ByteCodeOp.BUILD_TUPLE, freeVars.Count);
+                funcflags |= MakeFunctionFlags.CLOSURE;
+            }
+
+            // Load code object and emit MAKE_FUNCTION
+            EmitLoadConst(codeObject);
+
+            #if DEBUG_COMPILER_LOG
+            Console.WriteLine($"  → MAKE_FUNCTION flags: {funcflags}");
+            #endif
+
+            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, funcflags);
+
+            return funcflags;
+        }
+
         /// <summary>
         /// CPython 3.12: 지연된 exception handler들을 바이트코드 끝에 생성
         /// </summary>
@@ -1741,7 +2115,8 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// CPython 호환: 함수를 매개변수 기본값과 함께 컴파일
+        /// DEPRECATED: Use CompilerFunctionBody instead (CPython 3.12 pattern)
+        /// Legacy method kept for compatibility with PEP 695 generic functions and generator expressions
         /// </summary>
         public PyCodeObject CompileFunction(List<Statement> statements, string name, List<string> paramNames, List<PyObject> defaults, int flags = 0, int posonlyArgCount = 0)
         {
@@ -1817,7 +2192,12 @@ namespace SharpPy
             // CPython 3.12: Generator 함수 감지 - 임시 객체로 체크
             var tempCodeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames,
                                                 finalArgCount, posonlyArgCount, 0, null, null, defaults, null, flags, _currentFileName, _sourceLines);
-            
+
+            #if DEBUG_COMPILER_LOG
+            var hasYield = _instructions.Any(inst => inst.OpCode == ByteCodeOp.YIELD_VALUE);
+            Console.WriteLine($"🔍 Generator 체크: {name}, YIELD_VALUE 있음={hasYield}, IsGenerator()={tempCodeObject.IsGenerator()}");
+            #endif
+
             // Generator 함수 감지 및 수정
             if (tempCodeObject.IsGenerator())
             {
@@ -2783,7 +3163,8 @@ namespace SharpPy
                         EmitLoadConst(PyNone.Instance);
                     EmitInstruction(ByteCodeOp.YIELD_VALUE, 1); // CPython 3.12: yield_value argument 1
                     EmitInstruction(ByteCodeOp.RESUME, 1); // CPython 3.12: Resume after yield
-                    EmitInstruction(ByteCodeOp.POP_TOP); // CPython 3.12: POP_TOP after resume
+                    // NOTE: YieldExpression은 값을 생성하므로 RESUME 후 sent value가 스택에 남아야 함
+                    // POP_TOP은 YieldStatement에만 필요함
                     break;
 
                 case YieldFromExpression yieldFromExpr:
@@ -3300,191 +3681,27 @@ namespace SharpPy
                 Console.WriteLine($"  📤 Passed root symbol table to nested compiler: {_symbolTable.Name}");
                 #endif
             }
-            var funcCode = compiler.CompileWithClosureAndDefaults(func.Body, func.Name, paramNames, defaults, kwDefaults, freeVars, cellVars, flags, argCount, posonlyArgCount, kwonlyArgCount);
-            
-            // 3. CPython 3.12 exact pattern: Load decorators in REVERSE order (bottom to top in source)
-            if (func.Decorators != null && func.Decorators.Count > 0)
-            {
-                // Load decorators in reverse order (bottom-most decorator first)
-                for (int i = func.Decorators.Count - 1; i >= 0; i--)
-                {
-                    var decorator = func.Decorators[i];
+            // CPython 3.12: Use CompilerFunctionBody instead of CompileWithClosureAndDefaults
+            var funcCode = compiler.CompilerFunctionBody(func.Body, func.Name, paramNames, defaults, kwDefaults, freeVars, cellVars, flags, argCount, posonlyArgCount, kwonlyArgCount);
 
-                    if (decorator.Arguments.Count > 0)
-                    {
-                        // Parametric decorator: @decorator(args) - needs PUSH_NULL
-                        EmitInstruction(ByteCodeOp.PUSH_NULL);
-                        CompileExpression(decorator.DecoratorFunction);
+            // CPython 3.12: compiler_function pattern
+            // Step 1: Load decorators (bottom-to-top order)
+            CompilerDecorators(func.Decorators);
 
-                        // Separate positional and keyword arguments
-                        var positionalArgs = new List<Expression>();
-                        var keywordArgs = new List<KeywordExpression>();
+            // Step 2: Compile default arguments and get funcflags
+            int makeFunctionFlags = CompilerDefaultArguments(defaultExprs, kwDefaultExprs);
 
-                        foreach (var arg in decorator.Arguments)
-                        {
-                            if (arg is KeywordExpression keyword)
-                            {
-                                keywordArgs.Add(keyword);
-                            }
-                            else
-                            {
-                                positionalArgs.Add(arg);
-                            }
-                        }
-
-                        // Compile positional arguments first
-                        foreach (var arg in positionalArgs)
-                        {
-                            CompileExpression(arg);
-                        }
-
-                        // Compile keyword argument values
-                        foreach (var keyword in keywordArgs)
-                        {
-                            CompileExpression(keyword.Value);
-                        }
-
-                        // Handle keyword arguments with KW_NAMES (CPython 3.12 pattern)
-                        if (keywordArgs.Count > 0)
-                        {
-                            // Create keyword names tuple and add to constants
-                            var kwNames = keywordArgs.Select(kw => new PyString(kw.Arg ?? "")).ToArray();
-                            var kwNamesTuple = new PyTuple(kwNames);
-                            var kwNamesIndex = GetOrAddConstant(kwNamesTuple);
-
-                            // CPython 3.12: KW_NAMES + CALL pattern
-                            EmitInstruction(ByteCodeOp.KW_NAMES, kwNamesIndex);
-                            EmitInstruction(ByteCodeOp.CALL, positionalArgs.Count + keywordArgs.Count);
-                        }
-                        else
-                        {
-                            // Only positional arguments
-                            EmitInstruction(ByteCodeOp.CALL, positionalArgs.Count);
-                        }
-                    }
-                    else
-                    {
-                        // Simple decorator: @decorator - just load the function
-                        CompileExpression(decorator.DecoratorFunction);
-                    }
-                }
-            }
-
-            // 4. MAKE_FUNCTION 스택 순서 맞추기 (CPython 3.12 compatible)
-            // 기본값이 있는 경우 기본값 튜플을 먼저 푸시 (스택 맨 아래)
-            int makeFunctionFlags = 0;
-            if (defaultExprs.Count > 0)
-            {
-                foreach (var defaultExpr in defaultExprs)
-                {
-                    // CPython 3.12: Default expressions are compiled and evaluated at function definition time
-                    CompileExpression(defaultExpr);
-                }
-                EmitInstruction(ByteCodeOp.BUILD_TUPLE, defaultExprs.Count);
-                makeFunctionFlags |= MakeFunctionFlags.DEFAULTS;
-            }
-
-            // CPython 3.12: 타입 어노테이션이 있는 경우 어노테이션 튜플 생성
-            if (annotations.Count > 0)
-            {
-                // CPython 3.12 pattern: ('key', type_obj, 'key2', type_obj2, ...)
-                // Compile annotation expressions (supports complex types like List[str])
-                foreach (var annotation in annotations)
-                {
-                    EmitLoadConst(new PyString(annotation.Key));    // key (예: 'name', 'return')
-                    CompileExpression(annotation.Value);             // CPython 3.12: Compile annotation expression
-                                                                     // Simple: LOAD_NAME(int)
-                                                                     // Complex: LOAD_NAME(List) + LOAD_NAME(str) + BINARY_SUBSCR
-                }
-                EmitInstruction(ByteCodeOp.BUILD_TUPLE, annotations.Count * 2);
+            // Step 3: Compile annotations and update funcflags
+            if (CompilerVisitAnnotations(annotations) > 0)
                 makeFunctionFlags |= MakeFunctionFlags.ANNOTATIONS;
-                #if DEBUG_LOG
-                Console.WriteLine($"  → Built annotations tuple: {annotations.Count} annotations");
-                #endif
-            }
 
-            // 5. 자유 변수가 있는 경우 클로저 생성 (defaults/annotations 위에 푸시)
-            if (freeVars.Count > 0)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"  → Creating closure for {freeVars.Count} free variables");
-                #endif
+            // Step 4: Create closure and emit MAKE_FUNCTION
+            CompilerMakeClosure(funcCode, freeVars, makeFunctionFlags);
 
-                // CPython 호환: 클로저를 자유 변수 순서대로 생성
-                #if DEBUG_LOG
-                Console.WriteLine($"    🔍 Building closure for {freeVars.Count} variables: [{string.Join(", ", freeVars)}]");
-                #endif
-                #if DEBUG_LOG
-                Console.WriteLine($"    📋 Available cells: [{string.Join(", ", _cellVars)}], frees: [{string.Join(", ", _freeVars)}]");
-                #endif
+            // Step 5: Apply decorators (calls them in forward order)
+            CompilerApplyDecorators(func.Decorators);
 
-                // 자유 변수들을 순서대로 LOAD_CLOSURE
-                foreach (var freeVar in freeVars)
-                {
-                    int closureIndex = -1;
-                    string source = "";
-
-                    // 먼저 자유 변수에서 찾기 (closure에서 가져오는 변수들)
-                    var freeVarIndex = _freeVars.IndexOf(freeVar);
-                    if (freeVarIndex >= 0)
-                    {
-                        // free variable: closure index는 0부터 시작
-                        closureIndex = freeVarIndex;
-                        source = "free";
-                    }
-                    else
-                    {
-                        // 셀 변수에서 찾기 (현재 함수의 로컬 셀들)
-                        var cellVarIndex = _cellVars.IndexOf(freeVar);
-                        if (cellVarIndex >= 0)
-                        {
-                            // cell variable: closure index는 free vars 뒤에 위치
-                            closureIndex = _freeVars.Count + cellVarIndex;
-                            source = "cell";
-                        }
-                    }
-
-                    if (closureIndex >= 0)
-                    {
-                        EmitInstruction(ByteCodeOp.LOAD_CLOSURE, closureIndex);
-                        #if DEBUG_LOG
-                        Console.WriteLine($"    → LOAD_CLOSURE for {freeVar} ({source} index {closureIndex})");
-                        #endif
-                    }
-                    else
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"    ⚠️ Warning: Free variable {freeVar} not available (cells: [{string.Join(",", _cellVars)}], frees: [{string.Join(",", _freeVars)}])");
-                        #endif
-                        // Fallback: 빈 셀 생성
-                        EmitInstruction(ByteCodeOp.LOAD_CLOSURE, 0);
-                    }
-                }
-
-                // 클로저 튜플 생성
-                EmitInstruction(ByteCodeOp.BUILD_TUPLE, freeVars.Count);
-                makeFunctionFlags |= MakeFunctionFlags.CLOSURE;
-            }
-
-            // 6. Load function code and create function (AFTER decorators and annotations)
-            EmitLoadConst(funcCode);
-            #if DEBUG_LOG
-            Console.WriteLine($"  → MAKE_FUNCTION flags: {makeFunctionFlags} (defaults={defaults.Count > 0}, annotations={annotations.Count > 0}, closure={freeVars.Count > 0})");
-            #endif
-            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, makeFunctionFlags);
-
-            // 8. Call decorators in forward order (CPython 3.12 compatible)
-            if (func.Decorators != null && func.Decorators.Count > 0)
-            {
-                // Apply decorators in forward order: each decorator gets called with 0 arguments (the function)
-                for (int i = 0; i < func.Decorators.Count; i++)
-                {
-                    // Call decorator with function (no arguments - they were already processed above)
-                    EmitInstruction(ByteCodeOp.CALL, 0);
-                }
-            }
-
-            // 8. Store the final function (decorated or original)
+            // Step 6: Store the final function (decorated or original)
             EmitStoreName(func.Name);
 
             // CPython 3.12: Restore previous symbol table context

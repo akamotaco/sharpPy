@@ -29,6 +29,50 @@ namespace SharpPy
 #if DEBUG_LOG
             Console.WriteLine($"🔧 ByteCodeOptimizer.OptimizeCode 호출: _optimizationEnabled={_optimizationEnabled}");
 #endif
+
+            // CPython 3.12: Add generator/coroutine prefix BEFORE optimization
+            // This must be done even if optimization is disabled
+            var instructions = new List<ByteCodeInstruction>(originalCode.Instructions);
+            bool isGenerator = (originalCode.Flags & PyCodeObject.CO_GENERATOR) != 0;
+            bool isCoroutine = (originalCode.Flags & PyCodeObject.CO_COROUTINE) != 0;
+            bool isAsyncGenerator = (originalCode.Flags & PyCodeObject.CO_ASYNC_GENERATOR) != 0;
+
+            if (isGenerator || isCoroutine || isAsyncGenerator)
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"🔍 Generator/Coroutine detected: Adding RETURN_GENERATOR prefix");
+                Console.WriteLine($"   Flags: Generator={isGenerator}, Coroutine={isCoroutine}, AsyncGenerator={isAsyncGenerator}");
+#endif
+                // CPython compile.c line 7523-7538: Insert generator prefix
+                // RETURN_GENERATOR must be first instruction
+                instructions.Insert(0, new ByteCodeInstruction(ByteCodeOp.RETURN_GENERATOR, 0));
+                instructions.Insert(1, new ByteCodeInstruction(ByteCodeOp.POP_TOP, 0));
+                // RESUME 0 is already at position 0 (now position 2 after inserts)
+
+                // Update originalCode with new instructions
+                var updatedCode = new PyCodeObject(
+                    originalCode.Name,
+                    instructions,
+                    originalCode.Constants,
+                    originalCode.Names,
+                    originalCode.VarNames,
+                    originalCode.ArgCount,
+                    originalCode.PosonlyArgCount,
+                    originalCode.KwonlyArgCount,
+                    originalCode.FreeVars,
+                    originalCode.CellVars,
+                    originalCode.DefaultValues,
+                    originalCode.KwDefaults,
+                    originalCode.Flags,
+                    originalCode.FileName,
+                    originalCode.SourceLines
+                );
+
+                // Copy exception table
+                updatedCode.ExceptionTable.AddRange(originalCode.ExceptionTable);
+                originalCode = updatedCode;
+            }
+
             if (!_optimizationEnabled)
             {
     #if DEBUG_LOG
