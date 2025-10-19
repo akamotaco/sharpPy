@@ -2294,6 +2294,7 @@ namespace SharpPy
                     // VISIT(c, expr, s->v.Assign.value);
                     // for each target: if not last, COPY 1; VISIT(c, expr, target);
 
+                    // Standard assignment path (optimizer will handle tuple swap optimization)
                     // Step 1: Compile the value expression (right-hand side)
                     CompileExpression(assign.Value);
 
