@@ -4,18 +4,22 @@ namespace SharpPy.PegGenerator.Extractors;
 
 /// <summary>
 /// PEG 규칙(python_py.gram 등)에서 HARD/SOFT 키워드 동적 추출
-/// - 'keyword' (single quote) → Hard Keywords
+/// - 'keyword' (single quote) → Hard Keywords (토큰 번호 할당)
 /// - "keyword" (double quote) → Soft Keywords
-/// 하드코딩 없이 grammar 파일에서 발견된 키워드만 추출
+/// CPython 3.12 방식: 각 hard keyword에 500부터 시작하는 유니크 번호 할당
 /// </summary>
 public class KeywordExtractor
 {
+    private int _keywordCounter = 499;  // CPython 방식: 500부터 시작
+
     /// <summary>
     /// PEG 규칙에서 HARD/SOFT 키워드 추출
+    /// Hard keywords: Dictionary[keyword, tokenNumber]
+    /// Soft keywords: HashSet[keyword]
     /// </summary>
-    public (HashSet<string> hard, HashSet<string> soft) ExtractKeywords(PegRule[] rules)
+    public (Dictionary<string, int> hard, HashSet<string> soft) ExtractKeywords(PegRule[] rules)
     {
-        var hardKeywords = new HashSet<string>();
+        var hardKeywords = new Dictionary<string, int>();
         var softKeywords = new HashSet<string>();
 
         foreach (var rule in rules)
@@ -32,7 +36,7 @@ public class KeywordExtractor
         return (hardKeywords, softKeywords);
     }
 
-    private void ExtractFromAtom(Atom atom, HashSet<string> hard, HashSet<string> soft)
+    private void ExtractFromAtom(Atom atom, Dictionary<string, int> hard, HashSet<string> soft)
     {
         switch (atom)
         {
@@ -43,7 +47,14 @@ public class KeywordExtractor
                     if (kw.IsSoft)
                         soft.Add(kw.Value);
                     else
-                        hard.Add(kw.Value);
+                    {
+                        // CPython 방식: 각 hard keyword에 유니크 번호 할당
+                        if (!hard.ContainsKey(kw.Value))
+                        {
+                            _keywordCounter++;
+                            hard[kw.Value] = _keywordCounter;
+                        }
+                    }
                 }
                 break;
 
@@ -85,9 +96,21 @@ public class KeywordExtractor
             case Token token:
                 // ASYNC and AWAIT tokens represent 'async' and 'await' keywords
                 if (token.TokenType == "ASYNC")
-                    hard.Add("async");
+                {
+                    if (!hard.ContainsKey("async"))
+                    {
+                        _keywordCounter++;
+                        hard["async"] = _keywordCounter;
+                    }
+                }
                 else if (token.TokenType == "AWAIT")
-                    hard.Add("await");
+                {
+                    if (!hard.ContainsKey("await"))
+                    {
+                        _keywordCounter++;
+                        hard["await"] = _keywordCounter;
+                    }
+                }
                 break;
 
             case RuleRef:

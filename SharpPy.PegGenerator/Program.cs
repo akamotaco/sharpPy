@@ -93,7 +93,7 @@ class Program
             var (hardKeywords, softKeywords) = keywordExtractor.ExtractKeywords(pegRules);
 
             Console.WriteLine($"✓ Extracted HARD keywords ({hardKeywords.Count}):");
-            Console.WriteLine($"  {string.Join(", ", hardKeywords.OrderBy(k => k))}");
+            Console.WriteLine($"  {string.Join(", ", hardKeywords.Keys.OrderBy(k => k))}");
             Console.WriteLine($"✓ Extracted SOFT keywords ({softKeywords.Count}):");
             Console.WriteLine($"  {string.Join(", ", softKeywords.OrderBy(k => k))}");
             Console.WriteLine();

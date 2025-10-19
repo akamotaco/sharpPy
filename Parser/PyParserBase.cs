@@ -151,7 +151,18 @@ namespace SharpPy.Generated
         protected GeneratedTokenInfo ExpectName()
         {
             var token = CurrentToken;
-            if (token != null && token.Type == PyToken.Type.NAME)
+            if (token == null) return null;
+
+            // CPython 3.12: NAME tokens must not be keywords
+            // Check if this NAME token is actually a keyword
+            int tokenTypeInt = (int)token.Type;
+            if (token.Type == PyToken.Type.NAME)
+            {
+                tokenTypeInt = GetKeywordOrNameType(token.Value, token.Value.Length);
+            }
+
+            // Only accept if it's truly a NAME (not a keyword)
+            if (tokenTypeInt == (int)PyToken.Type.NAME)
             {
                 _lastToken = token;  // Track last consumed token
                 _position++;

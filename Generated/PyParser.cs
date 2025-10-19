@@ -486,7 +486,7 @@ namespace SharpPy.Generated
                 GeneratedStmt? _item1 = null;
 
                 if (
-                    PositiveLookahead(() => ExpectKeyword("return")) != null &&
+                    PositiveLookahead(() => ExpectToken((PyToken.Type)500)) != null &&
                     (_item1 = Parse_ReturnStmt()) != null
                 )
                 {
@@ -520,7 +520,7 @@ namespace SharpPy.Generated
                 GeneratedStmt? _item1 = null;
 
                 if (
-                    PositiveLookahead(() => ExpectKeyword("raise")) != null &&
+                    PositiveLookahead(() => ExpectToken((PyToken.Type)503)) != null &&
                     (_item1 = Parse_RaiseStmt()) != null
                 )
                 {
@@ -536,7 +536,7 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? _item0 = null;
 
-                if ((_item0 = ExpectKeyword("pass")) != null)
+                if ((_item0 = ExpectToken((PyToken.Type)504)) != null)
                 {
                     // Action code from grammar
                     return PyAst . Pass ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -551,7 +551,7 @@ namespace SharpPy.Generated
                 GeneratedStmt? _item1 = null;
 
                 if (
-                    PositiveLookahead(() => ExpectKeyword("del")) != null &&
+                    PositiveLookahead(() => ExpectToken((PyToken.Type)505)) != null &&
                     (_item1 = Parse_DelStmt()) != null
                 )
                 {
@@ -568,7 +568,7 @@ namespace SharpPy.Generated
                 GeneratedStmt? _item1 = null;
 
                 if (
-                    PositiveLookahead(() => ExpectKeyword("yield")) != null &&
+                    PositiveLookahead(() => ExpectToken((PyToken.Type)506)) != null &&
                     (_item1 = Parse_YieldStmt()) != null
                 )
                 {
@@ -585,7 +585,7 @@ namespace SharpPy.Generated
                 GeneratedStmt? _item1 = null;
 
                 if (
-                    PositiveLookahead(() => ExpectKeyword("assert")) != null &&
+                    PositiveLookahead(() => ExpectToken((PyToken.Type)507)) != null &&
                     (_item1 = Parse_AssertStmt()) != null
                 )
                 {
@@ -601,7 +601,7 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? _item0 = null;
 
-                if ((_item0 = ExpectKeyword("break")) != null)
+                if ((_item0 = ExpectToken((PyToken.Type)508)) != null)
                 {
                     // Action code from grammar
                     return PyAst . Break ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -615,7 +615,7 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? _item0 = null;
 
-                if ((_item0 = ExpectKeyword("continue")) != null)
+                if ((_item0 = ExpectToken((PyToken.Type)509)) != null)
                 {
                     // Action code from grammar
                     return PyAst . Continue ( _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -630,7 +630,7 @@ namespace SharpPy.Generated
                 GeneratedStmt? _item1 = null;
 
                 if (
-                    PositiveLookahead(() => ExpectKeyword("global")) != null &&
+                    PositiveLookahead(() => ExpectToken((PyToken.Type)510)) != null &&
                     (_item1 = Parse_GlobalStmt()) != null
                 )
                 {
@@ -647,7 +647,7 @@ namespace SharpPy.Generated
                 GeneratedStmt? _item1 = null;
 
                 if (
-                    PositiveLookahead(() => ExpectKeyword("nonlocal")) != null &&
+                    PositiveLookahead(() => ExpectToken((PyToken.Type)511)) != null &&
                     (_item1 = Parse_NonlocalStmt()) != null
                 )
                 {
@@ -697,7 +697,7 @@ namespace SharpPy.Generated
                 GeneratedStmt? a = null;
 
                 if (
-                    PositiveLookahead(() => ExpectKeyword("if")) != null &&
+                    PositiveLookahead(() => ExpectToken((PyToken.Type)514)) != null &&
                     (a = Parse_IfStmt()) != null
                 )
                 {
@@ -765,7 +765,7 @@ namespace SharpPy.Generated
                 GeneratedStmt? a = null;
 
                 if (
-                    PositiveLookahead(() => ExpectKeyword("try")) != null &&
+                    PositiveLookahead(() => ExpectToken((PyToken.Type)518)) != null &&
                     (a = Parse_TryStmt()) != null
                 )
                 {
@@ -782,7 +782,7 @@ namespace SharpPy.Generated
                 GeneratedStmt? a = null;
 
                 if (
-                    PositiveLookahead(() => ExpectKeyword("while")) != null &&
+                    PositiveLookahead(() => ExpectToken((PyToken.Type)519)) != null &&
                     (a = Parse_WhileStmt()) != null
                 )
                 {
@@ -1184,7 +1184,7 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
 
                 if (
-                    ExpectKeyword("return") != null &&
+                    ExpectToken((PyToken.Type)500) != null &&
                     ((a = (GeneratedExpr)ParseOptional(() => Parse_StarExpressions())) == null || true)
                 )
                 {
@@ -1218,7 +1218,7 @@ namespace SharpPy.Generated
                 GeneratedPtr? b = null;
 
                 if (
-                    ExpectKeyword("raise") != null &&
+                    ExpectToken((PyToken.Type)503) != null &&
                     (a = Parse_Expression()) != null &&
                     ((b = ParseOptional(() => Parse_Tmp12())) == null || true)
                 )
@@ -1235,7 +1235,7 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? _item0 = null;
 
-                if ((_item0 = ExpectKeyword("raise")) != null)
+                if ((_item0 = ExpectToken((PyToken.Type)503)) != null)
                 {
                     // Action code from grammar
                     return PyAst . Raise ( null , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -1266,7 +1266,7 @@ namespace SharpPy.Generated
                 GeneratedExprSeq? a = null;
 
                 if (
-                    ExpectKeyword("global") != null &&
+                    ExpectToken((PyToken.Type)510) != null &&
                     (a = ParseGatherPlus(() => ExpectOp(","), () => ExpectName())?.Cast<GeneratedExprSeq>()) != null
                 )
                 {
@@ -1299,7 +1299,7 @@ namespace SharpPy.Generated
                 GeneratedExprSeq? a = null;
 
                 if (
-                    ExpectKeyword("nonlocal") != null &&
+                    ExpectToken((PyToken.Type)511) != null &&
                     (a = ParseGatherPlus(() => ExpectOp(","), () => ExpectName())?.Cast<GeneratedExprSeq>()) != null
                 )
                 {
@@ -1332,7 +1332,7 @@ namespace SharpPy.Generated
                 GeneratedExprSeq? a = null;
 
                 if (
-                    ExpectKeyword("del") != null &&
+                    ExpectToken((PyToken.Type)505) != null &&
                     (a = Parse_DelTargets()) != null &&
                     PositiveLookahead(() => Parse_Tmp13()) != null
                 )
@@ -1411,7 +1411,7 @@ namespace SharpPy.Generated
                 GeneratedPtr? b = null;
 
                 if (
-                    ExpectKeyword("assert") != null &&
+                    ExpectToken((PyToken.Type)507) != null &&
                     (a = Parse_Expression()) != null &&
                     ((b = ParseOptional(() => Parse_Tmp14())) == null || true)
                 )
@@ -1503,7 +1503,7 @@ namespace SharpPy.Generated
                 GeneratedAliasSeq? a = null;
 
                 if (
-                    ExpectKeyword("import") != null &&
+                    ExpectToken((PyToken.Type)501) != null &&
                     (a = Parse_DottedAsNames()) != null
                 )
                 {
@@ -1538,10 +1538,10 @@ namespace SharpPy.Generated
                 GeneratedAliasSeq? c = null;
 
                 if (
-                    ExpectKeyword("from") != null &&
+                    ExpectToken((PyToken.Type)502) != null &&
                     (a = ParseZeroOrMore(() => Parse_Tmp15())) != null &&
                     (b = Parse_DottedName()) != null &&
-                    ExpectKeyword("import") != null &&
+                    ExpectToken((PyToken.Type)501) != null &&
                     (c = Parse_ImportFromTargets()) != null
                 )
                 {
@@ -1559,9 +1559,9 @@ namespace SharpPy.Generated
                 GeneratedAliasSeq? b = null;
 
                 if (
-                    ExpectKeyword("from") != null &&
+                    ExpectToken((PyToken.Type)502) != null &&
                     (a = ParseOneOrMore(() => Parse_Tmp16())) != null &&
-                    ExpectKeyword("import") != null &&
+                    ExpectToken((PyToken.Type)501) != null &&
                     (b = Parse_ImportFromTargets()) != null
                 )
                 {
@@ -2029,7 +2029,7 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? c = null;
 
                 if (
-                    ExpectKeyword("class") != null &&
+                    ExpectToken((PyToken.Type)515) != null &&
                     (a = ExpectName()) != null &&
                     ((t = (GeneratedTypeParamSeq)ParseOptional(() => Parse_TypeParams())) == null || true) &&
                     ((b = ParseOptional(() => Parse_Tmp20())) == null || true) &&
@@ -2133,7 +2133,7 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? b = null;
 
                 if (
-                    ExpectKeyword("def") != null &&
+                    ExpectToken((PyToken.Type)512) != null &&
                     (n = ExpectName()) != null &&
                     ((t = (GeneratedTypeParamSeq)ParseOptional(() => Parse_TypeParams())) == null || true) &&
                     ExpectOp("(") != null &&
@@ -2164,7 +2164,7 @@ namespace SharpPy.Generated
 
                 if (
                     ExpectToken(PyToken.Type.ASYNC) != null &&
-                    ExpectKeyword("def") != null &&
+                    ExpectToken((PyToken.Type)512) != null &&
                     (n = ExpectName()) != null &&
                     ((t = (GeneratedTypeParamSeq)ParseOptional(() => Parse_TypeParams())) == null || true) &&
                     ExpectOp("(") != null &&
@@ -3041,7 +3041,7 @@ namespace SharpPy.Generated
                 GeneratedStmt? c = null;
 
                 if (
-                    ExpectKeyword("if") != null &&
+                    ExpectToken((PyToken.Type)514) != null &&
                     (a = Parse_NamedExpression()) != null &&
                     ExpectOp(":") != null &&
                     (b = Parse_Block()) != null &&
@@ -3063,7 +3063,7 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? c = null;
 
                 if (
-                    ExpectKeyword("if") != null &&
+                    ExpectToken((PyToken.Type)514) != null &&
                     (a = Parse_NamedExpression()) != null &&
                     ExpectOp(":") != null &&
                     (b = Parse_Block()) != null &&
@@ -3115,7 +3115,7 @@ namespace SharpPy.Generated
                 GeneratedStmt? c = null;
 
                 if (
-                    ExpectKeyword("elif") != null &&
+                    ExpectToken((PyToken.Type)521) != null &&
                     (a = Parse_NamedExpression()) != null &&
                     ExpectOp(":") != null &&
                     (b = Parse_Block()) != null &&
@@ -3137,7 +3137,7 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? c = null;
 
                 if (
-                    ExpectKeyword("elif") != null &&
+                    ExpectToken((PyToken.Type)521) != null &&
                     (a = Parse_NamedExpression()) != null &&
                     ExpectOp(":") != null &&
                     (b = Parse_Block()) != null &&
@@ -3187,7 +3187,7 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? b = null;
 
                 if (
-                    ExpectKeyword("else") != null &&
+                    ExpectToken((PyToken.Type)522) != null &&
                     ExpectOp(":") != null &&
                     (b = Parse_Block()) != null
                 )
@@ -3237,7 +3237,7 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? c = null;
 
                 if (
-                    ExpectKeyword("while") != null &&
+                    ExpectToken((PyToken.Type)519) != null &&
                     (a = Parse_NamedExpression()) != null &&
                     ExpectOp(":") != null &&
                     (b = Parse_Block()) != null &&
@@ -3291,9 +3291,9 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? el = null;
 
                 if (
-                    ExpectKeyword("for") != null &&
+                    ExpectToken((PyToken.Type)517) != null &&
                     (t = Parse_StarTargets()) != null &&
-                    ExpectKeyword("in") != null &&
+                    ExpectToken((PyToken.Type)523) != null &&
                     (ex = Parse_StarExpressions()) != null &&
                     ExpectOp(":") != null &&
                     ((tc = (GeneratedTokenInfo)ParseOptional(() => ExpectToken(PyToken.Type.TYPE_COMMENT))) == null || true) &&
@@ -3319,9 +3319,9 @@ namespace SharpPy.Generated
 
                 if (
                     ExpectToken(PyToken.Type.ASYNC) != null &&
-                    ExpectKeyword("for") != null &&
+                    ExpectToken((PyToken.Type)517) != null &&
                     (t = Parse_StarTargets()) != null &&
-                    ExpectKeyword("in") != null &&
+                    ExpectToken((PyToken.Type)523) != null &&
                     (ex = Parse_StarExpressions()) != null &&
                     ExpectOp(":") != null &&
                     ((tc = (GeneratedTokenInfo)ParseOptional(() => ExpectToken(PyToken.Type.TYPE_COMMENT))) == null || true) &&
@@ -3387,7 +3387,7 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? b = null;
 
                 if (
-                    ExpectKeyword("with") != null &&
+                    ExpectToken((PyToken.Type)516) != null &&
                     ExpectOp("(") != null &&
                     (a = ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())?.Cast<GeneratedWithitemSeq>()) != null &&
                     (ParseOptional(() => ExpectOp(",")) == null || true) &&
@@ -3411,7 +3411,7 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? b = null;
 
                 if (
-                    ExpectKeyword("with") != null &&
+                    ExpectToken((PyToken.Type)516) != null &&
                     (a = ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())?.Cast<GeneratedWithitemSeq>()) != null &&
                     ExpectOp(":") != null &&
                     ((tc = (GeneratedTokenInfo)ParseOptional(() => ExpectToken(PyToken.Type.TYPE_COMMENT))) == null || true) &&
@@ -3433,7 +3433,7 @@ namespace SharpPy.Generated
 
                 if (
                     ExpectToken(PyToken.Type.ASYNC) != null &&
-                    ExpectKeyword("with") != null &&
+                    ExpectToken((PyToken.Type)516) != null &&
                     ExpectOp("(") != null &&
                     (a = ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())?.Cast<GeneratedWithitemSeq>()) != null &&
                     (ParseOptional(() => ExpectOp(",")) == null || true) &&
@@ -3458,7 +3458,7 @@ namespace SharpPy.Generated
 
                 if (
                     ExpectToken(PyToken.Type.ASYNC) != null &&
-                    ExpectKeyword("with") != null &&
+                    ExpectToken((PyToken.Type)516) != null &&
                     (a = ParseGatherPlus(() => ExpectOp(","), () => Parse_WithItem())?.Cast<GeneratedWithitemSeq>()) != null &&
                     ExpectOp(":") != null &&
                     ((tc = (GeneratedTokenInfo)ParseOptional(() => ExpectToken(PyToken.Type.TYPE_COMMENT))) == null || true) &&
@@ -3510,7 +3510,7 @@ namespace SharpPy.Generated
 
                 if (
                     (e = Parse_Expression()) != null &&
-                    ExpectKeyword("as") != null &&
+                    ExpectToken((PyToken.Type)520) != null &&
                     (t = Parse_StarTarget()) != null &&
                     PositiveLookahead(() => Parse_Tmp23()) != null
                 )
@@ -3587,7 +3587,7 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? f = null;
 
                 if (
-                    ExpectKeyword("try") != null &&
+                    ExpectToken((PyToken.Type)518) != null &&
                     ExpectOp(":") != null &&
                     (b = Parse_Block()) != null &&
                     (f = Parse_FinallyBlock()) != null
@@ -3609,7 +3609,7 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? f = null;
 
                 if (
-                    ExpectKeyword("try") != null &&
+                    ExpectToken((PyToken.Type)518) != null &&
                     ExpectOp(":") != null &&
                     (b = Parse_Block()) != null &&
                     (ex = ParseOneOrMore(() => Parse_ExceptBlock())?.Cast<GeneratedExcepthandlerSeq>()) != null &&
@@ -3633,7 +3633,7 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? f = null;
 
                 if (
-                    ExpectKeyword("try") != null &&
+                    ExpectToken((PyToken.Type)518) != null &&
                     ExpectOp(":") != null &&
                     (b = Parse_Block()) != null &&
                     (ex = ParseOneOrMore(() => Parse_ExceptStarBlock())?.Cast<GeneratedExcepthandlerSeq>()) != null &&
@@ -3686,7 +3686,7 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? b = null;
 
                 if (
-                    ExpectKeyword("except") != null &&
+                    ExpectToken((PyToken.Type)524) != null &&
                     (e = Parse_Expression()) != null &&
                     ((t = ParseOptional(() => Parse_Tmp24())) == null || true) &&
                     ExpectOp(":") != null &&
@@ -3706,7 +3706,7 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? b = null;
 
                 if (
-                    ExpectKeyword("except") != null &&
+                    ExpectToken((PyToken.Type)524) != null &&
                     ExpectOp(":") != null &&
                     (b = Parse_Block()) != null
                 )
@@ -3770,7 +3770,7 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? b = null;
 
                 if (
-                    ExpectKeyword("except") != null &&
+                    ExpectToken((PyToken.Type)524) != null &&
                     ExpectOp("*") != null &&
                     (e = Parse_Expression()) != null &&
                     ((t = ParseOptional(() => Parse_Tmp25())) == null || true) &&
@@ -3835,7 +3835,7 @@ namespace SharpPy.Generated
                 GeneratedStmtSeq? a = null;
 
                 if (
-                    ExpectKeyword("finally") != null &&
+                    ExpectToken((PyToken.Type)525) != null &&
                     ExpectOp(":") != null &&
                     (a = Parse_Block()) != null
                 )
@@ -4023,7 +4023,7 @@ namespace SharpPy.Generated
                 GeneratedExpr? guard = null;
 
                 if (
-                    ExpectKeyword("if") != null &&
+                    ExpectToken((PyToken.Type)514) != null &&
                     (guard = Parse_NamedExpression()) != null
                 )
                 {
@@ -4146,7 +4146,7 @@ namespace SharpPy.Generated
 
                 if (
                     (pattern = Parse_OrPattern()) != null &&
-                    ExpectKeyword("as") != null &&
+                    ExpectToken((PyToken.Type)520) != null &&
                     (target = Parse_PatternCaptureTarget()) != null
                 )
                 {
@@ -4405,7 +4405,7 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? _item0 = null;
 
-                if ((_item0 = ExpectKeyword("None")) != null)
+                if ((_item0 = ExpectToken((PyToken.Type)526)) != null)
                 {
                     // Action code from grammar
                     return PyAst . MatchSingleton ( GeneratedPyConstant . None , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -4419,7 +4419,7 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? _item0 = null;
 
-                if ((_item0 = ExpectKeyword("True")) != null)
+                if ((_item0 = ExpectToken((PyToken.Type)527)) != null)
                 {
                     // Action code from grammar
                     return PyAst . MatchSingleton ( GeneratedPyConstant . True , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -4433,7 +4433,7 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? _item0 = null;
 
-                if ((_item0 = ExpectKeyword("False")) != null)
+                if ((_item0 = ExpectToken((PyToken.Type)528)) != null)
                 {
                     // Action code from grammar
                     return PyAst . MatchSingleton ( GeneratedPyConstant . False , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -4508,7 +4508,7 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? _item0 = null;
 
-                if ((_item0 = ExpectKeyword("None")) != null)
+                if ((_item0 = ExpectToken((PyToken.Type)526)) != null)
                 {
                     // Action code from grammar
                     return PyAst . Constant ( GeneratedPyConstant . None , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -4522,7 +4522,7 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? _item0 = null;
 
-                if ((_item0 = ExpectKeyword("True")) != null)
+                if ((_item0 = ExpectToken((PyToken.Type)527)) != null)
                 {
                     // Action code from grammar
                     return PyAst . Constant ( GeneratedPyConstant . True , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -4536,7 +4536,7 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? _item0 = null;
 
-                if ((_item0 = ExpectKeyword("False")) != null)
+                if ((_item0 = ExpectToken((PyToken.Type)528)) != null)
                 {
                     // Action code from grammar
                     return PyAst . Constant ( GeneratedPyConstant . False , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -6035,9 +6035,9 @@ namespace SharpPy.Generated
                 #endif
                 if (
                     (a = Parse_Disjunction()) != null &&
-                    ExpectKeyword("if") != null &&
+                    ExpectToken((PyToken.Type)514) != null &&
                     (b = Parse_Disjunction()) != null &&
-                    ExpectKeyword("else") != null &&
+                    ExpectToken((PyToken.Type)522) != null &&
                     (c = Parse_Expression()) != null
                 )
                 {
@@ -6098,8 +6098,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
 
                 if (
-                    ExpectKeyword("yield") != null &&
-                    ExpectKeyword("from") != null &&
+                    ExpectToken((PyToken.Type)506) != null &&
+                    ExpectToken((PyToken.Type)502) != null &&
                     (a = Parse_Expression()) != null
                 )
                 {
@@ -6116,7 +6116,7 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
 
                 if (
-                    ExpectKeyword("yield") != null &&
+                    ExpectToken((PyToken.Type)506) != null &&
                     ((a = (GeneratedExpr)ParseOptional(() => Parse_StarExpressions())) == null || true)
                 )
                 {
@@ -6598,7 +6598,7 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
 
                 if (
-                    ExpectKeyword("not") != null &&
+                    ExpectToken((PyToken.Type)531) != null &&
                     (a = Parse_Inversion()) != null
                 )
                 {
@@ -7047,8 +7047,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
 
                 if (
-                    ExpectKeyword("not") != null &&
-                    ExpectKeyword("in") != null &&
+                    ExpectToken((PyToken.Type)531) != null &&
+                    ExpectToken((PyToken.Type)523) != null &&
                     (a = Parse_BitwiseOr()) != null
                 )
                 {
@@ -7081,7 +7081,7 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
 
                 if (
-                    ExpectKeyword("in") != null &&
+                    ExpectToken((PyToken.Type)523) != null &&
                     (a = Parse_BitwiseOr()) != null
                 )
                 {
@@ -7114,8 +7114,8 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
 
                 if (
-                    ExpectKeyword("is") != null &&
-                    ExpectKeyword("not") != null &&
+                    ExpectToken((PyToken.Type)532) != null &&
+                    ExpectToken((PyToken.Type)531) != null &&
                     (a = Parse_BitwiseOr()) != null
                 )
                 {
@@ -7148,7 +7148,7 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
 
                 if (
-                    ExpectKeyword("is") != null &&
+                    ExpectToken((PyToken.Type)532) != null &&
                     (a = Parse_BitwiseOr()) != null
                 )
                 {
@@ -8191,7 +8191,7 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? _item0 = null;
 
-                if ((_item0 = ExpectKeyword("True")) != null)
+                if ((_item0 = ExpectToken((PyToken.Type)527)) != null)
                 {
                     // Action code from grammar
                     return PyAst . Constant ( GeneratedPyConstant . True , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -8205,7 +8205,7 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? _item0 = null;
 
-                if ((_item0 = ExpectKeyword("False")) != null)
+                if ((_item0 = ExpectToken((PyToken.Type)528)) != null)
                 {
                     // Action code from grammar
                     return PyAst . Constant ( GeneratedPyConstant . False , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -8219,7 +8219,7 @@ namespace SharpPy.Generated
 
                 GeneratedTokenInfo? _item0 = null;
 
-                if ((_item0 = ExpectKeyword("None")) != null)
+                if ((_item0 = ExpectToken((PyToken.Type)526)) != null)
                 {
                     // Action code from grammar
                     return PyAst . Constant ( GeneratedPyConstant . None , null , _start_lineno, _start_col_offset, _end_lineno, _end_col_offset );
@@ -8398,7 +8398,7 @@ namespace SharpPy.Generated
                 GeneratedExpr? b = null;
 
                 if (
-                    ExpectKeyword("lambda") != null &&
+                    ExpectToken((PyToken.Type)534) != null &&
                     ((a = (GeneratedArguments)ParseOptional(() => Parse_LambdaParams())) == null || true) &&
                     ExpectOp(":") != null &&
                     (b = Parse_Expression()) != null
@@ -9636,9 +9636,9 @@ namespace SharpPy.Generated
 
                 if (
                     ExpectToken(PyToken.Type.ASYNC) != null &&
-                    ExpectKeyword("for") != null &&
+                    ExpectToken((PyToken.Type)517) != null &&
                     (a = Parse_StarTargets()) != null &&
-                    ExpectKeyword("in") != null &&
+                    ExpectToken((PyToken.Type)523) != null &&
                     (b = Parse_Disjunction()) != null &&
                     (c = ParseZeroOrMore(() => Parse_Tmp46())?.Cast<GeneratedExprSeq>()) != null
                 )
@@ -9658,9 +9658,9 @@ namespace SharpPy.Generated
                 GeneratedExprSeq? c = null;
 
                 if (
-                    ExpectKeyword("for") != null &&
+                    ExpectToken((PyToken.Type)517) != null &&
                     (a = Parse_StarTargets()) != null &&
-                    ExpectKeyword("in") != null &&
+                    ExpectToken((PyToken.Type)523) != null &&
                     (b = Parse_Disjunction()) != null &&
                     (c = ParseZeroOrMore(() => Parse_Tmp47())?.Cast<GeneratedExprSeq>()) != null
                 )
@@ -11579,9 +11579,9 @@ namespace SharpPy.Generated
 
                 if (
                     (a = Parse_Disjunction()) != null &&
-                    ExpectKeyword("if") != null &&
+                    ExpectToken((PyToken.Type)514) != null &&
                     (b = Parse_Disjunction()) != null &&
-                    ExpectKeyword("else") != null &&
+                    ExpectToken((PyToken.Type)522) != null &&
                     (c = Parse_Expression()) != null
                 )
                 {
@@ -11696,7 +11696,7 @@ namespace SharpPy.Generated
 
                 if (
                     (a = Parse_Disjunction()) != null &&
-                    ExpectKeyword("if") != null &&
+                    ExpectToken((PyToken.Type)514) != null &&
                     (b = Parse_Disjunction()) != null &&
                     NegativeLookahead(() => Parse_Tmp63()) != null
                 )
@@ -11715,7 +11715,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? b = null;
 
                 if (
-                    (a = ExpectKeyword("lambda")) != null &&
+                    (a = ExpectToken((PyToken.Type)534)) != null &&
                     (ParseOptional(() => Parse_LambdaParams()) == null || true) &&
                     (b = ExpectOp(":")) != null &&
                     PositiveLookahead(() => ExpectToken(PyToken.Type.FSTRING_MIDDLE)) != null
@@ -12020,7 +12020,7 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
 
                 if (
-                    ExpectKeyword("del") != null &&
+                    ExpectToken((PyToken.Type)505) != null &&
                     (a = Parse_StarExpressions()) != null
                 )
                 {
@@ -12913,7 +12913,7 @@ namespace SharpPy.Generated
 
                 if (
                     Parse_Expression() != null &&
-                    ExpectKeyword("as") != null &&
+                    ExpectToken((PyToken.Type)520) != null &&
                     (a = Parse_Expression()) != null &&
                     PositiveLookahead(() => Parse_Tmp88()) != null
                 )
@@ -12947,7 +12947,7 @@ namespace SharpPy.Generated
 
                 if (
                     (ParseOptional(() => ExpectToken(PyToken.Type.ASYNC)) == null || true) &&
-                    ExpectKeyword("for") != null &&
+                    ExpectToken((PyToken.Type)517) != null &&
                     (a = Parse_StarExpressions()) != null
                 )
                 {
@@ -13031,9 +13031,9 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
 
                 if (
-                    (a = ExpectKeyword("import")) != null &&
+                    (a = ExpectToken((PyToken.Type)501)) != null &&
                     ParseGatherPlus(() => ExpectOp(","), () => Parse_DottedName()) != null &&
-                    ExpectKeyword("from") != null &&
+                    ExpectToken((PyToken.Type)502) != null &&
                     Parse_DottedName() != null
                 )
                 {
@@ -13104,7 +13104,7 @@ namespace SharpPy.Generated
 
                 if (
                     ((_item0 = ParseOptional(() => ExpectToken(PyToken.Type.ASYNC))) == null || true) &&
-                    (_item1 = ExpectKeyword("with")) != null &&
+                    (_item1 = ExpectToken((PyToken.Type)516)) != null &&
                     (_item2 = (GeneratedPtr)ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp89())) != null &&
                     (_item3 = ExpectToken(PyToken.Type.NEWLINE)) != null
                 )
@@ -13129,7 +13129,7 @@ namespace SharpPy.Generated
 
                 if (
                     ((_item0 = ParseOptional(() => ExpectToken(PyToken.Type.ASYNC))) == null || true) &&
-                    (_item1 = ExpectKeyword("with")) != null &&
+                    (_item1 = ExpectToken((PyToken.Type)516)) != null &&
                     (_item2 = ExpectOp("(")) != null &&
                     (_item3 = (GeneratedPtr)ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp90())) != null &&
                     ((_item4 = ParseOptional(() => ExpectOp(","))) == null || true) &&
@@ -13166,7 +13166,7 @@ namespace SharpPy.Generated
 
                 if (
                     (ParseOptional(() => ExpectToken(PyToken.Type.ASYNC)) == null || true) &&
-                    (a = ExpectKeyword("with")) != null &&
+                    (a = ExpectToken((PyToken.Type)516)) != null &&
                     ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp91()) != null &&
                     ExpectOp(":") != null &&
                     ExpectToken(PyToken.Type.NEWLINE) != null &&
@@ -13187,7 +13187,7 @@ namespace SharpPy.Generated
 
                 if (
                     (ParseOptional(() => ExpectToken(PyToken.Type.ASYNC)) == null || true) &&
-                    (a = ExpectKeyword("with")) != null &&
+                    (a = ExpectToken((PyToken.Type)516)) != null &&
                     ExpectOp("(") != null &&
                     ParseGatherPlus(() => ExpectOp(","), () => Parse_Tmp92()) != null &&
                     (ParseOptional(() => ExpectOp(",")) == null || true) &&
@@ -13225,7 +13225,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
 
                 if (
-                    (a = ExpectKeyword("try")) != null &&
+                    (a = ExpectToken((PyToken.Type)518)) != null &&
                     ExpectOp(":") != null &&
                     ExpectToken(PyToken.Type.NEWLINE) != null &&
                     NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
@@ -13246,7 +13246,7 @@ namespace SharpPy.Generated
                 GeneratedPtr? _item2 = null;
 
                 if (
-                    (_item0 = ExpectKeyword("try")) != null &&
+                    (_item0 = ExpectToken((PyToken.Type)518)) != null &&
                     (_item1 = ExpectOp(":")) != null &&
                     (_item2 = (GeneratedPtr)Parse_Block()) != null &&
                     NegativeLookahead(() => Parse_Tmp93()) != null
@@ -13266,11 +13266,11 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? b = null;
 
                 if (
-                    ExpectKeyword("try") != null &&
+                    ExpectToken((PyToken.Type)518) != null &&
                     ExpectOp(":") != null &&
                     ParseZeroOrMore(() => Parse_Block()) != null &&
                     ParseOneOrMore(() => Parse_ExceptBlock()) != null &&
-                    (a = ExpectKeyword("except")) != null &&
+                    (a = ExpectToken((PyToken.Type)524)) != null &&
                     (b = ExpectOp("*")) != null &&
                     Parse_Expression() != null &&
                     (ParseOptional(() => Parse_Tmp94()) == null || true) &&
@@ -13290,11 +13290,11 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
 
                 if (
-                    ExpectKeyword("try") != null &&
+                    ExpectToken((PyToken.Type)518) != null &&
                     ExpectOp(":") != null &&
                     ParseZeroOrMore(() => Parse_Block()) != null &&
                     ParseOneOrMore(() => Parse_ExceptStarBlock()) != null &&
-                    (a = ExpectKeyword("except")) != null &&
+                    (a = ExpectToken((PyToken.Type)524)) != null &&
                     (ParseOptional(() => Parse_Tmp95()) == null || true) &&
                     ExpectOp(":") != null
                 )
@@ -13327,7 +13327,7 @@ namespace SharpPy.Generated
                 GeneratedExpr? a = null;
 
                 if (
-                    ExpectKeyword("except") != null &&
+                    ExpectToken((PyToken.Type)524) != null &&
                     (ParseOptional(() => ExpectOp("*")) == null || true) &&
                     (a = Parse_Expression()) != null &&
                     ExpectOp(",") != null &&
@@ -13349,7 +13349,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
 
                 if (
-                    (a = ExpectKeyword("except")) != null &&
+                    (a = ExpectToken((PyToken.Type)524)) != null &&
                     (ParseOptional(() => ExpectOp("*")) == null || true) &&
                     Parse_Expression() != null &&
                     (ParseOptional(() => Parse_Tmp97()) == null || true) &&
@@ -13369,7 +13369,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
 
                 if (
-                    (a = ExpectKeyword("except")) != null &&
+                    (a = ExpectToken((PyToken.Type)524)) != null &&
                     ExpectToken(PyToken.Type.NEWLINE) != null
                 )
                 {
@@ -13386,7 +13386,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
 
                 if (
-                    (a = ExpectKeyword("except")) != null &&
+                    (a = ExpectToken((PyToken.Type)524)) != null &&
                     ExpectOp("*") != null &&
                     Parse_Tmp98() != null
                 )
@@ -13419,7 +13419,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
 
                 if (
-                    (a = ExpectKeyword("finally")) != null &&
+                    (a = ExpectToken((PyToken.Type)525)) != null &&
                     ExpectOp(":") != null &&
                     ExpectToken(PyToken.Type.NEWLINE) != null &&
                     NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
@@ -13453,7 +13453,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
 
                 if (
-                    (a = ExpectKeyword("except")) != null &&
+                    (a = ExpectToken((PyToken.Type)524)) != null &&
                     Parse_Expression() != null &&
                     (ParseOptional(() => Parse_Tmp99()) == null || true) &&
                     ExpectOp(":") != null &&
@@ -13474,7 +13474,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
 
                 if (
-                    (a = ExpectKeyword("except")) != null &&
+                    (a = ExpectToken((PyToken.Type)524)) != null &&
                     ExpectOp(":") != null &&
                     ExpectToken(PyToken.Type.NEWLINE) != null &&
                     NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
@@ -13508,7 +13508,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
 
                 if (
-                    (a = ExpectKeyword("except")) != null &&
+                    (a = ExpectToken((PyToken.Type)524)) != null &&
                     ExpectOp("*") != null &&
                     Parse_Expression() != null &&
                     (ParseOptional(() => Parse_Tmp100()) == null || true) &&
@@ -13660,7 +13660,7 @@ namespace SharpPy.Generated
 
                 if (
                     Parse_OrPattern() != null &&
-                    ExpectKeyword("as") != null &&
+                    ExpectToken((PyToken.Type)520) != null &&
                     (a = ExpectSoftKeyword("_")) != null
                 )
                 {
@@ -13678,7 +13678,7 @@ namespace SharpPy.Generated
 
                 if (
                     Parse_OrPattern() != null &&
-                    ExpectKeyword("as") != null &&
+                    ExpectToken((PyToken.Type)520) != null &&
                     NegativeLookahead(() => ExpectName()) != null &&
                     (a = Parse_Expression()) != null
                 )
@@ -13781,7 +13781,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _item2 = null;
 
                 if (
-                    (_item0 = ExpectKeyword("if")) != null &&
+                    (_item0 = ExpectToken((PyToken.Type)514)) != null &&
                     (_item1 = (GeneratedPtr)Parse_NamedExpression()) != null &&
                     (_item2 = ExpectToken(PyToken.Type.NEWLINE)) != null
                 )
@@ -13799,7 +13799,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
 
                 if (
-                    (a = ExpectKeyword("if")) != null &&
+                    (a = ExpectToken((PyToken.Type)514)) != null &&
                     Parse_NamedExpression() != null &&
                     ExpectOp(":") != null &&
                     ExpectToken(PyToken.Type.NEWLINE) != null &&
@@ -13836,7 +13836,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _item2 = null;
 
                 if (
-                    (_item0 = ExpectKeyword("elif")) != null &&
+                    (_item0 = ExpectToken((PyToken.Type)521)) != null &&
                     (_item1 = (GeneratedPtr)Parse_NamedExpression()) != null &&
                     (_item2 = ExpectToken(PyToken.Type.NEWLINE)) != null
                 )
@@ -13854,7 +13854,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
 
                 if (
-                    (a = ExpectKeyword("elif")) != null &&
+                    (a = ExpectToken((PyToken.Type)521)) != null &&
                     Parse_NamedExpression() != null &&
                     ExpectOp(":") != null &&
                     ExpectToken(PyToken.Type.NEWLINE) != null &&
@@ -13889,7 +13889,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
 
                 if (
-                    (a = ExpectKeyword("else")) != null &&
+                    (a = ExpectToken((PyToken.Type)522)) != null &&
                     ExpectOp(":") != null &&
                     ExpectToken(PyToken.Type.NEWLINE) != null &&
                     NegativeLookahead(() => ExpectToken(PyToken.Type.INDENT)) != null
@@ -13925,7 +13925,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _item2 = null;
 
                 if (
-                    (_item0 = ExpectKeyword("while")) != null &&
+                    (_item0 = ExpectToken((PyToken.Type)519)) != null &&
                     (_item1 = (GeneratedPtr)Parse_NamedExpression()) != null &&
                     (_item2 = ExpectToken(PyToken.Type.NEWLINE)) != null
                 )
@@ -13943,7 +13943,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
 
                 if (
-                    (a = ExpectKeyword("while")) != null &&
+                    (a = ExpectToken((PyToken.Type)519)) != null &&
                     Parse_NamedExpression() != null &&
                     ExpectOp(":") != null &&
                     ExpectToken(PyToken.Type.NEWLINE) != null &&
@@ -13984,9 +13984,9 @@ namespace SharpPy.Generated
 
                 if (
                     ((_item0 = ParseOptional(() => ExpectToken(PyToken.Type.ASYNC))) == null || true) &&
-                    (_item1 = ExpectKeyword("for")) != null &&
+                    (_item1 = ExpectToken((PyToken.Type)517)) != null &&
                     (_item2 = (GeneratedPtr)Parse_StarTargets()) != null &&
-                    (_item3 = ExpectKeyword("in")) != null &&
+                    (_item3 = ExpectToken((PyToken.Type)523)) != null &&
                     (_item4 = (GeneratedPtr)Parse_StarExpressions()) != null &&
                     (_item5 = ExpectToken(PyToken.Type.NEWLINE)) != null
                 )
@@ -14005,9 +14005,9 @@ namespace SharpPy.Generated
 
                 if (
                     (ParseOptional(() => ExpectToken(PyToken.Type.ASYNC)) == null || true) &&
-                    (a = ExpectKeyword("for")) != null &&
+                    (a = ExpectToken((PyToken.Type)517)) != null &&
                     Parse_StarTargets() != null &&
-                    ExpectKeyword("in") != null &&
+                    ExpectToken((PyToken.Type)523) != null &&
                     Parse_StarExpressions() != null &&
                     ExpectOp(":") != null &&
                     ExpectToken(PyToken.Type.NEWLINE) != null &&
@@ -14043,7 +14043,7 @@ namespace SharpPy.Generated
 
                 if (
                     (ParseOptional(() => ExpectToken(PyToken.Type.ASYNC)) == null || true) &&
-                    (a = ExpectKeyword("def")) != null &&
+                    (a = ExpectToken((PyToken.Type)512)) != null &&
                     ExpectName() != null &&
                     (ParseOptional(() => Parse_TypeParams()) == null || true) &&
                     ExpectOp("(") != null &&
@@ -14087,7 +14087,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _item4 = null;
 
                 if (
-                    (_item0 = ExpectKeyword("class")) != null &&
+                    (_item0 = ExpectToken((PyToken.Type)515)) != null &&
                     (_item1 = ExpectName()) != null &&
                     ((_item2 = ParseOptional(() => Parse_TypeParams())) == null || true) &&
                     ((_item3 = ParseOptional(() => Parse_Tmp103())) == null || true) &&
@@ -14107,7 +14107,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
 
                 if (
-                    (a = ExpectKeyword("class")) != null &&
+                    (a = ExpectToken((PyToken.Type)515)) != null &&
                     ExpectName() != null &&
                     (ParseOptional(() => Parse_TypeParams()) == null || true) &&
                     (ParseOptional(() => Parse_Tmp104()) == null || true) &&
@@ -14604,7 +14604,7 @@ namespace SharpPy.Generated
 
                 GeneratedPtr? _alt_var = null;
 
-                if ((_alt_var = (GeneratedPtr)ExpectKeyword("import")) != null)
+                if ((_alt_var = (GeneratedPtr)ExpectToken((PyToken.Type)501)) != null)
                 {
                     // Default action: return single unnamed item
                     return _alt_var;
@@ -14618,7 +14618,7 @@ namespace SharpPy.Generated
 
                 GeneratedPtr? _alt_var = null;
 
-                if ((_alt_var = (GeneratedPtr)ExpectKeyword("from")) != null)
+                if ((_alt_var = (GeneratedPtr)ExpectToken((PyToken.Type)502)) != null)
                 {
                     // Default action: return single unnamed item
                     return _alt_var;
@@ -14648,7 +14648,7 @@ namespace SharpPy.Generated
 
                 GeneratedPtr? _alt_var = null;
 
-                if ((_alt_var = (GeneratedPtr)ExpectKeyword("def")) != null)
+                if ((_alt_var = (GeneratedPtr)ExpectToken((PyToken.Type)512)) != null)
                 {
                     // Default action: return single unnamed item
                     return _alt_var;
@@ -14706,7 +14706,7 @@ namespace SharpPy.Generated
 
                 GeneratedPtr? _alt_var = null;
 
-                if ((_alt_var = (GeneratedPtr)ExpectKeyword("class")) != null)
+                if ((_alt_var = (GeneratedPtr)ExpectToken((PyToken.Type)515)) != null)
                 {
                     // Default action: return single unnamed item
                     return _alt_var;
@@ -14750,7 +14750,7 @@ namespace SharpPy.Generated
 
                 GeneratedPtr? _alt_var = null;
 
-                if ((_alt_var = (GeneratedPtr)ExpectKeyword("with")) != null)
+                if ((_alt_var = (GeneratedPtr)ExpectToken((PyToken.Type)516)) != null)
                 {
                     // Default action: return single unnamed item
                     return _alt_var;
@@ -14794,7 +14794,7 @@ namespace SharpPy.Generated
 
                 GeneratedPtr? _alt_var = null;
 
-                if ((_alt_var = (GeneratedPtr)ExpectKeyword("for")) != null)
+                if ((_alt_var = (GeneratedPtr)ExpectToken((PyToken.Type)517)) != null)
                 {
                     // Default action: return single unnamed item
                     return _alt_var;
@@ -15074,7 +15074,7 @@ namespace SharpPy.Generated
                 GeneratedExpr? z = null;
 
                 if (
-                    ExpectKeyword("from") != null &&
+                    ExpectToken((PyToken.Type)502) != null &&
                     (z = Parse_Expression()) != null
                 )
                 {
@@ -15272,7 +15272,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? z = null;
 
                 if (
-                    ExpectKeyword("as") != null &&
+                    ExpectToken((PyToken.Type)520) != null &&
                     (z = ExpectName()) != null
                 )
                 {
@@ -15305,7 +15305,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? z = null;
 
                 if (
-                    ExpectKeyword("as") != null &&
+                    ExpectToken((PyToken.Type)520) != null &&
                     (z = ExpectName()) != null
                 )
                 {
@@ -15530,7 +15530,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? z = null;
 
                 if (
-                    ExpectKeyword("as") != null &&
+                    ExpectToken((PyToken.Type)520) != null &&
                     (z = ExpectName()) != null
                 )
                 {
@@ -15563,7 +15563,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? z = null;
 
                 if (
-                    ExpectKeyword("as") != null &&
+                    ExpectToken((PyToken.Type)520) != null &&
                     (z = ExpectName()) != null
                 )
                 {
@@ -15910,7 +15910,7 @@ namespace SharpPy.Generated
                 GeneratedExpr? c = null;
 
                 if (
-                    ExpectKeyword("or") != null &&
+                    ExpectToken((PyToken.Type)529) != null &&
                     (c = Parse_Conjunction()) != null
                 )
                 {
@@ -15943,7 +15943,7 @@ namespace SharpPy.Generated
                 GeneratedExpr? c = null;
 
                 if (
-                    ExpectKeyword("and") != null &&
+                    ExpectToken((PyToken.Type)530) != null &&
                     (c = Parse_Inversion()) != null
                 )
                 {
@@ -16468,7 +16468,7 @@ namespace SharpPy.Generated
                 GeneratedExpr? z = null;
 
                 if (
-                    ExpectKeyword("if") != null &&
+                    ExpectToken((PyToken.Type)514) != null &&
                     (z = Parse_Disjunction()) != null
                 )
                 {
@@ -16501,7 +16501,7 @@ namespace SharpPy.Generated
                 GeneratedExpr? z = null;
 
                 if (
-                    ExpectKeyword("if") != null &&
+                    ExpectToken((PyToken.Type)514) != null &&
                     (z = Parse_Disjunction()) != null
                 )
                 {
@@ -16996,7 +16996,7 @@ namespace SharpPy.Generated
 
                 GeneratedPtr? _alt_var = null;
 
-                if ((_alt_var = (GeneratedPtr)ExpectKeyword("True")) != null)
+                if ((_alt_var = (GeneratedPtr)ExpectToken((PyToken.Type)527)) != null)
                 {
                     // Default action: return single unnamed item
                     return _alt_var;
@@ -17010,7 +17010,7 @@ namespace SharpPy.Generated
 
                 GeneratedPtr? _alt_var = null;
 
-                if ((_alt_var = (GeneratedPtr)ExpectKeyword("False")) != null)
+                if ((_alt_var = (GeneratedPtr)ExpectToken((PyToken.Type)528)) != null)
                 {
                     // Default action: return single unnamed item
                     return _alt_var;
@@ -17024,7 +17024,7 @@ namespace SharpPy.Generated
 
                 GeneratedPtr? _alt_var = null;
 
-                if ((_alt_var = (GeneratedPtr)ExpectKeyword("None")) != null)
+                if ((_alt_var = (GeneratedPtr)ExpectToken((PyToken.Type)526)) != null)
                 {
                     // Default action: return single unnamed item
                     return _alt_var;
@@ -17136,7 +17136,7 @@ namespace SharpPy.Generated
 
                 GeneratedPtr? _alt_var = null;
 
-                if ((_alt_var = (GeneratedPtr)ExpectKeyword("else")) != null)
+                if ((_alt_var = (GeneratedPtr)ExpectToken((PyToken.Type)522)) != null)
                 {
                     // Default action: return single unnamed item
                     return _alt_var;
@@ -17266,7 +17266,7 @@ namespace SharpPy.Generated
 
                 GeneratedPtr? _alt_var = null;
 
-                if ((_alt_var = (GeneratedPtr)ExpectKeyword("True")) != null)
+                if ((_alt_var = (GeneratedPtr)ExpectToken((PyToken.Type)527)) != null)
                 {
                     // Default action: return single unnamed item
                     return _alt_var;
@@ -17280,7 +17280,7 @@ namespace SharpPy.Generated
 
                 GeneratedPtr? _alt_var = null;
 
-                if ((_alt_var = (GeneratedPtr)ExpectKeyword("None")) != null)
+                if ((_alt_var = (GeneratedPtr)ExpectToken((PyToken.Type)526)) != null)
                 {
                     // Default action: return single unnamed item
                     return _alt_var;
@@ -17294,7 +17294,7 @@ namespace SharpPy.Generated
 
                 GeneratedPtr? _alt_var = null;
 
-                if ((_alt_var = (GeneratedPtr)ExpectKeyword("False")) != null)
+                if ((_alt_var = (GeneratedPtr)ExpectToken((PyToken.Type)528)) != null)
                 {
                     // Default action: return single unnamed item
                     return _alt_var;
@@ -18516,7 +18516,7 @@ namespace SharpPy.Generated
 
                 GeneratedPtr? _alt_var = null;
 
-                if ((_alt_var = (GeneratedPtr)ExpectKeyword("except")) != null)
+                if ((_alt_var = (GeneratedPtr)ExpectToken((PyToken.Type)524)) != null)
                 {
                     // Default action: return single unnamed item
                     return _alt_var;
@@ -18530,7 +18530,7 @@ namespace SharpPy.Generated
 
                 GeneratedPtr? _alt_var = null;
 
-                if ((_alt_var = (GeneratedPtr)ExpectKeyword("finally")) != null)
+                if ((_alt_var = (GeneratedPtr)ExpectToken((PyToken.Type)525)) != null)
                 {
                     // Default action: return single unnamed item
                     return _alt_var;
@@ -18562,7 +18562,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    (_item0 = ExpectKeyword("as")) != null &&
+                    (_item0 = ExpectToken((PyToken.Type)520)) != null &&
                     (_item1 = ExpectName()) != null
                 )
                 {
@@ -18630,7 +18630,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    (_item0 = ExpectKeyword("as")) != null &&
+                    (_item0 = ExpectToken((PyToken.Type)520)) != null &&
                     (_item1 = ExpectName()) != null
                 )
                 {
@@ -18664,7 +18664,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    (_item0 = ExpectKeyword("as")) != null &&
+                    (_item0 = ExpectToken((PyToken.Type)520)) != null &&
                     (_item1 = ExpectName()) != null
                 )
                 {
@@ -18742,7 +18742,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    (_item0 = ExpectKeyword("as")) != null &&
+                    (_item0 = ExpectToken((PyToken.Type)520)) != null &&
                     (_item1 = ExpectName()) != null
                 )
                 {
@@ -18776,7 +18776,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    (_item0 = ExpectKeyword("as")) != null &&
+                    (_item0 = ExpectToken((PyToken.Type)520)) != null &&
                     (_item1 = ExpectName()) != null
                 )
                 {
@@ -19867,7 +19867,7 @@ namespace SharpPy.Generated
                 GeneratedPtr? _item1 = null;
 
                 if (
-                    (_item0 = ExpectKeyword("as")) != null &&
+                    (_item0 = ExpectToken((PyToken.Type)520)) != null &&
                     (_item1 = (GeneratedPtr)Parse_StarTarget()) != null
                 )
                 {
@@ -19901,7 +19901,7 @@ namespace SharpPy.Generated
                 GeneratedPtr? _item1 = null;
 
                 if (
-                    (_item0 = ExpectKeyword("as")) != null &&
+                    (_item0 = ExpectToken((PyToken.Type)520)) != null &&
                     (_item1 = (GeneratedPtr)Parse_StarTarget()) != null
                 )
                 {
@@ -19935,7 +19935,7 @@ namespace SharpPy.Generated
                 GeneratedPtr? _item1 = null;
 
                 if (
-                    (_item0 = ExpectKeyword("as")) != null &&
+                    (_item0 = ExpectToken((PyToken.Type)520)) != null &&
                     (_item1 = (GeneratedPtr)Parse_StarTarget()) != null
                 )
                 {
@@ -19969,7 +19969,7 @@ namespace SharpPy.Generated
                 GeneratedPtr? _item1 = null;
 
                 if (
-                    (_item0 = ExpectKeyword("as")) != null &&
+                    (_item0 = ExpectToken((PyToken.Type)520)) != null &&
                     (_item1 = (GeneratedPtr)Parse_StarTarget()) != null
                 )
                 {
@@ -20003,7 +20003,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? _item1 = null;
 
                 if (
-                    (_item0 = ExpectKeyword("as")) != null &&
+                    (_item0 = ExpectToken((PyToken.Type)520)) != null &&
                     (_item1 = ExpectName()) != null
                 )
                 {
@@ -20121,9 +20121,31 @@ namespace SharpPy.Generated
         /// </summary>
         protected override int GetKeywordOrNameType(string name, int nameLen)
         {
-            // CPython 3.12: Keywords are parsed as NAME tokens
-            // The parser uses string comparison to identify keywords
-            // All keywords and names return NAME token type
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[GetKeywordOrNameType] name='{name}', nameLen={nameLen}, _nKeywordLists={_nKeywordLists}");
+            #endif
+
+            // CPython 3.12: Check if name_len is within keyword lists bounds
+            if (nameLen >= _nKeywordLists || _reservedKeywords[nameLen] == null)
+            {
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GetKeywordOrNameType] Out of bounds or null, returning NAME");
+                #endif
+                return (int)PyToken.Type.NAME;
+            }
+
+            // CPython 3.12: Search for keyword in the list for this length
+            if (_reservedKeywords[nameLen].TryGetValue(name, out PyToken.Type keywordType))
+            {
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GetKeywordOrNameType] Found keyword, returning {(int)keywordType}");
+                #endif
+                return (int)keywordType;
+            }
+
+            #if DEBUG_PARSE_LOG
+            Console.WriteLine($"[GetKeywordOrNameType] Not found in table, returning NAME");
+            #endif
             return (int)PyToken.Type.NAME;
         }
 
@@ -20180,6 +20202,75 @@ namespace SharpPy.Generated
             "while",
             "with",
             "yield",
+        };
+
+        // ============================================================
+        // Reserved Keywords Table (CPython 방식)
+        // NAME 토큰을 keyword 전용 토큰 타입으로 변환하기 위한 테이블
+        // ============================================================
+
+        private static readonly int _nKeywordLists = 9;
+
+        private static readonly Dictionary<string, PyToken.Type>?[] _reservedKeywords = new Dictionary<string, PyToken.Type>?[]
+        {
+            null,
+            null,
+            new Dictionary<string, PyToken.Type>
+            {
+                { "as", (PyToken.Type)520 },
+                { "if", (PyToken.Type)514 },
+                { "in", (PyToken.Type)523 },
+                { "is", (PyToken.Type)532 },
+                { "or", (PyToken.Type)529 },
+            },
+            new Dictionary<string, PyToken.Type>
+            {
+                { "and", (PyToken.Type)530 },
+                { "def", (PyToken.Type)512 },
+                { "del", (PyToken.Type)505 },
+                { "for", (PyToken.Type)517 },
+                { "not", (PyToken.Type)531 },
+                { "try", (PyToken.Type)518 },
+            },
+            new Dictionary<string, PyToken.Type>
+            {
+                { "elif", (PyToken.Type)521 },
+                { "else", (PyToken.Type)522 },
+                { "from", (PyToken.Type)502 },
+                { "None", (PyToken.Type)526 },
+                { "pass", (PyToken.Type)504 },
+                { "True", (PyToken.Type)527 },
+                { "with", (PyToken.Type)516 },
+            },
+            new Dictionary<string, PyToken.Type>
+            {
+                { "async", (PyToken.Type)513 },
+                { "await", (PyToken.Type)533 },
+                { "break", (PyToken.Type)508 },
+                { "class", (PyToken.Type)515 },
+                { "False", (PyToken.Type)528 },
+                { "raise", (PyToken.Type)503 },
+                { "while", (PyToken.Type)519 },
+                { "yield", (PyToken.Type)506 },
+            },
+            new Dictionary<string, PyToken.Type>
+            {
+                { "assert", (PyToken.Type)507 },
+                { "except", (PyToken.Type)524 },
+                { "global", (PyToken.Type)510 },
+                { "import", (PyToken.Type)501 },
+                { "lambda", (PyToken.Type)534 },
+                { "return", (PyToken.Type)500 },
+            },
+            new Dictionary<string, PyToken.Type>
+            {
+                { "finally", (PyToken.Type)525 },
+            },
+            new Dictionary<string, PyToken.Type>
+            {
+                { "continue", (PyToken.Type)509 },
+                { "nonlocal", (PyToken.Type)511 },
+            },
         };
 
         // ============================================================

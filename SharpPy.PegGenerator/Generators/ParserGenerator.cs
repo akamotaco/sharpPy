@@ -76,7 +76,7 @@ public class ParserGenerator
 {
     private readonly StringBuilder _sb = new();
     private int _indentLevel = 0;
-    private HashSet<string> _hardKeywords = new();
+    private Dictionary<string, int> _hardKeywords = new();  // keyword → token number
     private HashSet<string> _softKeywords = new();
     private Dictionary<string, string> _ruleReturnTypes = new();  // rule_name → return_type
     private int _artificialRuleCounter = 0;  // CPython: self.counter in parser_generator.py
@@ -84,7 +84,7 @@ public class ParserGenerator
     private Dictionary<Group, string> _groupToRuleMap = new();  // Group → artificial rule name cache
     private HashSet<string> _leftRecursiveRules = new();  // Rules detected as left-recursive
 
-    public string Generate(PegRule[] rules, HashSet<string> hardKeywords, HashSet<string> softKeywords, TrailerCode? trailer = null)
+    public string Generate(PegRule[] rules, Dictionary<string, int> hardKeywords, HashSet<string> softKeywords, TrailerCode? trailer = null)
     {
         _sb.Clear();
         _indentLevel = 0;
@@ -816,9 +816,11 @@ public class ParserGenerator
         else
         {
             // Hard keyword or operator
-            if (_hardKeywords.Contains(kw.Value))
+            if (_hardKeywords.TryGetValue(kw.Value, out int tokenNumber))
             {
-                return $"ExpectKeyword(\"{kw.Value}\")";
+                // CPython 방식: keyword는 전용 토큰 번호로 처리
+                // 예: 'break' → ExpectToken((PyToken.Type)508)
+                return $"ExpectToken((PyToken.Type){tokenNumber})";
             }
             else
             {
@@ -936,9 +938,35 @@ public class ParserGenerator
         WriteLine("{");
         _indentLevel++;
 
-        WriteLine("// CPython 3.12: Keywords are parsed as NAME tokens");
-        WriteLine("// The parser uses string comparison to identify keywords");
-        WriteLine("// All keywords and names return NAME token type");
+        WriteLine("#if DEBUG_PARSE_LOG");
+        WriteLine("Console.WriteLine($\"[GetKeywordOrNameType] name='{name}', nameLen={nameLen}, _nKeywordLists={_nKeywordLists}\");");
+        WriteLine("#endif");
+        WriteLine();
+        WriteLine("// CPython 3.12: Check if name_len is within keyword lists bounds");
+        WriteLine("if (nameLen >= _nKeywordLists || _reservedKeywords[nameLen] == null)");
+        WriteLine("{");
+        _indentLevel++;
+        WriteLine("#if DEBUG_PARSE_LOG");
+        WriteLine("Console.WriteLine($\"[GetKeywordOrNameType] Out of bounds or null, returning NAME\");");
+        WriteLine("#endif");
+        WriteLine("return (int)PyToken.Type.NAME;");
+        _indentLevel--;
+        WriteLine("}");
+        WriteLine();
+        WriteLine("// CPython 3.12: Search for keyword in the list for this length");
+        WriteLine("if (_reservedKeywords[nameLen].TryGetValue(name, out PyToken.Type keywordType))");
+        WriteLine("{");
+        _indentLevel++;
+        WriteLine("#if DEBUG_PARSE_LOG");
+        WriteLine("Console.WriteLine($\"[GetKeywordOrNameType] Found keyword, returning {(int)keywordType}\");");
+        WriteLine("#endif");
+        WriteLine("return (int)keywordType;");
+        _indentLevel--;
+        WriteLine("}");
+        WriteLine();
+        WriteLine("#if DEBUG_PARSE_LOG");
+        WriteLine("Console.WriteLine($\"[GetKeywordOrNameType] Not found in table, returning NAME\");");
+        WriteLine("#endif");
         WriteLine("return (int)PyToken.Type.NAME;");
 
         _indentLevel--;
@@ -991,10 +1019,71 @@ public class ParserGenerator
         WriteLine("private static readonly HashSet<string> _hardKeywords = new()");
         WriteLine("{");
         _indentLevel++;
-        foreach (var kw in _hardKeywords.OrderBy(k => k))
+        foreach (var kw in _hardKeywords.Keys.OrderBy(k => k))
         {
             WriteLine($"\"{kw}\",");
         }
+        _indentLevel--;
+        WriteLine("};");
+        WriteLine();
+
+        // Reserved keywords table (CPython 방식: 길이별 그룹화)
+        GenerateReservedKeywordsTable();
+    }
+
+    /// <summary>
+    /// CPython _setup_keywords() 방식으로 reserved keywords 테이블 생성
+    /// 참고: CPython c_generator.py line 483-502, parser.c line 15-73
+    /// </summary>
+    private void GenerateReservedKeywordsTable()
+    {
+        if (_hardKeywords.Count == 0)
+            return;
+
+        WriteLine("// ============================================================");
+        WriteLine("// Reserved Keywords Table (CPython 방식)");
+        WriteLine("// NAME 토큰을 keyword 전용 토큰 타입으로 변환하기 위한 테이블");
+        WriteLine("// ============================================================");
+        WriteLine();
+
+        // 길이별로 그룹화
+        var groups = new Dictionary<int, List<(string keyword, int tokenNumber)>>();
+        foreach (var (keyword, tokenNumber) in _hardKeywords)
+        {
+            int length = keyword.Length;
+            if (!groups.ContainsKey(length))
+                groups[length] = new List<(string, int)>();
+            groups[length].Add((keyword, tokenNumber));
+        }
+
+        int maxLength = groups.Keys.Max();
+
+        WriteLine($"private static readonly int _nKeywordLists = {maxLength + 1};");
+        WriteLine();
+        WriteLine("private static readonly Dictionary<string, PyToken.Type>?[] _reservedKeywords = new Dictionary<string, PyToken.Type>?[]");
+        WriteLine("{");
+        _indentLevel++;
+
+        for (int length = 0; length <= maxLength; length++)
+        {
+            if (!groups.ContainsKey(length))
+            {
+                WriteLine("null,");
+            }
+            else
+            {
+                WriteLine("new Dictionary<string, PyToken.Type>");
+                WriteLine("{");
+                _indentLevel++;
+                foreach (var (keyword, tokenNumber) in groups[length].OrderBy(x => x.keyword))
+                {
+                    WriteLine($"{{ \"{keyword}\", (PyToken.Type){tokenNumber} }},");
+                }
+                _indentLevel--;
+                WriteLine("},");
+            }
+        }
+
         _indentLevel--;
         WriteLine("};");
         WriteLine();
