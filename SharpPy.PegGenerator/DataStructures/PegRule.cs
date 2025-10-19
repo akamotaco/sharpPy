@@ -127,6 +127,15 @@ public class NegativeLookahead : Atom
 }
 
 /// <summary>
+/// Forced atom (commit point) &&expr
+/// CPython: After matching this, backtracking is not allowed
+/// </summary>
+public class Forced : Atom
+{
+    public Atom Inner { get; set; } = null!;
+}
+
+/// <summary>
 /// Gather pattern (sep.item+ or sep.item*)
 /// 예: ','.expression+
 /// </summary>

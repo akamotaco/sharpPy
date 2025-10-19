@@ -78,7 +78,7 @@ class Program
             Console.WriteLine("=======================================================");
             Console.WriteLine("Phase 1: Reading python_cs.gram (Token-based)");
             Console.WriteLine("=======================================================");
-            var grammarReader = new GrammarReaderV2();
+            var grammarReader = new GrammarReader();
             var pegRules = grammarReader.ReadGrammar(grammarPath);
             Console.WriteLine($"✓ Parsed {pegRules.Length} grammar rules");
             Console.WriteLine();

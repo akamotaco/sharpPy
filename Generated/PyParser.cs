@@ -2136,11 +2136,11 @@ namespace SharpPy.Generated
                     ExpectKeyword("def") != null &&
                     (n = ExpectName()) != null &&
                     ((t = (GeneratedTypeParamSeq)ParseOptional(() => Parse_TypeParams())) == null || true) &&
-                    PositiveLookahead(() => PositiveLookahead(() => ExpectOp("("))) != null &&
+                    ExpectOp("(") != null &&
                     ((params_ = (GeneratedArguments)ParseOptional(() => Parse_Params())) == null || true) &&
                     ExpectOp(")") != null &&
                     ((a = ParseOptional(() => Parse_Tmp21())) == null || true) &&
-                    PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) != null &&
+                    ExpectOp(":") != null &&
                     ((tc = (GeneratedTokenInfo)ParseOptional(() => Parse_FuncTypeComment())) == null || true) &&
                     (b = Parse_Block()) != null
                 )
@@ -2167,11 +2167,11 @@ namespace SharpPy.Generated
                     ExpectKeyword("def") != null &&
                     (n = ExpectName()) != null &&
                     ((t = (GeneratedTypeParamSeq)ParseOptional(() => Parse_TypeParams())) == null || true) &&
-                    PositiveLookahead(() => PositiveLookahead(() => ExpectOp("("))) != null &&
+                    ExpectOp("(") != null &&
                     ((params_ = (GeneratedArguments)ParseOptional(() => Parse_Params())) == null || true) &&
                     ExpectOp(")") != null &&
                     ((a = ParseOptional(() => Parse_Tmp22())) == null || true) &&
-                    PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) != null &&
+                    ExpectOp(":") != null &&
                     ((tc = (GeneratedTokenInfo)ParseOptional(() => Parse_FuncTypeComment())) == null || true) &&
                     (b = Parse_Block()) != null
                 )
@@ -3188,7 +3188,7 @@ namespace SharpPy.Generated
 
                 if (
                     ExpectKeyword("else") != null &&
-                    PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) != null &&
+                    ExpectOp(":") != null &&
                     (b = Parse_Block()) != null
                 )
                 {
@@ -3588,7 +3588,7 @@ namespace SharpPy.Generated
 
                 if (
                     ExpectKeyword("try") != null &&
-                    PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) != null &&
+                    ExpectOp(":") != null &&
                     (b = Parse_Block()) != null &&
                     (f = Parse_FinallyBlock()) != null
                 )
@@ -3610,7 +3610,7 @@ namespace SharpPy.Generated
 
                 if (
                     ExpectKeyword("try") != null &&
-                    PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) != null &&
+                    ExpectOp(":") != null &&
                     (b = Parse_Block()) != null &&
                     (ex = ParseOneOrMore(() => Parse_ExceptBlock())?.Cast<GeneratedExcepthandlerSeq>()) != null &&
                     ((el = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null || true) &&
@@ -3634,7 +3634,7 @@ namespace SharpPy.Generated
 
                 if (
                     ExpectKeyword("try") != null &&
-                    PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) != null &&
+                    ExpectOp(":") != null &&
                     (b = Parse_Block()) != null &&
                     (ex = ParseOneOrMore(() => Parse_ExceptStarBlock())?.Cast<GeneratedExcepthandlerSeq>()) != null &&
                     ((el = (GeneratedStmtSeq)ParseOptional(() => Parse_ElseBlock())) == null || true) &&
@@ -3836,7 +3836,7 @@ namespace SharpPy.Generated
 
                 if (
                     ExpectKeyword("finally") != null &&
-                    PositiveLookahead(() => PositiveLookahead(() => ExpectOp(":"))) != null &&
+                    ExpectOp(":") != null &&
                     (a = Parse_Block()) != null
                 )
                 {

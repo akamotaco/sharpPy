@@ -783,6 +783,11 @@ public class ParserGenerator
                 Function = GenerateNegativeLookaheadCode(nl),
                 ReturnType = "GeneratedPtr"
             },
+            Forced forced => new AtomCallInfo
+            {
+                Function = GenerateForcedCode(forced),
+                ReturnType = "GeneratedPtr"
+            },
             Gather gather => new AtomCallInfo
             {
                 // CPython: visit_Gather() → FunctionCall(return_type="asdl_seq *")
@@ -890,6 +895,14 @@ public class ParserGenerator
     {
         // Negative lookahead: !item
         return $"NegativeLookahead(() => {GenerateAtomCode(nl.Inner)})";
+    }
+
+    private string GenerateForcedCode(Forced forced)
+    {
+        // Forced (commit point): &&item
+        // Unlike lookahead, this CONSUMES the token after checking it exists
+        // CPython: This is a commit point - backtracking not allowed after this
+        return GenerateAtomCode(forced.Inner);
     }
 
     private string GenerateGatherCode(Gather gather)
@@ -1075,6 +1088,7 @@ public class ParserGenerator
             Group _ => "Group",
             PositiveLookahead pl => $"&{GetAtomDescription(pl.Inner)}",
             NegativeLookahead nl => $"!{GetAtomDescription(nl.Inner)}",
+            Forced forced => $"&&{GetAtomDescription(forced.Inner)}",
             _ => atom.GetType().Name
         };
     }

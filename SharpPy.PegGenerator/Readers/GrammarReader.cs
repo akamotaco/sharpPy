@@ -1,47 +1,75 @@
-using System.Text;
 using SharpPy.PegGenerator.DataStructures;
+using static SharpPy.PegGenerator.Readers.GrammarTokenizer;
 using PegGroup = SharpPy.PegGenerator.DataStructures.Group;
 
 namespace SharpPy.PegGenerator.Readers;
 
 /// <summary>
-/// python_py.gram 파일 파서
-/// CRITICAL: Quote type (' vs ")을 정확히 보존하여 HARD/SOFT keyword 구분
+/// 토큰 기반 Grammar 파서 (CPython pegen 방식)
 /// </summary>
 public class GrammarReader
 {
-    private string _source = "";
+    private List<GrammarToken> _tokens = new();
     private int _position = 0;
-    private int _line = 1;
-    private int _column = 0;
+
+    /// <summary>
+    /// @trailer code block (if present in grammar)
+    /// </summary>
+    public TrailerCode? Trailer { get; private set; }
 
     public PegRule[] ReadGrammar(string filePath)
     {
         Console.WriteLine($"Reading grammar from: {filePath}");
-        _source = File.ReadAllText(filePath);
-        _position = 0;
-        _line = 1;
-        _column = 0;
+        var source = File.ReadAllText(filePath);
 
+        // Step 1: Tokenize
+        var tokenizer = new GrammarTokenizer();
+        _tokens = tokenizer.Tokenize(source);
+        _position = 0;
+
+        Console.WriteLine($"Tokenized {_tokens.Count} tokens");
+
+        // Step 1.5: Check for @trailer directive at start of file
+        ParseTrailer();
+
+        // Step 2: Parse rules
         var rules = new List<PegRule>();
 
-        // Parse all rules
-        while (_position < _source.Length)
+        while (_position < _tokens.Count)
         {
-            SkipWhitespaceAndComments();
-            if (_position >= _source.Length)
+            var token = Current();
+
+            // Skip newlines at top level
+            if (token?.Type == TokenType.NEWLINE)
+            {
+                Advance();
+                continue;
+            }
+
+            // End of file
+            if (token?.Type == TokenType.ENDMARKER)
                 break;
 
-            Console.WriteLine($"[DEBUG] Parsing rule #{rules.Count + 1} at line {_line}, position {_position}");
+            // Parse rule
+            Console.WriteLine($"[DEBUG-MAIN] Attempting to parse next rule at position {_position}, token: {token?.Type} '{token?.Value}' at line {token?.Line}");
             var rule = ParseRule();
             if (rule != null)
             {
-                Console.WriteLine($"[DEBUG] Parsed rule: {rule.Name} with {rule.Alternatives.Count} alternatives");
                 rules.Add(rule);
+                Console.WriteLine($"Parsed rule: {rule.Name} ({rule.Alternatives.Count} alternatives)");
             }
             else
             {
-                Console.WriteLine($"[DEBUG] ParseRule returned null at line {_line}, position {_position}");
+                Console.WriteLine($"[ERROR-MAIN] Failed to parse rule at position {_position}");
+                Console.WriteLine($"[ERROR-MAIN] Stopping parser. Current token: {Current()?.Type} '{Current()?.Value}' at line {Current()?.Line}");
+                // Print surrounding tokens for debugging
+                Console.WriteLine($"[ERROR-MAIN] Token context (10 tokens before and after):");
+                for (int i = Math.Max(0, _position - 10); i < Math.Min(_tokens.Count, _position + 10); i++)
+                {
+                    var t = _tokens[i];
+                    string marker = i == _position ? " <<< HERE" : "";
+                    Console.WriteLine($"  [{i}] {t.Type,-12} '{t.Value}' (line {t.Line}){marker}");
+                }
                 break;
             }
         }
@@ -50,304 +78,373 @@ public class GrammarReader
         return rules.ToArray();
     }
 
-    private void SkipWhitespaceAndComments()
-    {
-        while (_position < _source.Length)
-        {
-            // Skip whitespace
-            if (char.IsWhiteSpace(_source[_position]))
-            {
-                if (_source[_position] == '\n')
-                {
-                    _line++;
-                    _column = 0;
-                }
-                else
-                {
-                    _column++;
-                }
-                _position++;
-                continue;
-            }
-
-            // Skip comments (# ...)
-            if (_source[_position] == '#')
-            {
-                while (_position < _source.Length && _source[_position] != '\n')
-                    _position++;
-                continue;
-            }
-
-            break;
-        }
-    }
-
     private PegRule? ParseRule()
     {
-        // rule_name[return_type]?: alternatives
+        // rule: NAME [return_type] ['(' 'memo' ')'] ':' alts NEWLINE
 
-        Console.WriteLine($"[DEBUG] ParseRule: Starting at line {_line}, pos {_position}");
-        if (_position < _source.Length)
+        var nameToken = Expect(TokenType.NAME);
+        if (nameToken == null)
         {
-            int endPos = Math.Min(_position + 50, _source.Length);
-            string preview = _source.Substring(_position, endPos - _position).Replace("\n", "\\n").Replace("\r", "\\r");
-            Console.WriteLine($"[DEBUG] ParseRule: Next 50 chars: '{preview}'");
-            Console.WriteLine($"[DEBUG] ParseRule: Current char: '{_source[_position]}' (code: {(int)_source[_position]})");
-        }
-
-        // Parse rule name
-        var ruleName = ParseIdentifier();
-        Console.WriteLine($"[DEBUG] ParseRule: Parsed identifier '{ruleName}'");
-        if (string.IsNullOrEmpty(ruleName))
-        {
-            Console.WriteLine($"[DEBUG] ParseRule: Empty identifier, returning null");
+            var current = Current();
+            if (current != null && current.Type != TokenType.ENDMARKER)
+            {
+                Console.WriteLine($"[ERROR] Expected NAME at line {current.Line}, got {current.Type}: '{current.Value}'");
+            }
             return null;
         }
 
-        // Skip optional return type [return_type]
-        SkipWhitespaceAndComments();
-        if (_position < _source.Length && _source[_position] == '[')
+        Console.WriteLine($"[DEBUG] Parsing rule '{nameToken.Value}' at line {nameToken.Line}");
+        Console.WriteLine($"[DEBUG] Next token: {Current()?.Type} '{Current()?.Value}'");
+
+        // Optional [return_type]
+        string? returnType = null;
+        if (Current()?.Type == TokenType.OP && Current()?.Value == "[")
         {
-            _position++;
-            _column++;
-            // Skip until ]
-            while (_position < _source.Length && _source[_position] != ']')
+            Console.WriteLine($"[DEBUG] Found return type annotation for rule '{nameToken.Value}'");
+            Advance();  // Skip '['
+
+            // Capture type annotation content
+            var typeTokens = new List<string>();
+            while (Current() != null && !(Current()!.Type == TokenType.OP && Current()!.Value == "]"))
             {
-                if (_source[_position] == '\n')
+                typeTokens.Add(Current()!.Value);
+                Advance();
+            }
+
+            // Join type tokens to form type string (e.g., "GeneratedMod", "GeneratedExpr?")
+            returnType = string.Join("", typeTokens);
+
+            if (Current()?.Type == TokenType.OP && Current()?.Value == "]")
+            {
+                Advance();  // Skip ']'
+            }
+            Console.WriteLine($"[DEBUG] Captured return type '{returnType}' for rule '{nameToken.Value}', next token: {Current()?.Type} '{Current()?.Value}'");
+        }
+
+        // Optional (memo) annotation
+        bool isMemoized = false;
+        if (Current()?.Type == TokenType.OP && Current()?.Value == "(")
+        {
+            int mark = _position;
+            Advance();  // Skip '('
+
+            // Check if this is (memo)
+            if (Current()?.Type == TokenType.NAME && Current()?.Value == "memo")
+            {
+                Console.WriteLine($"[DEBUG] Found (memo) annotation for rule '{nameToken.Value}'");
+                Advance();  // Skip 'memo'
+
+                if (Current()?.Type == TokenType.OP && Current()?.Value == ")")
                 {
-                    _line++;
-                    _column = 0;
+                    Advance();  // Skip ')'
+                    isMemoized = true;  // ← Store the flag!
+                    Console.WriteLine($"[DEBUG] After (memo), next token: {Current()?.Type} '{Current()?.Value}'");
                 }
                 else
                 {
-                    _column++;
+                    Console.WriteLine($"[WARNING] Expected ')' after 'memo', got {Current()?.Type} '{Current()?.Value}' - restoring position");
+                    _position = mark;  // Not a valid (memo), restore
                 }
-                _position++;
             }
-            if (_position < _source.Length && _source[_position] == ']')
+            else
             {
-                _position++;
-                _column++;
+                // Not (memo), restore position
+                Console.WriteLine($"[DEBUG] '(' found but not (memo) - restoring position");
+                _position = mark;
             }
         }
 
-        SkipWhitespaceAndComments();
-
-        // Expect ':'
-        if (_position >= _source.Length || _source[_position] != ':')
+        var colonToken = ExpectOp(":");
+        if (colonToken == null)
         {
-            throw new Exception($"Expected ':' after rule name '{ruleName}' at line {_line}");
+            var current = Current();
+            Console.WriteLine($"[ERROR] Expected ':' after rule name '{nameToken.Value}'");
+            Console.WriteLine($"[ERROR] Current position: {_position}, Token: {current?.Type} '{current?.Value}' at line {current?.Line}");
+            // Print surrounding tokens for context
+            Console.WriteLine($"[ERROR] Context (5 tokens before and after):");
+            for (int i = Math.Max(0, _position - 5); i < Math.Min(_tokens.Count, _position + 5); i++)
+            {
+                var t = _tokens[i];
+                string marker = i == _position ? " <<< HERE" : "";
+                Console.WriteLine($"  [{i}] {t.Type} '{t.Value}' (line {t.Line}){marker}");
+            }
+            return null;
         }
-        _position++;
-        _column++;
 
-        SkipWhitespaceAndComments();
+        // CPython metagrammar.gram:55 - Handle ":" NEWLINE INDENT more_alts pattern
+        // Skip NEWLINEs after ':' to handle rules like:
+        //   invalid_expression:
+        //      # comment
+        //      | alt1
+        //      | alt2
+        while (Current()?.Type == TokenType.NEWLINE)
+        {
+            Advance();
+        }
 
-        // Parse alternatives
         var alternatives = ParseAlternatives();
+
+        // ParseAlternatives should have consumed all alternatives including final NEWLINE
+        // Just verify we're at NEWLINE or skip it if present
+        if (Current()?.Type == TokenType.NEWLINE)
+        {
+            Advance();
+        }
 
         return new PegRule
         {
-            Name = ruleName,
-            Alternatives = alternatives
+            Name = nameToken.Value,
+            ReturnType = returnType,
+            Alternatives = alternatives,
+            IsMemoized = isMemoized  // CPython 3.12: Store (memo) marker
         };
     }
 
     private List<Alternative> ParseAlternatives()
     {
+        // alts: alt ('|' alt)*
+        // Handles multi-line alternatives (NEWLINE '|' alt)
+
         var alternatives = new List<Alternative>();
 
-        while (true)
+        // First alternative (may have leading '|')
+        if (Current()?.Type == TokenType.OP && Current()?.Value == "|")
         {
-            SkipWhitespaceAndComments();
-
-            Console.WriteLine($"[DEBUG] ParseAlternatives: line {_line}, pos {_position}, char: {(_position < _source.Length ? _source[_position] : 'E')}");
-
-            // Check for '|' (may be on next line)
-            if (_position < _source.Length && _source[_position] == '|')
-            {
-                _position++;
-                _column++;
-                SkipWhitespaceAndComments();
-            }
-
-            // Parse alternative items
-            var items = ParseItems();
-            Console.WriteLine($"[DEBUG] ParseItems returned {items.Count} items");
-            if (items.Count == 0)
-                break;
-
-            alternatives.Add(new Alternative { Items = items });
-
-            // Check if next alternative exists
-            SkipWhitespaceAndComments();
-            if (_position >= _source.Length || _source[_position] != '|')
-                break;
+            Advance();  // Skip optional leading '|'
         }
 
-        Console.WriteLine($"[DEBUG] ParseAlternatives completed: {alternatives.Count} alternatives");
-        return alternatives;
-    }
+        var alt = ParseAlternative();
+        if (alt != null)
+        {
+            alternatives.Add(alt);
+        }
 
-    private List<Item> ParseItems()
-    {
-        var items = new List<Item>();
-        int maxIterations = 1000;  // Safety limit
-        int iterations = 0;
-
+        // More alternatives (may be on next line)
         while (true)
         {
-            iterations++;
-            if (iterations > maxIterations)
+            // Skip optional NEWLINE before '|'
+            if (Current()?.Type == TokenType.NEWLINE)
             {
-                Console.WriteLine($"[ERROR] ParseItems exceeded max iterations at line {_line}");
-                throw new Exception($"ParseItems infinite loop detected at line {_line}");
-            }
+                int mark = _position;
+                Advance();  // Skip NEWLINE
 
-            SkipWhitespaceAndComments();
-
-            Console.WriteLine($"[DEBUG] ParseItems iteration {iterations}: line {_line}, pos {_position}, items so far: {items.Count}");
-
-            // Stop at '|' or end of line (new rule)
-            if (_position >= _source.Length)
-                break;
-
-            char c = _source[_position];
-
-            // Stop at '|' (next alternative)
-            if (c == '|')
-            {
-                Console.WriteLine($"[DEBUG] ParseItems: Found '|', stopping");
-                break;
-            }
-
-            // Stop at newline if next non-whitespace is a rule name (identifier followed by ':')
-            if (c == '\n')
-            {
-                int savePos = _position;
-                int saveLine = _line;
-                int saveCol = _column;
-
-                _position++;
-                _line++;
-                _column = 0;
-                SkipWhitespaceAndComments();
-
-                if (_position < _source.Length && (char.IsLetter(_source[_position]) || _source[_position] == '_'))
+                // Check if next token is '|'
+                if (Current()?.Type == TokenType.OP && Current()?.Value == "|")
                 {
-                    // Peek ahead without consuming - check if it's identifier followed by ':'
-                    int testPos = _position;
-                    while (testPos < _source.Length && (char.IsLetterOrDigit(_source[testPos]) || _source[testPos] == '_'))
+                    Advance();  // Skip '|'
+                    alt = ParseAlternative();
+                    if (alt != null)
                     {
-                        testPos++;
+                        alternatives.Add(alt);
                     }
-
-                    // Skip whitespace after identifier
-                    while (testPos < _source.Length && char.IsWhiteSpace(_source[testPos]) && _source[testPos] != '\n')
-                    {
-                        testPos++;
-                    }
-
-                    // Check for '[' (optional return type) or ':'
-                    if (testPos < _source.Length && (_source[testPos] == ':' || _source[testPos] == '['))
-                    {
-                        Console.WriteLine($"[DEBUG] ParseItems: Found new rule marker at pos {testPos}, stopping");
-                        // It's a new rule, restore position
-                        _position = savePos;
-                        _line = saveLine;
-                        _column = saveCol;
-                        break;
-                    }
+                    continue;
                 }
-
-                // Not a new rule, restore and continue
-                _position = savePos;
-                _line = saveLine;
-                _column = saveCol;
-                _position++;
-                _line++;
-                _column = 0;
-                continue;
+                else
+                {
+                    // Not a continuation, restore NEWLINE
+                    _position = mark;
+                    break;
+                }
             }
 
-            int posBeforeItem = _position;
-            var item = ParseItem();
-            if (item == null)
+            // Check for same-line '|'
+            if (Current()?.Type == TokenType.OP && Current()?.Value == "|")
             {
-                Console.WriteLine($"[DEBUG] ParseItems: ParseItem returned null, stopping");
-                break;
-            }
-
-            // If position didn't advance, we're stuck - break to avoid infinite loop
-            if (_position == posBeforeItem)
-            {
-                Console.WriteLine($"[ERROR] ParseItem didn't advance position, breaking to avoid infinite loop");
-                break;
-            }
-
-            items.Add(item);
-
-            // After adding an item, check if we're at end of line (rule complete)
-            // Skip only inline whitespace (not newlines)
-            int savePos2 = _position;
-            while (_position < _source.Length && (_source[_position] == ' ' || _source[_position] == '\t'))
-            {
-                _position++;
-                _column++;
-            }
-
-            // If we hit newline or end of file after whitespace, this rule is complete
-            if (_position >= _source.Length || _source[_position] == '\n' || _source[_position] == '\r')
-            {
-                _position = savePos2;  // Don't consume the whitespace, let next iteration handle it
-                Console.WriteLine($"[DEBUG] ParseItems: Reached end of line after item, will check for continuation");
-                // Don't break here - let the newline check at top of loop determine if it's a new rule
+                Advance();  // Skip '|'
+                alt = ParseAlternative();
+                if (alt != null)
+                {
+                    alternatives.Add(alt);
+                }
             }
             else
             {
-                _position = savePos2;  // Restore position for next item
+                break;
             }
         }
 
-        Console.WriteLine($"[DEBUG] ParseItems completed: {items.Count} items after {iterations} iterations");
-        return items;
+        return alternatives;
+    }
+
+    private Alternative? ParseAlternative()
+    {
+        // alt: item+ [action]
+        // action: '{' ... '}'
+
+        var items = new List<Item>();
+
+        while (true)
+        {
+            // Skip commit operator '~' between items
+            if (Current()?.Type == TokenType.OP && Current()?.Value == "~")
+            {
+                Console.WriteLine($"[DEBUG-ALT] Found commit operator '~' between items at position {_position}, skipping");
+                Advance();
+                continue;  // Continue parsing next item
+            }
+
+            // Stop at '{', '|', NEWLINE, or ENDMARKER
+            var token = Current();
+            if (token == null ||
+                token.Type == TokenType.NEWLINE ||
+                token.Type == TokenType.ENDMARKER ||
+                (token.Type == TokenType.OP && (token.Value == "|" || token.Value == "{")))
+            {
+                break;
+            }
+
+            var item = ParseItem();
+            if (item == null)
+                break;
+
+            items.Add(item);
+        }
+
+        if (items.Count == 0)
+            return null;
+
+        // Parse optional action code: { C# code }
+        string? actionCode = null;
+        if (Current()?.Type == TokenType.OP && Current()?.Value == "{")
+        {
+            actionCode = ParseActionCode();
+        }
+
+        return new Alternative { Items = items, ActionCode = actionCode };
+    }
+
+    private string? ParseActionCode()
+    {
+        // Parse action code block: { ... }
+        // Returns the code inside braces without the braces themselves
+        // CPython pegen: target_atoms → target_atom + " " + target_atoms
+        // All tokens are joined with a single space, except for consecutive OPs
+
+        if (Current()?.Type != TokenType.OP || Current()?.Value != "{")
+            return null;
+
+        Advance(); // Skip '{'
+
+        var result = new System.Text.StringBuilder();
+        int braceDepth = 1;
+        TokenType? prevType = null;
+
+        while (braceDepth > 0 && Current() != null)
+        {
+            var token = Current();
+
+            if (token.Type == TokenType.OP)
+            {
+                if (token.Value == "{")
+                {
+                    braceDepth++;
+                }
+                else if (token.Value == "}")
+                {
+                    braceDepth--;
+                    if (braceDepth == 0)
+                    {
+                        Advance(); // Skip closing '}'
+                        break;
+                    }
+                }
+            }
+
+            // Skip NEWLINE tokens to match CPython behavior (tokenizer filters NL/COMMENT)
+            if (token.Type != TokenType.NEWLINE)
+            {
+                // Add space before token, except:
+                // - At the start (result.Length == 0)
+                // - Between consecutive OP tokens (to preserve //, ->, ::, etc.)
+                if (result.Length > 0 && !(prevType == TokenType.OP && token.Type == TokenType.OP))
+                {
+                    result.Append(' ');
+                }
+
+                result.Append(token.Value);
+                prevType = token.Type;
+            }
+
+            Advance();
+        }
+
+        return result.ToString();
     }
 
     private Item? ParseItem()
     {
-        SkipWhitespaceAndComments();
+        // item: [NAME ['[' type ']'] '='] atom
+        // Examples:
+        //   a=NAME                  (named item)
+        //   a[GeneratedExpr]=expr   (named item with type annotation)
+        //   NAME                    (unnamed item)
 
-        if (_position >= _source.Length)
-            return null;
-
-        // Check for named item (name=atom)
-        int savePos = _position;
-        int saveLine = _line;
-        int saveCol = _column;
-
-        var identifier = ParseIdentifier();
-        if (!string.IsNullOrEmpty(identifier))
+        // Check for named item (name[type]=atom or name=atom)
+        if (Current()?.Type == TokenType.NAME)
         {
-            SkipWhitespaceAndComments();
-            if (_position < _source.Length && _source[_position] == '=')
-            {
-                _position++;
-                _column++;
-                SkipWhitespaceAndComments();
+            int mark = _position;
+            var nameToken = Advance();
+            string? variableType = null;
 
+            // Optional type annotation: [type]
+            if (Current()?.Type == TokenType.OP && Current()?.Value == "[")
+            {
+                Console.WriteLine($"[DEBUG-ITEM] Found type annotation for variable '{nameToken.Value}'");
+                Advance();  // Skip '['
+
+                // Capture type annotation content
+                var typeTokens = new List<string>();
+                int bracketDepth = 1;
+                while (Current() != null && bracketDepth > 0)
+                {
+                    if (Current()!.Type == TokenType.OP)
+                    {
+                        if (Current()!.Value == "[") bracketDepth++;
+                        else if (Current()!.Value == "]") bracketDepth--;
+                    }
+
+                    if (bracketDepth > 0)
+                    {
+                        typeTokens.Add(Current()!.Value);
+                        Advance();
+                    }
+                }
+
+                // Join type tokens to form type string
+                variableType = string.Join("", typeTokens);
+
+                if (Current()?.Type == TokenType.OP && Current()?.Value == "]")
+                {
+                    Advance();  // Skip ']'
+                    Console.WriteLine($"[DEBUG-ITEM] After type annotation '{variableType}', next token: {Current()?.Type} '{Current()?.Value}'");
+                }
+            }
+
+            // Check for '='
+            if (Current()?.Type == TokenType.OP && Current()?.Value == "=")
+            {
+                Console.WriteLine($"[DEBUG-ITEM] Found named item: {nameToken.Value}" + (variableType != null ? $" with type {variableType}" : ""));
+                Console.WriteLine($"[DEBUG-ITEM] After '=', next token: {Current()?.Type} '{Current()?.Value}' at position {_position}");
+                Advance();  // Skip '='
+                Console.WriteLine($"[DEBUG-ITEM] Before ParseAtom, current token: {Current()?.Type} '{Current()?.Value}' at position {_position}");
                 var atom = ParseAtom();
                 if (atom != null)
                 {
-                    return new Item { Name = identifier, Atom = atom };
+                    Console.WriteLine($"[DEBUG-ITEM] Successfully parsed atom for {nameToken.Value}, current position: {_position}");
+                    return new Item { Name = nameToken!.Value, Type = variableType, Atom = atom };
+                }
+                else
+                {
+                    Console.WriteLine($"[DEBUG-ITEM] Failed to parse atom for {nameToken.Value}, current position: {_position}");
                 }
             }
+
+            // Not a named item, restore
+            Console.WriteLine($"[DEBUG-ITEM] Not a named item, restoring position");
+            _position = mark;
         }
 
-        // Not a named item, restore and parse as atom
-        _position = savePos;
-        _line = saveLine;
-        _column = saveCol;
-
+        // Regular item
         var atomOnly = ParseAtom();
         if (atomOnly == null)
             return null;
@@ -357,293 +454,353 @@ public class GrammarReader
 
     private Atom? ParseAtom()
     {
-        SkipWhitespaceAndComments();
-
-        if (_position >= _source.Length)
+        var token = Current();
+        if (token == null)
             return null;
 
-        char c = _source[_position];
-
-        // CRITICAL: Parse keywords with QUOTE TYPE preservation
-        // Single quote 'keyword' → HARD KEYWORD
-        // Double quote "keyword" → SOFT KEYWORD
-        if (c == '\'' || c == '"')
+        // STRING: 'keyword' or "soft_keyword"
+        if (token.Type == TokenType.STRING)
         {
-            return ParseKeyword();
-        }
+            Advance();
+            bool isSoft = token.Value.StartsWith("\"");
+            string value = token.Value.Substring(1, token.Value.Length - 2);  // Remove quotes
 
-        // Group (...)
-        if (c == '(')
-        {
-            return ParseGroup();
-        }
-
-        // Optional [...]
-        if (c == '[')
-        {
-            return ParseOptional();
-        }
-
-        // Positive lookahead &...
-        if (c == '&')
-        {
-            _position++;
-            _column++;
-            var inner = ParseAtom();
-            if (inner == null)
-                throw new Exception($"Expected atom after '&' at line {_line}");
-            return new PositiveLookahead { Inner = inner };
-        }
-
-        // Negative lookahead !...
-        if (c == '!')
-        {
-            _position++;
-            _column++;
-            var inner = ParseAtom();
-            if (inner == null)
-                throw new Exception($"Expected atom after '!' at line {_line}");
-            return new NegativeLookahead { Inner = inner };
-        }
-
-        // Commit operator ~
-        if (c == '~')
-        {
-            _position++;
-            _column++;
-            // Skip commit operator (we don't use it for code generation)
-            return ParseAtom();
-        }
-
-        // Token or RuleRef (identifier)
-        if (char.IsLetter(c) || c == '_')
-        {
-            var identifier = ParseIdentifier();
-
-            // Check for postfix operators (*, +, ?)
-            SkipWhitespaceAndComments();
-            if (_position < _source.Length)
+            // Check for gather pattern: STRING '.' atom ('+' | '*')
+            // Example: ';'.simple_stmt+ or ','.NAME+
+            if (Current()?.Type == TokenType.OP && Current()?.Value == ".")
             {
-                char postfix = _source[_position];
-                if (postfix == '*')
+                Advance();  // Skip '.'
+                var item = ParseAtomWithoutPostfix();  // Don't apply postfix yet!
+                if (item == null)
+                    throw new Exception($"Expected atom after '.' in gather pattern");
+
+                // Must be followed by '+' or '*'
+                var postfix = Current();
+                if (postfix?.Type == TokenType.OP && (postfix.Value == "+" || postfix.Value == "*"))
                 {
-                    _position++;
-                    _column++;
-                    var atom = IsToken(identifier) ? (Atom)new Token { TokenType = identifier } : new RuleRef { Name = identifier };
-                    return new ZeroOrMore { Inner = atom };
-                }
-                if (postfix == '+')
-                {
-                    _position++;
-                    _column++;
-                    var atom = IsToken(identifier) ? (Atom)new Token { TokenType = identifier } : new RuleRef { Name = identifier };
-                    return new OneOrMore { Inner = atom };
-                }
-                if (postfix == '?')
-                {
-                    _position++;
-                    _column++;
-                    var atom = IsToken(identifier) ? (Atom)new Token { TokenType = identifier } : new RuleRef { Name = identifier };
-                    return new Optional { Inner = atom };
+                    bool isPlus = postfix.Value == "+";
+                    Advance();
+
+                    var separator = new Keyword { Value = value, IsSoft = isSoft };
+                    return new Gather { Separator = separator, Item = item, IsPlus = isPlus };
                 }
 
-                // Check for gather pattern (sep.item+ or sep.item*)
-                if (postfix == '.')
-                {
-                    _position++;
-                    _column++;
-                    SkipWhitespaceAndComments();
-
-                    var item = ParseAtom();
-                    if (item == null)
-                        throw new Exception($"Expected atom after '.' in gather pattern at line {_line}");
-
-                    // Check for + or *
-                    SkipWhitespaceAndComments();
-                    if (_position < _source.Length)
-                    {
-                        if (_source[_position] == '+')
-                        {
-                            _position++;
-                            _column++;
-                            var sep = IsToken(identifier) ? (Atom)new Token { TokenType = identifier } : new RuleRef { Name = identifier };
-                            return new Gather { Separator = sep, Item = item, IsPlus = true };
-                        }
-                        if (_source[_position] == '*')
-                        {
-                            _position++;
-                            _column++;
-                            var sep = IsToken(identifier) ? (Atom)new Token { TokenType = identifier } : new RuleRef { Name = identifier };
-                            return new Gather { Separator = sep, Item = item, IsPlus = false };
-                        }
-                    }
-
-                    throw new Exception($"Expected '+' or '*' after gather item at line {_line}");
-                }
+                throw new Exception($"Expected '+' or '*' after gather item at line {token.Line}");
             }
 
-            // Regular token or rule reference
-            if (IsToken(identifier))
+            var keyword = new Keyword { Value = value, IsSoft = isSoft };
+            return ApplyPostfix(keyword);
+        }
+
+        // Group: '(' alts ')'
+        if (token.Type == TokenType.OP && token.Value == "(")
+        {
+            Advance();  // Skip '('
+            var alternatives = ParseAlternatives();
+            ExpectOp(")");
+
+            var group = new PegGroup { Alternatives = alternatives };
+            return ApplyPostfix(group);
+        }
+
+        // Optional: '[' items ']'
+        // CPython metagrammar.gram:101 - '[' ~ alts ']' {Opt(alts)}
+        if (token.Type == TokenType.OP && token.Value == "[")
+        {
+            Advance();  // Skip '['
+            var alternatives = ParseAlternatives();  // Parse multiple alternatives (CPython way)
+            ExpectOp("]");
+
+            Atom inner;
+            // Simple case: [item] → Optional(item)
+            if (alternatives.Count == 1 &&
+                alternatives[0].Items.Count == 1 &&
+                alternatives[0].Items[0].Name == null &&
+                string.IsNullOrEmpty(alternatives[0].ActionCode))
             {
-                return new Token { TokenType = identifier };
+                inner = alternatives[0].Items[0].Atom;
+            }
+            // Complex case: [a | b] → Optional(Group(a, b))
+            else
+            {
+                inner = new PegGroup { Alternatives = alternatives };
+            }
+
+            return new Optional { Inner = inner };
+        }
+
+        // Forced (commit point): '&&' atom or Lookahead: '&' atom
+        if (token.Type == TokenType.OP && token.Value == "&")
+        {
+            Advance();
+            // Check if next token is also '&' (forced/commit operator)
+            if (Current()?.Type == TokenType.OP && Current()?.Value == "&")
+            {
+                Advance(); // consume second '&'
+                var inner = ParseAtom();
+                if (inner == null)
+                    throw new Exception($"Expected atom after '&&' at line {token.Line}");
+                return new Forced { Inner = inner };
             }
             else
             {
-                return new RuleRef { Name = identifier };
+                // Single '&' is positive lookahead
+                var inner = ParseAtom();
+                if (inner == null)
+                    throw new Exception($"Expected atom after '&' at line {token.Line}");
+                return new PositiveLookahead { Inner = inner };
             }
+        }
+
+        if (token.Type == TokenType.OP && token.Value == "!")
+        {
+            Advance();
+            var inner = ParseAtom();
+            if (inner == null)
+                throw new Exception($"Expected atom after '!' at line {token.Line}");
+            return new NegativeLookahead { Inner = inner };
+        }
+
+        // NAME: token or rule reference
+        if (token.Type == TokenType.NAME)
+        {
+            Advance();
+            var name = token.Value;
+
+            // Check for gather pattern: name '.' atom ('+' | '*')
+            if (Current()?.Type == TokenType.OP && Current()?.Value == ".")
+            {
+                Advance();  // Skip '.'
+                var item = ParseAtomWithoutPostfix();  // Don't apply postfix yet!
+                if (item == null)
+                    throw new Exception($"Expected atom after '.' in gather pattern");
+
+                // Must be followed by '+' or '*'
+                var postfix = Current();
+                if (postfix?.Type == TokenType.OP && (postfix.Value == "+" || postfix.Value == "*"))
+                {
+                    bool isPlus = postfix.Value == "+";
+                    Advance();
+
+                    var separator = IsToken(name) ? (Atom)new Token { TokenType = name } : new RuleRef { Name = name };
+                    return new Gather { Separator = separator, Item = item, IsPlus = isPlus };
+                }
+
+                throw new Exception($"Expected '+' or '*' after gather item at line {token.Line}");
+            }
+
+            // Regular NAME
+            var atom = IsToken(name) ? (Atom)new Token { TokenType = name } : (Atom)new RuleRef { Name = name };
+            return ApplyPostfix(atom);
         }
 
         return null;
     }
 
-    private Keyword ParseKeyword()
+    private Atom? ParseAtomWithoutPostfix()
     {
-        char quoteChar = _source[_position];
-        bool isSoft = (quoteChar == '"');  // CRITICAL: " = SOFT, ' = HARD
+        // Parse atom but don't apply postfix operators
+        // Used for gather patterns where the postfix belongs to the gather, not the item
+        var token = Current();
+        if (token == null)
+            return null;
 
-        _position++;
-        _column++;
-
-        var sb = new StringBuilder();
-        while (_position < _source.Length && _source[_position] != quoteChar)
+        // STRING: 'keyword' or "soft_keyword" (no gather check here, just return keyword)
+        if (token.Type == TokenType.STRING)
         {
-            sb.Append(_source[_position]);
-            _position++;
-            _column++;
+            Advance();
+            bool isSoft = token.Value.StartsWith("\"");
+            string value = token.Value.Substring(1, token.Value.Length - 2);
+            return new Keyword { Value = value, IsSoft = isSoft };
         }
 
-        if (_position >= _source.Length)
-            throw new Exception($"Unterminated keyword at line {_line}");
-
-        _position++; // Skip closing quote
-        _column++;
-
-        return new Keyword
+        // Group: '(' alts ')'
+        if (token.Type == TokenType.OP && token.Value == "(")
         {
-            Value = sb.ToString(),
-            IsSoft = isSoft
-        };
-    }
-
-    private PegGroup ParseGroup()
-    {
-        _position++; // Skip '('
-        _column++;
-
-        var alternatives = ParseAlternatives();
-
-        SkipWhitespaceAndComments();
-        if (_position >= _source.Length || _source[_position] != ')')
-            throw new Exception($"Expected ')' at line {_line}");
-
-        _position++; // Skip ')'
-        _column++;
-
-        // Check for postfix operators (*, +, ?)
-        SkipWhitespaceAndComments();
-        if (_position < _source.Length)
-        {
-            char postfix = _source[_position];
-            var group = new PegGroup { Alternatives = alternatives };
-
-            if (postfix == '*')
-            {
-                _position++;
-                _column++;
-                return (PegGroup)(object)new ZeroOrMore { Inner = group };
-            }
-            if (postfix == '+')
-            {
-                _position++;
-                _column++;
-                return (PegGroup)(object)new OneOrMore { Inner = group };
-            }
-            if (postfix == '?')
-            {
-                _position++;
-                _column++;
-                return (PegGroup)(object)new Optional { Inner = group };
-            }
+            Advance();
+            var alternatives = ParseAlternatives();
+            ExpectOp(")");
+            return new PegGroup { Alternatives = alternatives };
         }
 
-        return new PegGroup { Alternatives = alternatives };
-    }
-
-    private Optional ParseOptional()
-    {
-        _position++; // Skip '['
-        _column++;
-
-        var items = ParseItems();
-
-        SkipWhitespaceAndComments();
-        if (_position >= _source.Length || _source[_position] != ']')
-            throw new Exception($"Expected ']' at line {_line}");
-
-        _position++; // Skip ']'
-        _column++;
-
-        // Wrap items in a group if multiple
-        Atom inner;
-        if (items.Count == 1 && items[0].Name == null)
+        // Optional: '[' items ']'
+        // CPython metagrammar.gram:101 - '[' ~ alts ']' {Opt(alts)}
+        if (token.Type == TokenType.OP && token.Value == "[")
         {
-            inner = items[0].Atom;
-        }
-        else
-        {
-            inner = new PegGroup
+            Advance();
+            var alternatives = ParseAlternatives();  // Parse multiple alternatives (CPython way)
+            ExpectOp("]");
+
+            Atom inner;
+            // Simple case: [item] → Optional(item)
+            if (alternatives.Count == 1 &&
+                alternatives[0].Items.Count == 1 &&
+                alternatives[0].Items[0].Name == null &&
+                string.IsNullOrEmpty(alternatives[0].ActionCode))
             {
-                Alternatives = new List<Alternative>
-                {
-                    new Alternative { Items = items }
-                }
-            };
-        }
-
-        return new Optional { Inner = inner };
-    }
-
-    private string ParseIdentifier()
-    {
-        SkipWhitespaceAndComments();
-
-        if (_position >= _source.Length)
-            return "";
-
-        if (!char.IsLetter(_source[_position]) && _source[_position] != '_')
-            return "";
-
-        var sb = new StringBuilder();
-        while (_position < _source.Length)
-        {
-            char c = _source[_position];
-            if (char.IsLetterOrDigit(c) || c == '_')
-            {
-                sb.Append(c);
-                _position++;
-                _column++;
+                inner = alternatives[0].Items[0].Atom;
             }
+            // Complex case: [a | b] → Optional(Group(a, b))
             else
             {
-                break;
+                inner = new PegGroup { Alternatives = alternatives };
+            }
+            return new Optional { Inner = inner };
+        }
+
+        // NAME: token or rule reference (no gather check here)
+        if (token.Type == TokenType.NAME)
+        {
+            Advance();
+            var name = token.Value;
+            return IsToken(name) ? (Atom)new Token { TokenType = name } : new RuleRef { Name = name };
+        }
+
+        return null;
+    }
+
+    private Atom ApplyPostfix(Atom atom)
+    {
+        // Check for postfix: '*' | '+' | '?'
+        var token = Current();
+        if (token?.Type == TokenType.OP)
+        {
+            if (token.Value == "*")
+            {
+                Advance();
+                return new ZeroOrMore { Inner = atom };
+            }
+            if (token.Value == "+")
+            {
+                Advance();
+                return new OneOrMore { Inner = atom };
+            }
+            if (token.Value == "?")
+            {
+                Advance();
+                return new Optional { Inner = atom };
             }
         }
 
-        return sb.ToString();
+        return atom;
     }
 
-    private bool IsToken(string identifier)
+    private bool IsToken(string name)
     {
-        // Token names are ALL_CAPS (e.g., NAME, NUMBER, STRING, NEWLINE, ASYNC, AWAIT)
-        if (string.IsNullOrEmpty(identifier))
+        // Token names are ALL_CAPS
+        if (string.IsNullOrEmpty(name))
             return false;
 
-        foreach (char c in identifier)
+        foreach (char c in name)
         {
             if (!char.IsUpper(c) && c != '_')
                 return false;
         }
 
         return true;
+    }
+
+    private void ParseTrailer()
+    {
+        // Check for @trailer '''...''' at start of grammar
+        // Format: @ trailer STRING(triple-quoted)
+        // Example: @trailer '''public class Entry { ... }'''
+
+        // Skip leading newlines
+        while (Current()?.Type == TokenType.NEWLINE)
+        {
+            Advance();
+        }
+
+        // Check for @ operator
+        if (Current()?.Type != TokenType.OP || Current()?.Value != "@")
+        {
+            return;  // No @trailer directive
+        }
+
+        int mark = _position;  // Save position in case this isn't a valid @trailer
+        Advance();  // Skip '@'
+
+        // Check for 'trailer' NAME token
+        if (Current()?.Type != TokenType.NAME || Current()?.Value != "trailer")
+        {
+            _position = mark;  // Not a @trailer, restore position
+            return;
+        }
+        Advance();  // Skip 'trailer'
+
+        // Expect STRING token (triple-quoted string)
+        var stringToken = Current();
+        if (stringToken?.Type != TokenType.STRING)
+        {
+            Console.WriteLine($"[ERROR] Expected STRING after @trailer at line {stringToken?.Line ?? 0}");
+            _position = mark;
+            return;
+        }
+
+        // Extract string content (remove triple quotes)
+        string rawString = stringToken.Value;
+        string trailerCode;
+
+        if (rawString.StartsWith("'''") && rawString.EndsWith("'''"))
+        {
+            trailerCode = rawString.Substring(3, rawString.Length - 6);
+        }
+        else if (rawString.StartsWith("\"\"\"") && rawString.EndsWith("\"\"\""))
+        {
+            trailerCode = rawString.Substring(3, rawString.Length - 6);
+        }
+        else
+        {
+            Console.WriteLine($"[ERROR] @trailer string must be triple-quoted (''' or \"\"\") at line {stringToken.Line}");
+            _position = mark;
+            return;
+        }
+
+        Advance();  // Skip STRING token
+
+        // Successfully parsed @trailer
+        Trailer = new TrailerCode { Code = trailerCode };
+        Console.WriteLine($"Parsed @trailer directive ({trailerCode.Length} characters)");
+
+        // Skip any trailing newlines after @trailer
+        while (Current()?.Type == TokenType.NEWLINE)
+        {
+            Advance();
+        }
+    }
+
+    private GrammarToken? Current()
+    {
+        if (_position >= _tokens.Count)
+            return null;
+        return _tokens[_position];
+    }
+
+    private GrammarToken? Advance()
+    {
+        if (_position >= _tokens.Count)
+            return null;
+        return _tokens[_position++];
+    }
+
+    private GrammarToken? Expect(TokenType type)
+    {
+        var token = Current();
+        if (token?.Type == type)
+        {
+            return Advance();
+        }
+        return null;
+    }
+
+    private GrammarToken? ExpectOp(string value)
+    {
+        var token = Current();
+        if (token?.Type == TokenType.OP && token.Value == value)
+        {
+            return Advance();
+        }
+        return null;
     }
 }

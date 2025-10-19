@@ -73,6 +73,10 @@ public class KeywordExtractor
                 ExtractFromAtom(nl.Inner, hard, soft);
                 break;
 
+            case Forced forced:
+                ExtractFromAtom(forced.Inner, hard, soft);
+                break;
+
             case Gather gather:
                 ExtractFromAtom(gather.Separator, hard, soft);
                 ExtractFromAtom(gather.Item, hard, soft);
