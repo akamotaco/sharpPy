@@ -1145,7 +1145,7 @@ namespace SharpPy.Generated
                         }
 
                         // Emit { as OP token (track level for CPython 3.12 compatibility)
-                        AddToken(PyToken.Type.LBRACE, "{", _line, braceColumn);
+                        AddToken(PyToken.Type.OP, "{", _line, braceColumn);
                         _currentLineHasRealTokens = true;
                         _level++; // Increment level after creating LBRACE token
                         _fstringBraceDepth++;
@@ -1234,7 +1234,7 @@ namespace SharpPy.Generated
                     if (_level > 0)
                         _level--;
                     // Emit } as OP token
-                    AddToken(PyToken.Type.RBRACE, "}", _line, _column);
+                    AddToken(PyToken.Type.OP, "}", _line, _column);
                     _currentLineHasRealTokens = true;
                     _fstringBraceDepth--;
                     Advance();
@@ -1244,7 +1244,7 @@ namespace SharpPy.Generated
                 // Handle nested braces (like in dict literals inside f-string)
                 if (c == '{')
                 {
-                    AddToken(PyToken.Type.LBRACE, "{", _line, _column);
+                    AddToken(PyToken.Type.OP, "{", _line, _column);
                     _currentLineHasRealTokens = true;
                     _level++; // Increment level AFTER creating LBRACE token (CPython 3.12 compatibility)
                     _fstringBraceDepth++;
