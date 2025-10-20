@@ -3912,11 +3912,12 @@ namespace SharpPy
                     fblock.Type == FBlockType.EXCEPTION_GROUP_HANDLER ||
                     fblock.Type == FBlockType.HANDLER_CLEANUP)
                 {
-                    // Handler label will be resolved to offset later in BuildExceptionTable
+                    // CPython 3.12: Store handler label name for resolution after optimization
                     return new ExceptHandlerInfo(
                         handlerOffset: -1,  // Will be resolved from label
                         stackDepth: fblock.StackDepth,
-                        preserveLasti: fblock.PreserveLasti
+                        preserveLasti: fblock.PreserveLasti,
+                        handlerLabel: fblock.HandlerLabel  // Store label name
                     );
                 }
             }
@@ -6828,8 +6829,8 @@ namespace SharpPy
                     }
                     else
                     {
-                        // Regular exception handler - keep original COPY 1 pattern
-                        EmitInstruction(ByteCodeOp.COPY, 1);
+                        // Regular exception handler - CPython 3.12 does NOT use COPY here
+                        // PUSH_EXC_INFO already has the exception on stack
                         CompileExpression(handler.Type);
 
                         // Regular exception matching - CPython 3.12 uses CHECK_EXC_MATCH

@@ -324,21 +324,24 @@ namespace SharpPy
     public struct ExceptHandlerInfo
     {
         public int HandlerOffset { get; }       // h_offset: target handler offset (-1 if no handler)
+        public string? HandlerLabel { get; }    // Handler label name (for resolution after optimization)
         public int StackDepth { get; }          // h_startdepth: stack depth at handler entry
         public bool PreserveLasti { get; }      // h_preserve_lasti: lasti flag for exception table
 
-        public ExceptHandlerInfo(int handlerOffset, int stackDepth, bool preserveLasti)
+        public ExceptHandlerInfo(int handlerOffset, int stackDepth, bool preserveLasti, string? handlerLabel = null)
         {
             HandlerOffset = handlerOffset;
+            HandlerLabel = handlerLabel;
             StackDepth = stackDepth;
             PreserveLasti = preserveLasti;
         }
 
-        public static ExceptHandlerInfo NoHandler => new ExceptHandlerInfo(-1, 0, false);
+        public static ExceptHandlerInfo NoHandler => new ExceptHandlerInfo(-1, 0, false, null);
 
         public bool Equals(ExceptHandlerInfo other)
         {
             return HandlerOffset == other.HandlerOffset &&
+                   HandlerLabel == other.HandlerLabel &&
                    StackDepth == other.StackDepth &&
                    PreserveLasti == other.PreserveLasti;
         }

@@ -1321,46 +1321,71 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Exception Table 오프셋을 최적화된 instruction에 맞게 재계산
-        /// 최적화 과정에서 instruction이 제거/이동될 때 Exception Table 핸들러 오프셋도 동기화
+        /// CPython 3.12 호환: Exception Table 재생성 (simplified approach)
+        /// Keep original exception table ranges, but find PUSH_EXC_INFO handler offset in optimized code
         /// </summary>
         private void RecalculateExceptionTableOffsets(List<ExceptionTableEntry> originalTable, PyCodeObject optimizedCode)
         {
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
         #if DEBUG_LOG
-        Console.WriteLine($"🔧 RecalculateExceptionTableOffsets: originalTable.Count = {originalTable.Count}");
-        Console.WriteLine($"🔧 optimizedCode.ExceptionTable.Count (before) = {optimizedCode.ExceptionTable.Count}");
+        Console.WriteLine($"🔧 RecalculateExceptionTableOffsets (find PUSH_EXC_INFO for handler)");
+        Console.WriteLine($"   originalTable.Count = {originalTable.Count}");
 #endif
             }
 
+            // Find the PUSH_EXC_INFO instruction in optimized code (there should be exactly one per try block)
+            // This is the exception handler entry point
+            int pushExcInfoOffset = -1;
+            for (int i = 0; i < optimizedCode.Instructions.Count; i++)
+            {
+                if (optimizedCode.Instructions[i].OpCode == ByteCodeOp.PUSH_EXC_INFO)
+                {
+                    pushExcInfoOffset = i;
+                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                    {
+                #if DEBUG_LOG
+                Console.WriteLine($"   Found PUSH_EXC_INFO at instruction offset {i}");
+#endif
+                    }
+                    break; // Found the handler
+                }
+            }
+
+            if (pushExcInfoOffset < 0)
+            {
+                // No exception handler in this code - original table should be empty too
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+                {
+            #if DEBUG_LOG
+            Console.WriteLine($"   No PUSH_EXC_INFO found - no exception handlers");
+#endif
+                }
+                return;
+            }
+
+            // Copy exception table entries but update handler offset to PUSH_EXC_INFO location
             foreach (var entry in originalTable)
             {
-                // instruction mapping을 통한 정확한 오프셋 재계산
+                // Map the try block range using instruction mapping
                 int mappedStart = MapOriginalOffset(entry.StartOffset, optimizedCode.Instructions.Count);
                 int mappedEnd = MapOriginalOffset(entry.EndOffset, optimizedCode.Instructions.Count);
-                int mappedHandler = MapOriginalOffset(entry.HandlerOffset, optimizedCode.Instructions.Count);
+
+                var newEntry = new ExceptionTableEntry(
+                    mappedStart,
+                    mappedEnd,
+                    pushExcInfoOffset,  // All handlers point to PUSH_EXC_INFO
+                    entry.Depth,
+                    entry.Lasti
+                );
+                optimizedCode.ExceptionTable.Add(newEntry);
 
                 if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
             #if DEBUG_LOG
-            Console.WriteLine($"🔧 Exception Table 정확한 재매핑: " +
-                            $"Start {entry.StartOffset}→{mappedStart}, " +
-                            $"End {entry.EndOffset}→{mappedEnd}, " +
-                            $"Handler {entry.HandlerOffset}→{mappedHandler}");
+            Console.WriteLine($"   Exception range: [{mappedStart}, {mappedEnd}) → handler {pushExcInfoOffset}");
 #endif
                 }
-
-                // 정확하게 재매핑된 오프셋으로 새로운 Exception Table Entry 생성
-                var remappedEntry = new ExceptionTableEntry(
-                    mappedStart,
-                    mappedEnd,
-                    mappedHandler,
-                    entry.Depth,
-                    entry.Lasti
-                );
-
-                optimizedCode.ExceptionTable.Add(remappedEntry);
             }
 
             if (!SharpPyConfig.DisassemblyOnlyMode)
@@ -1370,6 +1395,7 @@ namespace SharpPy
 #endif
             }
         }
+
         
         /// <summary>
         /// 원본 오프셋을 최적화된 오프셋으로 매핑

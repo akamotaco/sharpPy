@@ -814,17 +814,11 @@ namespace SharpPy
                                 #endif
                             }
 
-                            // CPython 3.12: All exception handlers push PyExceptionInfo
-                            // The stack depth is managed by PUSH_EXC_INFO instruction later
-                            var exceptionInfo = new PyExceptionInfo(
-                                excType: pyEx.PyException,
-                                excValue: pyEx.PyException,
-                                excTraceback: PyNone.Instance,
-                                lasti: new PyInt(frame.InstructionPointer)
-                            );
-                            frame.ValueStack.Push(exceptionInfo);
+                            // CPython 3.12: Push exception instance to stack for PUSH_EXC_INFO
+                            // PUSH_EXC_INFO will convert it to proper format later
+                            frame.ValueStack.Push(pyEx.PyException);
                             #if DEBUG_LOG
-                            Console.WriteLine($"🔧 Exception handled: pushed PyExceptionInfo to stack (lasti={exceptionEntry.Lasti})");
+                            Console.WriteLine($"🔧 Exception handled: pushed exception instance to stack (depth={exceptionEntry.Depth}, lasti={exceptionEntry.Lasti})");
                             #endif
 
                             frame.LastException = pyEx.PyException;
@@ -3421,49 +3415,38 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.PUSH_EXC_INFO:
-                    // CPython 3.12: Push exception info as single composite object (Stack effect: +1)
-                    // Stack: [...] -> [..., PyExceptionInfo]
+                    // CPython 3.12: Stack effect (new_exc -- prev_exc, new_exc)
+                    // Takes current exception from stack, pushes previous exception, then current exception
                     #if DEBUG_LOG
-                    Console.WriteLine($"🔧 PUSH_EXC_INFO: Pushing current exception info to stack");
+                    Console.WriteLine($"🔧 PUSH_EXC_INFO: Processing exception from stack");
                     #endif
 
-                    // Get current exception from the frame's exception handler
-                    var currentException = frame.CurrentException;
+                    // Pop current exception from stack (pushed by exception handler)
+                    var newExc = frame.ValueStack.Pop();
 
-                    PyExceptionInfo pushExceptionInfo;
-                    if (currentException != null)
+                    // Get previous exception from frame state
+                    PyObject prevExc;
+                    if (frame.CurrentException != null)
                     {
-                        // Create composite exception info object
-                        pushExceptionInfo = new PyExceptionInfo(
-                            currentException.GetPyType(),           // exc_type
-                            currentException,                       // exc_value
-                            PyNone.Instance,                       // exc_traceback (simplified)
-                            new PyInt(frame.InstructionPointer)    // lasti
-                        );
-
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 PUSH_EXC_INFO: Created exception info for {currentException.GetType().Name}");
-                        #endif
+                        prevExc = frame.CurrentException;
                     }
                     else
                     {
-                        // No current exception - create with None values
-                        pushExceptionInfo = new PyExceptionInfo(
-                            PyNone.Instance,                       // exc_type
-                            PyNone.Instance,                       // exc_value
-                            PyNone.Instance,                       // exc_traceback
-                            new PyInt(frame.InstructionPointer)    // lasti
-                        );
-
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 PUSH_EXC_INFO: Created exception info with None values");
-                        #endif
+                        prevExc = PyNone.Instance;
                     }
 
-                    // Push single composite object (CPython 3.12 compatible stack effect +1)
-                    frame.ValueStack.Push(pushExceptionInfo);
+                    // Update frame's current exception
+                    if (newExc is PyException pyExc)
+                    {
+                        frame.CurrentException = pyExc;
+                    }
+
+                    // Push prev_exc first, then new_exc (CPython 3.12 stack order)
+                    frame.ValueStack.Push(prevExc);
+                    frame.ValueStack.Push(newExc);
+
                     #if DEBUG_LOG
-                    Console.WriteLine($"🔧 PUSH_EXC_INFO: Pushed composite exception info, stack size = {frame.ValueStack.Count}");
+                    Console.WriteLine($"🔧 PUSH_EXC_INFO: Pushed prev_exc={prevExc}, new_exc={newExc}, stack size = {frame.ValueStack.Count}");
                     #endif
                     break;
 
@@ -3679,9 +3662,9 @@ namespace SharpPy
 
                         // Instantiate exc if it's a type
                         PyException excInstance;
-                        if (exc is PyException pyExc)
+                        if (exc is PyException pyExc2)
                         {
-                            excInstance = pyExc;
+                            excInstance = pyExc2;
                         }
                         else if (exc is PyType pyType)
                         {
@@ -3889,224 +3872,53 @@ namespace SharpPy
 
                 case ByteCodeOp.CHECK_EXC_MATCH:
                     // CPython 3.12: Check if the exception on stack matches the expected type
-                    // Stack: [..., exception_instance, exception_type] -> [..., exception_instance, bool]
-                    var expectedType = frame.ValueStack.Pop();
-                    var stackTop = frame.ValueStack.Peek(); // Don't pop, will be used later
+                    // Stack effect: (left, right -- left, b)
+                    // Pops type (right), keeps exception (left), pushes boolean result
+                    var expectedType = frame.ValueStack.Pop(); // right (exception type)
+                    var exceptionInstance = frame.ValueStack.Peek(); // left (exception instance) - keep on stack
 
                     #if DEBUG_LOG
-                    Console.WriteLine($"🔧 CHECK_EXC_MATCH Entry: expectedType={expectedType?.GetType().Name}={expectedType}, stackTop={stackTop?.GetType().Name}={stackTop}");
+                    Console.WriteLine($"🔧 CHECK_EXC_MATCH: expectedType={expectedType?.GetType().Name}={expectedType}");
+                    Console.WriteLine($"🔧 CHECK_EXC_MATCH: exceptionInstance={exceptionInstance?.GetType().Name}={exceptionInstance}");
                     #endif
 
                     if (expectedType == null)
                     {
-                        throw PyRuntimeError.Create("CHECK_EXC_MATCH: expectedType is null - exception type was not loaded properly");
+                        throw PyRuntimeError.Create("CHECK_EXC_MATCH: expectedType is null");
                     }
 
                     bool matches = false;
 
-                    // Handle PyExceptionInfo case (from PUSH_EXC_INFO)
-                    if (stackTop is PyExceptionInfo excInfo)
+                    // Match exception instance against expected type
+                    if (exceptionInstance is PyException pyException)
                     {
-                        // Extract actual exception from PyExceptionInfo
-                        var actualException = excInfo.ExcValue;
-
                         #if DEBUG_LOG
-                        Console.WriteLine($"🔧 CHECK_EXC_MATCH: actualException type = {actualException?.GetType().FullName}, value = {actualException}");
+                        Console.WriteLine($"🔧 CHECK_EXC_MATCH: PyException with OriginalClass={pyException.OriginalClass?.Name ?? "null"}");
                         #endif
 
-                        // CRITICAL: If PyException has OriginalInstance, use that instead
-                        PyObject exceptionToStore = actualException;
-                        if (actualException is PyException pyExc && pyExc.OriginalInstance != null)
+                        // Check against user-defined class
+                        if (expectedType is PyClass userClass && pyException.OriginalClass != null)
                         {
-                            exceptionToStore = pyExc.OriginalInstance;
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 CHECK_EXC_MATCH: Using OriginalInstance instead of PyException wrapper");
-                            #endif
+                            matches = pyException.OriginalClass == userClass ||
+                                     pyException.OriginalClass.Name == userClass.Name;
                         }
-
-                        // Replace PyExceptionInfo with actual exception on stack (for STORE_NAME)
-                        frame.ValueStack.Pop(); // Remove PyExceptionInfo
-                        frame.ValueStack.Push(exceptionToStore); // Push original instance or exception
-
-                        if (actualException is PyException pyException)
-                        {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 CHECK_EXC_MATCH: PyException with OriginalClass={pyException.OriginalClass?.Name ?? "null"}");
-                            #endif
-
-                            if (expectedType is PyClass userExceptionClass && pyException.OriginalClass != null)
-                            {
-                                // Check if the PyException wrapper has the expected original class
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔧 CHECK_EXC_MATCH: Comparing PyException.OriginalClass={pyException.OriginalClass.Name} with expected class {userExceptionClass.Name}");
-                                #endif
-
-                                if (pyException.OriginalClass == userExceptionClass ||
-                                    pyException.OriginalClass.Name == userExceptionClass.Name)
-                                {
-                                    matches = true;
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"🔧 CHECK_EXC_MATCH: PyException OriginalClass matched!");
-                                    #endif
-                                }
-                            }
-                            else if (expectedType is PyBuiltinType builtinType)
-                            {
-                                matches = IsExceptionInstanceOf(pyException, builtinType.Name);
-                            }
-                            else if (expectedType is PyType pyType)
-                            {
-                                matches = IsExceptionInstanceOf(pyException, pyType.Name);
-                            }
-                            else if (expectedType is PyTuple exceptionTuple)
-                            {
-                                // Handle tuple of exception types: except (ValueError, TypeError)
-                                foreach (var excType in exceptionTuple.Items)
-                                {
-                                    if (excType is PyBuiltinType tupleBuiltinType)
-                                    {
-                                        if (IsExceptionInstanceOf(pyException, tupleBuiltinType.Name))
-                                        {
-                                            matches = true;
-                                            break;
-                                        }
-                                    }
-                                    else if (excType is PyType tuplePyType)
-                                    {
-                                        if (IsExceptionInstanceOf(pyException, tuplePyType.Name))
-                                        {
-                                            matches = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        else if (actualException is PyClassInstance classInstance)
-                        {
-                            // Handle user-defined exception instances (PyClassInstance)
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 CHECK_EXC_MATCH: PyClassInstance from class {classInstance.InstanceType.Name}");
-                            #endif
-
-                            if (expectedType is PyClass userExceptionClass)
-                            {
-                                // Check if the instance was created from the expected class
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔧 CHECK_EXC_MATCH: Comparing PyClassInstance.InstanceType={classInstance.InstanceType.Name} with expected class {userExceptionClass.Name}");
-                                #endif
-
-                                // Direct class comparison
-                                if (classInstance.InstanceType == userExceptionClass ||
-                                    classInstance.InstanceType.Name == userExceptionClass.Name)
-                                {
-                                    matches = true;
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"🔧 CHECK_EXC_MATCH: PyClassInstance matched with user class!");
-                                    #endif
-                                }
-                            }
-                            else if (expectedType is PyType pyType)
-                            {
-                                // Check if the custom instance is compatible with built-in exception types
-                                // Check inheritance chain: CustomError -> Exception -> BaseException
-                                if (pyType.Name == "Exception" || pyType.Name == "BaseException")
-                                {
-                                    matches = true;
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"🔧 CHECK_EXC_MATCH: PyClassInstance matches {pyType.Name}");
-                                    #endif
-                                }
-                            }
-                        }
-                        else if (actualException is PyObject customException)
-                        {
-                            // Handle other custom objects
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 CHECK_EXC_MATCH: Custom exception in PyExceptionInfo: {customException.GetType().Name}");
-                            #endif
-
-                            if (expectedType is PyClass userExceptionClass)
-                            {
-                                // Check if the instance was created from the expected class
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔧 CHECK_EXC_MATCH: Comparing custom exception with user class {userExceptionClass.Name}");
-                                #endif
-
-                                // Simple matching: check if both relate to the same custom exception
-                                if (customException.ToString().Contains("CustomError") &&
-                                    userExceptionClass.Name == "CustomError")
-                                {
-                                    matches = true;
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"🔧 CHECK_EXC_MATCH: Custom exception matched with user class!");
-                                    #endif
-                                }
-                            }
-                            else if (expectedType is PyType pyType)
-                            {
-                                // Check if the custom instance is compatible with built-in exception types
-                                if (pyType.Name == "Exception" || pyType.Name == "BaseException")
-                                {
-                                    matches = true;
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"🔧 CHECK_EXC_MATCH: Custom exception matches {pyType.Name}");
-                                    #endif
-                                }
-                            }
-                        }
-                    }
-                    else if (stackTop is PyBaseException builtinException)
-                    {
-                        // Handle direct builtin exception instances (PyValueError, PyTypeError, etc.)
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 CHECK_EXC_MATCH: Direct builtin exception {builtinException.GetType().Name}");
-                        #endif
-
-                        if (expectedType is PyType pyType)
-                        {
-                            // Match builtin exception with builtin type
-                            var exceptionTypeName = builtinException.GetType().Name;
-                            // Convert PyValueError -> ValueError, PyTypeError -> TypeError, etc.
-                            if (exceptionTypeName.StartsWith("Py") && exceptionTypeName.EndsWith("Error"))
-                            {
-                                var simpleName = exceptionTypeName.Substring(2); // Remove "Py" prefix
-                                matches = pyType.Name == simpleName;
-
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔧 CHECK_EXC_MATCH: Comparing {simpleName} with {pyType.Name} -> {matches}");
-                                #endif
-                            }
-                        }
+                        // Check against built-in type
                         else if (expectedType is PyBuiltinType builtinType)
                         {
-                            var exceptionTypeName = builtinException.GetType().Name;
-                            if (exceptionTypeName.StartsWith("Py") && exceptionTypeName.EndsWith("Error"))
-                            {
-                                var simpleName = exceptionTypeName.Substring(2); // Remove "Py" prefix
-                                matches = builtinType.Name == simpleName;
-
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔧 CHECK_EXC_MATCH: Comparing {simpleName} with {builtinType.Name} -> {matches}");
-                                #endif
-                            }
+                            matches = IsExceptionInstanceOf(pyException, builtinType.Name);
                         }
-                    }
-                    else if (stackTop is PyException pyException)
-                    {
-                        if (expectedType is PyBuiltinType builtinType)
+                        else if (expectedType is PyType pyType)
                         {
-                            // Check if exception is instance of expected type
-                            matches = pyException.GetTypeName() == builtinType.Name;
+                            matches = IsExceptionInstanceOf(pyException, pyType.Name);
                         }
+                        // Check against tuple of exception types: except (ValueError, TypeError)
                         else if (expectedType is PyTuple exceptionTuple)
                         {
-                            // Handle tuple of exception types: except (ValueError, TypeError)
                             foreach (var excType in exceptionTuple.Items)
                             {
-                                if (excType is PyBuiltinType tupleBuiltinType)
+                                if (excType is PyBuiltinType tupleBuiltin)
                                 {
-                                    if (pyException.GetTypeName() == tupleBuiltinType.Name)
+                                    if (IsExceptionInstanceOf(pyException, tupleBuiltin.Name))
                                     {
                                         matches = true;
                                         break;
@@ -4114,7 +3926,7 @@ namespace SharpPy
                                 }
                                 else if (excType is PyType tuplePyType)
                                 {
-                                    if (pyException.GetTypeName() == tuplePyType.Name)
+                                    if (IsExceptionInstanceOf(pyException, tuplePyType.Name))
                                     {
                                         matches = true;
                                         break;
@@ -4123,43 +3935,53 @@ namespace SharpPy
                             }
                         }
                     }
-                    else if (stackTop is PyObject customExceptionInstance)
+                    else if (exceptionInstance is PyBaseException builtinException)
                     {
-                        // Handle user-defined exception instances
+                        // Direct builtin exception (PyValueError, PyTypeError, etc.)
                         #if DEBUG_LOG
-                        Console.WriteLine($"🔧 CHECK_EXC_MATCH: Custom exception instance {customExceptionInstance.GetType().Name}");
+                        Console.WriteLine($"🔧 CHECK_EXC_MATCH: PyBaseException {builtinException.GetType().Name}");
                         #endif
 
-                        if (expectedType is PyClass userExceptionClass)
-                        {
-                            // Check if the instance was created from the expected class
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 CHECK_EXC_MATCH: Comparing with user class {userExceptionClass.Name}");
-                            #endif
+                        var exceptionTypeName = builtinException.GetType().Name;
+                        string simpleName = exceptionTypeName;
 
-                            // For now, check if both are custom objects and have compatible types
-                            // In a full implementation, we'd check the actual class hierarchy
-                            if (customExceptionInstance.GetType().Name.Contains("CustomError") &&
-                                userExceptionClass.Name == "CustomError")
-                            {
-                                matches = true;
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔧 CHECK_EXC_MATCH: Custom exception matched!");
-                                #endif
-                            }
+                        // Convert PyValueError -> ValueError
+                        if (exceptionTypeName.StartsWith("Py"))
+                        {
+                            simpleName = exceptionTypeName.Substring(2);
+                        }
+
+                        if (expectedType is PyType pyType)
+                        {
+                            matches = pyType.Name == simpleName;
+                        }
+                        else if (expectedType is PyBuiltinType builtinType)
+                        {
+                            matches = builtinType.Name == simpleName;
+                        }
+                    }
+                    else if (exceptionInstance is PyClassInstance classInstance)
+                    {
+                        // User-defined exception instance
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔧 CHECK_EXC_MATCH: PyClassInstance from {classInstance.InstanceType.Name}");
+                        #endif
+
+                        if (expectedType is PyClass userClass)
+                        {
+                            matches = classInstance.InstanceType == userClass ||
+                                     classInstance.InstanceType.Name == userClass.Name;
                         }
                         else if (expectedType is PyType pyType)
                         {
-                            // Check if the custom instance is compatible with built-in exception types
-                            if (pyType.Name == "Exception" || pyType.Name == "BaseException")
-                            {
-                                matches = true;
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🔧 CHECK_EXC_MATCH: Custom exception matches {pyType.Name}");
-                                #endif
-                            }
+                            // Check if custom instance is compatible with Exception/BaseException
+                            matches = pyType.Name == "Exception" || pyType.Name == "BaseException";
                         }
                     }
+
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 CHECK_EXC_MATCH: Result = {matches}");
+                    #endif
 
                     frame.ValueStack.Push(matches ? PyBool.True : PyBool.False);
                     break;
