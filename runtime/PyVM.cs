@@ -3317,53 +3317,39 @@ namespace SharpPy
                 // CPython 3.12: SETUP_EXCEPT removed - using Exception Table instead
                 // case ByteCodeOp.SETUP_EXCEPT: // Legacy - no longer used in CPython 3.12
 
-                case ByteCodeOp.POP_EXCEPT:
-                    // CPython 3.12: POP_EXCEPT only executes in exception paths after PUSH_EXC_INFO
+                 case ByteCodeOp.POP_EXCEPT:
+                    // CPython 3.12: POP_EXCEPT pops the prev_exc value left by PUSH_EXC_INFO
+                    // Stack before: [..., prev_exc]
+                    // Stack after: [...]
                     #if DEBUG_LOG
                     Console.WriteLine($"🔧 POP_EXCEPT: stack size = {frame.ValueStack.Count}");
                     #endif
 
-                    // In CPython 3.12, POP_EXCEPT always expects PyExceptionInfo on stack
-                    if (frame.ValueStack.Count > 0 && frame.ValueStack.Peek() is PyExceptionInfo)
+                    if (frame.ValueStack.Count > 0)
                     {
-                        // Exception path: Remove PyExceptionInfo from stack
-                        var poppedExceptionInfo = frame.ValueStack.Pop();
+                        // Pop prev_exc from stack (pushed by PUSH_EXC_INFO)
+                        var prevExcValue = frame.ValueStack.Pop();
                         #if DEBUG_LOG
-                        Console.WriteLine($"🔧 POP_EXCEPT: Removed PyExceptionInfo from stack");
+                        Console.WriteLine($"🔧 POP_EXCEPT: Popped prev_exc={prevExcValue} from stack");
                         #endif
 
-                        if (poppedExceptionInfo is PyExceptionInfo exceptionInfo)
-                        {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"   exc_type={exceptionInfo.ExcType}, exc_value={exceptionInfo.ExcValue}");
-                            #endif
-                            #if DEBUG_LOG
-                            Console.WriteLine($"   exc_traceback={exceptionInfo.ExcTraceback}, lasti={exceptionInfo.Lasti}");
-                            #endif
-                        }
-
                         // CPython 3.12: Clear exception handling state after successful exception processing
-                        // This prevents infinite loop in exception handling
                         frame.CurrentException = null;
-                        frame.LastException = null; // Also clear LastException
+                        frame.LastException = null;
                         frame.ExceptionHandlerCallCount = 0;
                         #if DEBUG_LOG
-                        Console.WriteLine($"🔧 POP_EXCEPT: Cleared exception handling state to prevent infinite loops");
+                        Console.WriteLine($"🔧 POP_EXCEPT: Cleared exception handling state");
                         #endif
                     }
                     else
                     {
-                        // CPython 3.12: This should not happen in normal execution
                         #if DEBUG_LOG
-                        Console.WriteLine($"⚠️  POP_EXCEPT: No PyExceptionInfo on stack - this indicates a bytecode generation issue");
-                        #endif
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   In CPython 3.12, POP_EXCEPT only appears after PUSH_EXC_INFO in exception handlers");
+                        Console.WriteLine($"⚠️  POP_EXCEPT: Stack is empty - this indicates a bytecode generation issue");
                         #endif
                     }
 
                     #if DEBUG_LOG
-                    Console.WriteLine($"🔍 POP_EXCEPT 완료 후 스택 크기: {frame.ValueStack.Count}");
+                    Console.WriteLine($"🔍 POP_EXCEPT completed, stack size: {frame.ValueStack.Count}");
                     #endif
                     break;
 

@@ -22,17 +22,156 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// 바이트코드 최적화 메인 함수
+        /// Create a new instruction while preserving ExceptHandler info from original
+        /// CPython 3.12: i_except_handler_info must be preserved during optimization
+        /// </summary>
+        private ByteCodeInstruction CreateInstruction(ByteCodeOp opCode, int argument, ByteCodeInstruction original)
+        {
+            return new ByteCodeInstruction(
+                opCode,
+                argument,
+                original.LineNumber,
+                original.ColumnOffset,
+                original.FileName,
+                original.ExceptHandler  // CRITICAL: Preserve exception handler info
+            );
+        }
+
+        /// <summary>
+        /// CPython 3.12: Build exception table from instruction's ExceptHandler info
+        /// Exactly like CPython's assemble_exception_table in Python/assemble.c
+        /// </summary>
+        private void BuildExceptionTableFromInstructions(PyCodeObject code)
+        {
+            Console.WriteLine($"🔧 BuildExceptionTableFromInstructions (CPython 3.12 method)");
+            Console.WriteLine($"   Instructions: {code.Instructions.Count}");
+
+            // Clear existing table - we rebuild completely from instruction metadata
+            code.ExceptionTable.Clear();
+
+            ExceptHandlerInfo? currentHandler = null;
+            int startOffset = -1;
+
+            for (int i = 0; i < code.Instructions.Count; i++)
+            {
+                var instr = code.Instructions[i];
+                var instrHandler = instr.ExceptHandler;
+
+                // TEMP DEBUG: Log every instruction's ExceptHandler
+                if (i < 30 || instrHandler.HandlerOffset != -1)
+                {
+                    Console.WriteLine($"[{i}] {instr.OpCode,-20} HandlerOffset={instrHandler.HandlerOffset}, Depth={instrHandler.StackDepth}, Lasti={instrHandler.PreserveLasti}");
+                }
+
+                // Check if handler info changed
+                bool handlerChanged = false;
+
+                if (currentHandler == null && instrHandler.HandlerOffset != -1)
+                {
+                    // Started new handler region
+                    handlerChanged = true;
+                    currentHandler = instrHandler;
+                    startOffset = i;
+#if DEBUG_LOG
+                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                    {
+                        Console.WriteLine($"   [{i}] Start handler: offset={instrHandler.HandlerOffset}, depth={instrHandler.StackDepth}, lasti={instrHandler.PreserveLasti}");
+                    }
+#endif
+                }
+                else if (currentHandler != null && instrHandler.HandlerOffset == -1)
+                {
+                    // Exited handler region
+                    handlerChanged = true;
+#if DEBUG_LOG
+                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                    {
+                        Console.WriteLine($"   [{i}] Exit handler");
+                    }
+#endif
+                }
+                else if (currentHandler != null && !currentHandler.Value.Equals(instrHandler))
+                {
+                    // Handler changed (different handler)
+                    handlerChanged = true;
+#if DEBUG_LOG
+                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                    {
+                        Console.WriteLine($"   [{i}] Handler changed");
+                    }
+#endif
+                }
+
+                if (handlerChanged && currentHandler != null)
+                {
+                    // Emit exception table entry for previous handler
+                    // CPython 3.12: handler is the handler offset (instruction offset, not byte offset)
+                    var entry = new ExceptionTableEntry(
+                        start: startOffset,
+                        end: i,
+                        handler: currentHandler.Value.HandlerOffset,
+                        depth: currentHandler.Value.StackDepth,
+                        lasti: currentHandler.Value.PreserveLasti
+                    );
+                    code.ExceptionTable.Add(entry);
+
+#if DEBUG_LOG
+                    if (!SharpPyConfig.DisassemblyOnlyMode)
+                    {
+                        Console.WriteLine($"   Entry: [{startOffset}:{i}] -> target={currentHandler.Value.HandlerOffset} (depth={currentHandler.Value.StackDepth}, lasti={currentHandler.Value.PreserveLasti})");
+                    }
+#endif
+
+                    // Update current handler for next region
+                    if (instrHandler.HandlerOffset != -1)
+                    {
+                        currentHandler = instrHandler;
+                        startOffset = i;
+                    }
+                    else
+                    {
+                        currentHandler = null;
+                        startOffset = -1;
+                    }
+                }
+            }
+
+            // Handle final handler region if still open
+            if (currentHandler != null)
+            {
+                var entry = new ExceptionTableEntry(
+                    start: startOffset,
+                    end: code.Instructions.Count,
+                    handler: currentHandler.Value.HandlerOffset,
+                    depth: currentHandler.Value.StackDepth,
+                    lasti: currentHandler.Value.PreserveLasti
+                );
+                code.ExceptionTable.Add(entry);
+
+#if DEBUG_LOG
+                if (!SharpPyConfig.DisassemblyOnlyMode)
+                {
+                    Console.WriteLine($"   Final Entry: [{startOffset}:{code.Instructions.Count}] -> target={currentHandler.Value.HandlerOffset} (depth={currentHandler.Value.StackDepth}, lasti={currentHandler.Value.PreserveLasti})");
+                }
+#endif
+            }
+
+            if (!SharpPyConfig.DisassemblyOnlyMode)
+            {
+#if DEBUG_LOG
+            Console.WriteLine($"🔧 BuildExceptionTableFromInstructions completed: {code.ExceptionTable.Count} entries");
+#endif
+            }
+        }
+
+        /// <summary>
+        /// 바이트코드 최적화 메인 함수 (CPython 3.12 CFG-based optimization)
         /// </summary>
         public PyCodeObject OptimizeCode(PyCodeObject originalCode)
         {
 #if DEBUG_LOG
-            Console.WriteLine($"🔧 ByteCodeOptimizer.OptimizeCode 호출: _optimizationEnabled={_optimizationEnabled}");
+            Console.WriteLine($"🔧 ByteCodeOptimizer.OptimizeCode 호출 (CFG-based): _optimizationEnabled={_optimizationEnabled}");
 #endif
-
-            // CPython 3.12: RETURN_GENERATOR prefix is now inserted in compile.cs (insert_prefix_instructions pattern)
-            // PyOptimizer only handles bytecode optimization, not prefix insertion
-            // This follows CPython's design where prefix insertion happens before optimization
 
             if (!_optimizationEnabled)
             {
@@ -45,65 +184,67 @@ namespace SharpPy
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
 #if DEBUG_LOG
-                Console.WriteLine("\n🔧 바이트코드 최적화 시작");
+                Console.WriteLine("\n🔧 CPython 3.12 CFG 기반 바이트코드 최적화 시작");
 #endif
             }
 
-            _instructions = new List<ByteCodeInstruction>(originalCode.Instructions);
+            int originalCount = originalCode.Instructions.Count;
+
+            // Phase 1: Build CFG from instructions + exception table
+            // CPython의 assemble.c:push_instr_sequence() 개념
+#if DEBUG_LOG
+            Console.WriteLine($"🔧 Phase 1: Building CFG from {originalCode.Instructions.Count} instructions and {originalCode.ExceptionTable.Count} exception table entries");
+#endif
+            var cfg = ControlFlowGraph.FromInstructionsAndExceptionTable(
+                originalCode.Instructions,
+                originalCode.ExceptionTable
+            );
+
+            // Phase 2: Optimize CFG
+            // CPython의 flowgraph.c:optimize_cfg() 개념
+#if DEBUG_LOG
+            Console.WriteLine($"🔧 Phase 2: Optimizing CFG ({cfg.AllBlocks.Count} blocks)");
+#endif
             _constants = new List<PyObject>(originalCode.Constants);
-            _names = new List<string>(originalCode.Names);
-            
-            // 초기 매핑: 1:1 대응
-            _instructionMapping = new Dictionary<int, int>();
-            for (int i = 0; i < _instructions.Count; i++)
-            {
-                _instructionMapping[i] = i;
-            }
+            var optimizer = new CFGOptimizer(cfg, _constants);
+            optimizer.Optimize();
 
-            int originalCount = _instructions.Count;
+            // Phase 3: Flatten CFG to instructions
+            // CPython의 assemble.c:assemble() 개념
+#if DEBUG_LOG
+            Console.WriteLine($"🔧 Phase 3: Flattening CFG to instructions");
+#endif
+            var optimizedInstructions = cfg.ToInstructions();
 
-            // 1. 상수 접기 최적화
-            ApplyConstantFolding();
+            // Phase 4: Build exception table from CFG
+            // CPython의 assemble.c:assemble_exception_table() 개념
+#if DEBUG_LOG
+            Console.WriteLine($"🔧 Phase 4: Building exception table from CFG");
+#endif
+            var optimizedExceptionTable = cfg.BuildExceptionTable();
 
-            // 2. 중복 로드 제거
-            ApplyRedundantLoadElimination();
-
-            // 3. 무용 코드 제거
-            ApplyDeadCodeElimination();
-
-            // 4. Peephole 패턴 최적화 - Python 3.12 호환성을 위해 제거
-            // Python 3.12는 AST 레벨에서 최적화하므로 바이트코드 후처리 불필요
-            // ApplyPeepholeOptimizations(); // 제거됨 - CPython 3.12 호환성
-
-            // 5. CPython 3.12 Superinstructions 생성
-            ApplySuperinstructions();
-
-            // 6. CPython 3.12: Jump offset recalculation is NOT needed
-            // compile.cs already generates correct jump offsets with prefix instructions inserted
-            // CPython doesn't have RecalculateJumpOffsets - jump offsets are calculated once during assembly
-            // RecalculateJumpOffsets(); // REMOVED - CPython 3.12 compatibility
-
-            int optimizedCount = _instructions.Count;
+            int optimizedCount = optimizedInstructions.Count;
             int saved = originalCount - optimizedCount;
-            
+
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-    #if DEBUG_LOG
-            Console.WriteLine($"✅ 최적화 완료: {originalCount} → {optimizedCount} ({saved} 명령어 절약, {(float)saved/originalCount*100:F1}% 개선)");
+#if DEBUG_LOG
+                Console.WriteLine($"✅ CFG 최적화 완료: {originalCount} → {optimizedCount} ({saved} 명령어 절약, {(float)saved / originalCount * 100:F1}% 개선)");
+                Console.WriteLine($"   Exception Table: {optimizedExceptionTable.Count} entries");
 #endif
             }
 
-            // CPython 3.12 방식: 최적화 시 QuickenedCodeObject 생성
+            // Phase 5: Create optimized code object
             PyCodeObject optimizedCode;
             if (!SharpPyConfig.DisableOptimizer)
             {
                 // Quickened Code Object 생성 (instruction offset 사용)
                 optimizedCode = new PyQuickenedCodeObject(
                     originalCode,
-                    _instructions,
+                    optimizedInstructions,
                     originalCode.Name,
                     _constants,
-                    _names,
+                    originalCode.Names,
                     originalCode.VarNames,
                     originalCode.ArgCount,
                     originalCode.PosonlyArgCount,
@@ -121,9 +262,9 @@ namespace SharpPy
                 // 최적화 비활성화 시 일반 CodeObject (byte offset 사용)
                 optimizedCode = new PyCodeObject(
                     originalCode.Name,
-                    _instructions,
+                    optimizedInstructions,
                     _constants,
-                    _names,
+                    originalCode.Names,
                     originalCode.VarNames,
                     originalCode.ArgCount,
                     originalCode.PosonlyArgCount,
@@ -135,19 +276,20 @@ namespace SharpPy
                     originalCode.Flags,
                     originalCode.FileName,
                     originalCode.SourceLines,
-                    isOptimized: false,
+                    isOptimized: true,
                     originalCode.LineNumberTable,
-                    new List<ExceptionTableEntry>() // 빈 exception table로 시작 - 최적화 후 재계산됨
+                    optimizedExceptionTable  // CFG에서 재생성된 exception table
                 );
             }
-            
-            // CPython 3.12: Exception Table 동기화 (최적화로 변경된 오프셋 반영)
-            RecalculateExceptionTableOffsets(originalCode.ExceptionTable, optimizedCode);
+
+            // Set exception table (CFG에서 생성된 것 사용)
+            optimizedCode.ExceptionTable.Clear();
+            optimizedCode.ExceptionTable.AddRange(optimizedExceptionTable);
+
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-    #if DEBUG_LOG
-            Console.WriteLine($"🔍 Exception Table 동기화: {originalCode.ExceptionTable.Count}개 엔트리 → 최적화된 코드");
-            Console.WriteLine($"🔧 ByteCodeOptimizer returning code with ExceptionTable.Count = {optimizedCode.ExceptionTable.Count}");
+#if DEBUG_LOG
+                Console.WriteLine($"🔧 ByteCodeOptimizer returning code with {optimizedCode.ExceptionTable.Count} exception table entries");
 #endif
             }
 
@@ -182,7 +324,7 @@ namespace SharpPy
                         int constIndex = GetOrAddConstant(result);
                         
                         // 3개 명령어를 1개로 교체
-                        _instructions[i] = new ByteCodeInstruction(ByteCodeOp.LOAD_CONST, constIndex);
+                        _instructions[i] = CreateInstruction(ByteCodeOp.LOAD_CONST, constIndex, _instructions[i]);
                         _instructions.RemoveAt(i + 1);
                         _instructions.RemoveAt(i + 1); // RemoveAt 후 인덱스가 변경됨
                         
@@ -248,7 +390,7 @@ namespace SharpPy
                     int tupleConstIndex = GetOrAddConstant(tupleConstant);
                     
                     // Replace n LOAD_CONST + BUILD_TUPLE with single LOAD_CONST
-                    _instructions[i - tupleSize] = new ByteCodeInstruction(ByteCodeOp.LOAD_CONST, tupleConstIndex);
+                    _instructions[i - tupleSize] = CreateInstruction(ByteCodeOp.LOAD_CONST, tupleConstIndex, _instructions[i - tupleSize]);
                     
                     // Remove the remaining LOAD_CONST instructions and BUILD_TUPLE
                     int removedCount = tupleSize;
@@ -319,8 +461,8 @@ namespace SharpPy
                 {
                     case 1:
                         // BUILD_TUPLE 1 + UNPACK_SEQUENCE 1 → NOP + NOP
-                        _instructions[i] = new ByteCodeInstruction(ByteCodeOp.NOP, 0);
-                        _instructions[nextIdx] = new ByteCodeInstruction(ByteCodeOp.NOP, 0);
+                        _instructions[i] = CreateInstruction(ByteCodeOp.NOP, 0, _instructions[i]);
+                        _instructions[nextIdx] = CreateInstruction(ByteCodeOp.NOP, 0, _instructions[nextIdx]);
 #if DEBUG_LOG
                         Console.WriteLine($"🔄 BUILD_TUPLE 1 + UNPACK_SEQUENCE 1 → NOP + NOP at {i}");
 #endif
@@ -329,8 +471,8 @@ namespace SharpPy
                     case 2:
                     case 3:
                         // BUILD_TUPLE n + UNPACK_SEQUENCE n → NOP + SWAP n (for n=2,3)
-                        _instructions[i] = new ByteCodeInstruction(ByteCodeOp.NOP, 0);
-                        _instructions[nextIdx] = new ByteCodeInstruction(ByteCodeOp.SWAP, tupleSize);
+                        _instructions[i] = CreateInstruction(ByteCodeOp.NOP, 0, _instructions[i]);
+                        _instructions[nextIdx] = CreateInstruction(ByteCodeOp.SWAP, tupleSize, _instructions[nextIdx]);
 #if DEBUG_LOG
                         Console.WriteLine($"🔄 BUILD_TUPLE {tupleSize} + UNPACK_SEQUENCE {tupleSize} → NOP + SWAP {tupleSize} at {i}");
 #endif
@@ -358,7 +500,7 @@ namespace SharpPy
                     inst2.OpCode == ByteCodeOp.LOAD_NAME &&
                     inst1.Argument == inst2.Argument)
                 {
-                    _instructions[i + 1] = new ByteCodeInstruction(ByteCodeOp.COPY, 1);
+                    _instructions[i + 1] = CreateInstruction(ByteCodeOp.COPY, 1, _instructions[i + 1]);
         #if DEBUG_LOG
             Console.WriteLine($"🔄 중복 로드 제거: LOAD_NAME({_names[inst1.Argument]}) 중복 → COPY");
 #endif
@@ -369,7 +511,7 @@ namespace SharpPy
                     inst2.OpCode == ByteCodeOp.LOAD_CONST &&
                     inst1.Argument == inst2.Argument)
                 {
-                    _instructions[i + 1] = new ByteCodeInstruction(ByteCodeOp.COPY, 1);
+                    _instructions[i + 1] = CreateInstruction(ByteCodeOp.COPY, 1, _instructions[i + 1]);
         #if DEBUG_LOG
             Console.WriteLine($"🔄 중복 상수 로드 제거: LOAD_CONST 중복 → COPY");
 #endif
@@ -392,8 +534,8 @@ namespace SharpPy
                     inst2.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE &&
                     _constants[inst1.Argument] == PyBool.True)
                 {
-                    _instructions[i] = new ByteCodeInstruction(ByteCodeOp.NOP, 0);
-                    _instructions[i + 1] = new ByteCodeInstruction(ByteCodeOp.NOP, 0);
+                    _instructions[i] = CreateInstruction(ByteCodeOp.NOP, 0, _instructions[i]);
+                    _instructions[i + 1] = CreateInstruction(ByteCodeOp.NOP, 0, _instructions[i + 1]);
         #if DEBUG_LOG
             Console.WriteLine("🔄 무용 코드 제거: if True 최적화");
 #endif
@@ -404,8 +546,8 @@ namespace SharpPy
                     inst2.OpCode == ByteCodeOp.POP_JUMP_IF_TRUE &&
                     _constants[inst1.Argument] == PyBool.False)
                 {
-                    _instructions[i] = new ByteCodeInstruction(ByteCodeOp.NOP, 0);
-                    _instructions[i + 1] = new ByteCodeInstruction(ByteCodeOp.NOP, 0);
+                    _instructions[i] = CreateInstruction(ByteCodeOp.NOP, 0, _instructions[i]);
+                    _instructions[i + 1] = CreateInstruction(ByteCodeOp.NOP, 0, _instructions[i + 1]);
         #if DEBUG_LOG
             Console.WriteLine("🔄 무용 코드 제거: if False 최적화");
 #endif
@@ -428,8 +570,8 @@ namespace SharpPy
                     inst2.OpCode == ByteCodeOp.RETURN_VALUE)
                 {
                     // RETURN_CONST 명령어로 치환 (상수 인덱스 유지)
-                    _instructions[i] = new ByteCodeInstruction(ByteCodeOp.RETURN_CONST, inst1.Argument);
-                    _instructions[i + 1] = new ByteCodeInstruction(ByteCodeOp.NOP, 0); // 제거될 NOP로 마킹
+                    _instructions[i] = CreateInstruction(ByteCodeOp.RETURN_CONST, inst1.Argument, _instructions[i]);
+                    _instructions[i + 1] = CreateInstruction(ByteCodeOp.NOP, 0, _instructions[i + 1]); // 제거될 NOP로 마킹
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
             #if DEBUG_LOG
@@ -444,8 +586,8 @@ namespace SharpPy
                 /*if (inst1.OpCode == ByteCodeOp.LOAD_CONST &&
                     inst2.OpCode == ByteCodeOp.POP_TOP)
                 {
-                    _instructions[i] = new ByteCodeInstruction(ByteCodeOp.NOP, 0);
-                    _instructions[i + 1] = new ByteCodeInstruction(ByteCodeOp.NOP, 0);
+                    _instructions[i] = CreateInstruction(ByteCodeOp.NOP, 0, _instructions[i]);
+                    _instructions[i + 1] = CreateInstruction(ByteCodeOp.NOP, 0, _instructions[i + 1]);
         #if DEBUG_LOG
             Console.WriteLine("🔄 Peephole: 불필요한 LOAD_CONST+POP_TOP 제거");
 #endif
@@ -822,7 +964,7 @@ namespace SharpPy
                                 
                                 if (currentOffset != correctOffset)
                                 {
-                                    _instructions[j] = new ByteCodeInstruction(ByteCodeOp.JUMP_BACKWARD, correctOffset);
+                                    _instructions[j] = CreateInstruction(ByteCodeOp.JUMP_BACKWARD, correctOffset, _instructions[j]);
                                     if (!SharpPyConfig.DisassemblyOnlyMode)
                                     {
                             #if DEBUG_LOG
@@ -900,7 +1042,7 @@ namespace SharpPy
                             
                             if (shouldPointToForIter)
                             {
-                                _instructions[j] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, forIterPos);
+                                _instructions[j] = CreateInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, forIterPos, _instructions[j]);
                     #if DEBUG_LOG
             Console.WriteLine($"  🔧 조건부 점프 POP_JUMP_IF_FALSE[{j}]: {currentTarget} → {forIterPos} (FOR_ITER)");
 #endif
@@ -963,7 +1105,7 @@ namespace SharpPy
                             int instructionOffsetToTarget = targetEndFor - i - 1;
                             if (instructionOffsetToTarget != instruction.Argument)
                             {
-                                _instructions[i] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, instructionOffsetToTarget);
+                                _instructions[i] = CreateInstruction(ByteCodeOp.FOR_ITER, instructionOffsetToTarget, _instructions[i]);
                                 if (!SharpPyConfig.DisassemblyOnlyMode)
                                 {
                         #if DEBUG_LOG
@@ -1005,7 +1147,7 @@ namespace SharpPy
                             if (targetEndFor >= 0)
                             {
                                 int correctOffset = targetEndFor - i - 1;
-                                _instructions[i] = new ByteCodeInstruction(ByteCodeOp.JUMP_FORWARD, correctOffset);
+                                _instructions[i] = CreateInstruction(ByteCodeOp.JUMP_FORWARD, correctOffset, _instructions[i]);
                     #if DEBUG_LOG
             Console.WriteLine($"  🔧 JUMP_FORWARD[{i}]: break문 0 오프셋 → {correctOffset} (END_FOR at {targetEndFor})");
 #endif
@@ -1248,7 +1390,7 @@ namespace SharpPy
                         int correctOpArg = jumpBackwardPos - jumpBackwardTarget;
                         if (correctOpArg != jumpInst.Argument)
                         {
-                            _instructions[jumpBackwardPos] = new ByteCodeInstruction(ByteCodeOp.JUMP_BACKWARD, correctOpArg);
+                            _instructions[jumpBackwardPos] = CreateInstruction(ByteCodeOp.JUMP_BACKWARD, correctOpArg, _instructions[jumpBackwardPos]);
 
                             // ALWAYS print this to debug while loop issue
                             Console.WriteLine($"[PyOptimizer] WHILE JUMP_BACKWARD[{jumpBackwardPos}]: oparg {jumpInst.Argument} → {correctOpArg} (target: {jumpBackwardTarget})");
@@ -1300,7 +1442,7 @@ namespace SharpPy
 
                             if (correctRelativeOffset != inst.Argument)
                             {
-                                _instructions[j] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, correctRelativeOffset);
+                                _instructions[j] = CreateInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, correctRelativeOffset, _instructions[j]);
 
                                 if (!SharpPyConfig.DisassemblyOnlyMode)
                                 {
@@ -1320,106 +1462,6 @@ namespace SharpPy
             }
         }
 
-        /// <summary>
-        /// CPython 3.12 호환: Exception Table 재생성 (simplified approach)
-        /// Keep original exception table ranges, but find PUSH_EXC_INFO handler offset in optimized code
-        /// </summary>
-        private void RecalculateExceptionTableOffsets(List<ExceptionTableEntry> originalTable, PyCodeObject optimizedCode)
-        {
-            if (!SharpPyConfig.DisassemblyOnlyMode)
-            {
-        #if DEBUG_LOG
-        Console.WriteLine($"🔧 RecalculateExceptionTableOffsets (find PUSH_EXC_INFO for handler)");
-        Console.WriteLine($"   originalTable.Count = {originalTable.Count}");
-#endif
-            }
-
-            // Find the PUSH_EXC_INFO instruction in optimized code (there should be exactly one per try block)
-            // This is the exception handler entry point
-            int pushExcInfoOffset = -1;
-            for (int i = 0; i < optimizedCode.Instructions.Count; i++)
-            {
-                if (optimizedCode.Instructions[i].OpCode == ByteCodeOp.PUSH_EXC_INFO)
-                {
-                    pushExcInfoOffset = i;
-                    if (!SharpPyConfig.DisassemblyOnlyMode)
-                    {
-                #if DEBUG_LOG
-                Console.WriteLine($"   Found PUSH_EXC_INFO at instruction offset {i}");
-#endif
-                    }
-                    break; // Found the handler
-                }
-            }
-
-            if (pushExcInfoOffset < 0)
-            {
-                // No exception handler in this code - original table should be empty too
-                if (!SharpPyConfig.DisassemblyOnlyMode)
-                {
-            #if DEBUG_LOG
-            Console.WriteLine($"   No PUSH_EXC_INFO found - no exception handlers");
-#endif
-                }
-                return;
-            }
-
-            // Copy exception table entries but update handler offset to PUSH_EXC_INFO location
-            foreach (var entry in originalTable)
-            {
-                // Map the try block range using instruction mapping
-                int mappedStart = MapOriginalOffset(entry.StartOffset, optimizedCode.Instructions.Count);
-                int mappedEnd = MapOriginalOffset(entry.EndOffset, optimizedCode.Instructions.Count);
-
-                var newEntry = new ExceptionTableEntry(
-                    mappedStart,
-                    mappedEnd,
-                    pushExcInfoOffset,  // All handlers point to PUSH_EXC_INFO
-                    entry.Depth,
-                    entry.Lasti
-                );
-                optimizedCode.ExceptionTable.Add(newEntry);
-
-                if (!SharpPyConfig.DisassemblyOnlyMode)
-                {
-            #if DEBUG_LOG
-            Console.WriteLine($"   Exception range: [{mappedStart}, {mappedEnd}) → handler {pushExcInfoOffset}");
-#endif
-                }
-            }
-
-            if (!SharpPyConfig.DisassemblyOnlyMode)
-            {
-        #if DEBUG_LOG
-        Console.WriteLine($"🔧 optimizedCode.ExceptionTable.Count (after) = {optimizedCode.ExceptionTable.Count}");
-#endif
-            }
-        }
-
-        
-        /// <summary>
-        /// 원본 오프셋을 최적화된 오프셋으로 매핑
-        /// </summary>
-        private int MapOriginalOffset(int originalOffset, int maxOffset)
-        {
-            if (_instructionMapping.ContainsKey(originalOffset))
-            {
-                return Math.Min(_instructionMapping[originalOffset], maxOffset - 1);
-            }
-            
-            // 매핑에 없는 경우, 가장 가까운 유효한 오프셋 찾기
-            for (int i = originalOffset; i >= 0; i--)
-            {
-                if (_instructionMapping.ContainsKey(i))
-                {
-                    return Math.Min(_instructionMapping[i], maxOffset - 1);
-                }
-            }
-            
-            // 마지막 안전장치
-            return Math.Min(originalOffset, maxOffset - 1);
-        }
-        
         /// <summary>
         /// 주어진 FOR_ITER 명령어에 대응하는 END_FOR 위치 찾기
         /// CPython 3.12 FOR_ITER → END_FOR 구조에서 매칭되는 END_FOR 찾기
@@ -1710,7 +1752,7 @@ namespace SharpPy
                             newOffset = removalStart - i - 1;
                             if (newOffset < 0) newOffset = 0;
                         }
-                        _instructions[i] = new ByteCodeInstruction(instruction.OpCode, newOffset);
+                        _instructions[i] = CreateInstruction(instruction.OpCode, newOffset, _instructions[i]);
                     }
                 }
             }
