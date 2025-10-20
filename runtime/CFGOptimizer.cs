@@ -24,16 +24,13 @@ namespace SharpPy
         /// </summary>
         public void Optimize()
         {
-            // TODO: CFG optimizations are currently disabled to preserve correctness
-            // Only using CFG for exception table preservation
+            // CPython optimization order
+            RemoveUnreachableBlocks();
+            // EliminateEmptyBlocks();  // TODO: Implement
+            // MergeFallthroughBlocks();  // TODO: Implement
 
-            // CPython optimization order (DISABLED FOR NOW)
-            // RemoveUnreachableBlocks();
-            // EliminateEmptyBlocks();
-            // MergeFallthroughBlocks();
-
-            // Within-block optimizations (peephole patterns) (DISABLED FOR NOW)
-            // OptimizeWithinBlocks();
+            // Within-block optimizations (peephole patterns)
+            OptimizeWithinBlocks();
         }
 
         /// <summary>
@@ -186,7 +183,9 @@ namespace SharpPy
                 }
             }
 
-            // More patterns can be added here...
+            // More peephole patterns can be added here...
+            // NOTE: Constant folding is now done at compile-time in compile.cs, not here
         }
+
     }
 }

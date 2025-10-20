@@ -2588,6 +2588,26 @@ namespace SharpPy
                     break;
                     
                 case BinOpExpression binOp:
+                    // CPython 3.12: Compile-time constant folding (compile.c)
+                    // Try to fold if both operands are constants
+                    if (binOp.Left is ConstantExpression leftConst &&
+                        binOp.Right is ConstantExpression rightConst)
+                    {
+                        var foldedValue = TryFoldBinaryOpAtCompileTime(
+                            leftConst.Value,
+                            rightConst.Value,
+                            binOp.OpNode);
+
+                        if (foldedValue != null)
+                        {
+                            // Successfully folded - emit single LOAD_CONST
+                            EmitLoadConst(foldedValue);
+                            break;
+                        }
+                        // If folding failed (e.g., division by zero), fall through to normal compilation
+                    }
+
+                    // Normal compilation: emit both operands and operator
                     CompileExpression(binOp.Left);
                     CompileExpression(binOp.Right);
                     EmitBinaryOp(binOp.OpNode);
@@ -4407,7 +4427,113 @@ namespace SharpPy
             // BINARY_OP OpCode와 operation 타입을 argument로 전달
             EmitInstruction(ByteCodeOp.BINARY_OP, (int)operation);
         }
-        
+
+        /// <summary>
+        /// CPython 3.12 compile-time constant folding (compile.c:fold_binop)
+        /// Try to evaluate binary operation on constants at compile time
+        /// Returns null if folding is not safe or not supported
+        /// </summary>
+        private PyObject? TryFoldBinaryOpAtCompileTime(PyObject left, PyObject right, BinaryOperator op)
+        {
+            try
+            {
+                var opType = op.GetOpType();
+
+                // Only fold numeric operations (integers and floats)
+                if (left is PyInt leftInt && right is PyInt rightInt)
+                {
+                    return FoldIntBinaryOp(leftInt, rightInt, opType);
+                }
+                else if ((left is PyInt || left is PyFloat) && (right is PyInt || right is PyFloat))
+                {
+                    // Convert to double for float operations
+                    double leftVal = left is PyInt li ? (double)li.Value : ((PyFloat)left).Value;
+                    double rightVal = right is PyInt ri ? (double)ri.Value : ((PyFloat)right).Value;
+                    return FoldFloatBinaryOp(leftVal, rightVal, opType);
+                }
+            }
+            catch
+            {
+                // If folding fails (e.g., division by zero), don't fold
+                return null;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Fold integer binary operations at compile time
+        /// </summary>
+        private PyObject? FoldIntBinaryOp(PyInt left, PyInt right, BinaryOpType opType)
+        {
+            long leftVal = left.Value;
+            long rightVal = right.Value;
+
+            switch (opType)
+            {
+                case BinaryOpType.ADD:
+                    return new PyInt(leftVal + rightVal);
+                case BinaryOpType.AND:
+                    return new PyInt(leftVal & rightVal);
+                case BinaryOpType.FLOOR_DIVIDE:
+                    if (rightVal == 0) return null;  // Don't fold division by zero
+                    return new PyInt(leftVal / rightVal);
+                case BinaryOpType.LSHIFT:
+                    return null;  // Don't fold, can be unsafe
+                case BinaryOpType.MATRIX_MULTIPLY:
+                    return null;  // Not applicable to int
+                case BinaryOpType.MULTIPLY:
+                    return new PyInt(leftVal * rightVal);
+                case BinaryOpType.MODULO:
+                    if (rightVal == 0) return null;
+                    return new PyInt(leftVal % rightVal);
+                case BinaryOpType.OR:
+                    return new PyInt(leftVal | rightVal);
+                case BinaryOpType.POWER:
+                    return null;  // Don't fold, can overflow
+                case BinaryOpType.RSHIFT:
+                    return null;  // Don't fold, can be unsafe
+                case BinaryOpType.SUBTRACT:
+                    return new PyInt(leftVal - rightVal);
+                case BinaryOpType.TRUE_DIVIDE:
+                    if (rightVal == 0) return null;
+                    return new PyFloat((double)leftVal / (double)rightVal);
+                case BinaryOpType.XOR:
+                    return new PyInt(leftVal ^ rightVal);
+                default:
+                    return null;
+            }
+        }
+
+        /// <summary>
+        /// Fold float binary operations at compile time
+        /// </summary>
+        private PyObject? FoldFloatBinaryOp(double left, double right, BinaryOpType opType)
+        {
+            switch (opType)
+            {
+                case BinaryOpType.ADD:
+                    return new PyFloat(left + right);
+                case BinaryOpType.FLOOR_DIVIDE:
+                    if (right == 0) return null;
+                    return new PyFloat(Math.Floor(left / right));
+                case BinaryOpType.MULTIPLY:
+                    return new PyFloat(left * right);
+                case BinaryOpType.MODULO:
+                    if (right == 0) return null;
+                    return new PyFloat(left % right);
+                case BinaryOpType.POWER:
+                    return null;  // Don't fold, can be unsafe
+                case BinaryOpType.SUBTRACT:
+                    return new PyFloat(left - right);
+                case BinaryOpType.TRUE_DIVIDE:
+                    if (right == 0) return null;
+                    return new PyFloat(left / right);
+                default:
+                    return null;
+            }
+        }
+
         private int GetOrAddConstant(PyObject value)
         {
             // Use object reference equality for constants
