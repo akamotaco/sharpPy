@@ -45,6 +45,17 @@ namespace SharpPy
             queue.Enqueue(_cfg.EntryBlock);
             reachable.Add(_cfg.EntryBlock);
 
+            // Exception handler blocks must ALWAYS be reachable
+            // even if they're not reached through normal control flow
+            foreach (var block in _cfg.AllBlocks)
+            {
+                if (block.IsExceptionHandler)
+                {
+                    reachable.Add(block);
+                    queue.Enqueue(block);
+                }
+            }
+
             while (queue.Count > 0)
             {
                 var block = queue.Dequeue();

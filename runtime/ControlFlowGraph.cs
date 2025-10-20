@@ -145,7 +145,8 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// Set ExceptionHandler for each block (CPython's i_except)
+        /// Set ExceptionHandler for each INSTRUCTION (CPython's i_except_handler_info)
+        /// This is instruction-level, not block-level
         /// </summary>
         private static void SetExceptionHandlers(
             List<BasicBlock> blocks,
@@ -160,7 +161,7 @@ namespace SharpPy
                 block.IsExceptionHandler = false;
             }
 
-            // Mark exception handler blocks
+            // Mark exception handler blocks (for block-level metadata)
             foreach (var entry in exceptionTable)
             {
                 if (handlerBlocks.TryGetValue(entry.HandlerOffset, out var handlerBlock))
@@ -171,26 +172,56 @@ namespace SharpPy
                 }
             }
 
-            // Set ExceptionHandler for protected blocks
-            foreach (var entry in exceptionTable)
+            // Set ExceptionHandlerOffset for each INSTRUCTION
+            // IMPORTANT: For nested try-except, we need the INNERMOST handler
+            // So we process entries by range size (smallest first)
+            var sortedEntries = exceptionTable
+                .OrderBy(e => e.EndOffset - e.StartOffset)  // Smallest range first
+                .ToList();
+
+            // Iterate through blocks and instructions
+            int currentOffset = 0;
+            foreach (var block in blocks)
             {
-                if (!handlerBlocks.TryGetValue(entry.HandlerOffset, out var handlerBlock))
+                for (int i = 0; i < block.Instructions.Count; i++)
                 {
-                    continue;
-                }
+                    var instr = block.Instructions[i];
+                    int handlerOffset = -1;
+                    int depth = 0;
+                    bool lasti = true;
 
-                foreach (var block in blocks)
-                {
-                    // Check if this block is within the protected region
-                    int blockStart = block.Offset;
-                    int blockEnd = block.Offset + block.Instructions.Count;
-
-                    if (blockStart >= entry.StartOffset && blockStart < entry.EndOffset)
+                    // Find the innermost handler for this instruction offset
+                    foreach (var entry in sortedEntries)
                     {
-                        block.ExceptionHandler = handlerBlock;
-                        block.StartDepth = entry.Depth;
-                        block.PreserveLasti = entry.Lasti;
+                        if (currentOffset >= entry.StartOffset && currentOffset < entry.EndOffset)
+                        {
+                            handlerOffset = entry.HandlerOffset;
+                            depth = entry.Depth;
+                            lasti = entry.Lasti;
+                            break;  // Smallest range (innermost) wins
+                        }
                     }
+
+                    // Update instruction with handler info
+                    block.Instructions[i] = new ByteCodeInstruction(
+                        instr.OpCode,
+                        instr.Argument,
+                        instr.LineNumber,
+                        instr.ColumnOffset,
+                        instr.FileName,
+                        instr.ExceptHandler,
+                        handlerOffset  // This is the key: instruction-level handler offset
+                    );
+
+                    // Also set block-level handler for first instruction (compatibility)
+                    if (i == 0 && handlerOffset >= 0 && handlerBlocks.TryGetValue(handlerOffset, out var handler))
+                    {
+                        block.ExceptionHandler = handler;
+                        block.StartDepth = depth;
+                        block.PreserveLasti = lasti;
+                    }
+
+                    currentOffset++;
                 }
             }
         }
@@ -270,54 +301,74 @@ namespace SharpPy
 
         /// <summary>
         /// CPython's assemble.c:assemble_exception_table()
-        /// Build exception table from CFG (reads i_except from blocks)
+        /// Build exception table from CFG (reads i_except_handler_info from instructions)
+        /// IMPORTANT: Must traverse instructions and read ExceptionHandlerOffset field
         /// </summary>
         public List<ExceptionTableEntry> BuildExceptionTable()
         {
             var table = new List<ExceptionTableEntry>();
 
-            BasicBlock? currentHandler = null;
-            int startOffset = -1;
-            int currentDepth = 0;
-            bool currentLasti = true;
-
+            // Collect all instructions with their handler info (INSTRUCTION-LEVEL)
+            var instructions = new List<(int offset, int handlerOffset)>();
+            int currentOffset = 0;
             foreach (var block in AllBlocks)
             {
-                // Check if exception handler changed
-                if (block.ExceptionHandler != currentHandler)
+                foreach (var instr in block.Instructions)
+                {
+                    instructions.Add((
+                        currentOffset,
+                        instr.ExceptionHandlerOffset  // ← KEY: Use instruction-level handler
+                    ));
+                    currentOffset++;
+                }
+            }
+
+            if (instructions.Count == 0)
+            {
+                return table;
+            }
+
+            // Traverse instructions and detect handler changes
+            // (same algorithm as CPython's assemble_exception_table at line 152-159)
+            int currentHandlerOffset = -1;
+            int startOffset = -1;
+
+            for (int i = 0; i < instructions.Count; i++)
+            {
+                var (offset, handlerOffset) = instructions[i];
+
+                // Check if exception handler changed (CPython: instr->i_except_handler_info.h_offset != handler.h_offset)
+                if (handlerOffset != currentHandlerOffset)
                 {
                     // Emit entry for previous handler region
-                    if (currentHandler != null && startOffset >= 0)
+                    if (currentHandlerOffset >= 0 && startOffset >= 0)
                     {
                         table.Add(new ExceptionTableEntry(
                             start: startOffset,
-                            end: block.Offset,
-                            handler: currentHandler.Offset,
-                            depth: currentDepth,
-                            lasti: currentLasti
+                            end: offset,
+                            handler: currentHandlerOffset,
+                            depth: 0,  // TODO: Get from instruction if needed
+                            lasti: true
                         ));
                     }
 
                     // Start new handler region
-                    currentHandler = block.ExceptionHandler;
-                    startOffset = block.Offset;
-                    currentDepth = block.StartDepth;
-                    currentLasti = block.PreserveLasti;
+                    currentHandlerOffset = handlerOffset;
+                    startOffset = handlerOffset >= 0 ? offset : -1;
                 }
             }
 
-            // Final entry
-            if (currentHandler != null && startOffset >= 0)
+            // Final entry (CPython: line 162-163)
+            if (currentHandlerOffset >= 0 && startOffset >= 0)
             {
-                var lastBlock = AllBlocks[AllBlocks.Count - 1];
-                int endOffset = lastBlock.Offset + lastBlock.Instructions.Count;
+                int endOffset = instructions.Count;
 
                 table.Add(new ExceptionTableEntry(
                     start: startOffset,
                     end: endOffset,
-                    handler: currentHandler.Offset,
-                    depth: currentDepth,
-                    lasti: currentLasti
+                    handler: currentHandlerOffset,
+                    depth: 0,  // TODO: Get from instruction if needed
+                    lasti: true
                 ));
             }
 

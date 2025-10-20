@@ -358,7 +358,11 @@ namespace SharpPy
         // CPython 3.12: Exception handler info for this instruction
         public ExceptHandlerInfo ExceptHandler { get; }
 
-        public ByteCodeInstruction(ByteCodeOp opCode, int argument = 0, int lineNumber = -1, int columnOffset = -1, string? fileName = null, ExceptHandlerInfo? exceptHandler = null)
+        // CPython 3.12: Instruction-level exception handler (assemble.c:i_except_handler_info)
+        // This is the instruction offset of the handler block (-1 if no handler)
+        public int ExceptionHandlerOffset { get; }
+
+        public ByteCodeInstruction(ByteCodeOp opCode, int argument = 0, int lineNumber = -1, int columnOffset = -1, string? fileName = null, ExceptHandlerInfo? exceptHandler = null, int exceptionHandlerOffset = -1)
         {
             OpCode = opCode;
             Argument = argument;
@@ -366,6 +370,7 @@ namespace SharpPy
             ColumnOffset = columnOffset;
             FileName = fileName;
             ExceptHandler = exceptHandler ?? ExceptHandlerInfo.NoHandler;
+            ExceptionHandlerOffset = exceptionHandlerOffset;
         }
         
         public override string ToString()
@@ -548,7 +553,11 @@ namespace SharpPy
                     return pyInt.Value.ToString();
 
                 case PyFloat pyFloat:
-                    return pyFloat.Value.ToString();
+                    // CPython 3.12: Always show decimal point for floats
+                    string floatStr = pyFloat.Value.ToString();
+                    if (!floatStr.Contains(".") && !floatStr.Contains("e") && !floatStr.Contains("E"))
+                        floatStr += ".0";
+                    return floatStr;
 
                 case PyBool pyBool:
                     return pyBool.Value ? "True" : "False";
