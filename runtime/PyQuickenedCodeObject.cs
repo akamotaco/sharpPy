@@ -71,8 +71,10 @@ namespace SharpPy
             if (isForward)
             {
                 // FOR_ITER, POP_JUMP_IF_TRUE 등 전진 점프
-                // opArg는 실제 instruction 개수이므로 그대로 더함
-                return currentInstrPos + opArg + 1; // +1 for next instruction
+                // CPython 3.12 FOR_ITER: JUMPBY(INLINE_CACHE_ENTRIES_FOR_ITER + oparg + 1)
+                // INLINE_CACHE_ENTRIES_FOR_ITER = 1 (one CACHE instruction)
+                // Jump amount = 1 + opArg + 1 instruction indices
+                return currentInstrPos + 1 + opArg + 1; // +1 CACHE + opArg + 1
             }
             else
             {
