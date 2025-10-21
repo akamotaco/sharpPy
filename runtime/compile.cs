@@ -481,7 +481,15 @@ namespace SharpPy
                 return result;
             }
         }   // CPython 3.12 compatibility with 2-byte addressing
+
+        // Legacy linear bytecode emission (to be replaced by InstructionSequence)
         private List<ByteCodeInstruction> _instructions;
+
+        // CPython 3.12: Label-based intermediate representation
+        // TODO Phase 1.3: Migrate from _instructions to _instructionSequence
+        private InstructionSequence? _instructionSequence;
+        private bool _useInstructionSequence = true;  // Feature flag: ENABLED for CPython 3.12 pipeline
+
         private List<PyObject> _constants;
         private List<string> _names;
         private List<string> _varNames;
@@ -498,6 +506,9 @@ namespace SharpPy
             _varNames = new List<string>();
             _exceptionTable = new List<ExceptionTableEntry>();
             _lineNumberTable = new Dictionary<int, int>();
+
+            // CPython 3.12: Initialize InstructionSequence (currently inactive)
+            _instructionSequence = new InstructionSequence();
         }
         private bool _isInFunction = false; // Track if we're compiling inside a function
         private string _currentFunctionName = null; // Track current function name for module level detection
@@ -509,6 +520,11 @@ namespace SharpPy
         private int _currentColumnOffset = -1;   // Current column offset being compiled
         private string? _currentFileName = null;  // Current source file name
         private List<string>? _sourceLines = null; // Source code lines for error reporting
+
+        // CFG vs Legacy usage tracking
+        private int _cfgPathCount = 0;
+        private int _legacyPathCount = 0;
+        private int _hybridPathCount = 0;
         private Dictionary<int, int> _lineNumberTable = new Dictionary<int, int>(); // instruction offset → line number mapping
         
         // Phase 2: 클로저 지원
@@ -952,7 +968,10 @@ namespace SharpPy
             // This replaces manual exception table entries with automatic generation
             BuildExceptionTableFromInstructions();
 
-            var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames, parameters.Count, 0, 0, null, null, null, null, 0, _currentFileName, _sourceLines, false, _lineNumberTable);
+            // CPython 3.12: Get final instructions (NEW pipeline: InstructionSequence → ByteCodeInstructions)
+            var finalInstructions = GetFinalInstructions();
+
+            var codeObject = new PyCodeObject(name, finalInstructions, _constants, _names, _varNames, parameters.Count, 0, 0, null, null, null, null, 0, _currentFileName, _sourceLines, false, _lineNumberTable);
 
             // Resolve Exception Table labels to offsets (CPython 3.12 compatible)
             ResolveExceptionTable();
@@ -985,13 +1004,33 @@ namespace SharpPy
             Console.WriteLine($"✅ 컴파일 완료: {_instructions.Count}개 명령어");
 #endif
             }
+
+#if DEBUG_COMPILER_LOG
+                // Print compilation statistics
+                Console.WriteLine($"");
+                Console.WriteLine($"📊 [COMPILATION SUMMARY]");
+                Console.WriteLine($"   CFG Path:     {_cfgPathCount} constructs");
+                Console.WriteLine($"   Legacy Path:  {_legacyPathCount} constructs");
+                Console.WriteLine($"   Hybrid:       {_hybridPathCount} constructs (break/continue)");
+                int total = _cfgPathCount + _legacyPathCount;
+                if (total > 0)
+                {
+                    double cfgPercent = (_cfgPathCount * 100.0) / total;
+                    Console.WriteLine($"   CFG Coverage: {cfgPercent:F1}% ({_cfgPathCount}/{total})");
+                }
+                Console.WriteLine($"");
+#endif
             }
-            
-            // 바이트코드 최적화 적용
-            var optimizer = new ByteCodeOptimizer(_enable_optimizer);
-            var optimizedCode = optimizer.OptimizeCode(codeObject);
-            
-            return optimizedCode;
+
+            // 바이트코드 최적화: CFG 경로는 이미 최적화됨, LEGACY만 처리
+            if (!_useInstructionSequence)
+            {
+                var optimizer = new ByteCodeOptimizer(_enable_optimizer);
+                var optimizedCode = optimizer.OptimizeCode(codeObject);
+                return optimizedCode;
+            }
+
+            return codeObject;
         }
         
         /// <summary>
@@ -2265,6 +2304,62 @@ namespace SharpPy
         }
         
         /// <summary>
+        /// CPython 3.12: Get final instruction list from either path
+        /// Dual-track helper: Returns instructions from active compilation path
+        /// </summary>
+        private List<ByteCodeInstruction> GetFinalInstructions()
+        {
+            if (_useInstructionSequence && _instructionSequence != null)
+            {
+                // CPython 3.12 CFG PIPELINE: InstructionSequence → CFG → Optimize → ByteCode
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔷 [CFG PIPELINE] GetFinalInstructions: InstructionSequence → CFG → Optimize → Assemble");
+                Console.WriteLine($"   InstructionSequence has {_instructionSequence.Count} instructions");
+#endif
+
+                // Phase 1: InstructionSequence (labels) → CFG (basic blocks)
+                var cfg = PyFlowGraph.Build(_instructionSequence);
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"   CFG has {cfg.AllBlocks.Count} basic blocks");
+#endif
+
+                // Phase 2: Optimize CFG (if enabled)
+                if (_enable_optimizer)
+                {
+#if DEBUG_COMPILER_LOG
+                    Console.WriteLine($"   🔧 Running CFG optimization...");
+#endif
+                    var cfgOptimizer = new CFGOptimizer(cfg, _constants);
+                    cfgOptimizer.Optimize();
+#if DEBUG_COMPILER_LOG
+                    Console.WriteLine($"   ✅ CFG optimized: {cfg.AllBlocks.Count} blocks");
+#endif
+                }
+
+                // Phase 3: CFG → ByteCode (with correct offsets)
+                var assembled = PyAssemble.Assemble(cfg, _currentFileName ?? "");
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"   Assembled {assembled.Instructions.Count} instructions");
+                Console.WriteLine($"   Exception table has {assembled.ExceptionTable.Count} entries");
+#endif
+
+                // Store exception table for code object
+                _exceptionTable = assembled.ExceptionTable;
+
+                return assembled.Instructions;
+            }
+            else
+            {
+                // LEGACY PATH: Return direct instruction list
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔶 [LEGACY PIPELINE] GetFinalInstructions: Using direct _instructions list");
+                Console.WriteLine($"   _instructions has {_instructions.Count} instructions");
+#endif
+                return _instructions;
+            }
+        }
+
+        /// <summary>
         /// Phase 2: 컴파일러에 클로저 정보 설정
         /// </summary>
         public void SetupClosureCompilation(List<string> cellVars, List<string> freeVars = null)
@@ -2479,7 +2574,31 @@ namespace SharpPy
                             EmitInstruction(ByteCodeOp.POP_TOP); // Pop the iterator from stack
                         }
 
-                        EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, currentLoop.BreakLabel);
+                        // Dual-track: Use NEW or LEGACY label
+                        if (_useInstructionSequence && currentLoop.NewBreakLabel.HasValue)
+                        {
+#if DEBUG_COMPILER_LOG
+                            Console.WriteLine($"⚡ [HYBRID-CFG] Break: Using NEW Label (InstructionSequence)");
+#endif
+                            _hybridPathCount++;
+                            // NEW path
+                            _instructionSequence!.AddOpWithLabel(
+                                ByteCodeOp.JUMP_FORWARD,
+                                currentLoop.NewBreakLabel.Value,
+                                _currentLineNumber,
+                                _currentColumnOffset,
+                                _currentFileName
+                            );
+                        }
+                        else if (currentLoop.LegacyBreakLabel != null)
+                        {
+#if DEBUG_COMPILER_LOG
+                            Console.WriteLine($"⚠️  [HYBRID-LEGACY] Break: Using LEGACY Label (offset patching)");
+#endif
+                            _hybridPathCount++;
+                            // LEGACY path
+                            EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, currentLoop.LegacyBreakLabel);
+                        }
                     }
                     else
                     {
@@ -2492,18 +2611,43 @@ namespace SharpPy
                     if (_loopStack.Count > 0)
                     {
                         var currentLoop = _loopStack.Peek();
-                        // CPython 3.12 호환: For loop의 경우 FOR_ITER로 직접 점프
-                        if (currentLoop.ForIterInstruction >= 0)
+
+                        // Dual-track: Use NEW or LEGACY label
+                        if (_useInstructionSequence && currentLoop.NewContinueLabel.HasValue)
                         {
-                            // For loop: Jump back to FOR_ITER instruction
-                            int currentPos = _instructions.Count;
-                            int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, currentLoop.ForIterInstruction);
-                            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
+#if DEBUG_COMPILER_LOG
+                            Console.WriteLine($"⚡ [HYBRID-CFG] Continue: Using NEW Label (InstructionSequence)");
+#endif
+                            _hybridPathCount++;
+                            // NEW path
+                            _instructionSequence!.AddOpWithLabel(
+                                ByteCodeOp.JUMP_BACKWARD,
+                                currentLoop.NewContinueLabel.Value,
+                                _currentLineNumber,
+                                _currentColumnOffset,
+                                _currentFileName
+                            );
                         }
-                        else
+                        else if (currentLoop.LegacyContinueLabel != null)
                         {
-                            // While loop: Use continue label
-                            EmitJumpToLabel(ByteCodeOp.JUMP_BACKWARD, currentLoop.ContinueLabel);
+#if DEBUG_COMPILER_LOG
+                            Console.WriteLine($"⚠️  [HYBRID-LEGACY] Continue: Using LEGACY Label (offset patching)");
+#endif
+                            _hybridPathCount++;
+                            // LEGACY path
+                            // CPython 3.12 호환: For loop의 경우 FOR_ITER로 직접 점프
+                            if (currentLoop.ForIterInstruction >= 0)
+                            {
+                                // For loop: Jump back to FOR_ITER instruction
+                                int currentPos = _instructions.Count;
+                                int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, currentLoop.ForIterInstruction);
+                                EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
+                            }
+                            else
+                            {
+                                // While loop: Use continue label
+                                EmitJumpToLabel(ByteCodeOp.JUMP_BACKWARD, currentLoop.LegacyContinueLabel);
+                            }
                         }
                     }
                     else
@@ -3946,53 +4090,111 @@ namespace SharpPy
 
         private void EmitInstruction(ByteCodeOp opCode, int argument = 0)
         {
-            var instructionOffset = _instructions.Count;
-
             // CPython 3.12: Get current exception handler info from fblock stack
             var exceptHandlerInfo = GetCurrentExceptHandlerInfo();
 
-            try
+            if (_useInstructionSequence && _instructionSequence != null)
             {
-                _instructions.Add(new ByteCodeInstruction(
-                    opCode,
-                    argument,
-                    _currentLineNumber,
-                    _currentColumnOffset,
-                    _currentFileName,
-                    exceptHandlerInfo
-                ));
-            }
-            catch (Exception ex)
-            {
-#if DEBUG_LOG
-                Console.WriteLine($"💥 EmitInstruction 에러: {ex.Message}");
-                Console.WriteLine($"   opCode: {opCode}, argument: {argument}");
-                Console.WriteLine($"   _instructions null? {_instructions == null}");
-                Console.WriteLine($"   _instructions count: {_instructions?.Count ?? -1}");
-                Console.WriteLine($"   Stack trace: {ex.StackTrace}");
+#if DEBUG_COMPILER_LOG
+                if (opCode != ByteCodeOp.CACHE && opCode != ByteCodeOp.NOP)  // Reduce noise
+                {
+                    Console.WriteLine($"   → [CFG EMIT] {opCode} (arg={argument}) to InstructionSequence");
+                }
 #endif
-                throw;
-            }
+                // NEW PATH: Use InstructionSequence API (CPython 3.12 style)
+                try
+                {
+                    if (argument > 0)
+                    {
+                        _instructionSequence.AddOpWithArg(
+                            opCode,
+                            argument,
+                            _currentLineNumber,
+                            _currentColumnOffset,
+                            _currentFileName,
+                            exceptHandlerInfo
+                        );
+                    }
+                    else
+                    {
+                        _instructionSequence.AddOp(
+                            opCode,
+                            _currentLineNumber,
+                            _currentColumnOffset,
+                            _currentFileName,
+                            exceptHandlerInfo
+                        );
+                    }
 
-            // Add to line number table if line number is valid
-            if (_currentLineNumber >= 0)
-            {
-                _lineNumberTable[instructionOffset] = _currentLineNumber;
+                    // CPython 3.12: CACHE entries are inline, not separate instructions
+                    // PyAssemble will handle byte offset calculation correctly
+                    // DO NOT emit CACHE as separate instructions in CFG path!
+                    // (Legacy path below still needs them for compatibility)
+                }
+                catch (Exception ex)
+                {
+#if DEBUG_LOG
+                    Console.WriteLine($"💥 EmitInstruction (InstructionSequence) 에러: {ex.Message}");
+                    Console.WriteLine($"   opCode: {opCode}, argument: {argument}");
+                    Console.WriteLine($"   Stack trace: {ex.StackTrace}");
+#endif
+                    throw;
+                }
             }
-
-            // CPython 3.12: Emit inline cache entries for adaptive bytecode instructions
-            // This makes disassembly output match CPython 3.12 exactly
-            int cacheEntries = PyJumpBackwardUtil.GetInlineCacheEntries(opCode);
-            for (int i = 0; i < cacheEntries; i++)
+            else
             {
-                _instructions.Add(new ByteCodeInstruction(
-                    ByteCodeOp.CACHE,
-                    0,
-                    _currentLineNumber,
-                    _currentColumnOffset,
-                    _currentFileName,
-                    exceptHandlerInfo
-                ));
+#if DEBUG_COMPILER_LOG
+                if (opCode != ByteCodeOp.CACHE && opCode != ByteCodeOp.NOP)  // Reduce noise
+                {
+                    Console.WriteLine($"   → [LEGACY EMIT] {opCode} (arg={argument}) to _instructions");
+                }
+#endif
+                // LEGACY PATH: Direct bytecode emission (currently active)
+                var instructionOffset = _instructions.Count;
+
+                try
+                {
+                    _instructions.Add(new ByteCodeInstruction(
+                        opCode,
+                        argument,
+                        _currentLineNumber,
+                        _currentColumnOffset,
+                        _currentFileName,
+                        exceptHandlerInfo
+                    ));
+                }
+                catch (Exception ex)
+                {
+#if DEBUG_LOG
+                    Console.WriteLine($"💥 EmitInstruction 에러: {ex.Message}");
+                    Console.WriteLine($"   opCode: {opCode}, argument: {argument}");
+                    Console.WriteLine($"   _instructions null? {_instructions == null}");
+                    Console.WriteLine($"   _instructions count: {_instructions?.Count ?? -1}");
+                    Console.WriteLine($"   Stack trace: {ex.StackTrace}");
+#endif
+                    throw;
+                }
+
+                // Add to line number table if line number is valid
+                if (_currentLineNumber >= 0)
+                {
+                    _lineNumberTable[instructionOffset] = _currentLineNumber;
+                }
+
+                // CPython 3.12: Emit inline cache entries for adaptive bytecode instructions
+                // This makes disassembly output match CPython 3.12 exactly
+                int cacheEntries = PyJumpBackwardUtil.GetInlineCacheEntries(opCode);
+                for (int i = 0; i < cacheEntries; i++)
+                {
+                    _instructions.Add(new ByteCodeInstruction(
+                        ByteCodeOp.CACHE,
+                        0,
+                        _currentLineNumber,
+                        _currentColumnOffset,
+                        _currentFileName,
+                        exceptHandlerInfo
+                    ));
+                }
             }
         }
         
@@ -6167,21 +6369,42 @@ namespace SharpPy
         /// </summary>
         private void CompileIf(IfStatement ifStmt)
         {
-            // CPython 3.12 스타일: if-elif-else 체인 컴파일 (완전 수정)
-            var endJumps = new List<int>(); // 각 블록 끝에서 전체 if-elif-else 끝으로의 점프들
-            var conditionJumps = new List<int>(); // 각 조건의 False 점프들 (나중에 패치)
-            var conditionStarts = new List<int>(); // 각 조건 시작 위치 저장
-            
-            // 모든 if/elif 조건들을 미리 수집
+            if (_useInstructionSequence && _instructionSequence != null)
+            {
+                // NEW PATH: Use InstructionSequence with Labels (CPython 3.12 style)
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔷 [CFG] CompileIf: Using InstructionSequence with Labels (CPython 3.12)");
+#endif
+                _cfgPathCount++;
+                CompileIfWithLabels(ifStmt);
+            }
+            else
+            {
+                // LEGACY PATH: Use offset patching
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔶 [LEGACY] CompileIf: Using offset-based _instructions");
+#endif
+                _legacyPathCount++;
+                CompileIfLegacy(ifStmt);
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12: Label-based if-elif-else compilation
+        /// Uses InstructionSequence.NewLabel() and UseLabel()
+        /// No manual offset calculation needed!
+        /// </summary>
+        private void CompileIfWithLabels(IfStatement ifStmt)
+        {
+            // Collect all if/elif conditions
             var conditions = new List<(Expression Test, List<Statement> Body)>();
             var currentIf = ifStmt;
-            
-            // 모든 if/elif 수집
+
             while (currentIf != null)
             {
                 conditions.Add((currentIf.Test, currentIf.Body));
-                
-                if (currentIf.OrElse != null && currentIf.OrElse.Count == 1 && 
+
+                if (currentIf.OrElse != null && currentIf.OrElse.Count == 1 &&
                     currentIf.OrElse[0] is IfStatement nextIf)
                 {
                     currentIf = nextIf;
@@ -6191,24 +6414,149 @@ namespace SharpPy
                     break;
                 }
             }
-            
+
+            // Create labels for each elif start and the end
+            // Use SharpPy.Label (from InstructionSequence.cs), NOT PythonCompiler.Label (LEGACY)
+            var nextConditionLabels = new List<SharpPy.Label>();
+            for (int i = 0; i < conditions.Count; i++)
+            {
+                nextConditionLabels.Add(_instructionSequence!.NewLabel());
+            }
+            var endLabel = _instructionSequence!.NewLabel();
+            var elseLabel = _instructionSequence!.NewLabel();
+
+            // Find final else
+            var finalElse = ifStmt;
+            while (finalElse.OrElse != null && finalElse.OrElse.Count == 1 &&
+                   finalElse.OrElse[0] is IfStatement)
+            {
+                finalElse = (IfStatement)finalElse.OrElse[0];
+            }
+            bool hasElse = finalElse.OrElse != null && finalElse.OrElse.Count > 0;
+
+            // Compile each condition and body
+            for (int i = 0; i < conditions.Count; i++)
+            {
+                var (test, body) = conditions[i];
+
+                // Mark this condition's start (for previous elif to jump to)
+                if (i > 0)
+                {
+                    _instructionSequence.UseLabel(nextConditionLabels[i - 1]);
+                }
+
+                // Compile condition
+                CompileExpression(test);
+
+                // If false, jump to next elif (or else, or end)
+                SharpPy.Label falseTarget;
+                if (i + 1 < conditions.Count)
+                {
+                    // Jump to next elif
+                    falseTarget = nextConditionLabels[i];
+                }
+                else if (hasElse)
+                {
+                    // Jump to else block
+                    falseTarget = elseLabel;
+                }
+                else
+                {
+                    // Jump to end
+                    falseTarget = endLabel;
+                }
+
+                _instructionSequence.AddOpWithLabel(
+                    ByteCodeOp.POP_JUMP_IF_FALSE,
+                    falseTarget,
+                    _currentLineNumber,
+                    _currentColumnOffset,
+                    _currentFileName
+                );
+
+                // Compile body
+                foreach (var stmt in body)
+                {
+                    CompileStatement(stmt);
+                }
+
+                // CPython pattern: JUMP_FORWARD to end if there's more code after
+                bool isLastCondition = (i == conditions.Count - 1);
+                bool needsJump = !isLastCondition || hasElse;
+
+                if (needsJump)
+                {
+                    _instructionSequence.AddOpWithLabel(
+                        ByteCodeOp.JUMP_FORWARD,
+                        endLabel,
+                        _currentLineNumber,
+                        _currentColumnOffset,
+                        _currentFileName
+                    );
+                }
+            }
+
+            // Compile else block
+            if (hasElse)
+            {
+                _instructionSequence.UseLabel(elseLabel);
+                foreach (var stmt in finalElse.OrElse)
+                {
+                    CompileStatement(stmt);
+                }
+            }
+
+            // Mark end of if-elif-else
+            _instructionSequence.UseLabel(endLabel);
+        }
+
+        /// <summary>
+        /// LEGACY: Offset-based if-elif-else compilation
+        /// </summary>
+        private void CompileIfLegacy(IfStatement ifStmt)
+        {
+            // CPython 3.12 스타일: if-elif-else 체인 컴파일 (완전 수정)
+            var endJumps = new List<int>(); // 각 블록 끝에서 전체 if-elif-else 끝으로의 점프들
+            var conditionJumps = new List<int>(); // 각 조건의 False 점프들 (나중에 패치)
+            var conditionStarts = new List<int>(); // 각 조건 시작 위치 저장
+
+            // 모든 if/elif 조건들을 미리 수집
+            var conditions = new List<(Expression Test, List<Statement> Body)>();
+            var currentIf = ifStmt;
+
+            // 모든 if/elif 수집
+            while (currentIf != null)
+            {
+                conditions.Add((currentIf.Test, currentIf.Body));
+
+                if (currentIf.OrElse != null && currentIf.OrElse.Count == 1 &&
+                    currentIf.OrElse[0] is IfStatement nextIf)
+                {
+                    currentIf = nextIf;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
             // 각 조건과 바디 컴파일
             for (int i = 0; i < conditions.Count; i++)
             {
                 var (test, body) = conditions[i];
-                
+
                 // 조건 시작 위치 저장
                 var conditionStartPos = _instructions.Count;
                 conditionStarts.Add(conditionStartPos);
-                
+
                 // 조건 컴파일
                 CompileExpression(test);
-                
+
                 // 조건이 False면 다음 elif/else로 점프 (나중에 패치)
                 var jumpIfFalse = _instructions.Count;
                 EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0);
                 conditionJumps.Add(jumpIfFalse);
-                
+
                 // 바디 컴파일
                 foreach (var stmt in body)
                 {
@@ -6248,7 +6596,7 @@ namespace SharpPy
                     EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
                     endJumps.Add(jumpToEnd);
                 }
-                
+
                 // 이전 조건의 False 점프를 현재 조건의 시작으로 패치
                 if (i > 0)
                 {
@@ -6258,15 +6606,15 @@ namespace SharpPy
                     _instructions[prevJumpIndex] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, relativeOffset);
                 }
             }
-            
+
             // else 블록 처리
             var finalElse = ifStmt;
-            while (finalElse.OrElse != null && finalElse.OrElse.Count == 1 && 
+            while (finalElse.OrElse != null && finalElse.OrElse.Count == 1 &&
                    finalElse.OrElse[0] is IfStatement)
             {
                 finalElse = (IfStatement)finalElse.OrElse[0];
             }
-            
+
             // 마지막 조건의 False 점프를 else 블록으로 패치
             if (conditionJumps.Count > 0)
             {
@@ -6275,7 +6623,7 @@ namespace SharpPy
                 var relativeOffset = elsePos - lastJumpIndex - 1;
                 _instructions[lastJumpIndex] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, relativeOffset);
             }
-            
+
             // else 블록 컴파일
             if (finalElse.OrElse != null && finalElse.OrElse.Count > 0)
             {
@@ -6284,7 +6632,7 @@ namespace SharpPy
                     CompileStatement(stmt);
                 }
             }
-            
+
             // 모든 end jumps를 현재 위치로 패치
             var endPosition = _instructions.Count;
             foreach (var jumpIndex in endJumps)
@@ -6298,33 +6646,113 @@ namespace SharpPy
         /// CPython 3.12 호환 while True: compilation
         /// 특징: 조건 체크 없이 바로 루프 바디 시작, NOP 삽입
         /// </summary>
+        /// <summary>
+        /// Router: Dispatch to NEW or LEGACY implementation
+        /// </summary>
         private void CompileWhileTrue(WhileStatement whileStmt)
+        {
+            if (_useInstructionSequence && _instructionSequence != null)
+            {
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔷 [CFG] CompileWhileTrue: Using InstructionSequence with Labels");
+#endif
+                _cfgPathCount++;
+                CompileWhileTrueWithLabels(whileStmt);
+            }
+            else
+            {
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔶 [LEGACY] CompileWhileTrue: Using offset-based _instructions");
+#endif
+                _legacyPathCount++;
+                CompileWhileTrueLegacy(whileStmt);
+            }
+        }
+
+        /// <summary>
+        /// NEW: Label-based while True compilation (CPython 3.12)
+        /// Uses InstructionSequence with SharpPy.Label objects
+        /// </summary>
+        private void CompileWhileTrueWithLabels(WhileStatement whileStmt)
+        {
+            #if DEBUG_LOG
+            Console.WriteLine("🔧 CPython 3.12 호환 while True 루프 컴파일 (Label-based)");
+            #endif
+
+            // Create labels for break/continue (use SharpPy.Label, NOT PythonCompiler.Label)
+            var breakLabel = _instructionSequence!.NewLabel();
+            var continueLabel = _instructionSequence!.NewLabel();
+
+            // Push loop context with NEW labels (uses overloaded PushLoopContext)
+            PushLoopContext(breakLabel, continueLabel);
+
+            // CPython pattern: emit NOP for while True:
+            _instructionSequence.AddOp(
+                ByteCodeOp.NOP,
+                _currentLineNumber,
+                _currentColumnOffset,
+                _currentFileName
+            );
+
+            // Mark loop body start (continue target)
+            _instructionSequence.UseLabel(continueLabel);
+
+            // Compile loop body
+            foreach (var stmt in whileStmt.Body)
+            {
+                CompileStatement(stmt);
+            }
+
+            // JUMP_BACKWARD to loop start
+            _instructionSequence.AddOpWithLabel(
+                ByteCodeOp.JUMP_BACKWARD,
+                continueLabel,
+                _currentLineNumber,
+                _currentColumnOffset,
+                _currentFileName
+            );
+
+            // Pop loop context
+            PopLoopContext();
+
+            // Mark break label
+            _instructionSequence.UseLabel(breakLabel);
+
+            #if DEBUG_LOG
+            Console.WriteLine("🔧 CPython 3.12 호환 while True 루프 컴파일 완료 (Label-based)");
+            #endif
+        }
+
+        /// <summary>
+        /// LEGACY: Offset-based while True compilation
+        /// </summary>
+        private void CompileWhileTrueLegacy(WhileStatement whileStmt)
         {
             #if DEBUG_LOG
             Console.WriteLine("🔧 CPython 3.12 호환 while True 루프 컴파일");
             #endif
-            
+
             // Setup loop context for break/continue
             var breakLabel = CreateLabel("while_true_break");
             var continueLabel = CreateLabel("while_true_continue");
             PushLoopContext(breakLabel, continueLabel);
-            
+
             // CPython pattern: emit NOP for while True:
             EmitInstruction(ByteCodeOp.NOP, 0);
-            
+
             // 루프 바디 시작점 (JUMP_BACKWARD 타겟) - continue target
             var bodyStart = _instructions.Count;
             MarkLabel(continueLabel); // continue는 루프 바디 시작으로
             #if DEBUG_LOG
             Console.WriteLine($"  바디 시작점 = {bodyStart} (JUMP_BACKWARD 타겟)");
             #endif
-            
+
             // Compile loop body
             foreach (var stmt in whileStmt.Body)
             {
                 CompileStatement(stmt);
             }
-            
+
             // JUMP_BACKWARD to body start (no condition check)
             int currentPos = _instructions.Count;
             int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, bodyStart);
@@ -6332,10 +6760,10 @@ namespace SharpPy
             Console.WriteLine($"  JUMP_BACKWARD {currentPos} → {bodyStart} (arg={jumpBackwardArg})");
             #endif
             EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
-            
+
             // Pop loop context
             PopLoopContext();
-            
+
             // Mark break label - break는 여기로 점프
             MarkLabel(breakLabel);
             #if DEBUG_LOG
@@ -6365,6 +6793,99 @@ namespace SharpPy
                 CompileWhileTrue(whileStmt);
                 return;
             }
+
+            // Dispatch to CFG or Legacy implementation
+            if (_useInstructionSequence && _instructionSequence != null)
+            {
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔷 [CFG] CompileWhile: Using InstructionSequence with Labels (CPython 3.12)");
+#endif
+                _cfgPathCount++;
+                CompileWhileWithLabels(whileStmt);
+            }
+            else
+            {
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔶 [LEGACY] CompileWhile: Using offset-based _instructions (CFG not implemented)");
+#endif
+                _legacyPathCount++;
+                CompileWhileLegacy(whileStmt);
+            }
+        }
+
+        /// <summary>
+        /// NEW: Label-based while compilation (CPython 3.12)
+        /// Uses InstructionSequence with SharpPy.Label objects
+        /// </summary>
+        private void CompileWhileWithLabels(WhileStatement whileStmt)
+        {
+            #if DEBUG_LOG
+            Console.WriteLine("🔧 CPython 3.12 호환 while 루프 컴파일 (Label-based)");
+            #endif
+
+            // Create labels for loop control (use SharpPy.Label, NOT PythonCompiler.Label)
+            var loopLabel = _instructionSequence!.NewLabel();    // continue target (loop start)
+            var endLabel = _instructionSequence!.NewLabel();     // break target (loop end)
+
+            // Push loop context
+            PushLoopContext(endLabel, loopLabel);  // break → end, continue → loop
+
+            // Phase 1: Mark loop start and check condition
+            _instructionSequence.UseLabel(loopLabel);
+            CompileExpression(whileStmt.Test);
+
+            // If condition is false, jump to end
+            _instructionSequence.AddOpWithLabel(
+                ByteCodeOp.POP_JUMP_IF_FALSE,
+                endLabel,
+                _currentLineNumber,
+                _currentColumnOffset,
+                _currentFileName
+            );
+
+            // Phase 2: Compile loop body
+            foreach (var stmt in whileStmt.Body)
+            {
+                CompileStatement(stmt);
+            }
+
+            // Phase 3: Jump back to loop start
+            _instructionSequence.AddOpWithLabel(
+                ByteCodeOp.JUMP_BACKWARD,
+                loopLabel,
+                _currentLineNumber,
+                _currentColumnOffset,
+                _currentFileName
+            );
+
+            // Pop loop context
+            PopLoopContext();
+
+            // Phase 4: Mark loop end
+            _instructionSequence.UseLabel(endLabel);
+
+            // Compile else clause if present (executed when loop exits normally, not via break)
+            if (whileStmt.ElseClause != null && whileStmt.ElseClause.Count > 0)
+            {
+                foreach (var stmt in whileStmt.ElseClause)
+                {
+                    CompileStatement(stmt);
+                }
+            }
+
+            #if DEBUG_LOG
+            Console.WriteLine("🔧 CPython 3.12 호환 while 루프 컴파일 완료 (Label-based)");
+            #endif
+        }
+
+        /// <summary>
+        /// LEGACY: Offset-based while compilation
+        /// </summary>
+        private void CompileWhileLegacy(WhileStatement whileStmt)
+        {
+            #if DEBUG_LOG
+            Console.WriteLine("🔧 CPython 3.12 호환 while 루프 컴파일 (Legacy offset-based)");
+            #endif
 
             // CPython pattern: loop label at condition start, body label at body start
             // continue jumps to loop label, break jumps to end label
@@ -6490,8 +7011,13 @@ namespace SharpPy
         /// </summary>
         private void CompileFor(ForStatement forStmt)
         {
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"🔶 [LEGACY] CompileFor: Using offset-based _instructions (CFG not implemented)");
+#endif
+            _legacyPathCount++;
+
             // CPython approach with loop-else support
-            
+
             // 1. Get iterator from iterable
             CompileExpression(forStmt.Iter);  // Push iterable on stack
             
@@ -6841,6 +7367,11 @@ namespace SharpPy
         /// </summary>
         private void CompileTry(TryStatement tryStmt)
         {
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"🔷 [CFG] CompileTry: Using Exception Table (CPython 3.12)");
+#endif
+            _cfgPathCount++;
+
             // CPython 3.12: No SETUP_EXCEPT, use Exception Table instead
 
             // Create label for continuation after entire try-except construct
@@ -7351,6 +7882,11 @@ namespace SharpPy
         }
         private void CompileWith(WithStatement withStmt)
         {
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"🔶 [LEGACY] CompileWith: Using offset-based _instructions (CFG status unclear)");
+#endif
+            _legacyPathCount++;
+
             // CPython 3.12 compatible implementation
             // Support both single and multiple context managers
             if (withStmt.Items.Count == 1)
@@ -7513,6 +8049,11 @@ namespace SharpPy
         }
         private void CompileMatch(MatchStatement matchStmt)
         {
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"🔶 [LEGACY] CompileMatch: Using offset-based _instructions (CFG status unclear)");
+#endif
+            _legacyPathCount++;
+
             // CPython 3.12: Match statement compilation - exact pattern placement
 
             // Special optimization for simple constant patterns (like CPython)
@@ -9467,24 +10008,55 @@ namespace SharpPy
         
         /// <summary>
         /// Loop context management for break/continue (CPython style)
+        /// Dual-track: supports both LEGACY (PythonCompiler.Label) and NEW (SharpPy.Label)
         /// </summary>
         private class LoopContext
         {
-            public Label BreakLabel { get; }
-            public Label ContinueLabel { get; }
+            // LEGACY path: PythonCompiler.Label (offset patching)
+            public Label? LegacyBreakLabel { get; }
+            public Label? LegacyContinueLabel { get; }
+
+            // NEW path: SharpPy.Label (InstructionSequence)
+            public SharpPy.Label? NewBreakLabel { get; }
+            public SharpPy.Label? NewContinueLabel { get; }
+
             public int ForIterInstruction { get; set; } = -1; // FOR_ITER 명령어 위치
             public int EndForPosition { get; set; } = -1; // END_FOR 명령어 위치 (for loop용)
 
+            // LEGACY constructor
             public LoopContext(Label breakLabel, Label continueLabel)
             {
-                BreakLabel = breakLabel;
-                ContinueLabel = continueLabel;
+                LegacyBreakLabel = breakLabel;
+                LegacyContinueLabel = continueLabel;
+                NewBreakLabel = null;
+                NewContinueLabel = null;
+            }
+
+            // NEW constructor
+            public LoopContext(SharpPy.Label breakLabel, SharpPy.Label continueLabel)
+            {
+                LegacyBreakLabel = null;
+                LegacyContinueLabel = null;
+                NewBreakLabel = breakLabel;
+                NewContinueLabel = continueLabel;
             }
         }
         
         private Stack<LoopContext> _loopStack = new();
-        
+
+        // LEGACY: PushLoopContext with PythonCompiler.Label
         private void PushLoopContext(Label breakLabel, Label continueLabel, int forIterInstruction = -1)
+        {
+            var context = new LoopContext(breakLabel, continueLabel);
+            if (forIterInstruction >= 0)
+            {
+                context.ForIterInstruction = forIterInstruction;
+            }
+            _loopStack.Push(context);
+        }
+
+        // NEW: PushLoopContext with SharpPy.Label
+        private void PushLoopContext(SharpPy.Label breakLabel, SharpPy.Label continueLabel, int forIterInstruction = -1)
         {
             var context = new LoopContext(breakLabel, continueLabel);
             if (forIterInstruction >= 0)

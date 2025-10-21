@@ -28,8 +28,19 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// CPython 3.12: Build CFG from InstructionSequence (label-based IR)
+        /// This is the NEW path: InstructionSequence → CFG
+        /// Uses CFGBuilder to convert label-based IR to CFG
+        /// </summary>
+        public static ControlFlowGraph FromInstructionSequence(InstructionSequence instrSeq)
+        {
+            return PyFlowGraph.Build(instrSeq);
+        }
+
+        /// <summary>
         /// CPython's assemble.c:push_instr_sequence() concept
         /// Convert linear instructions + exception table to CFG
+        /// This is the LEGACY path: ByteCodeInstruction[] → CFG
         /// </summary>
         public static ControlFlowGraph FromInstructionsAndExceptionTable(
             List<ByteCodeInstruction> instructions,

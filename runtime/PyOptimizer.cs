@@ -166,6 +166,7 @@ namespace SharpPy
 
         /// <summary>
         /// 바이트코드 최적화 메인 함수 (CPython 3.12 CFG-based optimization)
+        /// NEW PIPELINE: InstructionSequence available from compiler
         /// </summary>
         public PyCodeObject OptimizeCode(PyCodeObject originalCode)
         {
@@ -190,10 +191,13 @@ namespace SharpPy
 
             int originalCount = originalCode.Instructions.Count;
 
-            // Phase 1: Build CFG from instructions + exception table
-            // CPython의 assemble.c:push_instr_sequence() 개념
+            // Use LEGACY pipeline for now
+            // TODO: Integrate NEW pipeline when compiler provides InstructionSequence
+            // NEW: InstructionSequence → CFG (CPython 3.12 style)
+            // LEGACY: ByteCodeInstruction[] + ExceptionTable → CFG
 #if DEBUG_LOG
-            Console.WriteLine($"🔧 Phase 1: Building CFG from {originalCode.Instructions.Count} instructions and {originalCode.ExceptionTable.Count} exception table entries");
+            Console.WriteLine($"🔧 Using LEGACY pipeline: ByteCodeInstruction[] + ExceptionTable → CFG");
+            Console.WriteLine($"   Instructions: {originalCode.Instructions.Count}, ExceptionTable: {originalCode.ExceptionTable.Count}");
 #endif
             var cfg = ControlFlowGraph.FromInstructionsAndExceptionTable(
                 originalCode.Instructions,
@@ -209,19 +213,14 @@ namespace SharpPy
             var optimizer = new CFGOptimizer(cfg, _constants);
             optimizer.Optimize();
 
-            // Phase 3: Flatten CFG to instructions
-            // CPython의 assemble.c:assemble() 개념
+            // Phase 3: Assemble CFG to bytecode
+            // CPython의 assemble.c:assemble() 개념 (NEW: Use Assembler)
 #if DEBUG_LOG
-            Console.WriteLine($"🔧 Phase 3: Flattening CFG to instructions");
+            Console.WriteLine($"🔧 Phase 3: Assembling CFG to bytecode");
 #endif
-            var optimizedInstructions = cfg.ToInstructions();
-
-            // Phase 4: Build exception table from CFG
-            // CPython의 assemble.c:assemble_exception_table() 개념
-#if DEBUG_LOG
-            Console.WriteLine($"🔧 Phase 4: Building exception table from CFG");
-#endif
-            var optimizedExceptionTable = cfg.BuildExceptionTable();
+            var assembled = PyAssemble.Assemble(cfg, originalCode.FileName);
+            var optimizedInstructions = assembled.Instructions;
+            var optimizedExceptionTable = assembled.ExceptionTable;
 
             int optimizedCount = optimizedInstructions.Count;
             int saved = originalCount - optimizedCount;
