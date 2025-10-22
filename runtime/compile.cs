@@ -488,7 +488,7 @@ namespace SharpPy
         // CPython 3.12: Label-based intermediate representation
         // TODO Phase 1.3: Migrate from _instructions to _instructionSequence
         private InstructionSequence? _instructionSequence;
-        private bool _useInstructionSequence = true;  // Feature flag: ENABLED for CPython 3.12 pipeline
+        private const bool _useInstructionSequence = true;  // CPython 3.12 pipeline: ALWAYS ENABLED
 
         private List<PyObject> _constants;
         private List<string> _names;
@@ -6366,27 +6366,15 @@ namespace SharpPy
         }
         /// <summary>
         /// CPython-style if statement compilation - supports if-elif-else chains
+        /// CPython 3.12: Uses InstructionSequence with Labels
         /// </summary>
         private void CompileIf(IfStatement ifStmt)
         {
-            if (_useInstructionSequence && _instructionSequence != null)
-            {
-                // NEW PATH: Use InstructionSequence with Labels (CPython 3.12 style)
 #if DEBUG_COMPILER_LOG
-                Console.WriteLine($"🔷 [CFG] CompileIf: Using InstructionSequence with Labels (CPython 3.12)");
+            Console.WriteLine($"🔷 [CFG] CompileIf: Using InstructionSequence with Labels (CPython 3.12)");
 #endif
-                _cfgPathCount++;
-                CompileIfWithLabels(ifStmt);
-            }
-            else
-            {
-                // LEGACY PATH: Use offset patching
-#if DEBUG_COMPILER_LOG
-                Console.WriteLine($"🔶 [LEGACY] CompileIf: Using offset-based _instructions");
-#endif
-                _legacyPathCount++;
-                CompileIfLegacy(ifStmt);
-            }
+            _cfgPathCount++;
+            CompileIfWithLabels(ifStmt);
         }
 
         /// <summary>
@@ -6513,160 +6501,20 @@ namespace SharpPy
         /// <summary>
         /// LEGACY: Offset-based if-elif-else compilation
         /// </summary>
-        private void CompileIfLegacy(IfStatement ifStmt)
-        {
-            // CPython 3.12 스타일: if-elif-else 체인 컴파일 (완전 수정)
-            var endJumps = new List<int>(); // 각 블록 끝에서 전체 if-elif-else 끝으로의 점프들
-            var conditionJumps = new List<int>(); // 각 조건의 False 점프들 (나중에 패치)
-            var conditionStarts = new List<int>(); // 각 조건 시작 위치 저장
-
-            // 모든 if/elif 조건들을 미리 수집
-            var conditions = new List<(Expression Test, List<Statement> Body)>();
-            var currentIf = ifStmt;
-
-            // 모든 if/elif 수집
-            while (currentIf != null)
-            {
-                conditions.Add((currentIf.Test, currentIf.Body));
-
-                if (currentIf.OrElse != null && currentIf.OrElse.Count == 1 &&
-                    currentIf.OrElse[0] is IfStatement nextIf)
-                {
-                    currentIf = nextIf;
-                }
-                else
-                {
-                    break;
-                }
-            }
-
-            // 각 조건과 바디 컴파일
-            for (int i = 0; i < conditions.Count; i++)
-            {
-                var (test, body) = conditions[i];
-
-                // 조건 시작 위치 저장
-                var conditionStartPos = _instructions.Count;
-                conditionStarts.Add(conditionStartPos);
-
-                // 조건 컴파일
-                CompileExpression(test);
-
-                // 조건이 False면 다음 elif/else로 점프 (나중에 패치)
-                var jumpIfFalse = _instructions.Count;
-                EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0);
-                conditionJumps.Add(jumpIfFalse);
-
-                // 바디 컴파일
-                foreach (var stmt in body)
-                {
-                    CompileStatement(stmt);
-                }
-
-                // CPython pattern: JUMP은 다음 elif가 있거나 (마지막 조건이 아니거나), 현재 블록 뒤에 else가 있을 때 emit
-                // Optimizer will remove unreachable jumps after continue/break/return
-                // NOTE: finalElse는 아직 선언 안되었으므로 ifStmt 사용
-                bool isLastCondition = (i == conditions.Count - 1);
-                bool needsJump = !isLastCondition; // 다음 elif가 있으면 JUMP 필요
-
-                // 마지막 조건이고 else 블록이 있으면 JUMP 필요
-                if (isLastCondition)
-                {
-                    // Check if there's an else block (not elif)
-                    var checkElse = ifStmt;
-                    for (int j = 0; j < i; j++)
-                    {
-                        if (checkElse.OrElse != null && checkElse.OrElse.Count == 1 &&
-                            checkElse.OrElse[0] is IfStatement)
-                        {
-                            checkElse = (IfStatement)checkElse.OrElse[0];
-                        }
-                    }
-                    // 마지막 if의 OrElse가 IfStatement가 아니면 pure else 블록
-                    if (checkElse.OrElse != null && checkElse.OrElse.Count > 0 &&
-                        !(checkElse.OrElse.Count == 1 && checkElse.OrElse[0] is IfStatement))
-                    {
-                        needsJump = true;
-                    }
-                }
-
-                if (needsJump)
-                {
-                    var jumpToEnd = _instructions.Count;
-                    EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
-                    endJumps.Add(jumpToEnd);
-                }
-
-                // 이전 조건의 False 점프를 현재 조건의 시작으로 패치
-                if (i > 0)
-                {
-                    var prevJumpIndex = conditionJumps[i - 1];
-                    var currentConditionStart = conditionStarts[i]; // 실제 조건 시작 위치 사용
-                    var relativeOffset = currentConditionStart - prevJumpIndex - 1;
-                    _instructions[prevJumpIndex] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, relativeOffset);
-                }
-            }
-
-            // else 블록 처리
-            var finalElse = ifStmt;
-            while (finalElse.OrElse != null && finalElse.OrElse.Count == 1 &&
-                   finalElse.OrElse[0] is IfStatement)
-            {
-                finalElse = (IfStatement)finalElse.OrElse[0];
-            }
-
-            // 마지막 조건의 False 점프를 else 블록으로 패치
-            if (conditionJumps.Count > 0)
-            {
-                var lastJumpIndex = conditionJumps.Last();
-                var elsePos = _instructions.Count;
-                var relativeOffset = elsePos - lastJumpIndex - 1;
-                _instructions[lastJumpIndex] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, relativeOffset);
-            }
-
-            // else 블록 컴파일
-            if (finalElse.OrElse != null && finalElse.OrElse.Count > 0)
-            {
-                foreach (var stmt in finalElse.OrElse)
-                {
-                    CompileStatement(stmt);
-                }
-            }
-
-            // 모든 end jumps를 현재 위치로 패치
-            var endPosition = _instructions.Count;
-            foreach (var jumpIndex in endJumps)
-            {
-                var relativeOffset = endPosition - jumpIndex - 1;
-                _instructions[jumpIndex] = new ByteCodeInstruction(ByteCodeOp.JUMP_FORWARD, relativeOffset);
-            }
-        }
-        
         /// <summary>
         /// CPython 3.12 호환 while True: compilation
         /// 특징: 조건 체크 없이 바로 루프 바디 시작, NOP 삽입
         /// </summary>
         /// <summary>
-        /// Router: Dispatch to NEW or LEGACY implementation
+        /// CPython 3.12: while True loop compilation
         /// </summary>
         private void CompileWhileTrue(WhileStatement whileStmt)
         {
-            if (_useInstructionSequence && _instructionSequence != null)
-            {
 #if DEBUG_COMPILER_LOG
-                Console.WriteLine($"🔷 [CFG] CompileWhileTrue: Using InstructionSequence with Labels");
+            Console.WriteLine($"🔷 [CFG] CompileWhileTrue: Using InstructionSequence with Labels");
 #endif
-                _cfgPathCount++;
-                CompileWhileTrueWithLabels(whileStmt);
-            }
-            else
-            {
-#if DEBUG_COMPILER_LOG
-                Console.WriteLine($"🔶 [LEGACY] CompileWhileTrue: Using offset-based _instructions");
-#endif
-                _legacyPathCount++;
-                CompileWhileTrueLegacy(whileStmt);
-            }
+            _cfgPathCount++;
+            CompileWhileTrueWithLabels(whileStmt);
         }
 
         /// <summary>
@@ -6726,52 +6574,6 @@ namespace SharpPy
         /// <summary>
         /// LEGACY: Offset-based while True compilation
         /// </summary>
-        private void CompileWhileTrueLegacy(WhileStatement whileStmt)
-        {
-            #if DEBUG_LOG
-            Console.WriteLine("🔧 CPython 3.12 호환 while True 루프 컴파일");
-            #endif
-
-            // Setup loop context for break/continue
-            var breakLabel = CreateLabel("while_true_break");
-            var continueLabel = CreateLabel("while_true_continue");
-            PushLoopContext(breakLabel, continueLabel);
-
-            // CPython pattern: emit NOP for while True:
-            EmitInstruction(ByteCodeOp.NOP, 0);
-
-            // 루프 바디 시작점 (JUMP_BACKWARD 타겟) - continue target
-            var bodyStart = _instructions.Count;
-            MarkLabel(continueLabel); // continue는 루프 바디 시작으로
-            #if DEBUG_LOG
-            Console.WriteLine($"  바디 시작점 = {bodyStart} (JUMP_BACKWARD 타겟)");
-            #endif
-
-            // Compile loop body
-            foreach (var stmt in whileStmt.Body)
-            {
-                CompileStatement(stmt);
-            }
-
-            // JUMP_BACKWARD to body start (no condition check)
-            int currentPos = _instructions.Count;
-            int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, bodyStart);
-            #if DEBUG_LOG
-            Console.WriteLine($"  JUMP_BACKWARD {currentPos} → {bodyStart} (arg={jumpBackwardArg})");
-            #endif
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
-
-            // Pop loop context
-            PopLoopContext();
-
-            // Mark break label - break는 여기로 점프
-            MarkLabel(breakLabel);
-            #if DEBUG_LOG
-            Console.WriteLine("🔧 CPython 3.12 호환 while True 루프 컴파일 완료");
-            #endif
-        }
-        
-        
         /// <summary>
         /// CPython 3.12 완전 호환 while loop compilation
         /// 특징: 조건을 두 번 체크 (초기 + 루프 끝)
@@ -6794,23 +6596,12 @@ namespace SharpPy
                 return;
             }
 
-            // Dispatch to CFG or Legacy implementation
-            if (_useInstructionSequence && _instructionSequence != null)
-            {
+            // CFG implementation (CPython 3.12)
 #if DEBUG_COMPILER_LOG
-                Console.WriteLine($"🔷 [CFG] CompileWhile: Using InstructionSequence with Labels (CPython 3.12)");
+            Console.WriteLine($"🔷 [CFG] CompileWhile: Using InstructionSequence with Labels (CPython 3.12)");
 #endif
-                _cfgPathCount++;
-                CompileWhileWithLabels(whileStmt);
-            }
-            else
-            {
-#if DEBUG_COMPILER_LOG
-                Console.WriteLine($"🔶 [LEGACY] CompileWhile: Using offset-based _instructions (CFG not implemented)");
-#endif
-                _legacyPathCount++;
-                CompileWhileLegacy(whileStmt);
-            }
+            _cfgPathCount++;
+            CompileWhileWithLabels(whileStmt);
         }
 
         /// <summary>
@@ -6881,111 +6672,6 @@ namespace SharpPy
         /// <summary>
         /// LEGACY: Offset-based while compilation
         /// </summary>
-        private void CompileWhileLegacy(WhileStatement whileStmt)
-        {
-            #if DEBUG_LOG
-            Console.WriteLine("🔧 CPython 3.12 호환 while 루프 컴파일 (Legacy offset-based)");
-            #endif
-
-            // CPython pattern: loop label at condition start, body label at body start
-            // continue jumps to loop label, break jumps to end label
-            var loopLabel = CreateLabel("while_loop");     // continue target
-            var endLabel = CreateLabel("while_end");       // break target
-
-            // Phase 1: loop label - 조건 체크 시작 (CPython pattern)
-            #if DEBUG_LOG
-            Console.WriteLine("  Phase 1: loop label - 조건 체크 시작");
-            #endif
-            MarkLabel(loopLabel);  // ← CPython: USE_LABEL(c, loop)
-            var loopStart = _instructions.Count;
-
-            // Push loop context RIGHT AFTER MarkLabel (CPython: compiler_push_fblock)
-            // This must be done BEFORE compiling body so continue statements can reference loopLabel
-            PushLoopContext(endLabel, loopLabel);  // break → end, continue → loop
-
-            CompileExpression(whileStmt.Test);
-
-            var initialJumpIfFalse = _instructions.Count;
-            EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // 주소는 나중에 패치
-
-            // Phase 2: body label - 루프 바디 컴파일
-            var bodyStart = _instructions.Count;
-            #if DEBUG_LOG
-            Console.WriteLine($"  Phase 2: 바디 시작점 = {bodyStart}");
-            Console.WriteLine($"  Phase 2: 바디 statement 개수 = {whileStmt.Body.Count}");
-            #endif
-
-            // Compile loop body
-            int stmtIndex = 0;
-            foreach (var stmt in whileStmt.Body)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"    바디 statement [{stmtIndex}]: {stmt.GetType().Name} at instruction {_instructions.Count}");
-                #endif
-                CompileStatement(stmt);
-                stmtIndex++;
-            }
-
-            #if DEBUG_LOG
-            Console.WriteLine($"  Phase 2 완료: 현재 instruction count = {_instructions.Count}");
-            #endif
-
-            // Phase 3: 루프 끝 조건 체크 (CPython pattern)
-            #if DEBUG_LOG
-            Console.WriteLine("  Phase 3: 루프 끝 조건 체크");
-            #endif
-            CompileExpression(whileStmt.Test);  // 조건을 두 번째로 체크
-
-            var endJumpIfFalse = _instructions.Count;
-            EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // 주소는 나중에 패치
-
-            // Phase 4: JUMP_BACKWARD (루프 바디 시작점으로 - CPython 3.12 패턴)
-            int currentPos = _instructions.Count;
-            int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, bodyStart);
-            #if DEBUG_LOG
-            Console.WriteLine($"  Phase 4: JUMP_BACKWARD {currentPos} → {bodyStart} (arg={jumpBackwardArg})");
-            #endif
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
-
-            // Pop loop context (CPython: compiler_pop_fblock)
-            PopLoopContext();
-
-            // Phase 5: end label - 루프 종료 지점
-            MarkLabel(endLabel);  // ← CPython: USE_LABEL(c, end)
-            var loopEnd = _instructions.Count;
-            #if DEBUG_LOG
-            Console.WriteLine($"  Phase 5: 루프 종료점 = {loopEnd}");
-            #endif
-
-            // 점프 주소 패치 (상대 오프셋 사용)
-            var relativeOffsetInitial = loopEnd - initialJumpIfFalse - 1;
-            var relativeOffsetEnd = loopEnd - endJumpIfFalse - 1;
-            #if DEBUG_LOG
-            Console.WriteLine($"  Patching jump instructions:");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"    initialJumpIfFalse[{initialJumpIfFalse}] → {loopEnd} (relative offset: {relativeOffsetInitial})");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"    endJumpIfFalse[{endJumpIfFalse}] → {loopEnd} (relative offset: {relativeOffsetEnd})");
-            #endif
-            _instructions[initialJumpIfFalse] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, relativeOffsetInitial);
-            _instructions[endJumpIfFalse] = new ByteCodeInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, relativeOffsetEnd);
-
-            // While completed normally - execute else clause if present
-            if (whileStmt.ElseClause != null && whileStmt.ElseClause.Count > 0)
-            {
-                foreach (var stmt in whileStmt.ElseClause)
-                {
-                    CompileStatement(stmt);
-                }
-            }
-
-            #if DEBUG_LOG
-            Console.WriteLine("🔧 CPython 3.12 호환 while 루프 컴파일 완료");
-            #endif
-        }
-        
         /// <summary>
         /// Check if an expression is a constant True value
         /// </summary>
@@ -7008,67 +6694,90 @@ namespace SharpPy
         
         /// <summary>
         /// CPython-style for loop compilation - uses FOR_ITER opcode with proper StopIteration handling
+        /// Router: Dispatch to CFG or LEGACY implementation
         /// </summary>
         private void CompileFor(ForStatement forStmt)
         {
 #if DEBUG_COMPILER_LOG
-            Console.WriteLine($"🔶 [LEGACY] CompileFor: Using offset-based _instructions (CFG not implemented)");
+            Console.WriteLine($"🔷 [CFG] CompileFor: Using InstructionSequence with Labels (CPython 3.12)");
 #endif
-            _legacyPathCount++;
+            _cfgPathCount++;
+            CompileForWithLabels(forStmt);
+        }
 
-            // CPython approach with loop-else support
+        /// <summary>
+        /// NEW: Label-based for loop compilation (CPython 3.12)
+        /// Uses InstructionSequence with SharpPy.Label objects
+        /// CPython pattern: GET_ITER → FOR_ITER → body → JUMP → END_FOR
+        /// </summary>
+        private void CompileForWithLabels(ForStatement forStmt)
+        {
+#if DEBUG_LOG
+            Console.WriteLine("🔧 CPython 3.12 호환 for 루프 컴파일 (Label-based)");
+#endif
+
+            // CPython 3.12 pattern: 4 labels (start, body, cleanup, end)
+            var startLabel = _instructionSequence.NewLabel();    // FOR_ITER 위치
+            var bodyLabel = _instructionSequence.NewLabel();     // 루프 본문 시작
+            var cleanupLabel = _instructionSequence.NewLabel();  // END_FOR 위치
+            var endLabel = _instructionSequence.NewLabel();      // 전체 종료
 
             // 1. Get iterator from iterable
-            CompileExpression(forStmt.Iter);  // Push iterable on stack
-            
-            // CPython 3.12: Generator function에서 .0 매개변수는 이미 iterator임
-            // .0 매개변수인 경우 GET_ITER 건너뛰기
+            CompileExpression(forStmt.Iter);
+
+            // CPython 3.12: Generator function의 .0 매개변수는 이미 iterator
             bool skipGetIter = forStmt.Iter is NameExpression nameExpr && nameExpr.Name == ".0";
             if (!skipGetIter)
             {
-                EmitInstruction(ByteCodeOp.GET_ITER); // Convert to iterator
+                EmitInstruction(ByteCodeOp.GET_ITER);
             }
-            
-            // 2. Loop start - FOR_ITER will handle next() and StopIteration
-            var forIterInstruction = _instructions.Count;
-            EmitInstruction(ByteCodeOp.FOR_ITER, 0); // Jump target will be patched later
-            
-            // 3. FOR_ITER pushes the next value on stack, store it in loop variable
-            // CPython 3.12: target can be Name, Tuple, List, etc.
+
+            // 2. Mark start label and emit FOR_ITER
+            _instructionSequence.UseLabel(startLabel);
+            _instructionSequence.AddOpWithLabel(
+                ByteCodeOp.FOR_ITER,
+                cleanupLabel,  // Jump to cleanup (END_FOR) on StopIteration
+                _currentLineNumber,
+                _currentColumnOffset,
+                _currentFileName,
+                GetCurrentExceptHandlerInfo()
+            );
+
+            // 3. Mark body label
+            _instructionSequence.UseLabel(bodyLabel);
+
+            // 4. FOR_ITER pushes next value on stack, store it in loop variable
             CompileAssignmentTarget(forStmt.Target);
-            
-            // 4. Set up loop context for break/continue with FOR_ITER tracking
-            var breakLabel = CreateLabel("for_break");
-            var continueLabel = CreateLabel("for_continue");
-            PushLoopContext(breakLabel, continueLabel, forIterInstruction);
-            
-            // 5. Execute loop body
+
+            // 5. Set up loop context for break/continue
+            // Break → endLabel, Continue → startLabel
+            PushLoopContext(endLabel, startLabel);
+
+            // 6. Execute loop body
             foreach (var stmt in forStmt.Body)
             {
                 CompileStatement(stmt);
             }
-            
-            // 6. Mark continue label (jump back to FOR_ITER)
-            MarkLabel(continueLabel);
-            
-            // 7. Jump back to FOR_ITER (not GET_ITER) - CPython 3.12 style relative offset
-            // CPython 3.12: 통일된 JUMP_BACKWARD oparg 계산 사용
-            int currentPos = _instructions.Count;
-            int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, forIterInstruction);
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
 
-            // 8. CPython 3.12 방식: END_FOR 추가 (통합 구조)
+            // 7. Jump back to FOR_ITER
+            // CPython 3.12: Uses JUMP_BACKWARD for backward jumps
+            _instructionSequence.AddOpWithLabel(
+                ByteCodeOp.JUMP_BACKWARD,
+                startLabel,
+                _currentLineNumber,
+                _currentColumnOffset,
+                _currentFileName,
+                GetCurrentExceptHandlerInfo()
+            );
+
+            // 8. Mark cleanup label and emit END_FOR
+            _instructionSequence.UseLabel(cleanupLabel);
             EmitInstruction(ByteCodeOp.END_FOR, 0);
-            int endForPosition = _instructions.Count - 1; // END_FOR 위치 저장
 
-            // END_FOR 위치를 현재 loop context에 저장
-            var currentLoop = GetCurrentLoop();
-            if (currentLoop != null)
-            {
-                currentLoop.EndForPosition = endForPosition;
-            }
+            // 9. Pop loop context
+            PopLoopContext();
 
-            // 9. Loop completed normally - execute else clause if present
+            // 10. Execute else clause if present
             if (forStmt.ElseClause != null && forStmt.ElseClause.Count > 0)
             {
                 foreach (var stmt in forStmt.ElseClause)
@@ -7077,16 +6786,17 @@ namespace SharpPy
                 }
             }
 
-            // 10. Mark break label (after ALL loop constructs including else)
-            MarkLabel(breakLabel);
+            // 11. Mark end label
+            _instructionSequence.UseLabel(endLabel);
 
-            // 11. Pop loop context after everything (FOR_ITER 패치가 자동으로 수행됨)
-            PopLoopContext();
-            
-            // Note: Break statements will need to jump past the else clause to loopEnd
-            // This requires break handling to be aware of loop-else structure
+#if DEBUG_LOG
+            Console.WriteLine("🔧 CPython 3.12 for 루프 컴파일 완료 (Label-based)");
+#endif
         }
-        
+
+        /// <summary>
+        /// LEGACY: Offset-based for loop compilation
+        /// </summary>
         /// <summary>
         /// Compile for loop with tuple unpacking (e.g., for key, value in items:)
         /// </summary>
