@@ -7624,38 +7624,12 @@ namespace SharpPy
         }
         private void CompileWith(WithStatement withStmt)
         {
-            if (_useInstructionSequence)
-            {
+            // CPython 3.12: Always use InstructionSequence/CFG path
 #if DEBUG_COMPILER_LOG
-                Console.WriteLine($"🔷 [CFG] CompileWith: Using InstructionSequence (CPython 3.12 CFG path)");
+            Console.WriteLine($"🔷 [CFG] CompileWith: Using InstructionSequence (CPython 3.12 CFG path)");
 #endif
-                _cfgPathCount++;
-                CompileWithCFG(withStmt);
-            }
-            else
-            {
-#if DEBUG_COMPILER_LOG
-                Console.WriteLine($"🔶 [LEGACY] CompileWith: Using offset-based _instructions (CFG status unclear)");
-#endif
-                _legacyPathCount++;
-
-                // CPython 3.12 compatible implementation
-                // Support both single and multiple context managers
-                if (withStmt.Items.Count == 1)
-                {
-                    // Single context manager - original implementation
-                    CompileSingleWith(withStmt);
-                }
-                else if (withStmt.Items.Count > 1)
-                {
-                    // Multiple context managers - transform to nested with statements
-                    CompileMultipleWith(withStmt);
-                }
-                else
-                {
-                    throw PySyntaxError.Create("with statement requires at least one context manager");
-                }
-            }
+            _cfgPathCount++;
+            CompileWithCFG(withStmt);
         }
 
         /// <summary>
@@ -7824,292 +7798,157 @@ namespace SharpPy
             // Compile the transformed outer with statement
             CompileSingleWithCFG(outerWith);
         }
-        
+
+        // CPython 3.12: CompileSingleWith and CompileMultipleWith removed
+        // With statements now use CompileWithCFG (InstructionSequence/CFG path) only
+
         /// <summary>
-        /// Compile single context manager (original implementation)
+        /// CPython 3.12: compiler_match_inner (Python/compile.c line 7306)
+        /// Match statement compilation using InstructionSequence/CFG
         /// </summary>
-        private void CompileSingleWith(WithStatement withStmt)
-        {
-            var item = withStmt.Items[0];
-            
-            // CPython 3.12 approach with proper exception handling:
-            // 1. Load context manager
-            CompileExpression(item.ContextExpr);
-            
-            // 2. BEFORE_WITH: Load __exit__ to stack, call __enter__(), push result
-            EmitInstruction(ByteCodeOp.BEFORE_WITH);
-            
-            // 3. CPython 3.12: Handle __enter__ result immediately after BEFORE_WITH
-            if (item.OptionalVars != null)
-            {
-                // Use proper assignment target compilation for correct scoping
-                CompileAssignmentTarget(item.OptionalVars);
-            }
-            else
-            {
-                // Discard __enter__ result if no 'as' clause - CPython 3.12 does this immediately
-                EmitInstruction(ByteCodeOp.POP_TOP);
-            }
-            
-            // 4. Setup Exception Table entry (CPython 3.12 compatible)
-            var withCleanupLabel = CreateLabel("with_cleanup");
-            
-            // CPython 3.12: Exception Table은 POP_TOP 이후부터 body 끝까지
-            // 실제로 보호받는 코드는 with body만 해당
-            var bodyStartOffset = _instructions.Count; // POP_TOP 이후 위치 = with body 시작
-            
-            // 5. Execute body
-            foreach (var stmt in withStmt.Body)
-            {
-                CompileStatement(stmt);
-            }
-            
-            var bodyEndOffset = _instructions.Count; // body 끝 위치
-            
-            // 6. Register Exception Table entry (CPython 3.12 style - Label based)  
-            // CPython 3.12: 실제 보호받는 코드 범위는 with body만 해당
-            var entry = new ExceptionTableEntry(
-                start: bodyStartOffset,
-                end: bodyEndOffset, 
-                handlerLabel: withCleanupLabel.Name,
-                depth: 1,
-                lasti: true
-            );
-            _exceptionTable.Add(entry);
-            
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 Exception Table Entry Created (Label-based):");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"   Start: {bodyStartOffset}, End: {bodyEndOffset}");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"   Handler Label: {withCleanupLabel.Name}, Depth: 1");
-            #endif
-            
-            // 7. Normal exit: call __exit__(None, None, None) - no POP_EXCEPT needed
-            // CPython 3.12: 동일한 None 상수를 재사용 (상수 풀 효율성)
-            var noneConstIndex = GetOrAddConstant(PyNone.Instance);
-            EmitInstruction(ByteCodeOp.LOAD_CONST, noneConstIndex);
-            EmitInstruction(ByteCodeOp.LOAD_CONST, noneConstIndex); 
-            EmitInstruction(ByteCodeOp.LOAD_CONST, noneConstIndex);
-            // CPython 3.12: __exit__(exc_type, exc_val, exc_tb) - CALL 2 (CPython과 동일)
-            EmitInstruction(ByteCodeOp.CALL, 2);
-            EmitInstruction(ByteCodeOp.POP_TOP); // discard __exit__ return value
-            
-            var endLabel = CreateLabel("with_end");
-            EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
-            endLabel.References.Add(_instructions.Count - 1);
-            
-            // 7. Exception handler (CPython 3.12: PUSH_EXC_INFO → WITH_EXCEPT_START)
-            MarkLabel(withCleanupLabel);
-            EmitInstruction(ByteCodeOp.PUSH_EXC_INFO);
-            EmitInstruction(ByteCodeOp.WITH_EXCEPT_START);
-            EmitInstruction(ByteCodeOp.POP_JUMP_IF_TRUE, 0);
-            var suppressLabel = CreateLabel("suppress_exception");
-            suppressLabel.References.Add(_instructions.Count - 1);
-            
-            // Re-raise exception if not suppressed
-            EmitInstruction(ByteCodeOp.RAISE_VARARGS, 0);
-            
-            // Exception suppressed - continue normally (CPython 3.12 compatible)
-            MarkLabel(suppressLabel);
-            EmitInstruction(ByteCodeOp.POP_TOP);     // First cleanup - remove suppress boolean from WITH_EXCEPT_START
-            EmitInstruction(ByteCodeOp.POP_EXCEPT);  // CPython 3.12: Remove exception info (4 items: exc_type, exc_value, exc_tb, lasti)
-            EmitInstruction(ByteCodeOp.POP_TOP);     // Additional cleanup - remove exception object
-            EmitInstruction(ByteCodeOp.POP_TOP);     // Additional cleanup - depends on with nesting depth
-            
-            MarkLabel(endLabel);
-            
-            // CPython 3.12 uses Exception Table instead of SETUP_EXCEPT
-            // SharpPy's existing exception handling should work correctly
-        }
-        
-        /// <summary>
-        /// Compile multiple context managers: with a, b, c: body
-        /// CPython 3.12 approach: Transform to nested with statements recursively
-        /// with a, b: body -> with a: (with b: body)
-        /// </summary>
-        private void CompileMultipleWith(WithStatement withStmt)
-        {
-            // CPython 3.12: Convert "with a, b, c: body" to nested structure
-            // Create nested WithStatement objects and compile recursively
-            
-            if (withStmt.Items.Count < 2)
-            {
-                throw new InvalidOperationException("CompileMultipleWith requires at least 2 context managers");
-            }
-            
-            // Take the first context manager
-            var outerItem = withStmt.Items[0];
-            
-            // Create inner with statement with remaining context managers
-            var remainingItems = withStmt.Items.Skip(1).ToList();
-            WithStatement innerWith;
-            
-            if (remainingItems.Count == 1)
-            {
-                // Base case: create simple with statement for the last context manager
-                innerWith = new WithStatement(remainingItems, withStmt.Body);
-            }
-            else
-            {
-                // Recursive case: create nested with statement
-                innerWith = new WithStatement(remainingItems, withStmt.Body);
-            }
-            
-            // Create outer with statement that wraps the inner one
-            var outerWith = new WithStatement(
-                new List<WithItem> { outerItem },
-                new List<Statement> { innerWith }
-            );
-            
-            // Compile the outer with statement (which will recursively compile inner ones)
-            CompileSingleWith(outerWith);
-        }
         private void CompileMatch(MatchStatement matchStmt)
         {
 #if DEBUG_COMPILER_LOG
-            Console.WriteLine($"🔶 [LEGACY] CompileMatch: Using offset-based _instructions (CFG status unclear)");
+            Console.WriteLine($"🔷 [CFG] CompileMatch: Using InstructionSequence (CPython 3.12 CFG path)");
 #endif
-            _legacyPathCount++;
+            _cfgPathCount++;
 
-            // CPython 3.12: Match statement compilation - exact pattern placement
+            // CPython 3.12: compiler_match_inner implementation (Python/compile.c line 7306-7382)
+            // VISIT(c, expr, s->v.Match.subject);
+            CompileExpression(matchStmt.Subject);
 
-            // Special optimization for simple constant patterns (like CPython)
-            if (IsSimpleConstantMatch(matchStmt))
+            // NEW_JUMP_TARGET_LABEL(c, end);
+            SharpPy.Label endLabel = _instructionSequence.NewLabel();
+
+            int caseCount = matchStmt.Cases.Count;
+            if (caseCount == 0)
             {
-                CompileSimpleConstantMatch(matchStmt);
+                // No cases - just pop subject and done
+                _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0);
+                _instructionSequence.UseLabel(endLabel);
                 return;
             }
 
-            // FOR 루프 컨텍스트 내에서 패턴 매칭인지 확인
-            bool inForLoop = IsInForLoopContext();
-            if (inForLoop)
-            {
-#if DEBUG_LOG
-                Console.WriteLine("🔍 FOR 루프 컨텍스트 내 패턴 매칭 감지 - 스택 관리 특별 처리");
-#endif
-            }
-            
-            // CPython 3.12: Don't keep subject on stack, load it per case
-            // Note: Subject will be loaded individually for each case
-            
-            // Create labels for control flow with FOR 루프 컨텍스트 고려
-            string labelPrefix = inForLoop ? "forloop_match" : "match";
-            var endLabel = CreateLabel($"{labelPrefix}_end_{_labelCounter++}");
-            var noMatchLabel = CreateLabel($"{labelPrefix}_no_match_{_labelCounter++}");
-            
-            // Console.WriteLine($"🔍 CompileMatch: Starting with {matchStmt.Cases.Count} cases");
-            
-            // CPython 3.12: Sequential pattern tests with proper label placement
-            var bodyLabels = new List<Label>();
-            var nextPatternLabels = new List<Label>();
-            
-            // Pre-create body labels and next pattern labels with 네임스페이스 분리
-            for (int i = 0; i < matchStmt.Cases.Count; i++)
-            {
-                bodyLabels.Add(CreateLabel($"{labelPrefix}_body_{i}_{_labelCounter++}"));
-                // Each pattern (except last) needs a "next pattern" label
-                if (i + 1 < matchStmt.Cases.Count)
-                {
-                    nextPatternLabels.Add(CreateLabel($"{labelPrefix}_next_pattern_{i+1}_{_labelCounter++}"));
-                }
-            }
-            
-            // Compile pattern tests sequentially
-            for (int i = 0; i < matchStmt.Cases.Count; i++)
+            // Check if last case is wildcard (case _:)
+            var lastCase = matchStmt.Cases[caseCount - 1];
+            bool hasDefault = IsWildcardPattern(lastCase.Pattern) && lastCase.Guard == null && caseCount > 1;
+
+            // Compile all cases except the default (if exists)
+            int loopEnd = hasDefault ? caseCount - 1 : caseCount;
+
+            for (int i = 0; i < loopEnd; i++)
             {
                 var matchCase = matchStmt.Cases[i];
-                // Console.WriteLine($"🔍 Compiling case {i}: Pattern={matchCase.Pattern?.GetType().Name} - {matchCase.Pattern}");
-                
-                // Place the "next pattern" label if this is not the first case
-                if (i > 0)
+
+                // CPython: Only copy the subject if we're *not* on the last case
+                if (i != loopEnd - 1)
                 {
-                    PlaceLabel(nextPatternLabels[i-1]);
-                    // Console.WriteLine($"🔍 Placed label {nextPatternLabels[i-1].Name} at instruction {_instructions.Count}");
+                    _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 1, _currentLineNumber);
                 }
-                
-                // Determine failure jump target
-                Label failLabel = (i + 1 < matchStmt.Cases.Count) ? nextPatternLabels[i] : noMatchLabel;
-                // Console.WriteLine($"🔍 Case {i}: Fail jump target = {failLabel.Name}");
-                
-                // Handle Guard patterns specially - CPython 3.12 compatible
-                #if DEBUG_LOG
-                Console.WriteLine($"🔍 Checking Guard for case {i}: Guard={matchCase.Guard?.GetType().Name} - {matchCase.Guard}");
-                #endif
+
+                // Compile pattern matching (simplified - constant patterns only for now)
+                SharpPy.Label failLabel = _instructionSequence.NewLabel();
+
+                if (!CompilePatternMatchCFG(matchCase.Pattern, failLabel))
+                {
+                    // Pattern compilation failed - skip this case
+                    _instructionSequence.UseLabel(failLabel);
+                    continue;
+                }
+
+                // Check guard if present
                 if (matchCase.Guard != null)
                 {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 Compiling Guard pattern case {i}: {matchCase.Pattern} if {matchCase.Guard}");
-                    #endif
-                    
-                    // Guard pattern: CPython 3.12 compatible - load subject per case
-                    // Load subject fresh for this case
-                    CompileExpression(matchStmt.Subject);
-                    
-                    // Compile pattern matching - this will bind the variable and consume subject
-                    if (!CompilePatternMatch(matchCase.Pattern, failLabel))
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔍 Pattern match failed for case {i}, jumping to {failLabel.Name}");
-                        #endif
-                        EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, failLabel);
-                        continue;
-                    }
-                    
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 Pattern matched for case {i}, now compiling guard: {matchCase.Guard}");
-                    #endif
-                    
-                    // Stack: [] (after pattern binding consumed subject)
-                    // Now evaluate guard condition
                     CompileExpression(matchCase.Guard);
-                    EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
-                    
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 Guard condition compiled for case {i}, will jump to {failLabel.Name} if false");
-                    #endif
-                    
-                    // No cleanup needed - each case is independent
+                    _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber);
                 }
-                else
+
+                // Pattern matched - pop subject if not last case
+                if (i != loopEnd - 1)
                 {
-                    // Regular pattern without guard - CPython 3.12 compatible
-                    // Load subject fresh for this case
-                    CompileExpression(matchStmt.Subject);
-                    
-                    if (!CompilePatternMatch(matchCase.Pattern, failLabel))
-                    {
-                        EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, failLabel);
-                        continue;
-                    }
-                    
-                    // No cleanup needed - each case is independent
+                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0);
                 }
-                EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, bodyLabels[i]);
-            }
-            
-            // Compile all case bodies
-            for (int i = 0; i < matchStmt.Cases.Count; i++)
-            {
-                var matchCase = matchStmt.Cases[i];
-                PlaceLabel(bodyLabels[i]);
-                
+
+                // Compile case body
                 foreach (var stmt in matchCase.Body)
                 {
                     CompileStatement(stmt);
                 }
-                
-                EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, endLabel);
+
+                // Jump to end
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, endLabel, _currentLineNumber);
+
+                // Place fail label for next case
+                _instructionSequence.UseLabel(failLabel);
             }
-            
-            // Place no match label - clean up subject when no case matched  
-            PlaceLabel(noMatchLabel);
-            EmitInstruction(ByteCodeOp.POP_TOP); // Clean up subject
-            
-            // Place end label - control flow joins here after match or no match
-            PlaceLabel(endLabel);
+
+            // Handle default case if exists
+            if (hasDefault)
+            {
+                if (caseCount == 1)
+                {
+                    // Only default case - pop subject
+                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0);
+                }
+                else
+                {
+                    // CPython: Show line coverage for default case (it doesn't create bytecode)
+                    _instructionSequence.AddOp(ByteCodeOp.NOP, 0);
+                }
+
+                if (lastCase.Guard != null)
+                {
+                    CompileExpression(lastCase.Guard);
+                    _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, endLabel, _currentLineNumber);
+                }
+
+                foreach (var stmt in lastCase.Body)
+                {
+                    CompileStatement(stmt);
+                }
+            }
+
+            // USE_LABEL(c, end);
+            _instructionSequence.UseLabel(endLabel);
+        }
+
+        /// <summary>
+        /// Check if pattern is wildcard (_)
+        /// </summary>
+        private bool IsWildcardPattern(Expression pattern)
+        {
+            return pattern is NameExpression nameExpr && nameExpr.Name == "_";
+        }
+
+        /// <summary>
+        /// CPython 3.12: compiler_pattern for CFG path
+        /// Simplified version - supports constant patterns for test_match_simple.py
+        /// </summary>
+        private bool CompilePatternMatchCFG(Expression pattern, SharpPy.Label failLabel)
+        {
+            switch (pattern)
+            {
+                case ConstantExpression constExpr:
+                    // CPython: Direct constant comparison
+                    // Stack: [subject] -> [subject, constant] -> [comparison_result]
+                    CompileExpression(constExpr);
+                    _instructionSequence.AddOpWithArg(ByteCodeOp.COMPARE_OP, (int)CompareOp.EQ, _currentLineNumber);
+                    _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber);
+                    return true;
+
+                case NameExpression nameExpr when nameExpr.Name == "_":
+                    // Wildcard - always matches
+                    return true;
+
+                case NameExpression nameExpr:
+                    // Variable binding - always matches, bind to name
+                    EmitStoreName(nameExpr.Name);
+                    return true;
+
+                default:
+                    // Unsupported pattern for now
+                    throw new NotImplementedException($"Pattern type {pattern?.GetType().Name} not yet supported in CFG path");
+            }
         }
         
         

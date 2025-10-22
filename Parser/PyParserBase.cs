@@ -798,15 +798,15 @@ namespace SharpPy.Generated
         /// </summary>
         protected T? CheckVersion<T>(int version, string message, T? node) where T : class
         {
-            // Python 3.12 uses version 6 (PY_MINOR_VERSION = 12, internal version = 6)
-            // SharpPy targets Python 3.12, so all features are enabled
+            // SharpPy targets Python 3.12, so all features up to 3.12 are enabled
+            // version parameter is the Python minor version (e.g., 10 for Python 3.10, 12 for Python 3.12)
             // In CPython, this would raise RAISE_SYNTAX_ERROR_STARTING_FROM for older versions
-            const int CURRENT_VERSION = 6; // Python 3.12
+            const int CURRENT_VERSION = 12; // Python 3.12
 
             if (version > CURRENT_VERSION)
             {
                 // Feature requires a newer Python version
-                throw new SyntaxErrorException($"{message} requires Python 3.{version + 6} or newer");
+                throw new SyntaxErrorException($"{message} requires Python 3.{version} or newer");
             }
 
             return node;
