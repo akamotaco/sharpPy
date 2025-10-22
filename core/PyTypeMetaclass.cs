@@ -951,6 +951,7 @@ namespace SharpPy
             if (instance == null || instance == PyNone.Instance)
                 return this;
 
+            // CPython 3.12: Handle both PyClass and PyType
             if (instance is PyClass pyClass)
             {
                 // CPython: Check ClassDict first, then fallback to tp_name
@@ -959,6 +960,12 @@ namespace SharpPy
 
                 // Fallback to Name property
                 return new PyString(pyClass.Name);
+            }
+
+            if (instance is PyType pyType)
+            {
+                // PyType stores name in Name property
+                return new PyString(pyType.Name);
             }
 
             return PyNone.Instance;

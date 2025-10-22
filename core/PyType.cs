@@ -1521,10 +1521,9 @@ namespace SharpPy
                 // Found in TypeDict - check if it's a descriptor
                 if (typeDictAttr is IDescriptor localDescriptor)
                 {
-                    // CPython 3.12: When getting type's own attributes (like __name__),
-                    // pass the type itself as instance, not NULL
-                    // This allows descriptors like __name__ to access the type object
-                    return localDescriptor.Get(this, metatype);
+                    // CPython 3.12: NULL 2nd argument indicates the descriptor was
+                    // found on the target object itself (or a base)
+                    return localDescriptor.Get(null, this);
                 }
                 return typeDictAttr;
             }
@@ -1535,7 +1534,7 @@ namespace SharpPy
             {
                 if (typeAttr is IDescriptor localDescriptor)
                 {
-                    return localDescriptor.Get(this, metatype);
+                    return localDescriptor.Get(null, this);
                 }
                 return typeAttr;
             }
