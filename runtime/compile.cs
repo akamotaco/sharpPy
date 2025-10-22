@@ -6806,9 +6806,9 @@ namespace SharpPy
                 EmitStoreName(forTupleStmt.Targets[i]);
             }
             
-            // 5. Set up loop context with FOR_ITER tracking
-            var breakLabel = CreateLabel("for_break");
-            var continueLabel = CreateLabel("for_continue");
+            // 5. Set up loop context with FOR_ITER tracking (CFG path)
+            var breakLabel = _instructionSequence.NewLabel();
+            var continueLabel = _instructionSequence.NewLabel();
             PushLoopContext(breakLabel, continueLabel, forIterInstruction);
             
             // 6. Execute loop body
@@ -6817,8 +6817,8 @@ namespace SharpPy
                 CompileStatement(stmt);
             }
             
-            // 7. Mark continue label
-            MarkLabel(continueLabel);
+            // 7. Mark continue label (CFG path)
+            _instructionSequence.UseLabel(continueLabel);
             
             // 8. Jump back to FOR_ITER - CPython 3.12 style relative offset
             // CPython 3.12: 통일된 JUMP_BACKWARD oparg 계산 사용
@@ -6846,8 +6846,8 @@ namespace SharpPy
                 }
             }
 
-            // 11. Mark break label
-            MarkLabel(breakLabel);
+            // 11. Mark break label (CFG path)
+            _instructionSequence.UseLabel(breakLabel);
 
             // 12. Pop loop context (FOR_ITER 패치가 자동으로 수행됨)
             PopLoopContext();
@@ -6872,9 +6872,9 @@ namespace SharpPy
             // Now we need to compile the complex target assignment
             CompileComplexAssignTarget(forComplexStmt.Target);
             
-            // 4. Set up loop context with FOR_ITER tracking
-            var breakLabel = CreateLabel("for_break");
-            var continueLabel = CreateLabel("for_continue");
+            // 4. Set up loop context with FOR_ITER tracking (CFG path)
+            var breakLabel = _instructionSequence.NewLabel();
+            var continueLabel = _instructionSequence.NewLabel();
             PushLoopContext(breakLabel, continueLabel, forIterInstruction);
             
             // 5. Execute loop body
@@ -6883,8 +6883,8 @@ namespace SharpPy
                 CompileStatement(stmt);
             }
             
-            // 6. Mark continue label
-            MarkLabel(continueLabel);
+            // 6. Mark continue label (CFG path)
+            _instructionSequence.UseLabel(continueLabel);
             
             // 7. Jump back to FOR_ITER - CPython 3.12 style relative offset
             int currentPos = _instructions.Count;
@@ -6911,8 +6911,8 @@ namespace SharpPy
                 }
             }
 
-            // 10. Mark break label
-            MarkLabel(breakLabel);
+            // 10. Mark break label (CFG path)
+            _instructionSequence.UseLabel(breakLabel);
 
             // 11. Pop loop context (FOR_ITER 패치가 자동으로 수행됨)
             PopLoopContext();
@@ -7599,13 +7599,18 @@ namespace SharpPy
         
         /// <summary>
         /// CPython 3.12: Compile pattern matching using proper opcodes
+        /// Corresponds to CPython's compiler_pattern(struct compiler *c, pattern_ty p, pattern_context *pc)
         /// Returns true if pattern was compiled successfully, false otherwise
         /// </summary>
-        private bool CompilePatternMatch(Expression pattern, Label failLabel)
+        private bool CompilePatternMatch(Expression pattern, PatternContext pc)
         {
             #if DEBUG_LOG
             Console.WriteLine($"🔍 CompilePatternMatch: {pattern?.GetType().Name} - {pattern}");
             #endif
+
+            // Extract fail label from pattern context
+            var failLabel = pc.GetFailLabel();
+
             switch (pattern)
             {
                 case ConstantExpression constExpr:
@@ -7614,7 +7619,7 @@ namespace SharpPy
                     CompileExpression(constExpr);
                     EmitComparison(CompareOp.EQ);
                     // Stack: [comparison_result]
-                    EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                    _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                     // Stack: [] (comparison result consumed by jump)
                     return true;
                 
@@ -7638,7 +7643,7 @@ namespace SharpPy
                     EmitInstruction(ByteCodeOp.COPY, 1); // Copy subject for variable binding
                     
                     // Compile the inner pattern, which will consume one copy of subject
-                    if (!CompilePatternMatch(asPattern.Pattern, failLabel))
+                    if (!CompilePatternMatch(asPattern.Pattern, pc))
                     {
                         return false;
                     }
@@ -7654,14 +7659,14 @@ namespace SharpPy
                     Console.WriteLine($"🔍 BinOpExpression OR converted to OrPattern: {binaryOp.Left} | {binaryOp.Right}");
                     #endif
                     var binaryPatterns = new List<Expression> { binaryOp.Left, binaryOp.Right };
-                    return CompileOrPatternLogic(binaryPatterns, failLabel);
+                    return CompileOrPatternLogic(binaryPatterns, pc);
                     
                 case OrPattern orPattern:
                     // CPython 3.12: Or patterns (PEP 634)
                     #if DEBUG_LOG
                     Console.WriteLine($"🔍 OrPattern detected with {orPattern.Patterns.Count} patterns");
                     #endif
-                    return CompileOrPatternLogic(orPattern.Patterns, failLabel);
+                    return CompileOrPatternLogic(orPattern.Patterns, pc);
                     
                     // For simple constant or patterns like: case 1 | 2 | 3:
                     // Generate: subject == 1 or subject == 2 or subject == 3
@@ -7725,7 +7730,7 @@ namespace SharpPy
                             else
                             {
                                 // Last comparison - if false, jump to fail
-                                EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                                _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                             }
                         }
                         
@@ -7789,7 +7794,7 @@ namespace SharpPy
                                 else
                                 {
                                     // Last comparison - if false, jump to fail
-                                    EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                                    _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                                 }
                             }
                             
@@ -7808,21 +7813,21 @@ namespace SharpPy
                     #if DEBUG_LOG
                     Console.WriteLine($"🔍 SequencePattern: {sequencePattern.Patterns.Count} patterns");
                     #endif
-                    return CompileSequencePattern(sequencePattern, failLabel);
+                    return CompileSequencePattern(sequencePattern, pc);
                     
                 case MappingPattern mappingPattern:
                     // CPython 3.12: Dictionary pattern matching {"key": value}
                     #if DEBUG_LOG
                     Console.WriteLine($"🔍 MappingPattern: {mappingPattern.Patterns.Count} patterns");
                     #endif
-                    return CompileMappingPattern(mappingPattern, failLabel);
+                    return CompileMappingPattern(mappingPattern, pc);
                     
                 case CallExpression callExpr:
                     // CPython 3.12: Class pattern matching Point(x, y) -> MATCH_CLASS
                     #if DEBUG_LOG
                     Console.WriteLine($"🔍 CallExpression (class pattern): {callExpr}");
                     #endif
-                    return CompileClassPattern(callExpr, failLabel);
+                    return CompileClassPattern(callExpr, pc);
                     
                 default:
                     // Unsupported pattern type for now - fallback to old system
@@ -7834,16 +7839,20 @@ namespace SharpPy
         /// CPython 3.12: Compile pattern matching for Guard patterns - preserves subject on stack
         /// This is similar to CompilePatternMatch but designed for Guard context where subject must remain
         /// </summary>
-        private bool CompilePatternMatchForGuard(Expression pattern, Label failLabel)
+        private bool CompilePatternMatchForGuard(Expression pattern, PatternContext pc)
         {
             // Console.WriteLine($"🔍 CompilePatternMatchForGuard: {pattern?.GetType().Name} - {pattern}");
+
+            // Extract fail label from pattern context
+            var failLabel = pc.GetFailLabel();
+
             switch (pattern)
             {
                 case ConstantExpression constExpr:
                     // Guard constant pattern: subject is already copied, so consume the copy for comparison
                     CompileExpression(constExpr);
                     EmitComparison(CompareOp.EQ);
-                    EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                    _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                     return true;
                 
                 case NameExpression nameExpr when nameExpr.Name == "_":
@@ -7861,34 +7870,37 @@ namespace SharpPy
                 default:
                     // For other patterns, fall back to regular pattern matching
                     // This might not work perfectly but provides basic functionality
-                    return CompilePatternMatch(pattern, failLabel);
+                    return CompilePatternMatch(pattern, pc);
             }
         }
         
         /// <summary>
         /// Compile sequence pattern matching like [1, 2, *rest]
         /// </summary>
-        private bool CompileSequencePattern(SequencePattern pattern, Label failLabel)
+        private bool CompileSequencePattern(SequencePattern pattern, PatternContext pc)
         {
+            // Extract fail label from pattern context
+            var failLabel = pc.GetFailLabel();
+
             var patterns = pattern.Patterns;
-            
+
             // Check if pattern has star expressions
             bool hasStarPattern = patterns.Any(p => p is StarPattern);
             int starIndex = -1;
             int countBefore = 0, countAfter = 0;
-            
+
             if (hasStarPattern)
             {
                 starIndex = patterns.FindIndex(p => p is StarPattern);
                 countBefore = starIndex;
                 countAfter = patterns.Count - starIndex - 1;
             }
-            
+
             // Stack: [subject] (the list/sequence to match)
-            
+
             // 1. Check if subject is a sequence (CPython MATCH_SEQUENCE)
             EmitInstruction(ByteCodeOp.MATCH_SEQUENCE);
-            EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
             
             // 2. Check length constraints
             EmitInstruction(ByteCodeOp.GET_LEN);
@@ -7898,14 +7910,14 @@ namespace SharpPy
                 // For star patterns: len >= (before + after)
                 EmitLoadConst(new PyInt(countBefore + countAfter));
                 EmitComparison(CompareOp.GE);
-                EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
             }
             else
             {
                 // For exact patterns: len == pattern_count
                 EmitLoadConst(new PyInt(patterns.Count));
                 EmitComparison(CompareOp.EQ);
-                EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
             }
             
             // 3. Unpack and match elements
@@ -7928,7 +7940,7 @@ namespace SharpPy
                     {
                         CompileExpression(constExpr);
                         EmitComparison(CompareOp.EQ);
-                        EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                        _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                     }
                     else if (p is NameExpression nameExpr)
                     {
@@ -7937,7 +7949,7 @@ namespace SharpPy
                     else
                     {
                         // Handle nested patterns (mapping, sequence, etc.) recursively
-                        if (!CompilePatternMatch(p, failLabel))
+                        if (!CompilePatternMatch(p, pc))
                         {
                             return false; // Nested pattern compilation failed
                         }
@@ -7955,12 +7967,12 @@ namespace SharpPy
                 {
                     var patternIdx = starIndex + 1 + i;  // patterns after star
                     var p = patterns[patternIdx];
-                    
+
                     if (p is ConstantExpression constExpr)
                     {
                         CompileExpression(constExpr);
                         EmitComparison(CompareOp.EQ);
-                        EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                        _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                     }
                     else if (p is NameExpression nameExpr)
                     {
@@ -7969,7 +7981,7 @@ namespace SharpPy
                     else
                     {
                         // Handle nested patterns (mapping, sequence, etc.) recursively
-                        if (!CompilePatternMatch(p, failLabel))
+                        if (!CompilePatternMatch(p, pc))
                         {
                             return false; // Nested pattern compilation failed
                         }
@@ -7980,7 +7992,7 @@ namespace SharpPy
             {
                 // Use regular UNPACK_SEQUENCE for non-star patterns
                 EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, patterns.Count);
-                
+
                 // Match each pattern (CPython-compatible order)
                 // UNPACK_SEQUENCE pushes elements, then we match in forward order
                 for (int i = 0; i < patterns.Count; i++)
@@ -7991,7 +8003,7 @@ namespace SharpPy
                         // CPython directly compares without DUP_TOP
                         CompileExpression(constExpr);
                         EmitComparison(CompareOp.EQ);
-                        EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                        _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                     }
                     else if (p is NameExpression nameExpr)
                     {
@@ -8000,7 +8012,7 @@ namespace SharpPy
                     else
                     {
                         // Handle nested patterns (mapping, sequence, etc.) recursively
-                        if (!CompilePatternMatch(p, failLabel))
+                        if (!CompilePatternMatch(p, pc))
                         {
                             return false; // Nested pattern compilation failed
                         }
@@ -8014,19 +8026,22 @@ namespace SharpPy
         /// <summary>
         /// Compile class pattern matching like Point(x, y) using MATCH_CLASS
         /// </summary>
-        private bool CompileClassPattern(CallExpression callExpr, Label failLabel)
+        private bool CompileClassPattern(CallExpression callExpr, PatternContext pc)
         {
+            // Extract fail label from pattern context
+            var failLabel = pc.GetFailLabel();
+
             // CPython 3.12: Class pattern matching Point(x, y) -> MATCH_CLASS
             // We need to preserve the subject on stack for CompileMatch's POP_TOP
-            
+
             // 1. Duplicate subject for MATCH_CLASS (which consumes it)
             // Stack: [subject] -> [subject, subject]
             EmitInstruction(ByteCodeOp.COPY, 1);
-            
-            // 2. Load the class to match against  
+
+            // 2. Load the class to match against
             // Stack: [subject, subject] -> [subject, subject, class]
             CompileExpression(callExpr.Function); // Load Point class
-            
+
             // 3. Handle keyword arguments - extract keyword names for MATCH_CLASS
             var keywordArgs = new List<KeywordExpression>();
             var keywordNames = new List<PyObject>();
@@ -8051,16 +8066,16 @@ namespace SharpPy
             // Load keyword names tuple - CPython 3.12 compatible
             var keywordTuple = new PyTuple(keywordNames.ToArray());
             EmitLoadConst(keywordTuple);
-            
+
             // 4. Use MATCH_CLASS with argument count (consumes subject, class, kw_names)
             // Stack: [subject, subject, class, kw_names] -> [subject, result_tuple_or_none]
             var argumentCount = callExpr.Arguments.Count;
             EmitInstruction(ByteCodeOp.MATCH_CLASS, argumentCount);
-            
+
             // 5. Check if match succeeded (None = failure, tuple = success)
             // Stack: [subject, result_tuple_or_none] -> [subject, result_tuple_or_none, result_tuple_or_none]
             EmitInstruction(ByteCodeOp.COPY, 1); // Duplicate result for check
-            EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_NONE, failLabel);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_NONE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
             
             // 6. Handle keyword arguments - CPython 3.12 approach
             if (keywordArgs.Count > 0)
@@ -8091,7 +8106,7 @@ namespace SharpPy
                         EmitInstruction(ByteCodeOp.COMPARE_OP, (int)CompareOp.EQ); // CPython 3.12: == is EQ(40)
 
                         // Stack: [subject, ..., comparisonResult] -> [subject, ...]
-                        EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                        _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                     }
                 }
             }
@@ -8129,7 +8144,7 @@ namespace SharpPy
                             EmitInstruction(ByteCodeOp.COMPARE_OP, (int)CompareOp.EQ);
 
                             // Stack: [subject, ..., comparisonResult] -> [subject, ...]
-                            EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                         }
                     }
                 }
@@ -8144,7 +8159,7 @@ namespace SharpPy
             return true;
         }
         
-        private bool CompileOrPatternLogic(List<Expression> patterns, Label failLabel)
+        private bool CompileOrPatternLogic(List<Expression> patterns, PatternContext pc)
         {
             #if DEBUG_LOG
             Console.WriteLine($"🔍 CompileOrPatternLogic: {patterns.Count} patterns");
@@ -8155,11 +8170,14 @@ namespace SharpPy
                 Console.WriteLine($"  Pattern {i}: {patterns[i]}");
                 #endif
             }
-            
+
+            // Extract fail label from pattern context
+            var failLabel = pc.GetFailLabel();
+
             if (patterns.Count == 1)
             {
                 // Single pattern - just delegate
-                return CompilePatternMatch(patterns[0], failLabel);
+                return CompilePatternMatch(patterns[0], pc);
             }
             
             // Flatten nested OR patterns to handle ((1 | 2) | 3) properly
@@ -8178,15 +8196,15 @@ namespace SharpPy
             
             // CPython 3.12: OR pattern with proper jump logic
             // Stack: [subject] - preserve throughout
-            
+
             // Create success label that all patterns jump to when they match
-            var successLabel = CreateLabel("or_pattern_success");
-            
+            var successLabel = _instructionSequence.NewLabel();
+
             // Create labels for each pattern attempt
-            var nextPatternLabels = new List<Label>();
+            var nextPatternLabels = new List<SharpPy.Label>();
             for (int i = 0; i < flattenedPatterns.Count - 1; i++)
             {
-                nextPatternLabels.Add(CreateLabel($"or_next_{i}"));
+                nextPatternLabels.Add(_instructionSequence.NewLabel());
             }
             
             for (int i = 0; i < flattenedPatterns.Count; i++)
@@ -8194,7 +8212,7 @@ namespace SharpPy
                 if (i > 0)
                 {
                     // Place the label for this pattern attempt
-                    PlaceLabel(nextPatternLabels[i - 1]);
+                    _instructionSequence.UseLabel(nextPatternLabels[i - 1]);
                 }
                 
                 var pattern = flattenedPatterns[i];
@@ -8211,37 +8229,42 @@ namespace SharpPy
                     if (isLastPattern)
                     {
                         // Last pattern - if false, fail the entire OR
-                        EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+                        _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                         // If true, OR pattern succeeds - jump to success
-                        EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, successLabel);
+                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, successLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                     }
                     else
                     {
                         // Not last pattern - if false, try next pattern
-                        EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, nextLabel);
+                        _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, nextLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                         // If true, OR pattern succeeds - jump to success
-                        EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, successLabel);
+                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, successLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                     }
                 }
                 else
                 {
                     // For non-constant patterns, delegate to individual pattern matching
-                    if (!CompilePatternMatch(pattern, nextLabel))
+                    // Create a new context with the next label as the fail label
+                    var patternContext = pc.Clone();
+                    patternContext.FailPop.Clear();
+                    patternContext.FailPop.Add(nextLabel);
+
+                    if (!CompilePatternMatch(pattern, patternContext))
                     {
                         // Pattern compilation failed
-                        EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, failLabel);
+                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                         return false;
                     }
                     else
                     {
                         // Pattern matched - jump to success
-                        EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, successLabel);
+                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, successLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                     }
                 }
             }
             
             // Place the success label - all patterns that succeed jump here
-            PlaceLabel(successLabel);
+            _instructionSequence.UseLabel(successLabel);
             return true;
         }
         
@@ -8285,13 +8308,16 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12: Compile dictionary pattern matching {"key": value}
         /// </summary>
-        private bool CompileMappingPattern(MappingPattern pattern, Label failLabel)
+        private bool CompileMappingPattern(MappingPattern pattern, PatternContext pc)
         {
+            // Extract fail label from pattern context
+            var failLabel = pc.GetFailLabel();
+
             // CPython 3.12: Dictionary pattern matching with MATCH_MAPPING, MATCH_KEYS
-            // Example: case {"key": value}: 
+            // Example: case {"key": value}:
             // Generates:
             //   MATCH_MAPPING      - check if subject is mapping
-            //   GET_LEN            - get mapping length  
+            //   GET_LEN            - get mapping length
             //   LOAD_CONST >= 1    - check minimum key count
             //   COMPARE_OP >=      - compare lengths
             //   POP_JUMP_IF_FALSE fail
@@ -8299,19 +8325,19 @@ namespace SharpPy
             //   MATCH_KEYS         - check if keys exist, return values
             //   UNPACK_SEQUENCE    - unpack matched values
             //   STORE_NAME value   - bind to variables
-            
+
             // Stack: [subject]
-            
+
             // Step 1: Check if subject is a mapping (dict-like)
             EmitInstruction(ByteCodeOp.MATCH_MAPPING);
-            EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
             // Stack: [subject] (MATCH_MAPPING leaves subject on stack)
-            
+
             // Step 2: Check minimum length (number of required keys)
             EmitInstruction(ByteCodeOp.GET_LEN);
             CompileExpression(new ConstantExpression(new PyInt(pattern.Patterns.Count)));
             EmitComparison(CompareOp.GE); // >= required count
-            EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
             // Stack: [subject]
             
             // Step 3: Create tuple of required keys and match them
@@ -8325,10 +8351,10 @@ namespace SharpPy
             
             EmitInstruction(ByteCodeOp.MATCH_KEYS);
             // Stack: [subject, values_tuple_or_None]
-            
+
             // Step 4: Check if keys matched (MATCH_KEYS returns None if no match)
             EmitInstruction(ByteCodeOp.COPY, 1); // Copy result for None check
-            EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_NONE, failLabel);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_NONE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
             // Stack: [subject, values_tuple]
             
             // Step 5: Unpack values and bind to pattern variables
@@ -8351,13 +8377,18 @@ namespace SharpPy
                 {
                     // Handle complex patterns recursively (sequence, mapping, etc.)
                     // Stack has value for this pattern, need to match it
-                    var subFailLabel = CreateLabel("mapping_pattern_fail");
-                    
+                    var subFailLabel = _instructionSequence.NewLabel();
+
+                    // Create a new context with the sub-fail label
+                    var subPatternContext = pc.Clone();
+                    subPatternContext.FailPop.Clear();
+                    subPatternContext.FailPop.Add(subFailLabel);
+
                     // Compile the nested pattern recursively
-                    if (!CompilePatternMatch(valuePattern, subFailLabel))
+                    if (!CompilePatternMatch(valuePattern, subPatternContext))
                     {
                         // If nested pattern compilation fails, cleanup and fail
-                        MarkLabel(subFailLabel);
+                        _instructionSequence.UseLabel(subFailLabel);
                         return false;
                     }
                     
@@ -9506,7 +9537,62 @@ namespace SharpPy
         {
             return _loopStack.Count > 0 ? _loopStack.Peek() : null;
         }
-        
+
+        /// <summary>
+        /// Pattern matching context - corresponds to CPython's pattern_context
+        /// Python/compile.c: pattern_context structure
+        /// Used to manage pattern matching state and failure labels
+        /// </summary>
+        private class PatternContext
+        {
+            /// <summary>
+            /// Name captures - corresponds to CPython's stores (PyObject*)
+            /// </summary>
+            public List<string> Stores { get; set; } = new List<string>();
+
+            /// <summary>
+            /// Allow irrefutable pattern - corresponds to CPython's allow_irrefutable
+            /// </summary>
+            public bool AllowIrrefutable { get; set; } = true;
+
+            /// <summary>
+            /// Failure jump labels - corresponds to CPython's fail_pop (jump_target_label*)
+            /// Array of labels to jump to when pattern matching fails
+            /// </summary>
+            public List<SharpPy.Label> FailPop { get; set; } = new List<SharpPy.Label>();
+
+            /// <summary>
+            /// Stack top preservation count - corresponds to CPython's on_top
+            /// Number of values to keep on top of the stack
+            /// </summary>
+            public int OnTop { get; set; } = 0;
+
+            /// <summary>
+            /// Create a deep copy of this context
+            /// </summary>
+            public PatternContext Clone()
+            {
+                return new PatternContext
+                {
+                    Stores = new List<string>(Stores),
+                    AllowIrrefutable = AllowIrrefutable,
+                    FailPop = new List<SharpPy.Label>(FailPop),
+                    OnTop = OnTop
+                };
+            }
+
+            /// <summary>
+            /// Get the current failure label (top of fail_pop stack)
+            /// Corresponds to CPython's pc->fail_pop[pc->fail_pop_size - 1]
+            /// </summary>
+            public SharpPy.Label GetFailLabel()
+            {
+                if (FailPop.Count == 0)
+                    throw new InvalidOperationException("Pattern context has no failure label");
+                return FailPop[FailPop.Count - 1];
+            }
+        }
+
         /// <summary>
         /// FOR 루프 컨텍스트 내부인지 확인
         /// </summary>
