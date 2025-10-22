@@ -1109,12 +1109,16 @@ namespace SharpPy
                 Console.WriteLine($"\u2705 컴파일 완료: {_instructions.Count}개 명령어");
 #endif
             }
-            
-            // 바이트코드 최적화 적용
-            var optimizer = new ByteCodeOptimizer(_enable_optimizer);
-            var optimizedCode = optimizer.OptimizeCode(codeObject);
-            
-            return optimizedCode;
+
+            // 바이트코드 최적화: CFG 경로는 이미 최적화됨, LEGACY만 처리
+            if (!_useInstructionSequence)
+            {
+                var optimizer = new ByteCodeOptimizer(_enable_optimizer);
+                var optimizedCode = optimizer.OptimizeCode(codeObject);
+                return optimizedCode;
+            }
+
+            return codeObject;
         }
 
         /// <summary>
@@ -1715,17 +1719,24 @@ namespace SharpPy
             
             // CPython 3.12: 지연된 exception handler들을 바이트코드 끝에 생성
             GeneratePendingExceptionHandlers();
-            
-            // 바이트코드 최적화 적용
+
+            // 바이트코드 최적화: CFG 경로는 이미 최적화됨, LEGACY만 처리
+            if (!_useInstructionSequence)
+            {
 #if DEBUG_LOG
-            Console.WriteLine($"🔧 메인 컴파일러에서 최적화 호출: _enable_optimizer={_enable_optimizer}");
+                Console.WriteLine($"🔧 메인 컴파일러에서 최적화 호출: _enable_optimizer={_enable_optimizer}");
 #endif
-            var optimizer = new ByteCodeOptimizer(_enable_optimizer);
-            var optimizedCode = optimizer.OptimizeCode(codeObject);
-            
+                var optimizer = new ByteCodeOptimizer(_enable_optimizer);
+                var optimizedCode = optimizer.OptimizeCode(codeObject);
+
+                _isInFunction = false; // Reset function context
+                _currentFunctionName = null; // Reset function name
+                return optimizedCode;
+            }
+
             _isInFunction = false; // Reset function context
             _currentFunctionName = null; // Reset function name
-            return optimizedCode;
+            return codeObject;
         }
 
         /// <summary>
@@ -1825,8 +1836,12 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.RETURN_CONST, noneConstIndex);
             }
 
+            // CPython 3.12: Get final instructions (supports both CFG and LEGACY paths)
+            // CRITICAL: Must call GetFinalInstructions() BEFORE checking for generators or inserting prefix instructions
+            var finalInstructions = GetFinalInstructions();
+
             // CPython 3.12: Generator detection - add CO_GENERATOR flag if YIELD_VALUE exists
-            bool hasYield = _instructions.Any(inst => inst.OpCode == ByteCodeOp.YIELD_VALUE);
+            bool hasYield = finalInstructions.Any(inst => inst.OpCode == ByteCodeOp.YIELD_VALUE);
             if (hasYield && (flags & PyCodeObject.CO_GENERATOR) == 0)
             {
 #if DEBUG_COMPILER_LOG
@@ -1851,7 +1866,7 @@ namespace SharpPy
 #if DEBUG_COMPILER_LOG
                 Console.WriteLine($"  → Inserting COPY_FREE_VARS for {freeVars.Count} free variables at position {insertPos}");
 #endif
-                _instructions.Insert(insertPos, new ByteCodeInstruction(ByteCodeOp.COPY_FREE_VARS, freeVars.Count));
+                finalInstructions.Insert(insertPos, new ByteCodeInstruction(ByteCodeOp.COPY_FREE_VARS, freeVars.Count));
                 insertPos++; // Next insertion will be after COPY_FREE_VARS
             }
 
@@ -1862,7 +1877,7 @@ namespace SharpPy
 #if DEBUG_COMPILER_LOG
                 Console.WriteLine($"  → Inserting MAKE_CELL for {cellVar} (index {cellIndex}) at position {insertPos}");
 #endif
-                _instructions.Insert(insertPos, new ByteCodeInstruction(ByteCodeOp.MAKE_CELL, cellIndex));
+                finalInstructions.Insert(insertPos, new ByteCodeInstruction(ByteCodeOp.MAKE_CELL, cellIndex));
                 insertPos++; // Next insertion will be after this MAKE_CELL
             }
 
@@ -1873,10 +1888,10 @@ namespace SharpPy
                 Console.WriteLine($"🔍 Inserting generator prefix for {name} at position {insertPos}");
 #endif
                 // Insert RETURN_GENERATOR at current position
-                _instructions.Insert(insertPos, new ByteCodeInstruction(ByteCodeOp.RETURN_GENERATOR, 0));
+                finalInstructions.Insert(insertPos, new ByteCodeInstruction(ByteCodeOp.RETURN_GENERATOR, 0));
                 insertPos++;
                 // Insert POP_TOP right after RETURN_GENERATOR
-                _instructions.Insert(insertPos, new ByteCodeInstruction(ByteCodeOp.POP_TOP, 0));
+                finalInstructions.Insert(insertPos, new ByteCodeInstruction(ByteCodeOp.POP_TOP, 0));
 #if DEBUG_COMPILER_LOG
                 Console.WriteLine($"  → Inserted RETURN_GENERATOR + POP_TOP at positions {insertPos-1}-{insertPos}");
 #endif
@@ -1884,7 +1899,7 @@ namespace SharpPy
 
             // Create code object
             var codeObject = new PyCodeObject(
-                name, _instructions, _constants, _names, _varNames,
+                name, finalInstructions, _constants, _names, _varNames,
                 finalArgCount, posonlyArgCount, kwonlyArgCount,
                 freeVars, cellVars, defaults, kwDefaults,
                 flags, _currentFileName, _sourceLines
@@ -1902,16 +1917,24 @@ namespace SharpPy
             // CPython 3.12: Generate pending exception handlers at end of bytecode
             GeneratePendingExceptionHandlers();
 
-            // Apply bytecode optimization (includes RETURN_GENERATOR insertion for generators)
+            // 바이트코드 최적화: CFG 경로는 이미 최적화됨, LEGACY만 처리
+            if (!_useInstructionSequence)
+            {
+                // Apply bytecode optimization (includes RETURN_GENERATOR insertion for generators)
 #if DEBUG_COMPILER_LOG
-            Console.WriteLine($"🔧 Calling optimizer: _enable_optimizer={_enable_optimizer}");
+                Console.WriteLine($"🔧 Calling optimizer: _enable_optimizer={_enable_optimizer}");
 #endif
-            var optimizer = new ByteCodeOptimizer(_enable_optimizer);
-            var optimizedCode = optimizer.OptimizeCode(codeObject);
+                var optimizer = new ByteCodeOptimizer(_enable_optimizer);
+                var optimizedCode = optimizer.OptimizeCode(codeObject);
+
+                _isInFunction = false;
+                _currentFunctionName = null;
+                return optimizedCode;
+            }
 
             _isInFunction = false;
             _currentFunctionName = null;
-            return optimizedCode;
+            return codeObject;
         }
 
         /// <summary>
@@ -2337,6 +2360,9 @@ namespace SharpPy
                 }
 
                 // Phase 3: CFG → ByteCode (with correct offsets)
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"   🔧 Phase 3: Calling PyAssemble.Assemble...");
+#endif
                 var assembled = PyAssemble.Assemble(cfg, _currentFileName ?? "");
 #if DEBUG_COMPILER_LOG
                 Console.WriteLine($"   Assembled {assembled.Instructions.Count} instructions");
@@ -5830,6 +5856,7 @@ namespace SharpPy
         {
             // Save current compilation state
             var savedInstructions = _instructions;
+            var savedInstructionSequence = _instructionSequence;  // CFG PATH: Save InstructionSequence
             var savedConstants = _constants;
             var savedNames = _names;
             var savedVarNames = _varNames;
@@ -5886,6 +5913,7 @@ namespace SharpPy
 
             // Initialize new compilation state for class body
             _instructions = new List<ByteCodeInstruction>();
+            _instructionSequence = _useInstructionSequence ? new InstructionSequence() : null;  // CFG PATH: New InstructionSequence
             _constants = new List<PyObject>();
             _names = new List<string>();
             _varNames = new List<string>();
@@ -5982,11 +6010,14 @@ namespace SharpPy
                 // Return None at the end
                 EmitLoadConst(PyNone.Instance);
                 EmitInstruction(ByteCodeOp.RETURN_VALUE);
-                
+
+                // CPython 3.12: Get final instructions (supports both CFG and LEGACY paths)
+                var finalInstructions = GetFinalInstructions();
+
                 // Create code object for class body with free variables
                 var codeObject = new PyCodeObject(
                     className,
-                    _instructions.ToList(),
+                    finalInstructions,
                     _constants.ToList(),
                     _names.ToList(),
                     _varNames.ToList(),
@@ -6008,6 +6039,7 @@ namespace SharpPy
             {
                 // Restore compilation state
                 _instructions = savedInstructions;
+                _instructionSequence = savedInstructionSequence;  // CFG PATH: Restore InstructionSequence
                 _constants = savedConstants;
                 _names = savedNames;
                 _varNames = savedVarNames;
@@ -7592,27 +7624,205 @@ namespace SharpPy
         }
         private void CompileWith(WithStatement withStmt)
         {
+            if (_useInstructionSequence)
+            {
 #if DEBUG_COMPILER_LOG
-            Console.WriteLine($"🔶 [LEGACY] CompileWith: Using offset-based _instructions (CFG status unclear)");
+                Console.WriteLine($"🔷 [CFG] CompileWith: Using InstructionSequence (CPython 3.12 CFG path)");
 #endif
-            _legacyPathCount++;
-
-            // CPython 3.12 compatible implementation
-            // Support both single and multiple context managers
-            if (withStmt.Items.Count == 1)
-            {
-                // Single context manager - original implementation
-                CompileSingleWith(withStmt);
-            }
-            else if (withStmt.Items.Count > 1)
-            {
-                // Multiple context managers - transform to nested with statements
-                CompileMultipleWith(withStmt);
+                _cfgPathCount++;
+                CompileWithCFG(withStmt);
             }
             else
             {
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔶 [LEGACY] CompileWith: Using offset-based _instructions (CFG status unclear)");
+#endif
+                _legacyPathCount++;
+
+                // CPython 3.12 compatible implementation
+                // Support both single and multiple context managers
+                if (withStmt.Items.Count == 1)
+                {
+                    // Single context manager - original implementation
+                    CompileSingleWith(withStmt);
+                }
+                else if (withStmt.Items.Count > 1)
+                {
+                    // Multiple context managers - transform to nested with statements
+                    CompileMultipleWith(withStmt);
+                }
+                else
+                {
+                    throw PySyntaxError.Create("with statement requires at least one context manager");
+                }
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12 CFG: Compile with statement using InstructionSequence
+        /// Supports both single and multiple context managers
+        /// </summary>
+        private void CompileWithCFG(WithStatement withStmt)
+        {
+            if (withStmt.Items.Count == 0)
+            {
                 throw PySyntaxError.Create("with statement requires at least one context manager");
             }
+
+            if (withStmt.Items.Count == 1)
+            {
+                // Single context manager
+                CompileSingleWithCFG(withStmt);
+            }
+            else
+            {
+                // Multiple context managers - transform to nested with statements
+                CompileMultipleWithCFG(withStmt);
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12 CFG: Compile single context manager
+        /// Uses InstructionSequence labels and exception handler fblocks
+        /// </summary>
+        private void CompileSingleWithCFG(WithStatement withStmt)
+        {
+            var item = withStmt.Items[0];
+
+            // CPython 3.12 pattern with proper exception handling:
+            // 1. Load context manager
+            CompileExpression(item.ContextExpr);
+
+            // 2. BEFORE_WITH: Load __exit__ to stack, call __enter__(), push result
+            EmitInstruction(ByteCodeOp.BEFORE_WITH);
+
+            // 3. CPython 3.12: Handle __enter__ result immediately after BEFORE_WITH
+            if (item.OptionalVars != null)
+            {
+                // Use proper assignment target compilation for correct scoping
+                CompileAssignmentTarget(item.OptionalVars);
+            }
+            else
+            {
+                // Discard __enter__ result if no 'as' clause
+                EmitInstruction(ByteCodeOp.POP_TOP);
+            }
+
+            // 4. Setup exception handler using fblock (CPython 3.12 CFG style)
+            var withCleanupLabel = _instructionSequence.NewLabel();
+            var endLabel = _instructionSequence.NewLabel();
+
+            // Push exception handler fblock - this marks all subsequent instructions
+            // with the handler offset until the fblock is popped
+            var handlerLabelName = $"with_cleanup_{withCleanupLabel.Id}";
+            _fblockStack.Push(new FBlock(
+                type: FBlockType.EXCEPTION_HANDLER,
+                handlerLabel: handlerLabelName,
+                stackDepth: 1,
+                preserveLasti: true
+            ));
+
+            // 5. Execute body (all instructions will be marked with exception handler)
+            foreach (var stmt in withStmt.Body)
+            {
+                CompileStatement(stmt);
+            }
+
+            // 6. Pop exception handler fblock (body complete)
+            _fblockStack.Pop();
+
+            // 7. Normal exit: call __exit__(None, None, None)
+            var noneConstIndex = GetOrAddConstant(PyNone.Instance);
+            EmitInstruction(ByteCodeOp.LOAD_CONST, noneConstIndex);
+            EmitInstruction(ByteCodeOp.LOAD_CONST, noneConstIndex);
+            EmitInstruction(ByteCodeOp.LOAD_CONST, noneConstIndex);
+            EmitInstruction(ByteCodeOp.CALL, 2);  // __exit__(exc_type, exc_val, exc_tb)
+            EmitInstruction(ByteCodeOp.POP_TOP);  // discard __exit__ return value
+
+            // Jump to end
+            _instructionSequence.AddOpWithLabel(
+                ByteCodeOp.JUMP_FORWARD,
+                endLabel,
+                _currentLineNumber,
+                _currentColumnOffset,
+                _currentFileName,
+                GetCurrentExceptHandlerInfo()
+            );
+
+            // 8. Exception handler (CPython 3.12: PUSH_EXC_INFO → WITH_EXCEPT_START)
+            _instructionSequence.UseLabel(withCleanupLabel);
+            EmitInstruction(ByteCodeOp.PUSH_EXC_INFO);
+            EmitInstruction(ByteCodeOp.WITH_EXCEPT_START);
+
+            // Check if exception was suppressed
+            var suppressLabel = _instructionSequence.NewLabel();
+            _instructionSequence.AddOpWithLabel(
+                ByteCodeOp.POP_JUMP_IF_TRUE,
+                suppressLabel,
+                _currentLineNumber,
+                _currentColumnOffset,
+                _currentFileName,
+                GetCurrentExceptHandlerInfo()
+            );
+
+            // Re-raise exception if not suppressed
+            EmitInstruction(ByteCodeOp.RERAISE, 0);
+
+            // Exception suppressed - continue normally (CPython 3.12 compatible)
+            _instructionSequence.UseLabel(suppressLabel);
+            EmitInstruction(ByteCodeOp.POP_TOP);     // Remove suppress boolean
+            EmitInstruction(ByteCodeOp.POP_EXCEPT);  // Remove exception info
+            EmitInstruction(ByteCodeOp.POP_TOP);     // Additional cleanup
+            EmitInstruction(ByteCodeOp.POP_TOP);     // Additional cleanup
+
+            // Mark end label
+            _instructionSequence.UseLabel(endLabel);
+        }
+
+        /// <summary>
+        /// CPython 3.12 CFG: Compile multiple context managers
+        /// Transform to nested with statements recursively
+        /// with a, b, c: body -> with a: (with b: (with c: body))
+        /// </summary>
+        private void CompileMultipleWithCFG(WithStatement withStmt)
+        {
+            if (withStmt.Items.Count < 2)
+            {
+                throw new InvalidOperationException("CompileMultipleWithCFG requires at least 2 context managers");
+            }
+
+            // Take the first context manager
+            var outerItem = withStmt.Items[0];
+
+            // Create inner with statement with remaining context managers
+            var remainingItems = withStmt.Items.Skip(1).ToList();
+            WithStatement innerWith;
+
+            if (remainingItems.Count == 1)
+            {
+                // Base case: create simple with statement for the last context manager
+                innerWith = new WithStatement(
+                    items: remainingItems,
+                    body: withStmt.Body
+                );
+            }
+            else
+            {
+                // Recursive case: create nested with statement
+                innerWith = new WithStatement(
+                    items: remainingItems,
+                    body: withStmt.Body
+                );
+            }
+
+            // Create outer with statement with first context manager and nested inner with as body
+            var outerWith = new WithStatement(
+                items: new List<WithItem> { outerItem },
+                body: new List<Statement> { innerWith }
+            );
+
+            // Compile the transformed outer with statement
+            CompileSingleWithCFG(outerWith);
         }
         
         /// <summary>

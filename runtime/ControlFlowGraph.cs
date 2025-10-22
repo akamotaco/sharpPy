@@ -46,6 +46,9 @@ namespace SharpPy
             List<ByteCodeInstruction> instructions,
             List<ExceptionTableEntry> exceptionTable)
         {
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"🔷 [LEGACY] FromInstructionsAndExceptionTable 호출: {instructions.Count} instructions, {exceptionTable.Count} exception entries");
+#endif
             var cfg = new ControlFlowGraph();
 
             if (instructions.Count == 0)
@@ -246,21 +249,40 @@ namespace SharpPy
         {
             var offsetToBlock = blocks.ToDictionary(b => b.Offset, b => b);
 
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"🔷 [LEGACY LinkBlocks] Linking {blocks.Count} blocks");
+#endif
+
             for (int i = 0; i < blocks.Count; i++)
             {
                 var block = blocks[i];
 
+                // Empty blocks always fall through to next block
                 if (block.Instructions.Count == 0)
                 {
+                    if (i + 1 < blocks.Count)
+                    {
+                        block.Next = blocks[i + 1];
+#if DEBUG_COMPILER_LOG
+                        Console.WriteLine($"🔷 [LEGACY LinkBlocks]   Block {block.BlockId} (empty): Next → Block {block.Next.BlockId}");
+#endif
+                    }
                     continue;
                 }
 
                 var lastInstr = block.Instructions[block.Instructions.Count - 1];
 
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔷 [LEGACY LinkBlocks]   Block {block.BlockId}: {block.Instructions.Count} instrs, last={lastInstr.OpCode}");
+#endif
+
                 // Set fallthrough (next block)
                 if (i + 1 < blocks.Count && !IsUnconditionalJump(lastInstr.OpCode))
                 {
                     block.Next = blocks[i + 1];
+#if DEBUG_COMPILER_LOG
+                    Console.WriteLine($"🔷 [LEGACY LinkBlocks]     Next → Block {block.Next.BlockId}");
+#endif
                 }
 
                 // Set jump successors

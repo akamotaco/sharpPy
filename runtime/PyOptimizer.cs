@@ -170,13 +170,13 @@ namespace SharpPy
         /// </summary>
         public PyCodeObject OptimizeCode(PyCodeObject originalCode)
         {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
             Console.WriteLine($"🔧 ByteCodeOptimizer.OptimizeCode 호출 (CFG-based): _optimizationEnabled={_optimizationEnabled}");
 #endif
 
             if (!_optimizationEnabled)
             {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                 Console.WriteLine($"🚫 최적화 비활성화됨 - 원본 코드 반환 (명령어 수: {originalCode.Instructions.Count})");
 #endif
                 return originalCode;
@@ -184,7 +184,7 @@ namespace SharpPy
 
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                 Console.WriteLine("\n🔧 CPython 3.12 CFG 기반 바이트코드 최적화 시작");
 #endif
             }
@@ -195,7 +195,7 @@ namespace SharpPy
             // TODO: Integrate NEW pipeline when compiler provides InstructionSequence
             // NEW: InstructionSequence → CFG (CPython 3.12 style)
             // LEGACY: ByteCodeInstruction[] + ExceptionTable → CFG
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
             Console.WriteLine($"🔧 Using LEGACY pipeline: ByteCodeInstruction[] + ExceptionTable → CFG");
             Console.WriteLine($"   Instructions: {originalCode.Instructions.Count}, ExceptionTable: {originalCode.ExceptionTable.Count}");
 #endif
@@ -206,7 +206,7 @@ namespace SharpPy
 
             // Phase 2: Optimize CFG
             // CPython의 flowgraph.c:optimize_cfg() 개념
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
             Console.WriteLine($"🔧 Phase 2: Optimizing CFG ({cfg.AllBlocks.Count} blocks)");
 #endif
             _constants = new List<PyObject>(originalCode.Constants);
@@ -215,7 +215,7 @@ namespace SharpPy
 
             // Phase 3: Assemble CFG to bytecode
             // CPython의 assemble.c:assemble() 개념 (NEW: Use Assembler)
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
             Console.WriteLine($"🔧 Phase 3: Assembling CFG to bytecode");
 #endif
             var assembled = PyAssemble.Assemble(cfg, originalCode.FileName);
@@ -227,7 +227,7 @@ namespace SharpPy
 
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                 Console.WriteLine($"✅ CFG 최적화 완료: {originalCount} → {optimizedCount} ({saved} 명령어 절약, {(float)saved / originalCount * 100:F1}% 개선)");
                 Console.WriteLine($"   Exception Table: {optimizedExceptionTable.Count} entries");
 #endif

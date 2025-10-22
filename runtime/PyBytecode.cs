@@ -489,12 +489,26 @@ namespace SharpPy
                 switch (inst.OpCode)
                 {
                     case ByteCodeOp.LOAD_CONST:
-                        extra = $"({FormatConstantForDisplay(Constants[inst.Argument])})";
+                        if (inst.Argument >= 0 && inst.Argument < Constants.Count)
+                        {
+                            extra = $"({FormatConstantForDisplay(Constants[inst.Argument])})";
+                        }
+                        else
+                        {
+                            extra = $"(INVALID INDEX {inst.Argument})";
+                        }
                         break;
                     case ByteCodeOp.LOAD_NAME:
                     case ByteCodeOp.STORE_NAME:
                     case ByteCodeOp.STORE_GLOBAL:
-                        extra = $"({Names[inst.Argument]})";
+                        if (inst.Argument >= 0 && inst.Argument < Names.Count)
+                        {
+                            extra = $"({Names[inst.Argument]})";
+                        }
+                        else
+                        {
+                            extra = $"(INVALID INDEX {inst.Argument})";
+                        }
                         break;
                     case ByteCodeOp.LOAD_GLOBAL:
                         // CPython 3.12: LOAD_GLOBAL oparg encoding: (nameIndex << 1) | pushNull

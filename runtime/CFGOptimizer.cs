@@ -56,6 +56,45 @@ namespace SharpPy
                 }
             }
 
+            // Build mapping: instruction offset → block
+            // Use Block.Offset which is set by PyFlowGraph (instruction sequence index)
+            var offsetToBlock = new Dictionary<int, BasicBlock>();
+            foreach (var b in _cfg.AllBlocks)
+            {
+                offsetToBlock[b.Offset] = b;
+            }
+
+            // CRITICAL: Mark exception handlers AND protected blocks (ALL blocks, not just reachable)
+            // CPython 3.12: Blocks with exception handler references must be kept
+            foreach (var block in _cfg.AllBlocks)
+            {
+                bool hasHandlerInfo = false;
+                foreach (var instr in block.Instructions)
+                {
+                    if (instr.ExceptionHandlerOffset >= 0)
+                    {
+                        hasHandlerInfo = true;
+                        // Find the handler block
+                        if (offsetToBlock.TryGetValue(instr.ExceptionHandlerOffset, out var handlerBlock))
+                        {
+                            if (!reachable.Contains(handlerBlock))
+                            {
+                                reachable.Add(handlerBlock);
+                                queue.Enqueue(handlerBlock);
+                            }
+                        }
+                    }
+                }
+
+                // CRITICAL: Mark THIS block as reachable if it has handler info (protected region)
+                // CPython 3.12: Protected blocks must not be removed even if unreachable via normal flow
+                if (hasHandlerInfo && !reachable.Contains(block))
+                {
+                    reachable.Add(block);
+                    queue.Enqueue(block);
+                }
+            }
+
             while (queue.Count > 0)
             {
                 var block = queue.Dequeue();
@@ -77,7 +116,7 @@ namespace SharpPy
                     queue.Enqueue(block.Next);
                 }
 
-                // Mark exception handler as reachable
+                // Mark exception handler as reachable (block-level, for compatibility)
                 if (block.ExceptionHandler != null && !reachable.Contains(block.ExceptionHandler))
                 {
                     reachable.Add(block.ExceptionHandler);
@@ -170,7 +209,8 @@ namespace SharpPy
                             inst2.LineNumber,
                             inst2.ColumnOffset,
                             inst2.FileName,
-                            inst2.ExceptHandler
+                            inst2.ExceptHandler,
+                            inst1.ExceptionHandlerOffset  // Preserve handler offset from inst1
                         );
                         instructions.RemoveAt(i + 1);
                         continue;
@@ -186,7 +226,8 @@ namespace SharpPy
                             inst2.LineNumber,
                             inst2.ColumnOffset,
                             inst2.FileName,
-                            inst2.ExceptHandler
+                            inst2.ExceptHandler,
+                            inst1.ExceptionHandlerOffset  // Preserve handler offset from inst1
                         );
                         instructions.RemoveAt(i + 1);
                         continue;

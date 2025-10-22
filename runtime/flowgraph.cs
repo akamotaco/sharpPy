@@ -23,16 +23,49 @@ namespace SharpPy
                 return cfg;
             }
 
-            // Phase 1: Find all block boundaries (where labels are placed + jump targets)
+            // Phase 1: Build label name → instruction offset mapping
+            // This is needed to resolve ExceptHandlerInfo.HandlerLabel → HandlerOffset
+            var labelToOffset = BuildLabelMapping(instrSeq);
+
+            // Phase 2: Find all block boundaries (where labels are placed + jump targets)
             var blockStarts = FindBlockBoundaries(instrSeq);
 
-            // Phase 2: Create basic blocks from instruction ranges
-            var indexToBlock = CreateBasicBlocks(cfg, instrSeq, blockStarts);
+            // Phase 3: Create basic blocks from instruction ranges
+            var indexToBlock = CreateBasicBlocks(cfg, instrSeq, blockStarts, labelToOffset);
 
-            // Phase 3: Link blocks together (set successors and next)
+            // Phase 4: Link blocks together (set successors and next)
             LinkBlocks(cfg, instrSeq, indexToBlock);
 
             return cfg;
+        }
+
+        /// <summary>
+        /// Build mapping from label names to instruction offsets
+        /// This is needed for resolving ExceptHandlerInfo.HandlerLabel
+        /// </summary>
+        private static Dictionary<string, int> BuildLabelMapping(InstructionSequence instrSeq)
+        {
+            var mapping = new Dictionary<string, int>();
+
+            // Iterate through all labels and find their target offsets
+            // InstructionSequence doesn't expose its label map directly,
+            // so we need to scan for all possible label IDs
+            for (int labelId = 0; labelId < 1000; labelId++)  // Reasonable upper bound
+            {
+                var label = new Label(labelId);
+                int targetOffset = instrSeq.GetLabelTarget(label);
+
+                if (targetOffset >= 0)
+                {
+                    // This label exists and points to targetOffset
+                    // Store multiple name patterns that might be used
+                    mapping[$"Label({labelId})"] = targetOffset;
+                    mapping[$"with_cleanup_{labelId}"] = targetOffset;
+                    mapping[$"label_{labelId}"] = targetOffset;
+                }
+            }
+
+            return mapping;
         }
 
         /// <summary>
@@ -87,7 +120,8 @@ namespace SharpPy
         private static Dictionary<int, BasicBlock> CreateBasicBlocks(
             ControlFlowGraph cfg,
             InstructionSequence instrSeq,
-            HashSet<int> blockStarts)
+            HashSet<int> blockStarts,
+            Dictionary<string, int> labelToOffset)
         {
             var sortedStarts = blockStarts.OrderBy(x => x).ToList();
             var instructions = instrSeq.Instructions;
@@ -108,6 +142,9 @@ namespace SharpPy
                 {
                     var instr = instructions[j];
 
+                    // Resolve ExceptHandlerInfo: convert HandlerLabel → HandlerOffset
+                    var resolvedHandler = ResolveExceptHandler(instr.ExceptHandler, labelToOffset);
+
                     // Convert Instruction to ByteCodeInstruction
                     ByteCodeInstruction bcInstr;
 
@@ -122,7 +159,8 @@ namespace SharpPy
                             instr.LineNumber,
                             instr.ColumnOffset,
                             instr.FileName,
-                            instr.ExceptHandler
+                            resolvedHandler,  // Use resolved handler
+                            resolvedHandler.HandlerOffset  // Set ExceptionHandlerOffset
                         );
                     }
                     else
@@ -134,7 +172,8 @@ namespace SharpPy
                             instr.LineNumber,
                             instr.ColumnOffset,
                             instr.FileName,
-                            instr.ExceptHandler
+                            resolvedHandler,  // Use resolved handler
+                            resolvedHandler.HandlerOffset  // Set ExceptionHandlerOffset
                         );
                     }
 
@@ -154,6 +193,35 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Resolve ExceptHandlerInfo: convert HandlerLabel (string) to HandlerOffset (int)
+        /// </summary>
+        private static ExceptHandlerInfo ResolveExceptHandler(
+            ExceptHandlerInfo handler,
+            Dictionary<string, int> labelToOffset)
+        {
+            // If no handler or handler label, return as-is
+            if (handler.HandlerLabel == null)
+            {
+                return handler;
+            }
+
+            // Try to resolve label to offset
+            if (labelToOffset.TryGetValue(handler.HandlerLabel, out int offset))
+            {
+                return new ExceptHandlerInfo(
+                    handlerOffset: offset,
+                    stackDepth: handler.StackDepth,
+                    preserveLasti: handler.PreserveLasti,
+                    handlerLabel: null  // Clear label after resolution
+                );
+            }
+            else
+            {
+                return handler;  // Return unresolved
+            }
+        }
+
+        /// <summary>
         /// Link blocks together: set successors and next pointers
         /// Also resolve jump targets from instruction indices to actual block references
         /// </summary>
@@ -167,8 +235,13 @@ namespace SharpPy
             {
                 var block = cfg.AllBlocks[i];
 
+                // Empty blocks always fall through to next block
                 if (block.Instructions.Count == 0)
                 {
+                    if (i + 1 < cfg.AllBlocks.Count)
+                    {
+                        block.Next = cfg.AllBlocks[i + 1];
+                    }
                     continue;
                 }
 
