@@ -522,7 +522,6 @@ namespace SharpPy
         // CFG vs Legacy usage tracking
         private int _cfgPathCount = 0;
         private int _legacyPathCount = 0;
-        private int _hybridPathCount = 0;
         private Dictionary<int, int> _lineNumberTable = new Dictionary<int, int>(); // instruction offset → line number mapping
         
         // Phase 2: 클로저 지원
@@ -1009,7 +1008,6 @@ namespace SharpPy
                 Console.WriteLine($"📊 [COMPILATION SUMMARY]");
                 Console.WriteLine($"   CFG Path:     {_cfgPathCount} constructs");
                 Console.WriteLine($"   Legacy Path:  {_legacyPathCount} constructs");
-                Console.WriteLine($"   Hybrid:       {_hybridPathCount} constructs (break/continue)");
                 int total = _cfgPathCount + _legacyPathCount;
                 if (total > 0)
                 {
@@ -2568,15 +2566,6 @@ namespace SharpPy
                                 _currentFileName
                             );
                         }
-                        else if (currentLoop.LegacyBreakLabel != null)
-                        {
-#if DEBUG_COMPILER_LOG
-                            Console.WriteLine($"⚠️  [HYBRID-LEGACY] Break: Using LEGACY Label (offset patching)");
-#endif
-                            _hybridPathCount++;
-                            // LEGACY path
-                            EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, currentLoop.LegacyBreakLabel);
-                        }
                     }
                     else
                     {
@@ -2604,27 +2593,6 @@ namespace SharpPy
                                 _currentColumnOffset,
                                 _currentFileName
                             );
-                        }
-                        else if (currentLoop.LegacyContinueLabel != null)
-                        {
-#if DEBUG_COMPILER_LOG
-                            Console.WriteLine($"⚠️  [HYBRID-LEGACY] Continue: Using LEGACY Label (offset patching)");
-#endif
-                            _hybridPathCount++;
-                            // LEGACY path
-                            // CPython 3.12 호환: For loop의 경우 FOR_ITER로 직접 점프
-                            if (currentLoop.ForIterInstruction >= 0)
-                            {
-                                // For loop: Jump back to FOR_ITER instruction
-                                int currentPos = _instructions.Count;
-                                int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, currentLoop.ForIterInstruction);
-                                EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
-                            }
-                            else
-                            {
-                                // While loop: Use continue label
-                                EmitJumpToLabel(ByteCodeOp.JUMP_BACKWARD, currentLoop.LegacyContinueLabel);
-                            }
                         }
                     }
                     else
@@ -7706,26 +7674,26 @@ namespace SharpPy
                     {
                         // CPython 3.12: Use multiple comparisons with OR short-circuiting
                         // Stack: subject
-                        var successLabel = CreateLabel("or_match_success");
-                        
+                        var successLabel = _instructionSequence.NewLabel();
+
                         for (int i = 0; i < constantPatterns.Count; i++)
                         {
                             var isLast = (i == constantPatterns.Count - 1);
-                            
+
                             // Duplicate subject for comparison (except for last one)
                             if (!isLast)
                             {
                                 EmitInstruction(ByteCodeOp.COPY, 1);
                             }
-                            
+
                             // Compare with constant
                             CompileExpression(constantPatterns[i]);
                             EmitComparison(CompareOp.EQ);
-                            
+
                             // If match, jump to success
                             if (!isLast)
                             {
-                                EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_TRUE, successLabel);
+                                _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_TRUE, successLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                             }
                             else
                             {
@@ -7733,8 +7701,8 @@ namespace SharpPy
                                 _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                             }
                         }
-                        
-                        PlaceLabel(successLabel);
+
+                        _instructionSequence.UseLabel(successLabel);
                         // Pop subject since pattern matched
                         EmitInstruction(ByteCodeOp.POP_TOP);
                         return true;
@@ -7770,26 +7738,26 @@ namespace SharpPy
                         if (allFallbackConstants && fallbackConstants.Count > 0)
                         {
                             // CPython 3.12: Generate comparisons for all patterns
-                            var successLabel = CreateLabel("or_match_success");
-                            
+                            var successLabel = _instructionSequence.NewLabel();
+
                             for (int i = 0; i < fallbackConstants.Count; i++)
                             {
                                 var isLast = (i == fallbackConstants.Count - 1);
-                                
+
                                 // Duplicate subject for comparison (except for last one)
                                 if (!isLast)
                                 {
                                     EmitInstruction(ByteCodeOp.COPY, 1);
                                 }
-                                
+
                                 // Compare with constant
                                 CompileExpression(fallbackConstants[i]);
                                 EmitComparison(CompareOp.EQ);
-                                
+
                                 // If match, jump to success
                                 if (!isLast)
                                 {
-                                    EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_TRUE, successLabel);
+                                    _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_TRUE, successLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                                 }
                                 else
                                 {
@@ -7797,8 +7765,8 @@ namespace SharpPy
                                     _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                                 }
                             }
-                            
-                            PlaceLabel(successLabel);
+
+                            _instructionSequence.UseLabel(successLabel);
                             // Pop subject since pattern matched
                             EmitInstruction(ByteCodeOp.POP_TOP);
                             return true;
@@ -9442,35 +9410,20 @@ namespace SharpPy
         
         /// <summary>
         /// Loop context management for break/continue (CPython style)
-        /// Dual-track: supports both LEGACY (PythonCompiler.Label) and NEW (SharpPy.Label)
+        /// Uses CFG-based InstructionSequence Labels
         /// </summary>
         private class LoopContext
         {
-            // LEGACY path: PythonCompiler.Label (offset patching)
-            public Label? LegacyBreakLabel { get; }
-            public Label? LegacyContinueLabel { get; }
-
-            // NEW path: SharpPy.Label (InstructionSequence)
+            // CFG path: SharpPy.Label (InstructionSequence)
             public SharpPy.Label? NewBreakLabel { get; }
             public SharpPy.Label? NewContinueLabel { get; }
 
             public int ForIterInstruction { get; set; } = -1; // FOR_ITER 명령어 위치
             public int EndForPosition { get; set; } = -1; // END_FOR 명령어 위치 (for loop용)
 
-            // LEGACY constructor
-            public LoopContext(Label breakLabel, Label continueLabel)
-            {
-                LegacyBreakLabel = breakLabel;
-                LegacyContinueLabel = continueLabel;
-                NewBreakLabel = null;
-                NewContinueLabel = null;
-            }
-
-            // NEW constructor
+            // CFG constructor
             public LoopContext(SharpPy.Label breakLabel, SharpPy.Label continueLabel)
             {
-                LegacyBreakLabel = null;
-                LegacyContinueLabel = null;
                 NewBreakLabel = breakLabel;
                 NewContinueLabel = continueLabel;
             }
@@ -9478,18 +9431,7 @@ namespace SharpPy
         
         private Stack<LoopContext> _loopStack = new();
 
-        // LEGACY: PushLoopContext with PythonCompiler.Label
-        private void PushLoopContext(Label breakLabel, Label continueLabel, int forIterInstruction = -1)
-        {
-            var context = new LoopContext(breakLabel, continueLabel);
-            if (forIterInstruction >= 0)
-            {
-                context.ForIterInstruction = forIterInstruction;
-            }
-            _loopStack.Push(context);
-        }
-
-        // NEW: PushLoopContext with SharpPy.Label
+        // CFG: PushLoopContext with SharpPy.Label
         private void PushLoopContext(SharpPy.Label breakLabel, SharpPy.Label continueLabel, int forIterInstruction = -1)
         {
             var context = new LoopContext(breakLabel, continueLabel);
@@ -11246,8 +11188,8 @@ namespace SharpPy
             CompileExpression(constExpr);
             EmitComparison(CompareOp.EQ);
 
-            var wildcardLabel = CreateLabel($"match_wildcard_{_labelCounter++}");
-            EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, wildcardLabel);
+            var wildcardLabel = _instructionSequence.NewLabel();
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, wildcardLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
 
             // 첫 번째 케이스 (상수 매칭) 컴파일
             foreach (var stmt in matchStmt.Cases[0].Body)
@@ -11257,7 +11199,7 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.RETURN_CONST, GetOrAddConstant(PyNone.Instance));
 
             // wildcard 케이스 - CPython과 동일한 구조
-            PlaceLabel(wildcardLabel);
+            _instructionSequence.UseLabel(wildcardLabel);
             EmitInstruction(ByteCodeOp.NOP); // CPython 호환
 
             foreach (var stmt in matchStmt.Cases[1].Body)
