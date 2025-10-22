@@ -249,7 +249,16 @@ namespace SharpPy
         INSTRUMENTED_LINE = 254,
         
         // 255: Reserved
-        
+
+        // =============================================================================
+        // CPython 3.12 Pseudo-instructions (for CFG/InstructionSequence only)
+        // Range: 256-269 (removed during CFG → bytecode conversion)
+        // =============================================================================
+        SETUP_FINALLY = 256,     // Mark try block start, push exception handler
+        SETUP_CLEANUP = 257,     // Like SETUP_FINALLY but saves lasti
+        SETUP_WITH = 258,        // Setup with statement exception handling
+        POP_BLOCK = 259,         // Pop exception handler from stack
+
         // =============================================================================
         // CPython 3.12 Adaptive Specialization - Specialized Instructions
         // Range: 300-399 (SharpPy specific range for specialized operations)

@@ -603,7 +603,9 @@ namespace SharpPy.Generated
 
                         // Convert except blocks
                         var exceptHandlersList = new List<ExceptHandler>();
-                        foreach (var exceptBlock in tryStmt.Handlers.AsEnumerable())
+                        if (tryStmt.Handlers != null)
+                        {
+                            foreach (var exceptBlock in tryStmt.Handlers.AsEnumerable())
                         {
                             var exceptData = (GeneratedExceptHandler)exceptBlock;
 #if DEBUG_AST_LOG
@@ -636,6 +638,7 @@ namespace SharpPy.Generated
                             catch { }
 
                             exceptHandlersList.Add(new ExceptHandler(exceptionTypeExpr, variableName, exceptBodyStmts));
+                        }
                         }
 
                         // Convert else and finally blocks

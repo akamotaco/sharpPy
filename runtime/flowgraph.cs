@@ -126,24 +126,81 @@ namespace SharpPy
             var sortedStarts = blockStarts.OrderBy(x => x).ToList();
             var instructions = instrSeq.Instructions;
 
+            // CPython 3.12: Create ExceptStack to track exception handlers
+            var exceptStack = new ExceptStack();
+
             // Create instruction index → block mapping
             var indexToBlock = new Dictionary<int, BasicBlock>();
 
+            // First pass: create blocks and map indices
+            for (int i = 0; i < sortedStarts.Count; i++)
+            {
+                int start = sortedStarts[i];
+                var block = cfg.CreateBlock();
+                block.Offset = start;
+                indexToBlock[start] = block;
+            }
+
+            // Second pass: process instructions with ExceptStack
             for (int i = 0; i < sortedStarts.Count; i++)
             {
                 int start = sortedStarts[i];
                 int end = (i + 1 < sortedStarts.Count) ? sortedStarts[i + 1] : instructions.Count;
 
-                var block = cfg.CreateBlock();
-                block.Offset = start;
+                var block = indexToBlock[start];
 
                 // Add instructions to this block
                 for (int j = start; j < end; j++)
                 {
                     var instr = instructions[j];
 
+                    // CPython 3.12 pattern: Handle SETUP_*/POP_BLOCK pseudo-instructions
+                    if (IsBlockPush(instr.OpCode))
+                    {
+                        // SETUP_FINALLY/CLEANUP/WITH: Push handler to ExceptStack
+                        if (instr.Target.HasValue)
+                        {
+                            int targetIndex = instrSeq.GetLabelTarget(instr.Target.Value);
+                            if (indexToBlock.TryGetValue(targetIndex, out var handlerBlock))
+                            {
+                                exceptStack.Push(handlerBlock);
+
+                                // Mark handler block to preserve lasti for SETUP_CLEANUP/SETUP_WITH
+                                if (instr.OpCode == ByteCodeOp.SETUP_CLEANUP || instr.OpCode == ByteCodeOp.SETUP_WITH)
+                                {
+                                    handlerBlock.PreserveLasti = true;
+                                }
+                            }
+                        }
+                        // SKIP: Don't add pseudo-instruction to bytecode
+                        continue;
+                    }
+                    else if (IsBlockPop(instr.OpCode))
+                    {
+                        // POP_BLOCK: Pop handler from ExceptStack
+                        // NOTE: CPython uses per-block ExceptStack copies, so each handler branch
+                        // gets a fresh copy and can independently pop the same SETUP_CLEANUP.
+                        // SharpPy uses a simplified linear approach, so we ignore underflows here.
+                        if (exceptStack.Depth > 0)
+                        {
+                            exceptStack.Pop();
+                        }
+                        // SKIP: Don't add pseudo-instruction to bytecode
+                        continue;
+                    }
+
+                    // Get current exception handler from stack
+                    var currentHandler = exceptStack.Top();
+                    int handlerOffset = currentHandler?.Offset ?? -1;
+
                     // Resolve ExceptHandlerInfo: convert HandlerLabel → HandlerOffset
                     var resolvedHandler = ResolveExceptHandler(instr.ExceptHandler, labelToOffset);
+
+                    // If no explicit handler info, use ExceptStack
+                    if (resolvedHandler.HandlerOffset == -1 && handlerOffset >= 0)
+                    {
+                        resolvedHandler = new ExceptHandlerInfo(handlerOffset, 0, false);
+                    }
 
                     // Convert Instruction to ByteCodeInstruction
                     ByteCodeInstruction bcInstr;
@@ -179,14 +236,46 @@ namespace SharpPy
 
                     block.Instructions.Add(bcInstr);
                 }
-
-                indexToBlock[start] = block;
             }
 
             // Set entry block
             if (indexToBlock.TryGetValue(0, out var entryBlock))
             {
                 cfg.EntryBlock = entryBlock;
+            }
+
+            // Recalculate block offsets after pseudo-opcodes were removed
+            // (pseudo-opcodes like SETUP_FINALLY were skipped in the loop above)
+            int finalOffset = 0;
+            var oldToNewOffset = new Dictionary<int, int>();
+            foreach (var block in sortedStarts.Select(s => indexToBlock[s]))
+            {
+                int oldOffset = block.Offset;
+                block.Offset = finalOffset;
+                oldToNewOffset[oldOffset] = finalOffset;
+                finalOffset += block.Instructions.Count;
+            }
+
+            // Update ExceptionHandlerOffset in all instructions to use final offsets
+            foreach (var block in cfg.AllBlocks)
+            {
+                for (int i = 0; i < block.Instructions.Count; i++)
+                {
+                    var instr = block.Instructions[i];
+                    if (instr.ExceptionHandlerOffset >= 0 && oldToNewOffset.TryGetValue(instr.ExceptionHandlerOffset, out int newOffset))
+                    {
+                        // Create new instruction with updated handler offset
+                        block.Instructions[i] = new ByteCodeInstruction(
+                            instr.OpCode,
+                            instr.Argument,
+                            instr.LineNumber,
+                            instr.ColumnOffset,
+                            instr.FileName,
+                            instr.ExceptHandler,  // Note: ExceptHandler, not ExceptionHandler
+                            newOffset  // Updated handler offset
+                        );
+                    }
+                }
             }
 
             return indexToBlock;
@@ -298,6 +387,54 @@ namespace SharpPy
                    op == ByteCodeOp.JUMP_BACKWARD ||
                    op == ByteCodeOp.JUMP_BACKWARD_NO_INTERRUPT ||
                    op == ByteCodeOp.RETURN_VALUE;
+        }
+
+        private static bool IsBlockPush(ByteCodeOp op)
+        {
+            return op == ByteCodeOp.SETUP_FINALLY ||
+                   op == ByteCodeOp.SETUP_CLEANUP ||
+                   op == ByteCodeOp.SETUP_WITH;
+        }
+
+        private static bool IsBlockPop(ByteCodeOp op)
+        {
+            return op == ByteCodeOp.POP_BLOCK;
+        }
+    }
+
+    /// <summary>
+    /// CPython 3.12: ExceptStack - Track exception handlers during CFG building
+    /// Corresponds to CPython's except_stack in flowgraph.c
+    /// </summary>
+    internal class ExceptStack
+    {
+        private const int MaxBlocks = 20; // CO_MAXBLOCKS from CPython
+        private readonly BasicBlock?[] _handlers = new BasicBlock?[MaxBlocks];
+        private int _depth = 0;
+
+        public int Depth => _depth;
+
+        public void Push(BasicBlock handler)
+        {
+            if (_depth >= MaxBlocks)
+            {
+                throw new Exception($"ExceptStack overflow: depth={_depth}, max={MaxBlocks}");
+            }
+            _handlers[_depth++] = handler;
+        }
+
+        public BasicBlock? Pop()
+        {
+            if (_depth <= 0)
+            {
+                throw new Exception("ExceptStack underflow");
+            }
+            return _handlers[--_depth];
+        }
+
+        public BasicBlock? Top()
+        {
+            return _depth > 0 ? _handlers[_depth - 1] : null;
         }
     }
 }

@@ -2576,7 +2576,8 @@ namespace SharpPy
                     break;
                     
                 case TryStatement tryStmt:
-                    CompileTry(tryStmt);
+                    // CPython 3.12: Always use InstructionSequence/CFG path
+                    CompileTryStatementCFG(tryStmt);
                     break;
                     
                 case WithStatement withStmt:
@@ -7104,39 +7105,44 @@ namespace SharpPy
             };
         }
         
+
         /// <summary>
-        /// CPython 3.12 Exception Table based try-except compilation
+        /// CPython 3.12 CFG: Compile try-except-else-finally using SETUP_FINALLY/CLEANUP pseudo-instructions
+        /// Follows CPython compile.c:compiler_try_except() pattern
         /// </summary>
-        private void CompileTry(TryStatement tryStmt)
+        private void CompileTryStatementCFG(TryStatement tryStmt)
         {
 #if DEBUG_COMPILER_LOG
-            Console.WriteLine($"🔷 [CFG] CompileTry: Using Exception Table (CPython 3.12)");
+            Console.WriteLine($"🔷 [CFG] CompileTryStatementCFG: Using InstructionSequence with SETUP_FINALLY (CPython 3.12 CFG path)");
 #endif
             _cfgPathCount++;
 
-            // CPython 3.12: No SETUP_EXCEPT, use Exception Table instead
+            var hasExceptHandlers = tryStmt.Handlers != null && tryStmt.Handlers.Count > 0;
+            var hasElse = tryStmt.OrElse != null && tryStmt.OrElse.Count > 0;
+            var hasFinally = tryStmt.FinalBody != null && tryStmt.FinalBody.Count > 0;
 
-            // Create label for continuation after entire try-except construct
-            var continueLabel = CreateLabel("continue_after_try");
+            // CPython pattern: Create labels
+            var exceptLabel = _instructionSequence.NewLabel();
+            var endLabel = _instructionSequence.NewLabel();
+            var cleanupLabel = _instructionSequence.NewLabel();
+            var finallyLabel = hasFinally ? _instructionSequence.NewLabel() : default(SharpPy.Label);
+            var finallyExceptLabel = hasFinally ? _instructionSequence.NewLabel() : default(SharpPy.Label);
+            var finallyExceptCleanupLabel = hasFinally ? _instructionSequence.NewLabel() : default(SharpPy.Label);
 
-            // Exception Table start offset BEFORE NOP - 명령어 인덱스 사용 (CPython 호환)
-            // CPython 3.12: Try block should start from the actual first instruction (NOP)
-            var tryStartOffset = _instructions.Count;
+            // 1. SETUP_FINALLY - marks try block start, pushes exception handler to stack
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, exceptLabel, _currentLineNumber);
 
-            // CPython 3.12: Add NOP instruction before try body (exact CPython pattern)
-            EmitInstruction(ByteCodeOp.NOP);
-            
-            // CPython 3.12: Direct compilation of try body (no SETUP_EXCEPT)
+            // 2. Try body (immediately follows SETUP_FINALLY, no label needed)
             foreach (var stmt in tryStmt.Body)
             {
                 CompileStatement(stmt);
             }
 
-            // CPython 3.12: Try body completed normally - execute else clause first, then finally
-            // Don't jump to continuation yet - execute else and finally first
+            // 3. POP_BLOCK - pop exception handler from stack (normal completion)
+            _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
 
-            // Execute else clause if present (only when no exception occurred)
-            if (tryStmt.OrElse != null && tryStmt.OrElse.Count > 0)
+            // 4. Else clause (only runs if no exception)
+            if (hasElse)
             {
                 foreach (var stmt in tryStmt.OrElse)
                 {
@@ -7144,484 +7150,139 @@ namespace SharpPy
                 }
             }
 
-            // Execute finally clause if present (normal path - not exception handler)
-            if (tryStmt.FinalBody != null && tryStmt.FinalBody.Count > 0)
+            // 5. Jump to finally (normal path) or end (no finally)
+            if (hasFinally)
             {
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, finallyLabel, _currentLineNumber);
+            }
+            else
+            {
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, endLabel, _currentLineNumber);
+            }
+
+            // 6. Exception handler entry
+            _instructionSequence.UseLabel(exceptLabel);
+
+            if (hasExceptHandlers)
+            {
+                // SETUP_CLEANUP protects the exception handlers themselves
+                // (if an exception occurs in a handler, jump to cleanup or finally-except)
+                // NOTE: CPython uses per-block ExceptStack copies to handle multiple POP_BLOCKs
+                // SharpPy uses a simplified approach where handlers share the cleanup
+                var handlerCleanupTarget = hasFinally ? finallyExceptLabel : cleanupLabel;
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, handlerCleanupTarget, _currentLineNumber);
+
+                // Push exception info to start exception handling
+                _instructionSequence.AddOp(ByteCodeOp.PUSH_EXC_INFO, _currentLineNumber);
+
+                // 7. Compile each except handler
+                for (int i = 0; i < tryStmt.Handlers.Count; i++)
+                {
+                    var handler = tryStmt.Handlers[i];
+                    var nextExceptLabel = _instructionSequence.NewLabel();
+
+                    if (handler.Type != null)
+                    {
+                        // Load exception type and check match
+                        CompileExpression(handler.Type);
+                        _instructionSequence.AddOp(ByteCodeOp.CHECK_EXC_MATCH, _currentLineNumber);
+                        _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, nextExceptLabel, _currentLineNumber);
+                    }
+
+                    // CPython pattern: POP_TOP to remove exception value from stack (if no name binding)
+                    if (string.IsNullOrEmpty(handler.Name))
+                    {
+                        _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber);
+                    }
+                    else
+                    {
+                        // Bind exception variable if specified
+                        EmitStoreName(handler.Name);
+                    }
+
+                    // Handler body
+                    foreach (var stmt in handler.Body)
+                    {
+                        CompileStatement(stmt);
+                    }
+
+                    // CPython 3.12 pattern: POP_EXCEPT only (POP_BLOCK is handled by flowgraph per-block)
+                    // The SETUP_CLEANUP at line 7160 is managed by the per-block ExceptStack in flowgraph.cs
+                    _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
+
+                    // Jump to finally (exception path) or end (no finally)
+                    if (hasFinally)
+                    {
+                        // CPython pattern: JUMP_BACKWARD to finally block (offset 18 in disassembly)
+                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_BACKWARD, finallyLabel, _currentLineNumber);
+                    }
+                    else
+                    {
+                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, endLabel, _currentLineNumber);
+                    }
+
+                    // Next exception handler label
+                    _instructionSequence.UseLabel(nextExceptLabel);
+                }
+
+                // Reraise if no handler matched
+                _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 0, _currentLineNumber);
+            }
+
+            // 8. Cleanup handler (CPython pattern for exception propagation)
+            _instructionSequence.UseLabel(cleanupLabel);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 3, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 1, _currentLineNumber);
+
+            // 9. Finally block (normal path) - offset 18 in CPython disassembly
+            if (hasFinally)
+            {
+                _instructionSequence.UseLabel(finallyLabel);
+
+                // Compile finally block (normal execution path)
                 foreach (var stmt in tryStmt.FinalBody)
                 {
                     CompileStatement(stmt);
                 }
-            }
 
-            // Now jump to continuation after normal try-else-finally execution
-            EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, continueLabel);
+                // Jump to actual end
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, endLabel, _currentLineNumber);
 
-            // Try block ends AFTER the JUMP_FORWARD instruction (CPython 3.12 compatible)
-            var tryEndOffset = _instructions.Count;
-            
-            // Exception handler start (where PUSH_EXC_INFO will jump to)
-            var handlersStartLabel = CreateLabel("handlers_start");
-            MarkLabel(handlersStartLabel);
-            
-            // CPython 3.12: Exception path starts with PUSH_EXC_INFO
-            EmitInstruction(ByteCodeOp.PUSH_EXC_INFO);
+                // 10. Finally block (exception path) - offset 120 in CPython disassembly
+                // This executes when an exception occurs in except handler
+                _instructionSequence.UseLabel(finallyExceptLabel);
 
-            // CPython 3.12: Push exception handler fblock AFTER PUSH_EXC_INFO
-            // This makes all subsequent instructions protected by outer exception handlers
-            bool hasExceptStarHandlers = tryStmt.Handlers.Any(h => h.IsStar);
-            var handlerFBlockType = hasExceptStarHandlers ? FBlockType.EXCEPTION_GROUP_HANDLER : FBlockType.EXCEPTION_HANDLER;
+                // SETUP_CLEANUP to protect finally block itself
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, finallyExceptCleanupLabel, _currentLineNumber);
 
-            // Create reraise handler label that will be used in exception table
-            var reraiseLabel = CreateLabel("reraise");
+                // PUSH_EXC_INFO to save exception state
+                _instructionSequence.AddOp(ByteCodeOp.PUSH_EXC_INFO, _currentLineNumber);
 
-            _fblockStack.Push(new FBlock(
-                type: handlerFBlockType,
-                handlerLabel: reraiseLabel.Name,
-                stackDepth: 1,  // Exception is on stack
-                preserveLasti: true  // Exception handlers need lasti
-            ));
-
-            // CPython 3.12: For except* handlers, start with BUILD_LIST 0 to collect matched handlers
-            if (hasExceptStarHandlers)
-            {
-                EmitInstruction(ByteCodeOp.BUILD_LIST, 0);
-            }
-
-            // Compile exception handlers sequentially
-            for (int i = 0; i < tryStmt.Handlers.Count; i++)
-            {
-                var handler = tryStmt.Handlers[i];
-                var nextHandlerLabel = (i < tryStmt.Handlers.Count - 1)
-                    ? CreateLabel($"handler_{i+1}")
-                    : reraiseLabel;
-                
-                if (handler.Type != null)
-                {
-                    if (handler.IsStar)
-                    {
-                        // CPython 3.12: except* pattern - COPY 2 to preserve handler list
-                        EmitInstruction(ByteCodeOp.COPY, 2);
-                        CompileExpression(handler.Type);
-
-                        // PEP 654: Exception group matching
-                        EmitInstruction(ByteCodeOp.CHECK_EG_MATCH);
-                        EmitInstruction(ByteCodeOp.COPY, 1);
-                        EmitInstruction(ByteCodeOp.POP_JUMP_IF_NONE, 0);
-                        nextHandlerLabel.References.Add(_instructions.Count - 1);
-
-                        if (handler.Name != null)
-                        {
-                            // CPython 3.12: Exception variables - STORE_NAME for module level, STORE_FAST for function level
-                            if (_isInFunction)
-                            {
-                                EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(handler.Name));
-                            }
-                            else
-                            {
-                                EmitInstruction(ByteCodeOp.STORE_NAME, GetOrAddName(handler.Name));
-                            }
-                        }
-                        else
-                        {
-                            EmitInstruction(ByteCodeOp.POP_TOP);
-                        }
-                    }
-                    else
-                    {
-                        // Regular exception handler - CPython 3.12 does NOT use COPY here
-                        // PUSH_EXC_INFO already has the exception on stack
-                        CompileExpression(handler.Type);
-
-                        // Regular exception matching - CPython 3.12 uses CHECK_EXC_MATCH
-                        EmitInstruction(ByteCodeOp.CHECK_EXC_MATCH);
-                        
-                        EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0);
-                        nextHandlerLabel.References.Add(_instructions.Count - 1);
-                        
-                        if (handler.Name != null)
-                        {
-                            // CPython 3.12: Exception variables - STORE_NAME for module level, STORE_FAST for function level
-                            if (_isInFunction)
-                            {
-                                EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(handler.Name));
-                            }
-                            else
-                            {
-                                EmitInstruction(ByteCodeOp.STORE_NAME, GetOrAddName(handler.Name));
-                            }
-                        }
-                        else
-                        {
-                            EmitInstruction(ByteCodeOp.POP_TOP);
-                        }
-                    }
-                }
-                else
-                {
-                    // Bare except - catches everything
-                    if (handler.Name != null)
-                    {
-                        // CPython 3.12: Exception variables are stored as local variables (STORE_FAST)
-                        EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(handler.Name));
-                    }
-                    else
-                    {
-                        EmitInstruction(ByteCodeOp.POP_TOP);
-                    }
-                }
-                
-                // CPython 3.12: Record handler body start for Exception Table
-                var handlerBodyStart = _instructions.Count;
-
-                // Execute handler body
-                foreach (var stmt in handler.Body)
+                // Compile finally block again (exception execution path)
+                foreach (var stmt in tryStmt.FinalBody)
                 {
                     CompileStatement(stmt);
                 }
 
-                // CPython 3.12: Record handler body end BEFORE cleanup operations
-                var handlerBodyEnd = _instructions.Count;
+                // RERAISE the exception after finally completes
+                _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 0, _currentLineNumber);
 
-                // CPython 3.12: Do not add LIST_APPEND here - it goes in cleanup section
-
-                // CPython 3.12: POP_EXCEPT after handler execution
-                EmitInstruction(ByteCodeOp.POP_EXCEPT);
-
-                // CPython 3.12: Exception variable cleanup operations
-                var cleanupStart = _instructions.Count;
-                if (handler.Name != null)
-                {
-                    EmitInstruction(ByteCodeOp.LOAD_CONST, GetOrAddConstant(PyNone.Instance));
-                    if (_isInFunction)
-                    {
-                        EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(handler.Name));
-                        // CPython 3.12: DELETE_FAST for exception variables in functions
-                        EmitInstruction(ByteCodeOp.DELETE_FAST, GetOrAddVarName(handler.Name));
-                    }
-                    else
-                    {
-                        EmitInstruction(ByteCodeOp.STORE_NAME, GetOrAddName(handler.Name));
-                        // CPython 3.12: DELETE_NAME for exception variables at module level
-                        EmitInstruction(ByteCodeOp.DELETE_NAME, GetOrAddName(handler.Name));
-                    }
-                }
-                var cleanupEnd = _instructions.Count;
-
-                // CPython 3.12: For except* handlers, continue to next handler; for regular except, jump to finally or end
-                if (handler.IsStar && i < tryStmt.Handlers.Count - 1)
-                {
-                    // For except* handlers, continue to next handler to process remainder
-                    EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, nextHandlerLabel);
-                }
-                else
-                {
-                    // For regular except or last except* handler, check if finally block exists
-                    if (tryStmt.FinalBody != null && tryStmt.FinalBody.Count > 0)
-                    {
-                        // Execute finally block after exception handling (exception path)
-                        foreach (var stmt in tryStmt.FinalBody)
-                        {
-                            CompileStatement(stmt);
-                        }
-                    }
-                    // Then jump to continuation
-                    EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, continueLabel);
-                }
-
-                // CPython 3.12: Create Exception Table entry for handler body protection
-                // For except* handlers, always protect the handler body (even without variable binding)
-                if ((handler.IsStar || handler.Name != null) && handlerBodyEnd > handlerBodyStart)
-                {
-                    // Create simple cleanup handler for exception variables (CPython 3.12 pattern)
-                    var cleanupHandlerLabel = CreateLabel($"cleanup_handler_{i}");
-                    MarkLabel(cleanupHandlerLabel);
-
-                    // Cleanup exception variable on exception in handler (only if variable exists)
-                    if (handler.Name != null)
-                    {
-                        EmitInstruction(ByteCodeOp.LOAD_CONST, GetOrAddConstant(PyNone.Instance));
-                        if (_isInFunction)
-                        {
-                            EmitInstruction(ByteCodeOp.STORE_FAST, GetOrAddVarName(handler.Name));
-                            EmitInstruction(ByteCodeOp.DELETE_FAST, GetOrAddVarName(handler.Name));
-                        }
-                        else
-                        {
-                            EmitInstruction(ByteCodeOp.STORE_NAME, GetOrAddName(handler.Name));
-                            EmitInstruction(ByteCodeOp.DELETE_NAME, GetOrAddName(handler.Name));
-                        }
-                    }
-
-                    // CPython 3.12: For except* handlers, add to handler list in cleanup path
-                    if (handler.IsStar)
-                    {
-                        EmitInstruction(ByteCodeOp.LIST_APPEND, 3);
-                        EmitInstruction(ByteCodeOp.POP_TOP); // Clean up remaining copy
-                    }
-
-                    var cleanupReraiseOffset = _instructions.Count;
-                    EmitInstruction(ByteCodeOp.RERAISE, 1);
-
-                    // CPython 3.12: Handler body protection entry for except* handlers
-                    var handlerExecutionEntry = new ExceptionTableEntry(
-                        start: handlerBodyStart,
-                        end: handlerBodyEnd,  // Only protect the handler body itself
-                        handlerLabel: cleanupHandlerLabel.Name,  // Point to cleanup handler
-                        depth: 4,  // CPython uses depth 4 for handler execution
-                        lasti: true
-                    );
-                    _exceptionTable.Add(handlerExecutionEntry);
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 Handler execution Exception Table: {handlerBodyStart} to {(cleanupEnd > cleanupStart ? cleanupEnd : handlerBodyEnd)} -> {reraiseLabel.Name} [depth=4, lasti] (CPython optimized)");
-                    #endif
-                }
-                
-                // Mark next handler if not last
-                if (i < tryStmt.Handlers.Count - 1)
-                {
-                    MarkLabel(nextHandlerLabel);
-
-                    // CPython 3.12: Add POP_TOP before next except* handler to clean up remainder
-                    if (tryStmt.Handlers[i+1].IsStar)
-                    {
-                        EmitInstruction(ByteCodeOp.POP_TOP);
-                    }
-                }
+                // Finally exception cleanup handler
+                _instructionSequence.UseLabel(finallyExceptCleanupLabel);
+                _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 3, _currentLineNumber);
+                _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
+                _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 1, _currentLineNumber);
             }
 
-            // CPython 3.12: After all except* handlers, use INTRINSIC_PREP_RERAISE_STAR
-            if (hasExceptStarHandlers)
-            {
-                // Record start of final except* processing for exception table
-                var finalProcessingStart = _instructions.Count;
+            // 11. End label
+            _instructionSequence.UseLabel(endLabel);
 
-                // At this point we should have fallen through all except* handlers without match
-                // The stack should contain the handler list from BUILD_LIST 0
-                EmitInstruction(ByteCodeOp.LIST_APPEND, 1); // Add any remaining unhandled exceptions
-                EmitInstruction(ByteCodeOp.CALL_INTRINSIC_2, 1); // INTRINSIC_PREP_RERAISE_STAR
-                EmitInstruction(ByteCodeOp.COPY, 1);
-                EmitInstruction(ByteCodeOp.POP_JUMP_IF_NOT_NONE, 0); // If there are exceptions to reraise
-                var reraiseJumpRef = _instructions.Count - 1;
-
-                // No exceptions to reraise - normal completion
-                EmitInstruction(ByteCodeOp.POP_TOP); // Pop the None
-                EmitInstruction(ByteCodeOp.POP_EXCEPT);
-                EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, continueLabel);
-
-                // Record end of final processing
-                var finalProcessingEnd = _instructions.Count;
-
-                // Add exception table entry for final processing block
-                var finalProcessingEntry = new ExceptionTableEntry(
-                    start: finalProcessingStart,
-                    end: finalProcessingEnd,
-                    handlerLabel: reraiseLabel.Name,
-                    depth: 1,
-                    lasti: true
-                );
-                _exceptionTable.Add(finalProcessingEntry);
-
-                // Path for reraising exceptions
-                var swapReraiseLabel = CreateLabel("swap_reraise");
-                MarkLabel(swapReraiseLabel);
-                _instructions[reraiseJumpRef] = new ByteCodeInstruction(
-                    ByteCodeOp.POP_JUMP_IF_NOT_NONE,
-                    swapReraiseLabel.Offset - reraiseJumpRef - 1,
-                    _instructions[reraiseJumpRef].LineNumber,
-                    _instructions[reraiseJumpRef].ColumnOffset,
-                    _instructions[reraiseJumpRef].FileName
-                );
-
-                EmitInstruction(ByteCodeOp.SWAP, 2);
-                EmitInstruction(ByteCodeOp.POP_EXCEPT);
-                EmitInstruction(ByteCodeOp.RERAISE, 0);
-            }
-            
-            // Reraise if no handler matched (before continuation point)
-            if (tryStmt.Handlers.Count > 0)
-            {
-                // CPython 3.12: Pop exception handler fblock before reraise
-                // Instructions after this point are NOT protected by this exception handler
-                if (_fblockStack.Count > 0 &&
-                    (_fblockStack.Peek().Type == FBlockType.EXCEPTION_HANDLER ||
-                     _fblockStack.Peek().Type == FBlockType.EXCEPTION_GROUP_HANDLER))
-                {
-                    _fblockStack.Pop();
-                }
-
-                MarkLabel(reraiseLabel);
-                var reraiseOffset = _instructions.Count;
-                EmitInstruction(ByteCodeOp.RERAISE, 0);
-
-                // CPython 3.12: Add single instruction protection for reraise point
-                var finalReraiseHandler = CreateLabel("final_reraise_handler");
-                MarkLabel(finalReraiseHandler);
-                EmitInstruction(ByteCodeOp.COPY, 3);
-                EmitInstruction(ByteCodeOp.POP_EXCEPT);
-                EmitInstruction(ByteCodeOp.RERAISE, 1);
-
-                // CPython 3.12: Skip individual reraise protection - will be covered by handler block entry
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 Reraise protection skipped for CPython compatibility optimization");
-                #endif
-            }
-            
-            // CPython 3.12: Create Exception Table entries (both try block and handler block)
-            
-            // 1. Main try block entry - CPython 3.12 pattern for except* handlers
-            var tryBlockEntry = new ExceptionTableEntry(
-                start: tryStartOffset,
-                end: tryEndOffset,
-                handlerLabel: handlersStartLabel.Name,
-                depth: 0,  // Stack depth when exception occurs
-                lasti: false  // First entry is not lasti
-            );
-            _exceptionTable.Add(tryBlockEntry);
-
-            // 2. Exception handler chain protection (CPython 3.12 except* pattern)
-            if (hasExceptStarHandlers)
-            {
-                // Handler chain runs from PUSH_EXC_INFO to end of first except* check
-                var handlerChainStart = handlersStartLabel.Offset;
-                var handlerChainEnd = handlerChainStart + 14;  // Rough estimate, will be updated below
-
-                // Find the end of the first CHECK_EG_MATCH sequence
-                for (int j = handlersStartLabel.Offset; j < _instructions.Count; j++)
-                {
-                    if (_instructions[j].OpCode == ByteCodeOp.POP_JUMP_IF_NONE)
-                    {
-                        handlerChainEnd = j + 1;
-                        break;
-                    }
-                }
-
-                var handlerChainEntry = new ExceptionTableEntry(
-                    start: handlerChainStart,
-                    end: handlerChainEnd,
-                    handlerLabel: reraiseLabel.Name,
-                    depth: 1,
-                    lasti: true
-                );
-                _exceptionTable.Add(handlerChainEntry);
-            }
-            
-            // 2. Handler block entry (CPython 3.12 pattern: handlers need their own protection)
-            if (tryStmt.Handlers.Count > 0)
-            {
-                // Find actual handler range by marking current position
-                var currentPos = _instructions.Count;
-                
-                // The handler block starts from PUSH_EXC_INFO (after handlersStartLabel)
-                // Since MarkLabel() sets the offset, we can use it directly
-                var handlerStartOffset = handlersStartLabel.Offset;
-                
-                // Handler block ends where the current reraise block begins
-                // We need to go back to find the end of the actual handler body
-                var handlerEndOffset = currentPos - 1;  // Before current RERAISE
-                
-                // Create separate reraise handler for exceptions in the exception handler
-                var handlerReraiseLabel = CreateLabel("handler_reraise");
-                MarkLabel(handlerReraiseLabel);
-                EmitInstruction(ByteCodeOp.COPY, 3);
-                EmitInstruction(ByteCodeOp.POP_EXCEPT);
-                EmitInstruction(ByteCodeOp.RERAISE, 1);
-                
-                var handlerBlockEntry = new ExceptionTableEntry(
-                    start: handlerStartOffset,
-                    end: handlerEndOffset, 
-                    handlerLabel: handlerReraiseLabel.Name,
-                    depth: 1,  // Higher depth for nested exception handling
-                    lasti: true  // Second entry has lasti flag
-                );
-                _exceptionTable.Add(handlerBlockEntry);
-                
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 Handler Exception Table: {handlerStartOffset} to {handlerEndOffset} -> {handlerReraiseLabel.Name} [depth=1, lasti]");
-                #endif
-            }
-            
-            // CPython 3.12: Handle finally clause if present
-            if (tryStmt.FinalBody != null && tryStmt.FinalBody.Count > 0)
-            {
-                // Create finally handler label
-                var finallyHandlerLabel = CreateLabel("finally_handler");
-
-                // Add Exception Table entry for finally block
-                // Finally blocks in CPython 3.12 protect the entire try-except construct
-                var finallyBlockEntry = new ExceptionTableEntry(
-                    start: tryStartOffset,
-                    end: _instructions.Count,  // Current position (end of exception handlers)
-                    handlerLabel: finallyHandlerLabel.Name,
-                    depth: 0,
-                    lasti: false
-                );
-                _exceptionTable.Add(finallyBlockEntry);
-
-                // CPython 3.12: Finally handler must start at the first actual instruction
-                // For print() calls, this means PUSH_NULL should be the first instruction
-                // So we need to peek at the first statement and handle it specially
-
-                if (tryStmt.FinalBody.Count > 0 && tryStmt.FinalBody[0] is ExpressionStatement exprStmt &&
-                    exprStmt.Expression is CallExpression callExpr)
-                {
-                    // Special handling for function calls in finally block
-                    // Emit PUSH_NULL first, then mark the label
-                    EmitInstruction(ByteCodeOp.PUSH_NULL);
-                    MarkLabel(finallyHandlerLabel);
-
-                    // Compile the function call (will emit LOAD_GLOBAL, LOAD_CONST, CALL)
-                    CompileExpression(callExpr.Function);
-                    if (callExpr.Arguments.Count > 0)
-                    {
-                        foreach (var arg in callExpr.Arguments)
-                        {
-                            CompileExpression(arg);
-                        }
-                    }
-                    EmitInstruction(ByteCodeOp.CALL, callExpr.Arguments.Count);
-                    EmitInstruction(ByteCodeOp.POP_TOP);
-
-                    // Compile remaining statements
-                    for (int i = 1; i < tryStmt.FinalBody.Count; i++)
-                    {
-                        CompileStatement(tryStmt.FinalBody[i]);
-                    }
-                }
-                else
-                {
-                    // Fallback: original behavior for non-function-call finally blocks
-                    MarkLabel(finallyHandlerLabel);
-                    foreach (var stmt in tryStmt.FinalBody)
-                    {
-                        CompileStatement(stmt);
-                    }
-                }
-
-                // Finally blocks always reraise the exception after execution
-                EmitInstruction(ByteCodeOp.RERAISE, 0);
-
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 Finally Exception Table: {tryStartOffset} to {_instructions.Count - 1} -> {finallyHandlerLabel.Name} [depth=0]");
-                #endif
-            }
-
-            // Mark continuation point AFTER all exception handling code - this is where normal execution continues after try-except
-            MarkLabel(continueLabel);
-
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 Exception Table Entries Created:");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"   Try Block: {tryStartOffset} to {tryEndOffset} -> {handlersStartLabel.Name}");
-            #endif
-            if (tryStmt.Handlers.Count > 0)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"   Handler Block: handler range -> handler_reraise [lasti]");
-                #endif
-            }
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"✅ [CFG] CompileTryStatementCFG: Complete (SETUP_FINALLY pattern)");
+#endif
         }
+
         private void CompileWith(WithStatement withStmt)
         {
             // CPython 3.12: Always use InstructionSequence/CFG path
