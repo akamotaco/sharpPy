@@ -485,10 +485,8 @@ namespace SharpPy
         // Legacy linear bytecode emission (to be replaced by InstructionSequence)
         private List<ByteCodeInstruction> _instructions;
 
-        // CPython 3.12: Label-based intermediate representation
-        // TODO Phase 1.3: Migrate from _instructions to _instructionSequence
+        // CPython 3.12: Label-based intermediate representation (CFG pipeline)
         private InstructionSequence? _instructionSequence;
-        private const bool _useInstructionSequence = true;  // CPython 3.12 pipeline: ALWAYS ENABLED
 
         private List<PyObject> _constants;
         private List<string> _names;
@@ -1022,17 +1020,9 @@ namespace SharpPy
 #endif
             }
 
-            // 바이트코드 최적화: CFG 경로는 이미 최적화됨, LEGACY만 처리
-            if (!_useInstructionSequence)
-            {
-                var optimizer = new ByteCodeOptimizer(_enable_optimizer);
-                var optimizedCode = optimizer.OptimizeCode(codeObject);
-                return optimizedCode;
-            }
-
             return codeObject;
         }
-        
+
         /// <summary>
         /// Phase 2: 클로저 정보를 포함한 컴파일
         /// </summary>
@@ -1108,14 +1098,6 @@ namespace SharpPy
 #if DEBUG_LOG
                 Console.WriteLine($"\u2705 컴파일 완료: {_instructions.Count}개 명령어");
 #endif
-            }
-
-            // 바이트코드 최적화: CFG 경로는 이미 최적화됨, LEGACY만 처리
-            if (!_useInstructionSequence)
-            {
-                var optimizer = new ByteCodeOptimizer(_enable_optimizer);
-                var optimizedCode = optimizer.OptimizeCode(codeObject);
-                return optimizedCode;
             }
 
             return codeObject;
@@ -1720,20 +1702,6 @@ namespace SharpPy
             // CPython 3.12: 지연된 exception handler들을 바이트코드 끝에 생성
             GeneratePendingExceptionHandlers();
 
-            // 바이트코드 최적화: CFG 경로는 이미 최적화됨, LEGACY만 처리
-            if (!_useInstructionSequence)
-            {
-#if DEBUG_LOG
-                Console.WriteLine($"🔧 메인 컴파일러에서 최적화 호출: _enable_optimizer={_enable_optimizer}");
-#endif
-                var optimizer = new ByteCodeOptimizer(_enable_optimizer);
-                var optimizedCode = optimizer.OptimizeCode(codeObject);
-
-                _isInFunction = false; // Reset function context
-                _currentFunctionName = null; // Reset function name
-                return optimizedCode;
-            }
-
             _isInFunction = false; // Reset function context
             _currentFunctionName = null; // Reset function name
             return codeObject;
@@ -1916,21 +1884,6 @@ namespace SharpPy
 
             // CPython 3.12: Generate pending exception handlers at end of bytecode
             GeneratePendingExceptionHandlers();
-
-            // 바이트코드 최적화: CFG 경로는 이미 최적화됨, LEGACY만 처리
-            if (!_useInstructionSequence)
-            {
-                // Apply bytecode optimization (includes RETURN_GENERATOR insertion for generators)
-#if DEBUG_COMPILER_LOG
-                Console.WriteLine($"🔧 Calling optimizer: _enable_optimizer={_enable_optimizer}");
-#endif
-                var optimizer = new ByteCodeOptimizer(_enable_optimizer);
-                var optimizedCode = optimizer.OptimizeCode(codeObject);
-
-                _isInFunction = false;
-                _currentFunctionName = null;
-                return optimizedCode;
-            }
 
             _isInFunction = false;
             _currentFunctionName = null;
@@ -2327,12 +2280,11 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// CPython 3.12: Get final instruction list from either path
-        /// Dual-track helper: Returns instructions from active compilation path
+        /// CPython 3.12: Get final instruction list from CFG pipeline
         /// </summary>
         private List<ByteCodeInstruction> GetFinalInstructions()
         {
-            if (_useInstructionSequence && _instructionSequence != null)
+            if (_instructionSequence != null)
             {
                 // CPython 3.12 CFG PIPELINE: InstructionSequence → CFG → Optimize → ByteCode
 #if DEBUG_COMPILER_LOG
@@ -2601,14 +2553,13 @@ namespace SharpPy
                             EmitInstruction(ByteCodeOp.POP_TOP); // Pop the iterator from stack
                         }
 
-                        // Dual-track: Use NEW or LEGACY label
-                        if (_useInstructionSequence && currentLoop.NewBreakLabel.HasValue)
+                        // CFG path: Use InstructionSequence Label
+                        if (currentLoop.NewBreakLabel.HasValue)
                         {
 #if DEBUG_COMPILER_LOG
-                            Console.WriteLine($"⚡ [HYBRID-CFG] Break: Using NEW Label (InstructionSequence)");
+                            Console.WriteLine($"🔷 [CFG] Break: Using InstructionSequence Label");
 #endif
-                            _hybridPathCount++;
-                            // NEW path
+                            _cfgPathCount++;
                             _instructionSequence!.AddOpWithLabel(
                                 ByteCodeOp.JUMP_FORWARD,
                                 currentLoop.NewBreakLabel.Value,
@@ -2639,14 +2590,13 @@ namespace SharpPy
                     {
                         var currentLoop = _loopStack.Peek();
 
-                        // Dual-track: Use NEW or LEGACY label
-                        if (_useInstructionSequence && currentLoop.NewContinueLabel.HasValue)
+                        // CFG path: Use InstructionSequence Label
+                        if (currentLoop.NewContinueLabel.HasValue)
                         {
 #if DEBUG_COMPILER_LOG
-                            Console.WriteLine($"⚡ [HYBRID-CFG] Continue: Using NEW Label (InstructionSequence)");
+                            Console.WriteLine($"🔷 [CFG] Continue: Using InstructionSequence Label");
 #endif
-                            _hybridPathCount++;
-                            // NEW path
+                            _cfgPathCount++;
                             _instructionSequence!.AddOpWithLabel(
                                 ByteCodeOp.JUMP_BACKWARD,
                                 currentLoop.NewContinueLabel.Value,
@@ -4120,7 +4070,7 @@ namespace SharpPy
             // CPython 3.12: Get current exception handler info from fblock stack
             var exceptHandlerInfo = GetCurrentExceptHandlerInfo();
 
-            if (_useInstructionSequence && _instructionSequence != null)
+            if (_instructionSequence != null)
             {
 #if DEBUG_COMPILER_LOG
                 if (opCode != ByteCodeOp.CACHE && opCode != ByteCodeOp.NOP)  // Reduce noise
@@ -5914,7 +5864,7 @@ namespace SharpPy
 
             // Initialize new compilation state for class body
             _instructions = new List<ByteCodeInstruction>();
-            _instructionSequence = _useInstructionSequence ? new InstructionSequence() : null;  // CFG PATH: New InstructionSequence
+            _instructionSequence = new InstructionSequence();  // CPython 3.12: Always use CFG pipeline
             _constants = new List<PyObject>();
             _names = new List<string>();
             _varNames = new List<string>();
@@ -8452,37 +8402,37 @@ namespace SharpPy
         {
             // CPython 3.12: assert test [, msg]
             // Pattern: test → POP_JUMP_IF_TRUE → LOAD_ASSERTION_ERROR [→ msg → CALL 0] → RAISE_VARARGS 1
-            
+
             // Compile test expression
             CompileExpression(assert.Test);
-            
+
             // Create label for end of assert (when test is true)
-            var endLabel = CreateLabel($"assert_end_{_labelCounter++}");
-            
+            var endLabel = _instructionSequence.NewLabel();
+
             // If test is true, skip the assertion error
-            EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_TRUE, endLabel);
-            
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_TRUE, endLabel, _currentLineNumber);
+
             // Load AssertionError class (CPython 3.12 calling convention)
-            EmitInstruction(ByteCodeOp.PUSH_NULL);
-            EmitInstruction(ByteCodeOp.LOAD_ASSERTION_ERROR);
-            
+            _instructionSequence.AddOp(ByteCodeOp.PUSH_NULL, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.LOAD_ASSERTION_ERROR, _currentLineNumber);
+
             if (assert.Msg != null)
             {
                 // assert test, msg: AssertionError(msg)
                 CompileExpression(assert.Msg);
-                EmitInstruction(ByteCodeOp.CALL, 1);
+                _instructionSequence.AddOpWithArg(ByteCodeOp.CALL, 1, _currentLineNumber);
             }
             else
             {
                 // assert test: AssertionError()
-                EmitInstruction(ByteCodeOp.CALL, 0);
+                _instructionSequence.AddOpWithArg(ByteCodeOp.CALL, 0, _currentLineNumber);
             }
-            
+
             // Raise the AssertionError
-            EmitInstruction(ByteCodeOp.RAISE_VARARGS, 1);
-            
+            _instructionSequence.AddOpWithArg(ByteCodeOp.RAISE_VARARGS, 1, _currentLineNumber);
+
             // Mark end of assert
-            MarkLabel(endLabel);
+            _instructionSequence.UseLabel(endLabel);
         }
         private void CompileRaise(RaiseStatement raise)
         {
@@ -8569,7 +8519,7 @@ namespace SharpPy
             // CPython 3.12: Boolean operations with short-circuiting
             // For 'and': use POP_JUMP_IF_FALSE to skip rest if falsy
             // For 'or': use POP_JUMP_IF_TRUE to skip rest if truthy
-            
+
             if (boolOp.Values.Count < 2)
             {
                 // Single operand, just compile it
@@ -8579,37 +8529,38 @@ namespace SharpPy
                 }
                 return;
             }
-            
-            var endLabel = CreateLabel($"bool_end_{_labelCounter++}");
-            
+
+            // Use InstructionSequence Label (not Legacy Label)
+            var endLabel = _instructionSequence.NewLabel();
+
             // Compile all operands except the last with short-circuit logic
             for (int i = 0; i < boolOp.Values.Count - 1; i++)
             {
                 CompileExpression(boolOp.Values[i]);
-                
+
                 // CPython 3.12: DUP_TOP (similar to COPY 1)
                 EmitInstruction(ByteCodeOp.COPY, 1);
 
                 if (boolOp.OpNode is And)
                 {
                     // For 'and': if current value is falsy, jump to end (short-circuit)
-                    EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, endLabel);
+                    _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, endLabel, _currentLineNumber);
                 }
                 else if (boolOp.OpNode is Or)
                 {
                     // For 'or': if current value is truthy, jump to end (short-circuit)
-                    EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_TRUE, endLabel);
+                    _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_TRUE, endLabel, _currentLineNumber);
                 }
-                
+
                 // If we didn't short-circuit, pop the duplicate and continue
                 EmitInstruction(ByteCodeOp.POP_TOP);
             }
-            
+
             // Compile the last operand (no short-circuit needed)
             CompileExpression(boolOp.Values[boolOp.Values.Count - 1]);
-            
+
             // Place end label
-            PlaceLabel(endLabel);
+            _instructionSequence.UseLabel(endLabel);
         }
 
         /// <summary>
@@ -8638,16 +8589,16 @@ namespace SharpPy
             CompileExpression(chainedCompare.Left);
             CompileExpression(chainedCompare.Comparators[0]);
 
-            // Generate cleanup and end labels for short-circuiting
-            var cleanupLabel = CreateLabel($"chained_cleanup_{_labelCounter}");
-            var endLabel = CreateLabel($"chained_end_{_labelCounter++}");
+            // Generate cleanup and end labels for short-circuiting (use InstructionSequence Label)
+            var cleanupLabel = _instructionSequence.NewLabel();
+            var endLabel = _instructionSequence.NewLabel();
 
             // CPython pattern for first comparison
             EmitInstruction(ByteCodeOp.SWAP, 2);      // Stack: [b, a]
             EmitInstruction(ByteCodeOp.COPY, 2);      // Stack: [b, a, b]
             EmitCompareOp(chainedCompare.Operators[0]); // Stack: [b, result1]
             EmitInstruction(ByteCodeOp.COPY, 1);      // Stack: [b, result1, result1]
-            EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, cleanupLabel); // Stack: [b, result1]
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, cleanupLabel, _currentLineNumber); // Stack: [b, result1]
             EmitInstruction(ByteCodeOp.POP_TOP);      // Stack: [b]
 
             // Handle remaining comparisons
@@ -8665,7 +8616,7 @@ namespace SharpPy
                     EmitInstruction(ByteCodeOp.COPY, 2);     // Stack: [curr, prev, curr]
                     EmitCompareOp(chainedCompare.Operators[i]); // Stack: [curr, result]
                     EmitInstruction(ByteCodeOp.COPY, 1);     // Stack: [curr, result, result]
-                    EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, cleanupLabel); // Stack: [curr, result]
+                    _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, cleanupLabel, _currentLineNumber); // Stack: [curr, result]
                     EmitInstruction(ByteCodeOp.POP_TOP);     // Stack: [curr]
                 }
                 else
@@ -8676,15 +8627,15 @@ namespace SharpPy
             }
 
             // Jump to end after successful completion
-            EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, endLabel);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, endLabel, _currentLineNumber);
 
             // Cleanup: when any comparison fails
-            PlaceLabel(cleanupLabel);
+            _instructionSequence.UseLabel(cleanupLabel);
             EmitInstruction(ByteCodeOp.SWAP, 2);
             EmitInstruction(ByteCodeOp.POP_TOP);
 
             // End label
-            PlaceLabel(endLabel);
+            _instructionSequence.UseLabel(endLabel);
         }
 
         /// <summary>
@@ -8698,15 +8649,15 @@ namespace SharpPy
             CompileExpression(compare.Comparators[0]);
 
             // Generate cleanup and end labels for short-circuiting
-            var cleanupLabel = CreateLabel($"chained_cleanup_{_labelCounter}");
-            var endLabel = CreateLabel($"chained_end_{_labelCounter++}");
+            var cleanupLabel = _instructionSequence.NewLabel();
+            var endLabel = _instructionSequence.NewLabel();
 
             // CPython pattern for first comparison
             EmitInstruction(ByteCodeOp.SWAP, 2);      // Stack: [b, a]
             EmitInstruction(ByteCodeOp.COPY, 2);      // Stack: [b, a, b]
             EmitCompareOp(compare.Ops[0]); // Stack: [b, result1]
             EmitInstruction(ByteCodeOp.COPY, 1);      // Stack: [b, result1, result1]
-            EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, cleanupLabel); // Stack: [b, result1]
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, cleanupLabel, _currentLineNumber); // Stack: [b, result1]
             EmitInstruction(ByteCodeOp.POP_TOP);      // Stack: [b]
 
             // Handle remaining comparisons
@@ -8724,7 +8675,7 @@ namespace SharpPy
                     EmitInstruction(ByteCodeOp.COPY, 2);     // Stack: [curr, prev, curr]
                     EmitCompareOp(compare.Ops[i]); // Stack: [curr, result]
                     EmitInstruction(ByteCodeOp.COPY, 1);     // Stack: [curr, result, result]
-                    EmitJumpToLabel(ByteCodeOp.POP_JUMP_IF_FALSE, cleanupLabel); // Stack: [curr, result]
+                    _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, cleanupLabel, _currentLineNumber); // Stack: [curr, result]
                     EmitInstruction(ByteCodeOp.POP_TOP);     // Stack: [curr]
                 }
                 else
@@ -8735,15 +8686,15 @@ namespace SharpPy
             }
 
             // Jump to end after successful completion
-            EmitJumpToLabel(ByteCodeOp.JUMP_FORWARD, endLabel);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, endLabel, _currentLineNumber);
 
             // Cleanup: when any comparison fails
-            PlaceLabel(cleanupLabel);
+            _instructionSequence.UseLabel(cleanupLabel);
             EmitInstruction(ByteCodeOp.SWAP, 2);
             EmitInstruction(ByteCodeOp.POP_TOP);
 
             // End label
-            PlaceLabel(endLabel);
+            _instructionSequence.UseLabel(endLabel);
         }
 
         private void CompileLambda(LambdaExpression lambda)
@@ -9014,45 +8965,43 @@ namespace SharpPy
 
             return (freeVars, cellVars);
         }
-        private void CompileConditional(ConditionalExpression conditional) 
+        private void CompileConditional(ConditionalExpression conditional)
         {
             // CPython 3.12 조건부 표현식: A if B else C
             // CPython은 조건부 표현식에서 코드 중복 방식을 사용함
             // 조건을 평가한 후 각 분기에서 전체 표현식 컨텍스트를 중복 실행
-            
-            var elseLabel = CreateLabel("conditional_else");
-            
+
+            var elseLabel = _instructionSequence.NewLabel();
+
             // 1. 조건(B) 평가
             CompileExpression(conditional.Test);
-            
+
             // 2. 조건이 False면 else 부분으로 점프
-            EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0);
-            elseLabel.References.Add(_instructions.Count - 1);
-            
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, elseLabel, _currentLineNumber);
+
             // 3. True 분기: Body 값만 로드 (CPython 3.12 호환성)
             CompileExpression(conditional.Body);
-            
+
             // 4. else 라벨 없이 직접 계속 (CPython처럼 중복 없음)
             // CPython은 여기서 JUMP하지 않고 다음 명령어로 계속감
-            // 하지만 우리는 expression context에서 동작해야 하므로 
+            // 하지만 우리는 expression context에서 동작해야 하므로
             // 최소한의 점프 사용
             if (IsInComplexExpression())
             {
-                var endLabel = CreateLabel("conditional_end");
-                EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0);
-                endLabel.References.Add(_instructions.Count - 1);
-                
+                var endLabel = _instructionSequence.NewLabel();
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, endLabel, _currentLineNumber);
+
                 // 5. False 분기
-                MarkLabel(elseLabel);
+                _instructionSequence.UseLabel(elseLabel);
                 CompileExpression(conditional.OrElse);
-                
-                MarkLabel(endLabel);
+
+                _instructionSequence.UseLabel(endLabel);
             }
             else
             {
                 // 단순 표현식의 경우 CPython의 코드 중복 패턴 모방
                 // 실제로는 분기 없이 값만 스택에 남김
-                MarkLabel(elseLabel);
+                _instructionSequence.UseLabel(elseLabel);
                 CompileExpression(conditional.OrElse);
             }
         }
