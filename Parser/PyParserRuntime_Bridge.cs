@@ -1777,7 +1777,11 @@ namespace SharpPy.Generated
                     : new NameExpression(mas.Name?.ToString() ?? "_"),
 
                 // MatchOr: matches pattern1 | pattern2 | ...
-                GeneratedMatchOr mor => ConvertPattern(mor.Patterns.ToEnumerable<GeneratedPattern>().First()),
+                GeneratedMatchOr mor => new OrPattern(
+                    mor.Patterns.ToEnumerable<GeneratedPattern>()
+                        .Select(p => ConvertPattern(p))
+                        .ToList()
+                ),
 
                 _ => throw new NotImplementedException($"Pattern type {pattern.GetType().Name} not implemented")
             };

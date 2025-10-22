@@ -7945,6 +7945,40 @@ namespace SharpPy
                     EmitStoreName(nameExpr.Name);
                     return true;
 
+                case OrPattern orPat:
+                    // CPython 3.12: compiler_pattern_or
+                    // Try each alternative in sequence with COPY 1
+                    // Stack: [subject] on entry
+                    var endLabel = _instructionSequence.NewLabel();
+
+                    for (int i = 0; i < orPat.Patterns.Count; i++)
+                    {
+                        var alt = orPat.Patterns[i];
+                        var nextAlt = _instructionSequence.NewLabel();
+
+                        // COPY 1 - preserve subject for next alternative
+                        _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 1, _currentLineNumber);
+
+                        // Compile this alternative
+                        CompilePatternMatchCFG(alt, nextAlt);
+
+                        // If we get here, match succeeded - jump to end
+                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, endLabel, _currentLineNumber);
+
+                        // nextAlt: This alternative failed
+                        _instructionSequence.UseLabel(nextAlt);
+
+                        // Last alternative? Jump to overall fail
+                        if (i == orPat.Patterns.Count - 1)
+                        {
+                            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, failLabel, _currentLineNumber);
+                        }
+                    }
+
+                    // endLabel: One alternative matched
+                    _instructionSequence.UseLabel(endLabel);
+                    return true;
+
                 default:
                     // Unsupported pattern for now
                     throw new NotImplementedException($"Pattern type {pattern?.GetType().Name} not yet supported in CFG path");
