@@ -35,20 +35,7 @@ namespace SharpPy
         /// false: 일반 디버그 출력 포함
         /// </summary>
         public static bool DisassemblyOnlyMode { get; set; } = false;
-        
-        /// <summary>
-        /// 바이트코드 최적화 비활성화 (--no-optimize)
-        /// true: 최적화 단계를 건너뛰고 원본 바이트코드 사용
-        /// false: 최적화 적용 (기본값)
-        /// </summary>
-        public static bool DisableOptimizer { get; set; } = false;
-        
-        /// <summary>
-        /// 바이트코드 최적화 활성화 여부
-        /// DisableOptimizer의 반대값 (편의성을 위한 속성)
-        /// </summary>
-        public static bool _enable_optimizer => !DisableOptimizer;
-        
+
         /// <summary>
         /// 디버그 정보 출력 여부 결정
         /// VerboseMode가 true이거나 QuietMode가 false일 때 출력
@@ -75,8 +62,7 @@ namespace SharpPy
             VerboseMode = false;
             QuietMode = false;
             ShowBytecode = false;
-            DisableOptimizer = false;
-        }
+}
         
         /// <summary>
         /// 현재 설정 상태를 문자열로 반환

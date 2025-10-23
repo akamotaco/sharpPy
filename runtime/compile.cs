@@ -471,17 +471,6 @@ namespace SharpPy
     // AST를 바이트코드로 컴파일 (기존 시스템과 연동)
     public class PythonCompiler
     {
-
-        private bool _enable_optimizer {
-            get {
-                bool result = !SharpPyConfig.DisableOptimizer;
-#if DEBUG_LOG
-                Console.WriteLine($"🔧 _enable_optimizer: {result} (DisableOptimizer: {SharpPyConfig.DisableOptimizer})");
-#endif
-                return result;
-            }
-        }   // CPython 3.12 compatibility with 2-byte addressing
-
         // Legacy linear bytecode emission (to be replaced by InstructionSequence)
         private List<ByteCodeInstruction> _instructions;
 
@@ -870,13 +859,9 @@ namespace SharpPy
             }
 #endif
 
-            // Phase 1: AST 수준 최적화 (CPython 3.12 스타일)
-            var optimizedStatements = statements;
-            if (!SharpPyConfig.DisableOptimizer)
-            {
-                var astOptimizer = new PyASTOptimizer(GetOptimizationLevel());
-                optimizedStatements = astOptimizer.OptimizeAST(statements);
-            }
+            // Phase 1: AST 수준 최적화 (CPython 3.12 스타일, 항상 활성화)
+            var astOptimizer = new PyASTOptimizer(GetOptimizationLevel());
+            var optimizedStatements = astOptimizer.OptimizeAST(statements);
             
             // Pre-scan for global variables in functions (CPython 3.12 compatibility)
             if (name == "<module>")
@@ -2282,18 +2267,15 @@ namespace SharpPy
             Console.WriteLine($"   CFG has {cfg.AllBlocks.Count} basic blocks");
 #endif
 
-            // Phase 2: Optimize CFG (if enabled)
-            if (_enable_optimizer)
-            {
+            // Phase 2: Optimize CFG (CPython 3.12, 항상 활성화)
 #if DEBUG_COMPILER_LOG
-                Console.WriteLine($"   🔧 Running CFG optimization...");
+            Console.WriteLine($"   🔧 Running CFG optimization...");
 #endif
-                var cfgOptimizer = new CFGOptimizer(cfg, _constants);
-                cfgOptimizer.Optimize();
+            var cfgOptimizer = new CFGOptimizer(cfg, _constants);
+            cfgOptimizer.Optimize();
 #if DEBUG_COMPILER_LOG
-                Console.WriteLine($"   ✅ CFG optimized: {cfg.AllBlocks.Count} blocks");
+            Console.WriteLine($"   ✅ CFG optimized: {cfg.AllBlocks.Count} blocks");
 #endif
-            }
 
             // Phase 3: CFG → ByteCode (with correct offsets)
 #if DEBUG_COMPILER_LOG
@@ -10839,14 +10821,10 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// 현재 설정에 기반하여 최적화 레벨을 결정
+        /// CPython 3.12 호환: 최적화 레벨 결정 (항상 활성화)
         /// </summary>
         private OptimizationLevel GetOptimizationLevel()
         {
-            // SharpPyConfig 설정에 기반하여 최적화 레벨 결정
-            if (SharpPyConfig.DisableOptimizer)
-                return OptimizationLevel.Disabled;
-
             // CPython 3.12 호환: Basic 레벨 (ast_opt.c 호환)
             // Standard/TypeAware/Aggressive는 SharpPy 확장 기능
             // 환경변수나 설정에 따라 레벨 조정 가능

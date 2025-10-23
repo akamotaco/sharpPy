@@ -236,35 +236,14 @@ namespace SharpPy
         /// </summary>
         public static int CalculateForIterTarget(int currentInstrPos, int opArg, List<ByteCodeInstruction> instructions)
         {
-            // 레거시: SharpPyConfig._enable_optimizer 조건 사용
-            if (SharpPyConfig._enable_optimizer)
-            {
-                // CPython 3.12 최적화 모드: instruction 단위 계산
-                int targetIndex = currentInstrPos + opArg;
+            // CPython 3.12: instruction 단위 계산 (항상 최적화 모드)
+            int targetIndex = currentInstrPos + opArg;
 
 #if DEBUG_LOG
-                Console.WriteLine($"🔍 FOR_ITER 타겟 계산 (레거시 최적화): currentInstr={currentInstrPos}, opArg={opArg}");
-                Console.WriteLine($"    targetIndex={targetIndex}");
+            Console.WriteLine($"🔍 FOR_ITER 타겟 계산: currentInstr={currentInstrPos}, opArg={opArg}");
+            Console.WriteLine($"    targetIndex={targetIndex}");
 #endif
-                return targetIndex;
-            }
-            else
-            {
-                // 최적화 비활성화: 바이트 단위 계산
-                int currentByteOffset = CalculateByteOffset(currentInstrPos, instructions);
-                int targetByteOffset = currentByteOffset + (opArg * 2);
-
-#if DEBUG_LOG
-                Console.WriteLine($"🔍 FOR_ITER 타겟 계산 (레거시 바이트): currentInstr={currentInstrPos}, opArg={opArg}");
-                Console.WriteLine($"    currentByteOffset={currentByteOffset}, targetByteOffset={targetByteOffset}");
-#endif
-
-                int targetIndex = ByteOffsetToInstructionIndex(targetByteOffset, instructions);
-#if DEBUG_LOG
-                Console.WriteLine($"    targetIndex={targetIndex}");
-#endif
-                return targetIndex;
-            }
+            return targetIndex;
         }
 
         /// <summary>

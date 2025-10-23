@@ -38,10 +38,6 @@ namespace SharpPy.Core
                     case "--dis":
                         options["--dis"] = "true";
                         break;
-                        
-                    case "--no-optimize":
-                        options["--no-optimize"] = "true";
-                        break;
 
                     case "--tokens":
                         options["--tokens"] = "true";

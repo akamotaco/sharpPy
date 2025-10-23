@@ -20,7 +20,6 @@ namespace SharpPy.Core
             Console.WriteLine("  dotnet run --dis <file.py>       - 바이트코드 직접 출력 (정확한 오프셋)");
             Console.WriteLine("  dotnet run --ast <file.py>       - AST 트리 출력 (CPython 3.12 호환)");
             Console.WriteLine("  dotnet run --tokens <file.py>    - 토큰 출력");
-            Console.WriteLine("  dotnet run --no-optimize <file.py> - 최적화 없이 실행");
             Console.WriteLine("  dotnet run -c \"code\"             - 코드 문자열 직접 실행");
             Console.WriteLine("  dotnet run -m <module> <args>    - 모듈 실행 (CPython 호환)");
             Console.WriteLine("  dotnet run demo                  - 모든 데모 실행");
