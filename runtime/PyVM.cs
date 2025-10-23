@@ -456,6 +456,9 @@ namespace SharpPy
         private readonly Stack<PyFrame> _frameStack;
         private readonly PyScopeChain _globalScope;
 
+        // CPython 3.12: Adaptive Specialization System (PEP 659)
+        private readonly AdaptiveSpecializer _specializer;
+
         // Current frame for zero-argument super() calls
         public static PyFrame? CurrentFrame => Instance._frameStack.Count > 0 ? Instance._frameStack.Peek() : null;
 
@@ -466,6 +469,7 @@ namespace SharpPy
         {
             _frameStack = new Stack<PyFrame>();
             _globalScope = new PyScopeChain(); // 기존 LEGB 시스템 사용!
+            _specializer = new AdaptiveSpecializer(); // CPython 3.12: PEP 659
         }
 
         // 메인 모듈 실행
@@ -726,6 +730,11 @@ namespace SharpPy
                         Console.WriteLine($"  {frame.InstructionPointer*2,3}: {instruction,-25} 스택:[{stackContents}]");
                     }
 #endif
+
+                    // CPython 3.12: Attempt adaptive specialization (PEP 659)
+                    // NOTE: TrySpecialize is currently a no-op (skeleton implementation)
+                    // When Enabled=false, this call returns immediately without any work
+                    _specializer.TrySpecialize(frame, frame.InstructionPointer, instruction.OpCode);
 
                     try
                     {
