@@ -6,9 +6,16 @@ namespace SharpPy
 {
     /// <summary>
     /// 상수 접기 최적화 규칙 - AST 레벨에서 상수 연산을 컴파일 타임에 계산
+    /// CPython 3.12 Reference: Python/ast_opt.c (lines 148-240)
     /// </summary>
     public class ConstantFoldingRule : IOptimizationRule
     {
+        // CPython 3.12 ast_opt.c complexity limits (lines 148-151)
+        private const int MAX_INT_SIZE = 128;           // bits
+        private const int MAX_COLLECTION_SIZE = 256;    // items
+        private const int MAX_STR_SIZE = 4096;          // characters
+        private const int MAX_TOTAL_ITEMS = 1024;       // including nested collections
+
         public string RuleName => "Constant Folding";
 
         public bool CanOptimize(ASTNode node)
@@ -23,13 +30,17 @@ namespace SharpPy
         public ASTNode Optimize(ASTNode node)
         {
             var binOp = (BinaryOpExpression)node;
-            
+
             try
             {
                 var leftValue = EvaluateConstant(binOp.Left);
                 var rightValue = EvaluateConstant(binOp.Right);
                 var result = EvaluateBinaryOperation(leftValue, rightValue, binOp.Operator);
-                
+
+                // null indicates complexity limit exceeded - skip optimization
+                if (result == null)
+                    return node;
+
                 return new ConstantExpression(result);
             }
             catch (Exception)
@@ -58,18 +69,146 @@ namespace SharpPy
             {
                 "+" => left.Add(right),
                 "-" => left.Subtract(right),
-                "*" => left.Multiply(right),
+                "*" => SafeMultiply(left, right),
                 "/" => left.Divide(right),
                 "//" => left.FloorDivide(right),
                 "%" => left.Modulo(right),
-                "**" => left.Power(right),
-                "<<" => left.LeftShift(right),
+                "**" => SafePower(left, right),
+                "<<" => SafeLeftShift(left, right),
                 ">>" => left.RightShift(right),
                 "&" => left.BitwiseAnd(right),
                 "|" => left.BitwiseOr(right),
                 "^" => left.BitwiseXor(right),
                 _ => throw new NotSupportedException($"Operator {operator_} not supported in constant folding")
             };
+        }
+
+        /// <summary>
+        /// CPython 3.12 safe_multiply() implementation (Python/ast_opt.c lines 154-195)
+        /// Returns null if complexity limit is exceeded
+        /// </summary>
+        private PyObject SafeMultiply(PyObject left, PyObject right)
+        {
+            // Case 1: int * int - check for bit overflow
+            if (left is PyInt leftInt && right is PyInt rightInt)
+            {
+                // Skip if either is zero (no overflow possible)
+                if (leftInt.Value != 0 && rightInt.Value != 0)
+                {
+                    int leftBits = (int)leftInt.BitLength().Value;
+                    int rightBits = (int)rightInt.BitLength().Value;
+
+                    if (leftBits + rightBits > MAX_INT_SIZE)
+                    {
+                        return null; // Complexity limit exceeded
+                    }
+                }
+            }
+            // Case 2: int * (tuple/list/set) - check for collection size explosion
+            else if (left is PyInt multiplier && (right is PyTuple || right is PyList || right is PySet))
+            {
+                int size = right switch
+                {
+                    PyTuple tuple => tuple.Length(),
+                    PyList list => list.Length(),
+                    PySet set => set.Length(),
+                    _ => 0
+                };
+
+                if (size > 0)
+                {
+                    long n = multiplier.Value;
+                    if (n < 0 || n > MAX_COLLECTION_SIZE / size)
+                    {
+                        return null; // Collection too large
+                    }
+                }
+            }
+            // Case 3: int * (str/bytes) - check for string size explosion
+            else if (left is PyInt strMultiplier && right is PyString str)
+            {
+                int size = str.Value.Length;
+
+                if (size > 0)
+                {
+                    long n = strMultiplier.Value;
+                    if (n < 0 || n > MAX_STR_SIZE / size)
+                    {
+                        return null; // String too large
+                    }
+                }
+            }
+
+            return left.Multiply(right);
+        }
+
+        /// <summary>
+        /// CPython 3.12 safe_power() implementation (Python/ast_opt.c lines 197-213)
+        /// Returns null if complexity limit is exceeded
+        /// </summary>
+        private PyObject SafePower(PyObject left, PyObject right)
+        {
+            // Only check int ** int
+            if (left is PyInt baseInt && right is PyInt expInt)
+            {
+                // Negative exponents produce floats, allow them
+                if (expInt.Value < 0)
+                {
+                    return left.Power(right);
+                }
+
+                // Check for exponential growth
+                if (baseInt.Value != 0 && expInt.Value != 0)
+                {
+                    int baseBits = (int)baseInt.BitLength().Value;
+                    long exponent = expInt.Value;
+
+                    // Rough approximation: result_bits ≈ base_bits * exponent
+                    // Using double to avoid overflow in multiplication
+                    double estimatedBits = (double)baseBits * exponent;
+
+                    if (estimatedBits > MAX_INT_SIZE)
+                    {
+                        return null; // Result would be too large
+                    }
+                }
+            }
+
+            return left.Power(right);
+        }
+
+        /// <summary>
+        /// CPython 3.12 safe_lshift() implementation (Python/ast_opt.c lines 215-240)
+        /// Returns null if complexity limit is exceeded
+        /// </summary>
+        private PyObject SafeLeftShift(PyObject left, PyObject right)
+        {
+            // Only check int << int
+            if (left is PyInt valueInt && right is PyInt shiftInt)
+            {
+                // Negative shifts are errors (runtime will catch)
+                if (shiftInt.Value < 0)
+                {
+                    return left.LeftShift(right);
+                }
+
+                // Check for bit overflow
+                if (valueInt.Value != 0)
+                {
+                    int valueBits = (int)valueInt.BitLength().Value;
+                    long shiftAmount = shiftInt.Value;
+
+                    // Using double to avoid overflow
+                    double resultBits = valueBits + (double)shiftAmount;
+
+                    if (resultBits > MAX_INT_SIZE)
+                    {
+                        return null; // Result would be too large
+                    }
+                }
+            }
+
+            return left.LeftShift(right);
         }
     }
 

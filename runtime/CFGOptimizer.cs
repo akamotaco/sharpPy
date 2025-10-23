@@ -25,15 +25,17 @@ namespace SharpPy
         /// </summary>
         public void Optimize()
         {
-            // CPython 3.12 optimization order
+            // CPython 3.12 optimization order (structural optimizations only)
+            // NOTE: CPython 3.12 does NOT perform peephole optimizations at CFG level
+            // Peephole optimizations (constant folding, etc.) are done at AST level in ast_opt.c
+
             RemoveUnreachableBlocks();       // Mark and remove unreachable blocks
             EliminateEmptyBlocks();          // Remove blocks with no instructions
-            OptimizeWithinBlocks();          // Peephole optimizations within blocks
             RemoveRedundantJumps();          // Remove jumps to next block (fallthrough)
 
             // NOTE: CPython 3.12 also does:
             // - inline_small_exit_blocks() - not implemented yet
-            // - remove_redundant_nops_and_pairs() - partially in OptimizeWithinBlocks()
+            // - remove_redundant_nops_and_pairs() - removed in CPython 3.11+
             // - mark_reachable() + delete unreachable - covered by RemoveUnreachableBlocks()
         }
 
@@ -297,98 +299,10 @@ namespace SharpPy
             }
         }
 
-        /// <summary>
-        /// Apply peephole optimizations within each block
-        /// Reuses existing ByteCodeOptimizer patterns
-        /// </summary>
-        private void OptimizeWithinBlocks()
-        {
-            foreach (var block in _cfg.AllBlocks)
-            {
-                if (block.Instructions.Count == 0)
-                {
-                    continue;
-                }
-
-                // Apply optimizations to this block's instructions
-                OptimizeInstructionSequence(block.Instructions);
-            }
-        }
-
-        /// <summary>
-        /// Optimize a sequence of instructions (peephole patterns)
-        /// Based on ByteCodeOptimizer's existing logic
-        /// </summary>
-        private void OptimizeInstructionSequence(List<ByteCodeInstruction> instructions)
-        {
-            // Pattern: LOAD_CONST, POP_TOP → (remove both)
-            for (int i = 0; i < instructions.Count - 1; i++)
-            {
-                var inst1 = instructions[i];
-                var inst2 = instructions[i + 1];
-
-                if (inst1.OpCode == ByteCodeOp.LOAD_CONST &&
-                    inst2.OpCode == ByteCodeOp.POP_TOP)
-                {
-                    // Remove both instructions
-                    instructions.RemoveAt(i + 1);
-                    instructions.RemoveAt(i);
-                    i--; // Recheck from this position
-                    continue;
-                }
-            }
-
-            // Pattern: LOAD_CONST <True>, POP_JUMP_IF_TRUE → JUMP_FORWARD
-            // Pattern: LOAD_CONST <False>, POP_JUMP_IF_FALSE → JUMP_FORWARD
-            for (int i = 0; i < instructions.Count - 1; i++)
-            {
-                var inst1 = instructions[i];
-                var inst2 = instructions[i + 1];
-
-                if (inst1.OpCode == ByteCodeOp.LOAD_CONST &&
-                    inst1.Argument >= 0 && inst1.Argument < _constants.Count)
-                {
-                    var constVal = _constants[inst1.Argument];
-
-                    // True + POP_JUMP_IF_TRUE → unconditional jump
-                    if (constVal is PyBool boolVal && boolVal.Value &&
-                        inst2.OpCode == ByteCodeOp.POP_JUMP_IF_TRUE)
-                    {
-                        instructions[i] = new ByteCodeInstruction(
-                            ByteCodeOp.JUMP_FORWARD,
-                            inst2.Argument,
-                            inst2.LineNumber,
-                            inst2.ColumnOffset,
-                            inst2.FileName,
-                            inst2.ExceptHandler,
-                            inst1.ExceptionHandlerOffset  // Preserve handler offset from inst1
-                        );
-                        instructions.RemoveAt(i + 1);
-                        continue;
-                    }
-
-                    // False + POP_JUMP_IF_FALSE → unconditional jump
-                    if (constVal is PyBool boolVal2 && !boolVal2.Value &&
-                        inst2.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE)
-                    {
-                        instructions[i] = new ByteCodeInstruction(
-                            ByteCodeOp.JUMP_FORWARD,
-                            inst2.Argument,
-                            inst2.LineNumber,
-                            inst2.ColumnOffset,
-                            inst2.FileName,
-                            inst2.ExceptHandler,
-                            inst1.ExceptionHandlerOffset  // Preserve handler offset from inst1
-                        );
-                        instructions.RemoveAt(i + 1);
-                        continue;
-                    }
-                }
-            }
-
-            // More peephole patterns can be added here...
-            // NOTE: Constant folding is now done at compile-time in compile.cs, not here
-        }
+        // NOTE: OptimizeWithinBlocks() removed in CPython 3.12 compatibility update
+        // CPython 3.12 does NOT perform peephole optimizations at CFG level
+        // All peephole optimizations (constant folding, dead code elimination, etc.)
+        // are performed at AST level in Python/ast_opt.c (SharpPy: PyASTOptimizer.cs)
 
     }
 }

@@ -10846,10 +10846,11 @@ namespace SharpPy
             // SharpPyConfig 설정에 기반하여 최적화 레벨 결정
             if (SharpPyConfig.DisableOptimizer)
                 return OptimizationLevel.Disabled;
-                
+
+            // CPython 3.12 호환: Basic 레벨 (ast_opt.c 호환)
+            // Standard/TypeAware/Aggressive는 SharpPy 확장 기능
             // 환경변수나 설정에 따라 레벨 조정 가능
-            // Phase 2 테스트를 위해 TypeAware 레벨 사용
-            return OptimizationLevel.TypeAware;
+            return OptimizationLevel.Basic;
         }
 
         /// <summary>

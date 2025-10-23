@@ -7,6 +7,10 @@ namespace SharpPy
     /// <summary>
     /// CPython 3.12 호환 AST 수준 최적화 엔진
     /// Peephole 최적화를 대체하는 고급 AST 패턴 매칭 및 최적화 시스템
+    ///
+    /// CPython 3.12 Reference: Python/ast_opt.c (958 lines)
+    /// - Basic level: Matches CPython 3.12 ast_opt.c optimizations
+    /// - Standard/TypeAware/Aggressive: SharpPy extensions (optional)
     /// </summary>
     public class PyASTOptimizer
     {
@@ -15,7 +19,7 @@ namespace SharpPy
         private readonly ASTPatternMatcher _patternMatcher;
         private readonly TypeInferenceEngine _typeInference;
 
-        public PyASTOptimizer(OptimizationLevel level = OptimizationLevel.Standard)
+        public PyASTOptimizer(OptimizationLevel level = OptimizationLevel.Basic)
         {
             _level = level;
             _rules = new Dictionary<Type, List<IOptimizationRule>>();
@@ -282,34 +286,46 @@ namespace SharpPy
 
         /// <summary>
         /// 최적화 규칙들을 등록
+        /// CPython 3.12 Reference: Python/ast_opt.c
+        /// - fold_unaryop() (line 58)
+        /// - fold_binop() (line 451)
+        /// - astfold_stmt() (line 730): Dead branch elimination
         /// </summary>
         private void RegisterOptimizationRules()
         {
-            // Basic optimizations (Level: Basic+)
-            RegisterRule<BinaryOpExpression>(new ConstantFoldingRule());
-            RegisterRule<UnaryOpExpression>(new UnaryConstantFoldingRule());
-            RegisterRule<IfStatement>(new DeadBranchEliminationRule());
-            RegisterRule<WhileStatement>(new DeadLoopEliminationRule());
-            RegisterRule<BinaryOpExpression>(new BooleanSimplificationRule());
-            RegisterRule<BoolOpExpression>(new BooleanSimplificationRule());
-            
-            // Standard optimizations (Level: Standard+)
+            // ============================================================
+            // Basic Level: CPython 3.12 ast_opt.c 호환 (Level: Basic+)
+            // ============================================================
+            RegisterRule<BinaryOpExpression>(new ConstantFoldingRule());         // CPython: fold_binop()
+            RegisterRule<UnaryOpExpression>(new UnaryConstantFoldingRule());     // CPython: fold_unaryop()
+            RegisterRule<IfStatement>(new DeadBranchEliminationRule());          // CPython: astfold_stmt() - if True/False
+            RegisterRule<WhileStatement>(new DeadLoopEliminationRule());         // CPython: astfold_stmt() - while False
+            RegisterRule<BinaryOpExpression>(new BooleanSimplificationRule());   // CPython: fold_binop() - boolean ops
+            RegisterRule<BoolOpExpression>(new BooleanSimplificationRule());     // CPython: fold_binop() - boolean ops
+
+            // ============================================================
+            // Standard Level: SharpPy 확장 (Level: Standard+)
+            // ============================================================
             if (_level >= OptimizationLevel.Standard)
             {
-                RegisterRule<BinaryOpExpression>(new AlgebraicSimplificationRule());
-                RegisterRule<CallExpression>(new BuiltinCallOptimizationRule());
+                RegisterRule<BinaryOpExpression>(new AlgebraicSimplificationRule());       // x*1 → x, x+0 → x
+                RegisterRule<CallExpression>(new BuiltinCallOptimizationRule());           // len([1,2,3]) → 3
                 RegisterRule<CallExpression>(new ContainerSizeOptimizationRule(_typeInference));
             }
-            
-            // Type-aware optimizations (Level: TypeAware+)
+
+            // ============================================================
+            // TypeAware Level: 타입 추론 기반 최적화 (Level: TypeAware+)
+            // ============================================================
             if (_level >= OptimizationLevel.TypeAware)
             {
                 RegisterRule<BinaryOpExpression>(new TypeSpecializedBinaryOpRule(_typeInference));
                 RegisterRule<CallExpression>(new BuiltinMethodInliningRule(_typeInference));
                 RegisterRule<CallExpression>(new TypeGuardEliminationRule(_typeInference));
             }
-            
-            // Aggressive optimizations (Level: Aggressive)
+
+            // ============================================================
+            // Aggressive Level: 실험적 최적화 (Level: Aggressive)
+            // ============================================================
             if (_level >= OptimizationLevel.Aggressive)
             {
                 RegisterRule<ForStatement>(new LoopUnrollingRule());
@@ -332,14 +348,15 @@ namespace SharpPy
 
     /// <summary>
     /// 최적화 수준 열거형
+    /// CPython 3.12 Reference: Python/ast_opt.c
     /// </summary>
     public enum OptimizationLevel
     {
         Disabled = 0,    // 최적화 비활성화
-        Basic = 1,       // 기본 AST 최적화만
-        Standard = 2,    // 표준 최적화 (기본값)  
-        TypeAware = 3,   // 타입 추론 포함
-        Aggressive = 4   // 공격적 최적화 (실험적)
+        Basic = 1,       // CPython 3.12 ast_opt.c 호환 (기본값, 추천)
+        Standard = 2,    // Basic + 대수적 단순화, 내장함수 최적화 (SharpPy 확장)
+        TypeAware = 3,   // Standard + 타입 추론 기반 최적화 (SharpPy 확장)
+        Aggressive = 4   // TypeAware + 루프 언롤링, 함수 인라인 (실험적, SharpPy 확장)
     }
 
     /// <summary>
