@@ -370,16 +370,93 @@ namespace SharpPy
             }
         }
 
+        /// <summary>
+        /// CPython PyObject_GenericSetAttr 호환: 속성 삭제 (value=NULL로 SetAttr 호출)
+        /// Descriptor 프로토콜 지원 (data descriptor의 Delete 메서드 호출)
+        /// </summary>
         protected virtual void PyDelAttribute(string name)
         {
+            // CPython 3.12 compatible: PyObject_GenericSetAttr with value=NULL
+            // References: Objects/object.c _PyObject_GenericSetAttrWithDict()
+            var type = GetPyType();
+
+            #if DEBUG_LOG
+            Console.WriteLine($"🔍 PyDelAttribute: deleting '{name}' from {GetTypeName()}");
+            Console.WriteLine($"   → searching class MRO for descriptors");
+            #endif
+
+            // 1. Look for descriptor in class MRO (CPython: _PyType_Lookup)
+            IDescriptor descriptor = null;
+            PyObject attr = null;
+
+            foreach (var mroType in type.MRO)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"   → checking {mroType.Name}");
+                #endif
+
+                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out attr))
+                {
+                    descriptor = attr as IDescriptor;
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   ✅ found in PyClass.ClassDict: {attr.GetTypeName()}, IsDescriptor={descriptor != null}");
+                    #endif
+                    break;
+                }
+                else if (mroType.TypeDict.TryGetValue(name, out attr))
+                {
+                    descriptor = attr as IDescriptor;
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   ✅ found in TypeDict: {attr.GetTypeName()}, IsDescriptor={descriptor != null}");
+                    #endif
+                    break;
+                }
+            }
+
+            // 2. If data descriptor found with Delete capability, use it (CPython: tp_descr_set)
+            if (descriptor != null && descriptor.IsDataDescriptor())
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"   → data descriptor found, calling Delete()");
+                #endif
+                try
+                {
+                    descriptor.Delete(this);
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   ✅ descriptor.Delete() succeeded");
+                    #endif
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   ❌ descriptor.Delete() failed: {ex.Message}");
+                    #endif
+                    throw;
+                }
+            }
+
+            // 3. Try to delete from instance dictionary (CPython: instance __dict__ handling)
+            #if DEBUG_LOG
+            Console.WriteLine($"   → no data descriptor, trying instance dict");
+            #endif
+
             if (this is PyClassInstance instance)
             {
                 if (instance.InstanceDict.ContainsKey(name))
                 {
                     instance.InstanceDict.Remove(name);
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   ✅ deleted from instance dict");
+                    #endif
                     return;
                 }
             }
+
+            // 4. Attribute not found - raise AttributeError (CPython behavior)
+            #if DEBUG_LOG
+            Console.WriteLine($"   ❌ attribute not found anywhere, raising AttributeError");
+            #endif
             throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
         }
 
