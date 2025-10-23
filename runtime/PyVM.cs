@@ -502,18 +502,6 @@ namespace SharpPy
             Console.WriteLine($"   Exception Table entries: {codeObject.ExceptionTable.Count}");
             #endif
 
-            // CPython 3.12 Adaptive Optimization - 실행 전 최적화 검사 (--no-optimize 체크)
-            if (!SharpPyConfig.DisableOptimizer)
-            {
-                codeObject = PyAdaptiveOptimizer.Instance.OptimizeIfNeeded(codeObject);
-            }
-            else
-            {
-#if DEBUG_LOG
-                Console.WriteLine("🚫 Adaptive Optimization disabled by --no-optimize flag");
-#endif
-            }
-
             // 🔍 실제 VM에서 실행할 바이트코드 출력 (디버그용)
 #if DEBUG_LOG
             Console.WriteLine($"\n📋 VM에서 실제 실행할 바이트코드 ({codeObject.Instructions.Count}개 명령어):");
@@ -1423,8 +1411,6 @@ namespace SharpPy
                     else if (opName == "multiply") opName = "*";
                     else if (opName == "modulo") opName = "%";
                     else if (opName == "power") opName = "**";
-
-                    PyAdaptiveProfile.Instance.RecordBinaryOp(location, left, right, opName);
 
                     var result = ExecuteBinaryOpType(left, right, operation);
                     frame.ValueStack.Push(result);
