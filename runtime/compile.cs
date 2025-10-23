@@ -961,19 +961,13 @@ namespace SharpPy
             // CPython 3.12: 지연된 exception handler들을 바이트코드 끝에 생성
             GeneratePendingExceptionHandlers();
 
-            // CPython 3.12: Build exception table from instruction handler info (BEFORE creating code object)
-            // This replaces manual exception table entries with automatic generation
-            BuildExceptionTableFromInstructions();
-
-            // CPython 3.12: Get final instructions (NEW pipeline: InstructionSequence → ByteCodeInstructions)
+            // CPython 3.12: Get final instructions (CFG pipeline: InstructionSequence → CFG → Optimize → Assemble)
+            // Exception table is built automatically in PyAssemble.Assemble()
             var finalInstructions = GetFinalInstructions();
 
             var codeObject = new PyCodeObject(name, finalInstructions, _constants, _names, _varNames, parameters.Count, 0, 0, null, null, null, null, 0, _currentFileName, _sourceLines, false, _lineNumberTable);
 
-            // Resolve Exception Table labels to offsets (CPython 3.12 compatible)
-            ResolveExceptionTable();
-            
-            // Add Exception Table entries (CPython 3.12 compatible)
+            // Add Exception Table entries (CFG pipeline sets _exceptionTable via GetFinalInstructions)
             if (_exceptionTable.Count > 0)
             {
                 codeObject.ExceptionTable.AddRange(_exceptionTable);
@@ -1663,10 +1657,7 @@ namespace SharpPy
 
             var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames,
                                             finalArgCount, posonlyArgCount, kwonlyArgCount, freeVars, cellVars, defaults, kwDefaults, flags, _currentFileName, _sourceLines);
-            
-            // Resolve Exception Table labels to offsets (CPython 3.12 compatible)
-            ResolveExceptionTable();
-            
+
             // Add Exception Table entries (CPython 3.12 compatible)
             if (_exceptionTable.Count > 0)
             {
@@ -1870,9 +1861,6 @@ namespace SharpPy
                 freeVars, cellVars, defaults, kwDefaults,
                 flags, _currentFileName, _sourceLines
             );
-
-            // Resolve Exception Table labels to offsets (CPython 3.12 compatible)
-            ResolveExceptionTable();
 
             // Add Exception Table entries (CPython 3.12 compatible)
             if (_exceptionTable.Count > 0)
@@ -2282,57 +2270,45 @@ namespace SharpPy
         /// </summary>
         private List<ByteCodeInstruction> GetFinalInstructions()
         {
-            if (_instructionSequence != null)
+            // CPython 3.12 CFG PIPELINE: InstructionSequence → CFG → Optimize → ByteCode
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"🔷 [CFG PIPELINE] GetFinalInstructions: InstructionSequence → CFG → Optimize → Assemble");
+            Console.WriteLine($"   InstructionSequence has {_instructionSequence.Count} instructions");
+#endif
+
+            // Phase 1: InstructionSequence (labels) → CFG (basic blocks)
+            var cfg = PyFlowGraph.Build(_instructionSequence);
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"   CFG has {cfg.AllBlocks.Count} basic blocks");
+#endif
+
+            // Phase 2: Optimize CFG (if enabled)
+            if (_enable_optimizer)
             {
-                // CPython 3.12 CFG PIPELINE: InstructionSequence → CFG → Optimize → ByteCode
 #if DEBUG_COMPILER_LOG
-                Console.WriteLine($"🔷 [CFG PIPELINE] GetFinalInstructions: InstructionSequence → CFG → Optimize → Assemble");
-                Console.WriteLine($"   InstructionSequence has {_instructionSequence.Count} instructions");
+                Console.WriteLine($"   🔧 Running CFG optimization...");
 #endif
-
-                // Phase 1: InstructionSequence (labels) → CFG (basic blocks)
-                var cfg = PyFlowGraph.Build(_instructionSequence);
+                var cfgOptimizer = new CFGOptimizer(cfg, _constants);
+                cfgOptimizer.Optimize();
 #if DEBUG_COMPILER_LOG
-                Console.WriteLine($"   CFG has {cfg.AllBlocks.Count} basic blocks");
+                Console.WriteLine($"   ✅ CFG optimized: {cfg.AllBlocks.Count} blocks");
 #endif
-
-                // Phase 2: Optimize CFG (if enabled)
-                if (_enable_optimizer)
-                {
-#if DEBUG_COMPILER_LOG
-                    Console.WriteLine($"   🔧 Running CFG optimization...");
-#endif
-                    var cfgOptimizer = new CFGOptimizer(cfg, _constants);
-                    cfgOptimizer.Optimize();
-#if DEBUG_COMPILER_LOG
-                    Console.WriteLine($"   ✅ CFG optimized: {cfg.AllBlocks.Count} blocks");
-#endif
-                }
-
-                // Phase 3: CFG → ByteCode (with correct offsets)
-#if DEBUG_COMPILER_LOG
-                Console.WriteLine($"   🔧 Phase 3: Calling PyAssemble.Assemble...");
-#endif
-                var assembled = PyAssemble.Assemble(cfg, _currentFileName ?? "");
-#if DEBUG_COMPILER_LOG
-                Console.WriteLine($"   Assembled {assembled.Instructions.Count} instructions");
-                Console.WriteLine($"   Exception table has {assembled.ExceptionTable.Count} entries");
-#endif
-
-                // Store exception table for code object
-                _exceptionTable = assembled.ExceptionTable;
-
-                return assembled.Instructions;
             }
-            else
-            {
-                // LEGACY PATH: Return direct instruction list
+
+            // Phase 3: CFG → ByteCode (with correct offsets)
 #if DEBUG_COMPILER_LOG
-                Console.WriteLine($"🔶 [LEGACY PIPELINE] GetFinalInstructions: Using direct _instructions list");
-                Console.WriteLine($"   _instructions has {_instructions.Count} instructions");
+            Console.WriteLine($"   🔧 Phase 3: Calling PyAssemble.Assemble...");
 #endif
-                return _instructions;
-            }
+            var assembled = PyAssemble.Assemble(cfg, _currentFileName ?? "");
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"   Assembled {assembled.Instructions.Count} instructions");
+            Console.WriteLine($"   Exception table has {assembled.ExceptionTable.Count} entries");
+#endif
+
+            // Store exception table for code object
+            _exceptionTable = assembled.ExceptionTable;
+
+            return assembled.Instructions;
         }
 
         /// <summary>
@@ -9089,294 +9065,7 @@ namespace SharpPy
         }
         
         #region CPython-style Compiler Helper Methods
-        
-        /// <summary>
-        /// Label management for jumps (CPython style)
-        /// </summary>
-        private class Label
-        {
-            public string Name { get; }
-            public int Offset { get; set; } = -1;
-            public bool IsMarked => Offset >= 0;
-            public List<int> References { get; } = new();
-            
-            public Label(string name)
-            {
-                Name = name;
-            }
-        }
-        
-        private Dictionary<string, Label> _labels = new();
-        private int _labelCounter = 0;
-        
-        private Label CreateLabel(string prefix)
-        {
-            var name = $"{prefix}_{_labelCounter++}";
-            var label = new Label(name);
-            _labels[name] = label;
-            return label;
-        }
-        
-        private void MarkLabel(Label label)
-        {
-            label.Offset = _instructions.Count;
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 MarkLabel: {label.Name} → offset {label.Offset}, {label.References.Count} references");
-            #endif
-            
-            // Update all references to this label
-            foreach (var refIndex in label.References)
-            {
-                var oldInstruction = _instructions[refIndex];
-                #if DEBUG_LOG
-                Console.WriteLine($"🔍 Updating ref {refIndex}: {oldInstruction.OpCode} from arg {oldInstruction.Argument}");
-                #endif
-                int argument;
-                
-                // CPython 3.12 compatible jump addressing
-                if (oldInstruction.OpCode == ByteCodeOp.JUMP_FORWARD)
-                {
-                    // CPython 3.12: JUMP_FORWARD uses relative offset from next instruction
-                    // Formula: target_instruction - (current_instruction + 1)
-                    argument = label.Offset - (refIndex + 1);
-                }
-                else if (oldInstruction.OpCode == ByteCodeOp.POP_JUMP_IF_FALSE || 
-                         oldInstruction.OpCode == ByteCodeOp.POP_JUMP_IF_TRUE)
-                {
-                    // CPython 3.12: POP_JUMP_IF_* use relative offset from next instruction
-                    // Formula: target_instruction - (current_instruction + 1)
-                    argument = label.Offset - (refIndex + 1);
-                }
-                else if (oldInstruction.OpCode == ByteCodeOp.JUMP_BACKWARD)
-                {
-                    // CPython 3.12: 통합된 JUMP_BACKWARD 유틸리티 사용
-                    argument = PyJumpBackwardUtil.CalculateJumpBackwardOpArg(refIndex, label.Offset, _instructions);
-                }
-                else
-                {
-                    // Other jump instructions use absolute offsets
-                    argument = label.Offset;
-                }
-                
-                #if DEBUG_LOG
-                Console.WriteLine($"🔍 Updated to arg {argument} (offset {label.Offset} - {refIndex} - 1 = {label.Offset - (refIndex + 1)})");
-                #endif
-                _instructions[refIndex] = new ByteCodeInstruction(oldInstruction.OpCode, argument);
-            }
-        }
-        
-        /// <summary>
-        /// CPython 3.12 style: Emit jump instruction to a label
-        /// </summary>
-        private void EmitJumpToLabel(ByteCodeOp jumpOp, Label label)
-        {
-            int refIndex = _instructions.Count;
-            EmitInstruction(jumpOp, 0);
-            label.References.Add(refIndex);
 
-            // If label is already marked, patch the jump immediately
-            if (label.IsMarked)
-            {
-                int argument;
-                if (jumpOp == ByteCodeOp.JUMP_FORWARD)
-                {
-                    argument = label.Offset - (refIndex + 1);
-                }
-                else if (jumpOp == ByteCodeOp.POP_JUMP_IF_FALSE || jumpOp == ByteCodeOp.POP_JUMP_IF_TRUE)
-                {
-                    argument = label.Offset - (refIndex + 1);
-                }
-                else if (jumpOp == ByteCodeOp.JUMP_BACKWARD)
-                {
-                    argument = PyJumpBackwardUtil.CalculateJumpBackwardOpArg(refIndex, label.Offset, _instructions);
-                }
-                else
-                {
-                    argument = label.Offset;
-                }
-                _instructions[refIndex] = new ByteCodeInstruction(jumpOp, argument);
-            }
-        }
-        
-        /// <summary>
-        /// CPython 3.12 style: Place/mark a label (alias for MarkLabel for consistency)
-        /// </summary>
-        private void PlaceLabel(Label label)
-        {
-            MarkLabel(label);
-        }
-
-        /// <summary>
-        /// CPython 3.12: Build exception table from instruction handler info
-        /// This is the CORRECT way - exactly like CPython 3.12
-        /// </summary>
-        private void BuildExceptionTableFromInstructions()
-        {
-            // IMPORTANT: This REPLACES all manual exception table entries
-            // Clear existing table - we rebuild it completely from instructions
-            var manualEntries = _exceptionTable.ToList();
-            _exceptionTable.Clear();
-
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 Building Exception Table from {_instructions.Count} instructions (CPython 3.12 method)");
-            Console.WriteLine($"   Cleared {manualEntries.Count} manual entries");
-            #endif
-
-            ExceptHandlerInfo? currentHandler = null;
-            int startOffset = -1;
-
-            for (int i = 0; i < _instructions.Count; i++)
-            {
-                var instr = _instructions[i];
-                var instrHandler = instr.ExceptHandler;
-
-                // Check if handler info changed
-                bool handlerChanged = false;
-                if (currentHandler == null && instrHandler.HandlerOffset != -1)
-                {
-                    // Started new handler
-                    handlerChanged = true;
-                    currentHandler = instrHandler;
-                    startOffset = i;
-                }
-                else if (currentHandler != null && instrHandler.HandlerOffset == -1)
-                {
-                    // Exited handler
-                    handlerChanged = true;
-                }
-                else if (currentHandler != null && !currentHandler.Value.Equals(instrHandler))
-                {
-                    // Handler changed
-                    handlerChanged = true;
-                }
-
-                if (handlerChanged && currentHandler != null)
-                {
-                    // Emit exception table entry for previous handler
-                    // We need to find the handler label from fblock
-                    // For now, we'll reconstruct from manual entries if they exist
-                    string? handlerLabel = null;
-
-                    // Try to find matching manual entry to get handler label
-                    foreach (var manual in manualEntries)
-                    {
-                        if (manual.StartOffset <= startOffset && manual.EndOffset > startOffset)
-                        {
-                            handlerLabel = manual.HandlerLabelName;
-                            break;
-                        }
-                    }
-
-                    if (handlerLabel != null)
-                    {
-                        var entry = new ExceptionTableEntry(
-                            start: startOffset,
-                            end: i,
-                            handlerLabel: handlerLabel,
-                            depth: currentHandler.Value.StackDepth,
-                            lasti: currentHandler.Value.PreserveLasti
-                        );
-                        _exceptionTable.Add(entry);
-
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   Entry: [{startOffset}:{i}] -> {handlerLabel} (depth={currentHandler.Value.StackDepth}, lasti={currentHandler.Value.PreserveLasti})");
-                        #endif
-                    }
-
-                    // Update current handler
-                    if (instrHandler.HandlerOffset != -1)
-                    {
-                        currentHandler = instrHandler;
-                        startOffset = i;
-                    }
-                    else
-                    {
-                        currentHandler = null;
-                    }
-                }
-            }
-
-            // Handle last handler if any
-            if (currentHandler != null && startOffset >= 0)
-            {
-                string? handlerLabel = null;
-                foreach (var manual in manualEntries)
-                {
-                    if (manual.StartOffset <= startOffset)
-                    {
-                        handlerLabel = manual.HandlerLabelName;
-                        break;
-                    }
-                }
-
-                if (handlerLabel != null)
-                {
-                    var entry = new ExceptionTableEntry(
-                        start: startOffset,
-                        end: _instructions.Count,
-                        handlerLabel: handlerLabel,
-                        depth: currentHandler.Value.StackDepth,
-                        lasti: currentHandler.Value.PreserveLasti
-                    );
-                    _exceptionTable.Add(entry);
-                }
-            }
-
-            // Also add manual entries for try blocks (which don't have handler info in instructions)
-            foreach (var manual in manualEntries)
-            {
-                // Add try block entries (depth 0, lasti false)
-                if (manual.Depth == 0 && !manual.Lasti)
-                {
-                    _exceptionTable.Add(manual);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   Try block: [{manual.StartOffset}:{manual.EndOffset}] -> {manual.HandlerLabelName}");
-                    #endif
-                }
-            }
-
-            #if DEBUG_LOG
-            Console.WriteLine($"✅ Built {_exceptionTable.Count} exception table entries from instructions");
-            #endif
-        }
-
-        /// <summary>
-        /// CPython 3.12 style: Resolve Exception Table labels to actual offsets
-        /// </summary>
-        private void ResolveExceptionTable()
-        {
-            if (!SharpPyConfig.DisassemblyOnlyMode)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 Exception Table 해석: {_exceptionTable.Count}개 엔트리");
-                #endif
-            }
-            
-            for (int i = 0; i < _exceptionTable.Count; i++)
-            {
-                var entry = _exceptionTable[i];
-                if (!string.IsNullOrEmpty(entry.HandlerLabelName))
-                {
-                    // 라벨로부터 실제 오프셋 찾기
-                    if (_labels.TryGetValue(entry.HandlerLabelName, out var label) && label.IsMarked)
-                    {
-                        entry.HandlerOffset = label.Offset;
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   ✅ 라벨 '{entry.HandlerLabelName}' → 오프셋 {entry.HandlerOffset}");
-                        #endif
-                    }
-                    else
-                    {
-                        throw new Exception($"Exception Table: 라벨 '{entry.HandlerLabelName}'을 찾을 수 없음 또는 미배치");
-                    }
-                }
-                else if (entry.HandlerOffset < 0)
-                {
-                    throw new Exception($"Exception Table: 엔트리 {i}의 핸들러가 해석되지 않음");
-                }
-            }
-        }
-        
         /// <summary>
         /// CPython 3.12 style: Emit comparison operation
         /// </summary>
