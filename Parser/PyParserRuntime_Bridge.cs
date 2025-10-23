@@ -1770,9 +1770,12 @@ namespace SharpPy.Generated
                 ),
 
                 // MatchStar: matches *rest pattern
-                GeneratedMatchStar star => star.Name != null
-                    ? new NameExpression(star.Name.ToString()!)
-                    : new NameExpression("_"),
+                // CPython 3.12: MatchStar should be converted to StarExpression with the name as value
+                GeneratedMatchStar star => new StarExpression(
+                    star.Name != null
+                        ? new NameExpression(star.Name.ToString()!)
+                        : new NameExpression("_")
+                ),
 
                 // MatchAs: matches pattern as name (or just name, or just wildcard)
                 GeneratedMatchAs mas => mas.Pattern != null

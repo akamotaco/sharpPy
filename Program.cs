@@ -90,10 +90,8 @@ namespace SharpPy
         /// </summary>
         private static void ConfigureOptions(System.Collections.Generic.Dictionary<string, string> parsedArgs)
         {
-            if (parsedArgs.ContainsKey("--no-optimize"))
-            {
-                SharpPyConfig.DisableOptimizer = true;
-            }
+            // CPython 3.12 compatibility: Optimization is always enabled
+            // No configuration needed
         }
 
         /// <summary>

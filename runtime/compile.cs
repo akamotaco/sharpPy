@@ -7383,14 +7383,22 @@ namespace SharpPy
                     _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 1, _currentLineNumber);
                 }
 
-                // Compile pattern matching (simplified - constant patterns only for now)
+                // CPython 3.12: Create pattern context for this case
+                var pc = new PatternContext();
                 SharpPy.Label failLabel = _instructionSequence.NewLabel();
 
-                if (!CompilePatternMatchCFG(matchCase.Pattern, failLabel))
+                // Compile pattern matching
+                if (!CompilePatternMatchCFG(matchCase.Pattern, failLabel, pc))
                 {
                     // Pattern compilation failed - skip this case
                     _instructionSequence.UseLabel(failLabel);
                     continue;
+                }
+
+                // CPython 3.12: It's a match! Store all captured names
+                foreach (var varName in pc.Stores)
+                {
+                    EmitStoreName(varName);
                 }
 
                 // Check guard if present
@@ -7461,7 +7469,7 @@ namespace SharpPy
         /// CPython 3.12: compiler_pattern for CFG path
         /// Simplified version - supports constant patterns for test_match_simple.py
         /// </summary>
-        private bool CompilePatternMatchCFG(Expression pattern, SharpPy.Label failLabel)
+        private bool CompilePatternMatchCFG(Expression pattern, SharpPy.Label failLabel, PatternContext pc)
         {
             switch (pattern)
             {
@@ -7474,12 +7482,18 @@ namespace SharpPy
                     return true;
 
                 case NameExpression nameExpr when nameExpr.Name == "_":
-                    // Wildcard - always matches
+                    // Wildcard - always matches, just pop the subject
+                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
                     return true;
 
                 case NameExpression nameExpr:
-                    // Variable binding - always matches, bind to name
-                    EmitStoreName(nameExpr.Name);
+                    // Variable binding - always matches
+                    // CPython: pattern_helper_store_name - add to stores list, don't emit STORE yet
+                    if (pc.Stores.Contains(nameExpr.Name))
+                    {
+                        throw new InvalidOperationException($"multiple assignments to name {nameExpr.Name} in pattern");
+                    }
+                    pc.Stores.Add(nameExpr.Name);
                     return true;
 
                 case OrPattern orPat:
@@ -7497,7 +7511,7 @@ namespace SharpPy
                         _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 1, _currentLineNumber);
 
                         // Compile this alternative
-                        CompilePatternMatchCFG(alt, nextAlt);
+                        CompilePatternMatchCFG(alt, nextAlt, pc);
 
                         // If we get here, match succeeded - jump to end
                         _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, endLabel, _currentLineNumber);
@@ -7515,6 +7529,30 @@ namespace SharpPy
                     // endLabel: One alternative matched
                     _instructionSequence.UseLabel(endLabel);
                     return true;
+
+                case StarExpression starExpr:
+                    // CPython 3.12: compiler_pattern_star (MatchStar_kind)
+                    // Star pattern *name - only store the name, don't emit STORE instruction yet
+                    // Stack: [subject] -> [subject] (star pattern consumes nothing from stack)
+                    if (starExpr.Value is NameExpression starName)
+                    {
+                        if (starName.Name != "_")
+                        {
+                            // CPython: pattern_helper_store_name - add to stores list
+                            if (pc.Stores.Contains(starName.Name))
+                            {
+                                throw new InvalidOperationException($"multiple assignments to name {starName.Name} in pattern");
+                            }
+                            pc.Stores.Add(starName.Name);
+                        }
+                        // Wildcard star (*_) - do nothing
+                    }
+                    return true;
+
+                case ListExpression listExpr:
+                    // CPython 3.12: compiler_pattern_sequence (MatchSequence_kind)
+                    // Pattern like [first, *middle, last] or [a, b, c]
+                    return CompileSequencePattern(listExpr.Elements, failLabel, pc);
 
                 default:
                     // Unsupported pattern for now
@@ -11053,7 +11091,203 @@ namespace SharpPy
             }
         }
 
+        /// <summary>
+        /// CPython 3.12: compiler_pattern_sequence
+        /// Compile sequence pattern like [first, *middle, last] or [a, b, c]
+        /// </summary>
+        private bool CompileSequencePattern(List<Expression> patterns, SharpPy.Label failLabel, PatternContext pc)
+        {
+            int size = patterns.Count;
+            int star = -1;
+            bool onlyWildcard = true;
+            bool starWildcard = false;
+
+            // Find starred pattern (*rest)
+            for (int i = 0; i < size; i++)
+            {
+                var pattern = patterns[i];
+                if (IsStarPattern(pattern))
+                {
+                    if (star >= 0)
+                    {
+                        throw new InvalidOperationException("multiple starred names in sequence pattern");
+                    }
+                    starWildcard = IsWildcardStarPattern(pattern);
+                    onlyWildcard &= starWildcard;
+                    star = i;
+                    continue;
+                }
+                onlyWildcard &= IsWildcardPattern(pattern);
+            }
+
+            // CPython: MATCH_SEQUENCE - Check if subject is a sequence
+            _instructionSequence.AddOp(ByteCodeOp.MATCH_SEQUENCE, 0, _currentLineNumber);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber);
+
+            // CPython: GET_LEN + length check
+            if (star < 0)
+            {
+                // No star: len(subject) == size
+                _instructionSequence.AddOp(ByteCodeOp.GET_LEN, 0, _currentLineNumber);
+                EmitLoadConst(new PyInt(size));
+                _instructionSequence.AddOpWithArg(ByteCodeOp.COMPARE_OP, (int)CompareOp.EQ, _currentLineNumber);
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber);
+            }
+            else if (size > 1)
+            {
+                // Star: len(subject) >= size - 1
+                _instructionSequence.AddOp(ByteCodeOp.GET_LEN, 0, _currentLineNumber);
+                EmitLoadConst(new PyInt(size - 1));
+                _instructionSequence.AddOpWithArg(ByteCodeOp.COMPARE_OP, (int)CompareOp.GE, _currentLineNumber);
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber);
+            }
+
+            // Consume subject
+            if (onlyWildcard)
+            {
+                // Patterns like: [] / [_] / [*_] - just pop subject
+                _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0);
+            }
+            else if (starWildcard)
+            {
+                // Star is wildcard (*_) - use subscripting for efficiency
+                PatternHelperSequenceSubscr(patterns, star, failLabel, pc);
+            }
+            else
+            {
+                // General case - unpack sequence
+                PatternHelperSequenceUnpack(patterns, star, failLabel, pc);
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// CPython 3.12: pattern_helper_sequence_unpack
+        /// Unpack sequence and match each element
+        /// </summary>
+        private void PatternHelperSequenceUnpack(List<Expression> patterns, int star, SharpPy.Label failLabel, PatternContext pc)
+        {
+            int size = patterns.Count;
+
+            // CPython: pattern_unpack_helper - emit UNPACK_SEQUENCE or UNPACK_EX
+            if (star >= 0)
+            {
+                // UNPACK_EX: arg = before_count + (after_count << 8)
+                int beforeCount = star;
+                int afterCount = size - star - 1;
+                int arg = beforeCount + (afterCount << 8);
+                _instructionSequence.AddOpWithArg(ByteCodeOp.UNPACK_EX, arg, _currentLineNumber);
+            }
+            else
+            {
+                // UNPACK_SEQUENCE: unpack all elements
+                _instructionSequence.AddOpWithArg(ByteCodeOp.UNPACK_SEQUENCE, size, _currentLineNumber);
+            }
+
+            // Now we have all elements on stack, match each one
+            for (int i = 0; i < size; i++)
+            {
+                var pattern = patterns[i];
+                if (!CompilePatternMatchCFG(pattern, failLabel, pc))
+                {
+                    throw new InvalidOperationException($"Failed to compile pattern at index {i}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12: pattern_helper_sequence_subscr
+        /// Use BINARY_SUBSCR for patterns with starred wildcard like [first, *_, last]
+        /// </summary>
+        private void PatternHelperSequenceSubscr(List<Expression> patterns, int star, SharpPy.Label failLabel, PatternContext pc)
+        {
+            int size = patterns.Count;
+
+            for (int i = 0; i < size; i++)
+            {
+                var pattern = patterns[i];
+
+                // Skip wildcards
+                if (IsWildcardPattern(pattern))
+                {
+                    continue;
+                }
+
+                // Skip star wildcard
+                if (i == star && IsWildcardStarPattern(pattern))
+                {
+                    continue;
+                }
+
+                // COPY 1 - keep subject on stack
+                _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 1, _currentLineNumber);
+
+                // Load index
+                if (i < star)
+                {
+                    // Positive index
+                    EmitLoadConst(new PyInt(i));
+                }
+                else
+                {
+                    // Negative index: GET_LEN, load (size - i), subtract
+                    _instructionSequence.AddOp(ByteCodeOp.GET_LEN, 0, _currentLineNumber);
+                    EmitLoadConst(new PyInt(size - i));
+                    _instructionSequence.AddOpWithArg(ByteCodeOp.BINARY_OP, (int)BinaryOpType.SUBTRACT, _currentLineNumber);
+                }
+
+                // BINARY_SUBSCR
+                _instructionSequence.AddOp(ByteCodeOp.BINARY_SUBSCR, 0, _currentLineNumber);
+
+                // Match this element
+                if (!CompilePatternMatchCFG(pattern, failLabel, pc))
+                {
+                    throw new InvalidOperationException($"Failed to compile pattern at index {i}");
+                }
+            }
+
+            // Pop the subject, we're done with it
+            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0);
+        }
+
+        /// <summary>
+        /// Check if pattern is star pattern (*rest)
+        /// CPython: pattern->kind == MatchStar_kind
+        /// </summary>
+        private bool IsStarPattern(Expression pattern)
+        {
+            // StarExpression represents *rest in pattern matching
+            return pattern is StarExpression;
+        }
+
+        /// <summary>
+        /// Check if pattern is wildcard star (*_)
+        /// CPython: WILDCARD_STAR_CHECK(pattern)
+        /// </summary>
+        private bool IsWildcardStarPattern(Expression pattern)
+        {
+            if (pattern is StarExpression starExpr)
+            {
+                return starExpr.Value is NameExpression nameExpr && nameExpr.Name == "_";
+            }
+            return false;
+        }
+
         #endregion
+    }
+
+    /// <summary>
+    /// CPython 3.12: pattern_context structure
+    /// Context for pattern matching compilation
+    /// </summary>
+    internal class PatternContext
+    {
+        /// <summary>List of variable names to store after successful pattern match</summary>
+        public List<string> Stores { get; set; } = new List<string>();
+
+        /// <summary>Number of items currently on top of stack (not including subject)</summary>
+        public int OnTop { get; set; } = 0;
     }
 
     #endregion

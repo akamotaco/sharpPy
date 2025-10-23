@@ -683,6 +683,9 @@ namespace SharpPy
             var maxTimeSeconds = 30; // 최대 30초
             var instructionCount = 0;
 
+            // CPython 3.12: Extended argument accumulation for EXTENDED_ARG support
+            int extendedArg = 0;
+
             try
             {
                 while (frame.InstructionPointer < frame.Code.Instructions.Count)
@@ -703,6 +706,33 @@ namespace SharpPy
                     }
 
                     var instruction = frame.Code.Instructions[frame.InstructionPointer];
+
+                    // CPython 3.12: Handle EXTENDED_ARG by accumulating argument bits
+                    // EXTENDED_ARG shifts left by 8 bits and ORs with next instruction's arg
+                    // Pattern: oparg = (oparg << 8) | instruction.Argument
+                    if (instruction.OpCode == ByteCodeOp.EXTENDED_ARG)
+                    {
+                        extendedArg = (extendedArg << 8) | instruction.Argument;
+                        frame.InstructionPointer++;
+                        continue; // Skip to next instruction
+                    }
+
+                    // Apply accumulated extended argument to current instruction
+                    // Create modified instruction with combined argument
+                    if (extendedArg != 0)
+                    {
+                        int combinedArg = (extendedArg << 8) | instruction.Argument;
+                        instruction = new ByteCodeInstruction(
+                            instruction.OpCode,
+                            combinedArg,
+                            instruction.LineNumber,
+                            instruction.ColumnOffset,
+                            instruction.FileName,
+                            instruction.ExceptHandler,
+                            instruction.ExceptionHandlerOffset
+                        );
+                        extendedArg = 0; // Reset for next instruction
+                    }
 
                     // CPython-style error location tracking: Update current execution location
                     // First try from LineNumberTable (more accurate), then from instruction
@@ -4934,6 +4964,12 @@ namespace SharpPy
                     // Store keyword names tuple for the following CALL instruction
                     frame.KeywordNamesForNextCall = kwNamesTuple as PyTuple;
                     break;
+
+                case ByteCodeOp.EXTENDED_ARG:
+                    // CPython 3.12: EXTENDED_ARG shifts argument left by 8 bits
+                    // This is handled in the main loop by accumulating extended args
+                    // This case should never be reached as EXTENDED_ARG is processed before ExecuteInstruction
+                    throw new InvalidOperationException("EXTENDED_ARG should be handled in the main execution loop");
 
                 default:
                     throw PyNotImplementedError.Create($"OpCode {instruction.OpCode} not implemented");

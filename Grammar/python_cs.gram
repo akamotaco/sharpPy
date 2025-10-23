@@ -900,7 +900,7 @@ open_sequence_pattern[GeneratedSeq]:
 # CPython: maybe_sequence_pattern[asdl_seq*]: patterns=','.maybe_star_pattern+ ','? { patterns }
 # C#: Maybe sequence pattern (comma-separated)
 maybe_sequence_pattern[GeneratedSeq]:
-    | patterns=','.maybe_star_pattern+ ','? { patterns }
+    | patterns=','.maybe_star_pattern+ ','? { patterns.Cast<GeneratedPatternSeq>() }
 
 # CPython: maybe_star_pattern[pattern_ty]: star_pattern | pattern
 # C#: Maybe star pattern (*rest or regular pattern)

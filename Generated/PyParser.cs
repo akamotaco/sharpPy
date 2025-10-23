@@ -5127,7 +5127,7 @@ namespace SharpPy.Generated
                 )
                 {
                     // Action code from grammar
-                    return patterns;
+                    return patterns . Cast < GeneratedPatternSeq >();
                 }
             }
 

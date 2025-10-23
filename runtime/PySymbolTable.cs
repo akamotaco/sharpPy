@@ -425,8 +425,9 @@ namespace SharpPy
                     // 2. Analyze each match case
                     foreach (var matchCase in matchStmt.Cases)
                     {
-                        // Analyze pattern (may define new variables)
-                        AnalyzeExpression(matchCase.Pattern);
+                        // CPython 3.12: Analyze pattern to define variables as LOCAL
+                        // Use AnalyzePattern instead of AnalyzeExpression
+                        AnalyzePattern(matchCase.Pattern);
 
                         // Analyze guard if present
                         if (matchCase.Guard != null)
@@ -919,6 +920,92 @@ namespace SharpPy
             finally
             {
                 _propagationInProgress.Remove(propagationKey);
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12: Analyze pattern matching patterns to define LOCAL variables
+        /// Based on CPython's symtable_visit_pattern() in Python/symtable.c
+        /// </summary>
+        private void AnalyzePattern(Expression pattern)
+        {
+#if DEBUG_LOG
+            Console.WriteLine($"      AnalyzePattern: {pattern.GetType().Name} in scope '{_currentTable?.GetName()}'");
+#endif
+            switch (pattern)
+            {
+                // MatchValue: constant - nothing to do
+                case ConstantExpression:
+                    break;
+
+                // MatchValue: attribute reference - analyze the value expression
+                case AttributeExpression attr:
+                    AnalyzeExpression(attr);
+                    break;
+
+                // MatchSingleton: True/False/None - nothing to do
+                // (represented as ConstantExpression, already handled above)
+
+                // MatchSequence: [patterns...] - recursively analyze nested patterns
+                case ListExpression list:
+                    foreach (var elem in list.Elements)
+                    {
+                        AnalyzePattern(elem);
+                    }
+                    break;
+
+                case TupleExpression tuple:
+                    foreach (var elem in tuple.Elements)
+                    {
+                        AnalyzePattern(elem);
+                    }
+                    break;
+
+                // MatchStar: *name - define the star variable as LOCAL
+                // After PyParserRuntime_Bridge fix, this is StarExpression wrapping a NameExpression
+                case StarExpression star:
+                    if (star.Value is NameExpression starName && starName.Name != "_")
+                    {
+                        // CPython: symtable_add_def(st, name, DEF_LOCAL)
+                        _currentTable?.DefineSymbol(starName.Name, SymbolFlags.Assigned);
+#if DEBUG_LOG
+                        Console.WriteLine($"        AnalyzePattern: Defined star variable '{starName.Name}' as LOCAL");
+#endif
+                    }
+                    break;
+
+                // MatchMapping: {key: pattern, ...} - TODO: implement if needed
+                // MatchClass: ClassName(patterns...) - TODO: implement if needed
+                // For now, treat these as expressions
+
+                // MatchAs: pattern as name - analyze nested pattern and define name
+                // In SharpPy AST, this might be represented differently
+                // For now, handle bare NameExpression as capture variable
+                case NameExpression name:
+                    // Wildcard pattern _ doesn't define a variable
+                    if (name.Name != "_" && !IsKeyword(name.Name))
+                    {
+                        // CPython: symtable_add_def(st, name, DEF_LOCAL)
+                        _currentTable?.DefineSymbol(name.Name, SymbolFlags.Assigned);
+#if DEBUG_LOG
+                        Console.WriteLine($"        AnalyzePattern: Defined capture variable '{name.Name}' as LOCAL");
+#endif
+                    }
+                    break;
+
+                // MatchOr: pattern1 | pattern2 - recursively analyze all alternatives
+                case BinaryOpExpression binOp when binOp.Operator == "|":
+                    AnalyzePattern(binOp.Left);
+                    AnalyzePattern(binOp.Right);
+                    break;
+
+                // Default: treat as expression (for complex patterns)
+                default:
+#if DEBUG_LOG
+                    Console.WriteLine($"        AnalyzePattern: Treating {pattern.GetType().Name} as expression");
+#endif
+                    AnalyzeExpression(pattern);
+                    break;
             }
         }
 
