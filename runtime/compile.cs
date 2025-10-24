@@ -2204,12 +2204,15 @@ namespace SharpPy
             }
 #endif
             
+            // CPython 3.12: Get final instructions from CFG pipeline FIRST
+            var finalInstructions = GetFinalInstructions();
+
             // CPython 3.12: Generator 함수 감지 - 임시 객체로 체크
-            var tempCodeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames,
+            var tempCodeObject = new PyCodeObject(name, finalInstructions, _constants, _names, _varNames,
                                                 finalArgCount, posonlyArgCount, 0, null, null, defaults, null, flags, _currentFileName, _sourceLines);
 
             #if DEBUG_COMPILER_LOG
-            var hasYield = _instructions.Any(inst => inst.OpCode == ByteCodeOp.YIELD_VALUE);
+            var hasYield = finalInstructions.Any(inst => inst.OpCode == ByteCodeOp.YIELD_VALUE);
             Console.WriteLine($"🔍 Generator 체크: {name}, YIELD_VALUE 있음={hasYield}, IsGenerator()={tempCodeObject.IsGenerator()}");
             #endif
 
@@ -2219,21 +2222,21 @@ namespace SharpPy
                 #if DEBUG_LOG
                 Console.WriteLine($"🔍 Generator 함수 감지: {name}, RETURN_GENERATOR 추가");
                 #endif
-                
+
                 // CPython 3.12: RETURN_GENERATOR -> POP_TOP -> RESUME 0 패턴
-                _instructions.Insert(0, new ByteCodeInstruction(ByteCodeOp.RETURN_GENERATOR, 0));
-                _instructions.Insert(1, new ByteCodeInstruction(ByteCodeOp.POP_TOP, 0));
-                _instructions.Insert(2, new ByteCodeInstruction(ByteCodeOp.RESUME, 0));
-                
+                finalInstructions.Insert(0, new ByteCodeInstruction(ByteCodeOp.RETURN_GENERATOR, 0));
+                finalInstructions.Insert(1, new ByteCodeInstruction(ByteCodeOp.POP_TOP, 0));
+                finalInstructions.Insert(2, new ByteCodeInstruction(ByteCodeOp.RESUME, 0));
+
                 // CO_GENERATOR 플래그 추가
                 flags |= PyCodeObject.CO_GENERATOR;
                 #if DEBUG_LOG
                 Console.WriteLine($"✅ Generator 함수 설정 완료: CO_GENERATOR 플래그 추가");
                 #endif
             }
-            
+
             // 최종 PyCodeObject 생성 (수정된 flags 포함)
-            var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames,
+            var codeObject = new PyCodeObject(name, finalInstructions, _constants, _names, _varNames,
                                             finalArgCount, posonlyArgCount, 0, null, null, defaults, null, flags, _currentFileName, _sourceLines);
             
             // Add Exception Table entries (CPython 3.12)
@@ -2315,7 +2318,7 @@ namespace SharpPy
         {
             // Update current source location
             UpdateSourceLocation(statement);
-            
+
             switch (statement)
             {
                 case AssignStatement assign:
@@ -2596,7 +2599,8 @@ namespace SharpPy
         {
             // Update current source location
             UpdateSourceLocation(expression);
-            
+
+
             switch (expression)
             {
                 case ConstantExpression constant:
@@ -10387,13 +10391,13 @@ namespace SharpPy
 
             // CPython 3.12: 최종 generator statement
             var genStatements = new List<Statement> { innerMostStatement };
-            
+
             // CPython 3.12: 제너레이터 표현식은 iterator를 .0 매개변수로 받음
             var parameters = new List<string> { ".0" };  // 매개변수는 .0 하나
             var defaults = new List<PyObject>();  // 기본값 없음
             var flags = PyCodeObject.CO_GENERATOR;  // CO_GENERATOR 플래그 설정
             var genCode = genCompiler.CompileFunction(genStatements, "<genexpr>", parameters, defaults, flags);
-            
+
             // 제너레이터 함수 객체 생성
             EmitLoadConst(genCode);
             EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 0);
