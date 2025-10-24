@@ -308,13 +308,14 @@ namespace SharpPy
                         #if DEBUG_LOG
                         Console.WriteLine($"   ✅ found '{name}' in ClassDict: {value?.GetType().Name}");
                         #endif
-                        // Descriptor 처리
-                        if (value is IDescriptor desc)
+                        // Descriptor 처리 (CPython 3.12: Objects/typeobject.c:4830)
+                        // For class attribute access, only __get__ is checked (not data vs non-data)
+                        if (PyClassInstance.IsDescriptor(value))
                         {
                             #if DEBUG_LOG
-                            Console.WriteLine($"   🔧 calling descriptor.Get(null, {Name}) for '{name}'");
+                            Console.WriteLine($"   🔧 calling descriptor.__get__(null, {Name}) for '{name}'");
                             #endif
-                            var result = desc.Get(null, this);
+                            var result = PyClassInstance.CallDescriptorGet(value, null, this);
                             #if DEBUG_LOG
                             Console.WriteLine($"   → descriptor returned: {result?.GetType().Name}");
                             #endif
@@ -345,13 +346,13 @@ namespace SharpPy
                                 #if DEBUG_LOG
                                 Console.WriteLine($"   ✅ found '{name}' in MRO class {pyClass.Name}: {baseValue?.GetType().Name}");
                                 #endif
-                                // Descriptor 처리
-                                if (baseValue is IDescriptor baseDesc)
+                                // Descriptor 처리 (CPython 3.12: Objects/typeobject.c:4830)
+                                if (PyClassInstance.IsDescriptor(baseValue))
                                 {
                                     #if DEBUG_LOG
-                                    Console.WriteLine($"   🔧 calling descriptor.Get(null, {Name}) for '{name}' from MRO");
+                                    Console.WriteLine($"   🔧 calling descriptor.__get__(null, {Name}) for '{name}' from MRO");
                                     #endif
-                                    var result = baseDesc.Get(null, this);
+                                    var result = PyClassInstance.CallDescriptorGet(baseValue, null, this);
                                     #if DEBUG_LOG
                                     Console.WriteLine($"   → descriptor returned: {result?.GetType().Name}");
                                     #endif
@@ -1200,6 +1201,143 @@ namespace SharpPy
             return null;
         }
 
+        // Descriptor protocol helpers (CPython 3.12: Objects/descrobject.c:1021)
+
+        /// <summary>
+        /// Check if an object is a data descriptor
+        /// CPython: PyDescr_IsData - checks if tp_descr_set != NULL
+        /// Python level: has __set__ or __delete__ method
+        /// </summary>
+        internal static bool IsDataDescriptor(PyObject obj)
+        {
+            // C# descriptors implement IDescriptor
+            if (obj is IDescriptor desc)
+            {
+                return desc.IsDataDescriptor();
+            }
+
+            // Python class instances: check for __set__ or __delete__ methods
+            // CPython: Py_TYPE(ob)->tp_descr_set != NULL
+            if (obj is PyClassInstance instance)
+            {
+                var objType = instance.InstanceType;
+                // Use LookupInMRO to bypass __getattribute__ (like _PyType_Lookup)
+                return objType.LookupInMRO("__set__") != null ||
+                       objType.LookupInMRO("__delete__") != null;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Check if an object is a descriptor (has __get__)
+        /// CPython: tp_descr_get != NULL
+        /// </summary>
+        internal static bool IsDescriptor(PyObject obj)
+        {
+            // C# descriptors implement IDescriptor
+            if (obj is IDescriptor)
+            {
+                return true;
+            }
+
+            // Python class instances: check for __get__ method
+            if (obj is PyClassInstance instance)
+            {
+                var objType = instance.InstanceType;
+                return objType.LookupInMRO("__get__") != null;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Call descriptor's __get__ method
+        /// CPython: tp_descr_get(descr, obj, (PyObject *)Py_TYPE(obj))
+        /// </summary>
+        internal static PyObject CallDescriptorGet(PyObject descriptor, PyObject instance, PyObject owner)
+        {
+            // C# descriptors implement IDescriptor
+            if (descriptor is IDescriptor desc)
+            {
+                return desc.Get(instance, owner as PyType);
+            }
+
+            // Python class instances: call __get__ method
+            if (descriptor is PyClassInstance descInstance)
+            {
+                var objType = descInstance.InstanceType;
+                var getMethod = objType.LookupInMRO("__get__");
+
+                if (getMethod != null)
+                {
+                    // CPython: When instance is NULL (class attribute access), pass None
+                    var instanceArg = instance ?? PyNone.Instance;
+
+                    // Apply descriptor protocol to __get__ itself (it might be a function)
+                    if (getMethod is PyFunction func)
+                    {
+                        // Bind __get__ to the descriptor instance
+                        var boundGet = new PyMethod(descriptor, func);
+                        // Call: descriptor.__get__(instance, owner)
+                        return boundGet.Call(new PyObject[] { instanceArg, owner }, null);
+                    }
+                    else if (getMethod.IsCallable())
+                    {
+                        // Call: __get__(descriptor, instance, owner)
+                        return getMethod.Call(new PyObject[] { descriptor, instanceArg, owner }, null);
+                    }
+                }
+            }
+
+            // Not a descriptor, return as-is
+            return descriptor;
+        }
+
+        /// <summary>
+        /// Call descriptor's __set__ method
+        /// CPython: tp_descr_set(descr, obj, value)
+        /// Reference: Objects/object.c:1567-1570
+        /// </summary>
+        internal static void CallDescriptorSet(PyObject descriptor, PyObject instance, PyObject value)
+        {
+            // C# descriptors implement IDescriptor
+            if (descriptor is IDescriptor desc)
+            {
+                desc.Set(instance, value);
+                return;
+            }
+
+            // Python class instances: call __set__ method
+            if (descriptor is PyClassInstance descInstance)
+            {
+                var objType = descInstance.InstanceType;
+                var setMethod = objType.LookupInMRO("__set__");
+
+                if (setMethod != null)
+                {
+                    // Apply descriptor protocol to __set__ itself (it might be a function)
+                    if (setMethod is PyFunction func)
+                    {
+                        // Bind __set__ to the descriptor instance
+                        var boundSet = new PyMethod(descriptor, func);
+                        // Call: descriptor.__set__(instance, value)
+                        boundSet.Call(new PyObject[] { instance, value }, null);
+                        return;
+                    }
+                    else if (setMethod.IsCallable())
+                    {
+                        // Call: __set__(descriptor, instance, value)
+                        setMethod.Call(new PyObject[] { descriptor, instance, value }, null);
+                        return;
+                    }
+                }
+            }
+
+            // If we get here, it's a programming error (should have checked IsDataDescriptor first)
+            throw PyAttributeError.Create("Descriptor does not have __set__ method");
+        }
+
         // Special attributes
 
         /// <summary>
@@ -1234,13 +1372,24 @@ namespace SharpPy
             PyClass foundInClass = null;
 
             // 1. Data descriptor 찾기
+            // CPython 3.12: Objects/object.c:1440-1453
             foreach (var mroType in InstanceType.MRO)
             {
                 if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))
                 {
-                    if (classValue is IDescriptor desc && desc.IsDataDescriptor())
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   → Found '{name}' in {pyClass.Name}: {classValue?.GetType().Name}");
+                    Console.WriteLine($"   → IsDataDescriptor: {IsDataDescriptor(classValue)}");
+                    Console.WriteLine($"   → IsDescriptor: {IsDescriptor(classValue)}");
+                    #endif
+
+                    // Check if it's a data descriptor (has __set__ or __delete__)
+                    if (IsDataDescriptor(classValue))
                     {
-                        return desc.Get(this, InstanceType);
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   → Calling __get__ for data descriptor");
+                        #endif
+                        return CallDescriptorGet(classValue, this, InstanceType);
                     }
 
                     if (classAttribute == null)
@@ -1259,11 +1408,13 @@ namespace SharpPy
             }
 
             // 3. 클래스 attribute 처리 (non-data descriptor 포함)
+            // CPython 3.12: Objects/object.c:1507-1520
             if (classAttribute != null)
             {
-                if (classAttribute is IDescriptor desc)
+                // Check if it's a descriptor (has __get__)
+                if (IsDescriptor(classAttribute))
                 {
-                    return desc.Get(this, InstanceType);
+                    return CallDescriptorGet(classAttribute, this, InstanceType);
                 }
                 else if (classAttribute is PyFunction func)
                 {
@@ -1348,180 +1499,9 @@ namespace SharpPy
                 return customGetAttr.Call(new PyObject[] { this, new PyString(name) }, null);
             }
 
-            // 특별한 속성들 먼저 처리
-            if (name == "__class__")
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"   → returning __class__ = {InstanceType.Name}");
-                #endif
-                return InstanceType;
-            }
-            if (name == "__dict__")
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"   → returning instance __dict__ (count: {InstanceDict.Count})");
-                #endif
-                return new PyDict(InstanceDict);
-            }
-
-            // CPython 3.12 descriptor protocol:
-            // 1. 클래스 MRO에서 data descriptor 찾기 → Get() 호출
-            // 2. 인스턴스 __dict__ 검색
-            // 3. 클래스 MRO에서 non-data descriptor 또는 일반 attribute 찾기
-            // 4. __getattr__ 시도
-            // 5. AttributeError
-
-            // 1. 클래스 MRO에서 data descriptor 찾기
-            #if DEBUG_LOG
-            Console.WriteLine($"   → checking for data descriptors in class MRO");
-            #endif
-
-            PyObject classAttribute = null;
-            PyClass foundInClass = null;
-
-            foreach (var mroType in InstanceType.MRO)
-            {
-                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))
-                {
-                    // Data descriptor인 경우 즉시 Get() 호출
-                    if (classValue is IDescriptor desc && desc.IsDataDescriptor())
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   ✅ found data descriptor '{name}' in {mroType.Name}, calling Get()");
-                        #endif
-                        var result = desc.Get(this, InstanceType);
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   → descriptor returned: {result?.GetType().Name}");
-                        #endif
-                        return result;
-                    }
-
-                    // Data descriptor가 아니면 일단 저장해두고 계속 진행
-                    if (classAttribute == null)
-                    {
-                        classAttribute = classValue;
-                        foundInClass = pyClass;
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   → found non-data attribute '{name}' in {mroType.Name}, checking instance dict first");
-                        #endif
-                    }
-                    break;
-                }
-            }
-
-            // 2. 인스턴스 __dict__ 검색
-            #if DEBUG_LOG
-            Console.WriteLine($"   → checking instance dict (count: {InstanceDict.Count})");
-            #endif
-            if (InstanceDict.TryGetValue(name, out PyObject instanceValue))
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"   ✅ found '{name}' in instance dict: {instanceValue?.GetType().Name}");
-                #endif
-                return instanceValue;
-            }
-
-            // 3. 클래스 attribute 처리 (non-data descriptor 포함)
-            if (classAttribute != null)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"   → processing class attribute '{name}' from {foundInClass.Name}");
-                #endif
-
-                // Non-data descriptor 처리
-                if (classAttribute is IDescriptor desc)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   🔧 calling non-data descriptor.Get()");
-                    #endif
-                    var result = desc.Get(this, InstanceType);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   → descriptor returned: {result?.GetType().Name}");
-                    #endif
-                    return result;
-                }
-                // 함수를 bound method로 변환
-                else if (classAttribute is PyFunction func)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   🔧 converting function to bound method");
-                    #endif
-                    return new PyMethod(this, func);
-                }
-
-                #if DEBUG_LOG
-                Console.WriteLine($"   ✅ returning class attribute: {classAttribute?.GetType().Name}");
-                #endif
-                return classAttribute;
-            }
-
-            // PyType의 내장 속성들도 확인 (예: object 클래스의 메서드들)
-            #if DEBUG_LOG
-            Console.WriteLine($"   → checking builtin attributes in MRO");
-            #endif
-            foreach (var mroType in InstanceType.MRO)
-            {
-                // CPython 3.12: PyType의 경우 PyClass.GetTypeAttribute() 사용 (재귀 방지)
-                if (mroType is PyType pyType && !(mroType is PyClass))
-                {
-                    var typeAttr = SharpPy.PyClass.GetTypeAttribute(pyType, name);
-                    if (typeAttr != null)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   ✅ found builtin attribute '{name}' in PyType {mroType.Name}: {typeAttr?.GetType().Name}");
-                        #endif
-
-                        // CPython 3.12: PyBuiltinMethod는 descriptor이므로 Get() 호출
-                        if (typeAttr is PyBuiltinMethod builtinMethod)
-                        {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"   🔧 calling PyBuiltinMethod.Get() for binding");
-                            #endif
-                            var bound = builtinMethod.Get(this, InstanceType);
-                            #if DEBUG_LOG
-                            Console.WriteLine($"   → Get() returned: {bound?.GetType().Name}");
-                            #endif
-                            return bound;
-                        }
-                        // CPython 3.12: PyBuiltinFunction도 bound method로 변환
-                        if (typeAttr is PyBuiltinFunction builtinFunction)
-                        {
-                            return new PyBuiltinBoundMethod(this, builtinFunction);
-                        }
-                        if (typeAttr is PyFunction func)
-                        {
-                            return new PyMethod(this, func);
-                        }
-                        return typeAttr;
-                    }
-                }
-            }
-
-            #if DEBUG_LOG
-            Console.WriteLine($"   ❌ attribute '{name}' not found");
-            #endif
-
-            // 4. __getattr__ 커스텀 핸들러 호출 (있다면)
-            if (HasCustomGetAttr())
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"   → trying custom __getattr__");
-                #endif
-                var customResult = CallGetAttr(name);
-                if (customResult != null)
-                {
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   ✅ custom __getattr__ returned: {customResult?.GetType().Name}");
-                    #endif
-                    return customResult;
-                }
-            }
-
-            // 5. 기본 처리 (AttributeError)
-            #if DEBUG_LOG
-            Console.WriteLine($"   → falling back to base.GetAttribute");
-            #endif
-            return base.GetAttribute(name);
+            // Use GetAttributeGeneric for standard attribute lookup
+            // This handles the full CPython 3.12 descriptor protocol
+            return GetAttributeGeneric(name);
         }
 
         public override void SetAttribute(string name, PyObject value)
@@ -1531,8 +1511,9 @@ namespace SharpPy
             #endif
 
             // CPython 3.12 descriptor protocol:
+            // Reference: Objects/object.c:1563-1572 (_PyObject_GenericSetAttrWithDict)
             // 1. 클래스 MRO에서 attribute 찾기
-            // 2. data descriptor라면 descriptor.Set() 호출
+            // 2. data descriptor라면 descriptor.__set__() 호출
             // 3. 아니라면 instance.__dict__[name] = value
 
             // 1. 클래스 MRO에서 descriptor 찾기
@@ -1540,15 +1521,15 @@ namespace SharpPy
             {
                 if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))
                 {
-                    // 2. data descriptor 확인 및 Set 호출
-                    if (classValue is IDescriptor desc && desc.IsDataDescriptor())
+                    // 2. data descriptor 확인 및 __set__ 호출
+                    if (IsDataDescriptor(classValue))
                     {
                         #if DEBUG_LOG
-                        Console.WriteLine($"   → found data descriptor in {mroType.Name}, calling Set()");
+                        Console.WriteLine($"   → found data descriptor in {mroType.Name}, calling __set__()");
                         #endif
-                        desc.Set(this, value);
+                        CallDescriptorSet(classValue, this, value);
                         #if DEBUG_LOG
-                        Console.WriteLine($"   ✅ descriptor Set() completed");
+                        Console.WriteLine($"   ✅ descriptor __set__() completed");
                         #endif
                         return;
                     }
