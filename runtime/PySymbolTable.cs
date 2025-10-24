@@ -974,6 +974,18 @@ namespace SharpPy
                     }
                     break;
 
+                // StarPattern: *name in match patterns - define the star variable as LOCAL
+                case StarPattern starPat:
+                    if (starPat.Name != "_")
+                    {
+                        // CPython: symtable_add_def(st, name, DEF_LOCAL)
+                        _currentTable?.DefineSymbol(starPat.Name, SymbolFlags.Assigned);
+#if DEBUG_LOG
+                        Console.WriteLine($"        AnalyzePattern: Defined star pattern variable '{starPat.Name}' as LOCAL");
+#endif
+                    }
+                    break;
+
                 // MatchMapping: {key: pattern, ...} - TODO: implement if needed
                 // MatchClass: ClassName(patterns...) - TODO: implement if needed
                 // For now, treat these as expressions

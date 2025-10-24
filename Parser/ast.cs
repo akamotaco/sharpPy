@@ -4531,19 +4531,23 @@ namespace SharpPy
     public class AsPattern : Expression
     {
         public override string NodeType => "AsPattern";
-        public Expression Pattern { get; }
+        // CPython 3.12: Pattern can be null for capture patterns and wildcard (_)
+        //   MatchAs(pattern, name) => AsPattern(pattern, name)  # pattern as name
+        //   MatchAs(null, name) => AsPattern(null, name)        # capture pattern (just name)
+        //   MatchAs(null, null) => AsPattern(null, "_")         # wildcard (_)
+        public Expression? Pattern { get; }
         public string Name { get; }
-        
-        public AsPattern(Expression pattern, string name)
+
+        public AsPattern(Expression? pattern, string name)
         {
             Pattern = pattern;
             Name = name;
         }
-        
+
         public override PyObject Evaluate(PyScope scope)
         {
             // As patterns are handled during pattern matching compilation
-            return new PyString($"{Pattern} as {Name}");
+            return new PyString(Pattern != null ? $"{Pattern} as {Name}" : Name);
         }
         
         public override T Accept<T>(IASTVisitor<T> visitor)

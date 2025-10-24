@@ -4302,31 +4302,31 @@ namespace SharpPy
                             throw PyValueError.Create($"not enough values to unpack (expected at least {countBefore + countAfter}, got {items.Length})");
                         }
 
-                        // CPython UNPACK_EX pushes in order: [before_elements..., star_list, after_elements...]
-                        // For [1, 2, 3, 4, 5] with pattern [first, *middle, last]:
-                        // Should push: first(1), middle([2,3,4]), last(5) on stack in order
+                        // CPython UNPACK_EX pushes elements so that STORE instructions (which pop from top) get them in pattern order
+                        // For [1, 2, 3, 4] with pattern [first, *middle, last] (UNPACK_EX 257):
+                        // STOREs execute: STORE first, STORE middle, STORE last
+                        // STOREs pop from top, so we must push in REVERSE order: last, middle, first
+                        // This way: pop→last, pop→middle, pop→first
 
-                        // Stack is LIFO, so we need to push in reverse order for STORE operations
-                        // STORE order will be: first, middle, last
-                        // So we push: last, middle, first (reverse order)
-
-                        // Push after elements first (in reverse order)
-                        for (int i = countAfter - 1; i >= 0; i--)
-                        {
-                            var afterItem = items[items.Length - countAfter + i];
-                            frame.ValueStack.Push(afterItem);
-                        }
-
-                        // Push star elements (middle part)
+                        // Extract star elements (middle part) as list
                         var starCount = items.Length - countBefore - countAfter;
                         var starItems = new PyObject[starCount];
                         for (int i = 0; i < starCount; i++)
                         {
                             starItems[i] = items[countBefore + i];
                         }
+
+                        // Push in REVERSE order so STORE pops in correct order
+                        // Push after elements (last to first)
+                        for (int i = countAfter - 1; i >= 0; i--)
+                        {
+                            frame.ValueStack.Push(items[items.Length - countAfter + i]);
+                        }
+
+                        // Push star element
                         frame.ValueStack.Push(new PyList(starItems));
 
-                        // Push before elements last (in reverse order)
+                        // Push before elements (last to first)
                         for (int i = countBefore - 1; i >= 0; i--)
                         {
                             frame.ValueStack.Push(items[i]);
@@ -4341,6 +4341,8 @@ namespace SharpPy
                         }
 
                         // CPython UNPACK_EX pushes in order: [before_elements..., star_list, after_elements...]
+                        // For [1, 2, 3, 4, 5] with pattern [first, *middle, last]:
+                        // Should push: first(1), middle([2,3,4]), last(5) on stack in order
 
                         // Extract before elements (in forward order)
                         for (int i = 0; i < countBefore; i++)

@@ -1750,18 +1750,18 @@ namespace SharpPy.Generated
                 GeneratedMatchSingleton ms => new ConstantExpression(ConvertGeneratedPyConstantToPyObject(ms.Value)),
 
                 // MatchSequence: matches sequence patterns like [x, y, z]
-                GeneratedMatchSequence seq => new ListExpression(
-                    seq.Patterns.ToEnumerable<GeneratedPattern>().Select(p => ConvertPattern(p)).ToList()
+                // MatchSequence: matches sequence patterns like [x, y, z]
+                // CPython 3.12: Must use MatchSequence (pattern node), not List (expr node)
+                GeneratedMatchSequence seq => new MatchSequence(
+                    seq.Patterns?.ToEnumerable<GeneratedPattern>().Select(p => ConvertPattern(p)).ToList() ?? new List<Expression>()
                 ),
 
                 // MatchMapping: matches dict patterns like {"key": value}
-                GeneratedMatchMapping map => new DictExpression(
-                    (map.Keys != null && map.Patterns != null)
-                        ? map.Keys.ToEnumerable<GeneratedExpr>()
-                            .Zip(map.Patterns.ToEnumerable<GeneratedPattern>(),
-                                 (k, p) => (Key: ConvertAnyExpression(k), Value: ConvertPattern(p)))
-                            .ToList()
-                        : new List<(Expression Key, Expression Value)>()
+                // CPython 3.12: Must use MatchMapping (pattern node), not Dict (expr node)
+                GeneratedMatchMapping map => new MatchMapping(
+                    map.Keys?.ToEnumerable<GeneratedExpr>().Select(k => ConvertAnyExpression(k)).ToList() ?? new List<Expression>(),
+                    map.Patterns?.ToEnumerable<GeneratedPattern>().Select(p => ConvertPattern(p)).ToList() ?? new List<Expression>(),
+                    map.Rest?.ToString()
                 ),
 
                 // MatchClass: matches class patterns like Point(x=1, y=2)
@@ -1777,17 +1777,20 @@ namespace SharpPy.Generated
                 ),
 
                 // MatchStar: matches *rest pattern
-                // CPython 3.12: MatchStar should be converted to StarExpression with the name as value
-                GeneratedMatchStar star => new StarExpression(
-                    star.Name != null
-                        ? new NameExpression(star.Name.ToString()!)
-                        : new NameExpression("_")
+                // CPython 3.12: MatchStar should be converted to StarPattern for pattern matching
+                GeneratedMatchStar star => new StarPattern(
+                    star.Name?.ToString() ?? "_"
                 ),
 
                 // MatchAs: matches pattern as name (or just name, or just wildcard)
-                GeneratedMatchAs mas => mas.Pattern != null
-                    ? new AsPattern(ConvertPattern(mas.Pattern), mas.Name?.ToString() ?? "_")
-                    : new NameExpression(mas.Name?.ToString() ?? "_"),
+                // CPython 3.12: MatchAs(pattern, name) | MatchAs(null, name) | MatchAs(null, null)
+                //   MatchAs(pattern, name) => AsPattern(pattern, name)  # pattern as name
+                //   MatchAs(null, name) => AsPattern(null, name)        # capture pattern (just name)
+                //   MatchAs(null, null) => AsPattern(null, "_")         # wildcard (_)
+                GeneratedMatchAs mas => new AsPattern(
+                    mas.Pattern != null ? ConvertPattern(mas.Pattern) : null!,
+                    mas.Name?.ToString() ?? "_"
+                ),
 
                 // MatchOr: matches pattern1 | pattern2 | ...
                 GeneratedMatchOr mor => new OrPattern(
