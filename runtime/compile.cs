@@ -7330,8 +7330,11 @@ namespace SharpPy
                 var pc = new PatternContext();
                 SharpPy.Label failLabel = _instructionSequence.NewLabel();
 
+                // CPython: Initialize fail_pop[0] with the fail label for this case
+                pc.FailPop[0] = failLabel;
+
                 // Compile pattern matching
-                if (!CompilePatternMatchCFG(matchCase.Pattern, failLabel, pc))
+                if (!CompilePatternMatchCFG(matchCase.Pattern, pc))
                 {
                     // Pattern compilation failed - skip this case
                     _instructionSequence.UseLabel(failLabel);
@@ -7365,6 +7368,9 @@ namespace SharpPy
 
                 // Jump to end
                 _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, endLabel, _currentLineNumber);
+
+                // CPython 3.12: emit_and_reset_fail_pop - generate POP_TOP chain for cleanup
+                EmitAndResetFailPop(pc, failLabel);
 
                 // Place fail label for next case
                 _instructionSequence.UseLabel(failLabel);
@@ -7412,16 +7418,16 @@ namespace SharpPy
         /// CPython 3.12: compiler_pattern for CFG path
         /// Simplified version - supports constant patterns for test_match_simple.py
         /// </summary>
-        private bool CompilePatternMatchCFG(Expression pattern, SharpPy.Label failLabel, PatternContext pc)
+        private bool CompilePatternMatchCFG(Expression pattern, PatternContext pc)
         {
             switch (pattern)
             {
                 case ConstantExpression constExpr:
-                    // CPython: Direct constant comparison
+                    // CPython: compiler_pattern_value - Direct constant comparison
                     // Stack: [subject] -> [subject, constant] -> [comparison_result]
                     CompileExpression(constExpr);
                     _instructionSequence.AddOpWithArg(ByteCodeOp.COMPARE_OP, (int)CompareOp.EQ, _currentLineNumber);
-                    _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber);
+                    JumpToFailPop(pc, ByteCodeOp.POP_JUMP_IF_FALSE);
                     return true;
 
                 case NameExpression nameExpr when nameExpr.Name == "_":
@@ -7431,47 +7437,23 @@ namespace SharpPy
 
                 case NameExpression nameExpr:
                     // Variable binding - always matches
-                    // CPython: pattern_helper_store_name - add to stores list, don't emit STORE yet
+                    // CPython: pattern_helper_store_name
                     if (pc.Stores.Contains(nameExpr.Name))
                     {
                         throw new InvalidOperationException($"multiple assignments to name {nameExpr.Name} in pattern");
                     }
+                    // CPython: Rotate this object underneath any items we need to preserve
+                    // rotations = pc->on_top + PyList_GET_SIZE(pc->stores) + 1
+                    int rotations = pc.OnTop + pc.Stores.Count + 1;
+                    PatternHelperRotate(rotations);
                     pc.Stores.Add(nameExpr.Name);
                     return true;
 
                 case OrPattern orPat:
                     // CPython 3.12: compiler_pattern_or
-                    // Try each alternative in sequence with COPY 1
-                    // Stack: [subject] on entry
-                    var endLabel = _instructionSequence.NewLabel();
-
-                    for (int i = 0; i < orPat.Patterns.Count; i++)
-                    {
-                        var alt = orPat.Patterns[i];
-                        var nextAlt = _instructionSequence.NewLabel();
-
-                        // COPY 1 - preserve subject for next alternative
-                        _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 1, _currentLineNumber);
-
-                        // Compile this alternative
-                        CompilePatternMatchCFG(alt, nextAlt, pc);
-
-                        // If we get here, match succeeded - jump to end
-                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, endLabel, _currentLineNumber);
-
-                        // nextAlt: This alternative failed
-                        _instructionSequence.UseLabel(nextAlt);
-
-                        // Last alternative? Jump to overall fail
-                        if (i == orPat.Patterns.Count - 1)
-                        {
-                            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, failLabel, _currentLineNumber);
-                        }
-                    }
-
-                    // endLabel: One alternative matched
-                    _instructionSequence.UseLabel(endLabel);
-                    return true;
+                    // TODO: Implement OR pattern with proper fail_pop handling
+                    // For now, use simplified legacy path
+                    throw new NotImplementedException("OR pattern not yet implemented in CFG path with fail_pop support");
 
                 case StarExpression starExpr:
                     // CPython 3.12: compiler_pattern_star (MatchStar_kind)
@@ -7495,7 +7477,7 @@ namespace SharpPy
                 case ListExpression listExpr:
                     // CPython 3.12: compiler_pattern_sequence (MatchSequence_kind)
                     // Pattern like [first, *middle, last] or [a, b, c]
-                    return CompileSequencePattern(listExpr.Elements, failLabel, pc);
+                    return CompileSequencePattern(listExpr.Elements, pc);
 
                 default:
                     // Unsupported pattern for now
@@ -8154,7 +8136,7 @@ namespace SharpPy
                     // Create a new context with the next label as the fail label
                     var patternContext = pc.Clone();
                     patternContext.FailPop.Clear();
-                    patternContext.FailPop.Add(nextLabel);
+                    patternContext.FailPop[0] = nextLabel;  // Legacy: use key 0
 
                     if (!CompilePatternMatch(pattern, patternContext))
                     {
@@ -8289,7 +8271,7 @@ namespace SharpPy
                     // Create a new context with the sub-fail label
                     var subPatternContext = pc.Clone();
                     subPatternContext.FailPop.Clear();
-                    subPatternContext.FailPop.Add(subFailLabel);
+                    subPatternContext.FailPop[0] = subFailLabel;  // Legacy: use key 0
 
                     // Compile the nested pattern recursively
                     if (!CompilePatternMatch(valuePattern, subPatternContext))
@@ -9116,53 +9098,44 @@ namespace SharpPy
         /// Python/compile.c: pattern_context structure
         /// Used to manage pattern matching state and failure labels
         /// </summary>
+        /// <summary>
+        /// CPython 3.12: pattern_context structure
+        /// Context for pattern matching compilation (CFG path only)
+        /// </summary>
         private class PatternContext
         {
-            /// <summary>
-            /// Name captures - corresponds to CPython's stores (PyObject*)
-            /// </summary>
+            /// <summary>List of variable names to store after successful pattern match</summary>
             public List<string> Stores { get; set; } = new List<string>();
 
-            /// <summary>
-            /// Allow irrefutable pattern - corresponds to CPython's allow_irrefutable
-            /// </summary>
-            public bool AllowIrrefutable { get; set; } = true;
-
-            /// <summary>
-            /// Failure jump labels - corresponds to CPython's fail_pop (jump_target_label*)
-            /// Array of labels to jump to when pattern matching fails
-            /// </summary>
-            public List<SharpPy.Label> FailPop { get; set; } = new List<SharpPy.Label>();
-
-            /// <summary>
-            /// Stack top preservation count - corresponds to CPython's on_top
-            /// Number of values to keep on top of the stack
-            /// </summary>
+            /// <summary>Number of items currently on top of stack (not including subject)</summary>
             public int OnTop { get; set; } = 0;
 
             /// <summary>
-            /// Create a deep copy of this context
+            /// Failure pop labels - corresponds to CPython's fail_pop
+            /// fail_pop[i] is the label to jump to when we need to pop i items before failing
             /// </summary>
+            public Dictionary<int, SharpPy.Label> FailPop { get; set; } = new Dictionary<int, SharpPy.Label>();
+
+            // Legacy support (will be removed later)
+            public bool AllowIrrefutable { get; set; } = true;
+
             public PatternContext Clone()
             {
                 return new PatternContext
                 {
                     Stores = new List<string>(Stores),
-                    AllowIrrefutable = AllowIrrefutable,
-                    FailPop = new List<SharpPy.Label>(FailPop),
-                    OnTop = OnTop
+                    OnTop = OnTop,
+                    FailPop = new Dictionary<int, SharpPy.Label>(FailPop),
+                    AllowIrrefutable = AllowIrrefutable
                 };
             }
 
-            /// <summary>
-            /// Get the current failure label (top of fail_pop stack)
-            /// Corresponds to CPython's pc->fail_pop[pc->fail_pop_size - 1]
-            /// </summary>
             public SharpPy.Label GetFailLabel()
             {
-                if (FailPop.Count == 0)
-                    throw new InvalidOperationException("Pattern context has no failure label");
-                return FailPop[FailPop.Count - 1];
+                // Legacy: assumes fail_pop[0] exists
+                if (FailPop.ContainsKey(0))
+                    return FailPop[0];
+                throw new InvalidOperationException("Pattern context has no failure label");
             }
         }
 
@@ -10735,7 +10708,7 @@ namespace SharpPy
         /// CPython 3.12: compiler_pattern_sequence
         /// Compile sequence pattern like [first, *middle, last] or [a, b, c]
         /// </summary>
-        private bool CompileSequencePattern(List<Expression> patterns, SharpPy.Label failLabel, PatternContext pc)
+        private bool CompileSequencePattern(List<Expression> patterns, PatternContext pc)
         {
             int size = patterns.Count;
             int star = -1;
@@ -10760,9 +10733,12 @@ namespace SharpPy
                 onlyWildcard &= IsWildcardPattern(pattern);
             }
 
+            // CPython: We need to keep the subject on top during the sequence and length checks
+            pc.OnTop++;
+
             // CPython: MATCH_SEQUENCE - Check if subject is a sequence
             _instructionSequence.AddOp(ByteCodeOp.MATCH_SEQUENCE, 0, _currentLineNumber);
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber);
+            JumpToFailPop(pc, ByteCodeOp.POP_JUMP_IF_FALSE);
 
             // CPython: GET_LEN + length check
             if (star < 0)
@@ -10771,7 +10747,7 @@ namespace SharpPy
                 _instructionSequence.AddOp(ByteCodeOp.GET_LEN, 0, _currentLineNumber);
                 EmitLoadConst(new PyInt(size));
                 _instructionSequence.AddOpWithArg(ByteCodeOp.COMPARE_OP, (int)CompareOp.EQ, _currentLineNumber);
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber);
+                JumpToFailPop(pc, ByteCodeOp.POP_JUMP_IF_FALSE);
             }
             else if (size > 1)
             {
@@ -10779,8 +10755,11 @@ namespace SharpPy
                 _instructionSequence.AddOp(ByteCodeOp.GET_LEN, 0, _currentLineNumber);
                 EmitLoadConst(new PyInt(size - 1));
                 _instructionSequence.AddOpWithArg(ByteCodeOp.COMPARE_OP, (int)CompareOp.GE, _currentLineNumber);
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber);
+                JumpToFailPop(pc, ByteCodeOp.POP_JUMP_IF_FALSE);
             }
+
+            // CPython: Whatever comes next should consume the subject
+            pc.OnTop--;
 
             // Consume subject
             if (onlyWildcard)
@@ -10791,12 +10770,12 @@ namespace SharpPy
             else if (starWildcard)
             {
                 // Star is wildcard (*_) - use subscripting for efficiency
-                PatternHelperSequenceSubscr(patterns, star, failLabel, pc);
+                PatternHelperSequenceSubscr(patterns, star, pc);
             }
             else
             {
                 // General case - unpack sequence
-                PatternHelperSequenceUnpack(patterns, star, failLabel, pc);
+                PatternHelperSequenceUnpack(patterns, star, pc);
             }
 
             return true;
@@ -10806,7 +10785,7 @@ namespace SharpPy
         /// CPython 3.12: pattern_helper_sequence_unpack
         /// Unpack sequence and match each element
         /// </summary>
-        private void PatternHelperSequenceUnpack(List<Expression> patterns, int star, SharpPy.Label failLabel, PatternContext pc)
+        private void PatternHelperSequenceUnpack(List<Expression> patterns, int star, PatternContext pc)
         {
             int size = patterns.Count;
 
@@ -10825,11 +10804,16 @@ namespace SharpPy
                 _instructionSequence.AddOpWithArg(ByteCodeOp.UNPACK_SEQUENCE, size, _currentLineNumber);
             }
 
-            // Now we have all elements on stack, match each one
+            // CPython 3.12: We've now got a bunch of new subjects on the stack.
+            // They need to remain there after each subpattern match.
+            pc.OnTop += size;
+
             for (int i = 0; i < size; i++)
             {
+                // One less item to keep track of each time we loop through
+                pc.OnTop--;
                 var pattern = patterns[i];
-                if (!CompilePatternMatchCFG(pattern, failLabel, pc))
+                if (!CompilePatternMatchCFG(pattern, pc))
                 {
                     throw new InvalidOperationException($"Failed to compile pattern at index {i}");
                 }
@@ -10837,10 +10821,73 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// CPython 3.12: pattern_helper_rotate
+        /// Rotate stack using SWAP instructions
+        /// </summary>
+        private void PatternHelperRotate(int count)
+        {
+            // CPython: while (1 < count) { ADDOP_I(c, loc, SWAP, count--); }
+            while (1 < count)
+            {
+                _instructionSequence.AddOpWithArg(ByteCodeOp.SWAP, count--, _currentLineNumber);
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12: jump_to_fail_pop
+        /// Jump to the appropriate fail_pop label based on how many items need to be popped
+        /// </summary>
+        private void JumpToFailPop(PatternContext pc, ByteCodeOp jumpOp)
+        {
+            // Pop any items on the top of the stack, plus any objects we were going to capture on success
+            int pops = pc.OnTop + pc.Stores.Count;
+
+            // Ensure we have a label for this number of pops
+            if (!pc.FailPop.ContainsKey(pops))
+            {
+                pc.FailPop[pops] = _instructionSequence.NewLabel();
+            }
+
+            _instructionSequence.AddOpWithLabel(jumpOp, pc.FailPop[pops], _currentLineNumber);
+        }
+
+        /// <summary>
+        /// CPython 3.12: emit_and_reset_fail_pop
+        /// Build all of the fail_pop blocks and reset fail_pop
+        /// Generates a chain of POP_TOP instructions for stack cleanup
+        /// CPython: while (--pc->fail_pop_size) { USE_LABEL; ADDOP(POP_TOP); }
+        ///          USE_LABEL(pc->fail_pop[0]);
+        /// </summary>
+        private void EmitAndResetFailPop(PatternContext pc, SharpPy.Label finalFailLabel)
+        {
+            if (pc.FailPop.Count == 0)
+                return;
+
+            // CPython: Emit from highest index down to 1, each with POP_TOP
+            // Then emit fail_pop[0] without POP_TOP (it's the final fail target)
+            var sortedPops = pc.FailPop.Keys.OrderByDescending(k => k).ToList();
+
+            foreach (int pops in sortedPops)
+            {
+                _instructionSequence.UseLabel(pc.FailPop[pops]);
+                if (pops > 0)
+                {
+                    // fail_pop[N] (N>0): emit ONE POP_TOP, then fall through
+                    // CPython does --pc->fail_pop_size in loop, so each iteration pops once
+                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
+                }
+            }
+
+            // No jump needed - fail_pop[0] falls through naturally to finalFailLabel
+            // which is placed by the caller (CompileMatch)
+            pc.FailPop.Clear();
+        }
+
+        /// <summary>
         /// CPython 3.12: pattern_helper_sequence_subscr
         /// Use BINARY_SUBSCR for patterns with starred wildcard like [first, *_, last]
         /// </summary>
-        private void PatternHelperSequenceSubscr(List<Expression> patterns, int star, SharpPy.Label failLabel, PatternContext pc)
+        private void PatternHelperSequenceSubscr(List<Expression> patterns, int star, PatternContext pc)
         {
             int size = patterns.Count;
 
@@ -10881,7 +10928,7 @@ namespace SharpPy
                 _instructionSequence.AddOp(ByteCodeOp.BINARY_SUBSCR, 0, _currentLineNumber);
 
                 // Match this element
-                if (!CompilePatternMatchCFG(pattern, failLabel, pc))
+                if (!CompilePatternMatchCFG(pattern, pc))
                 {
                     throw new InvalidOperationException($"Failed to compile pattern at index {i}");
                 }
@@ -10916,19 +10963,5 @@ namespace SharpPy
 
         #endregion
     }
-
-    /// <summary>
-    /// CPython 3.12: pattern_context structure
-    /// Context for pattern matching compilation
-    /// </summary>
-    internal class PatternContext
-    {
-        /// <summary>List of variable names to store after successful pattern match</summary>
-        public List<string> Stores { get; set; } = new List<string>();
-
-        /// <summary>Number of items currently on top of stack (not including subject)</summary>
-        public int OnTop { get; set; } = 0;
-    }
-
     #endregion
 }
