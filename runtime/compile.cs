@@ -7487,6 +7487,11 @@ namespace SharpPy
                     // Pattern like Point(x=0, y=0) or Point(x, y)
                     return CompileClassPattern(callExpr, pc);
 
+                case AsPattern asPattern:
+                    // CPython 3.12: compiler_pattern_as (MatchAs_kind)
+                    // Pattern like [x, y] as point or _ as value
+                    return CompileAsPattern(asPattern, pc);
+
                 default:
                     // Unsupported pattern for now
                     throw new NotImplementedException($"Pattern type {pattern?.GetType().Name} not yet supported in CFG path");
@@ -10873,6 +10878,33 @@ namespace SharpPy
             }
 
             // Success! The tuple has been consumed
+            return true;
+        }
+
+        /// <summary>
+        /// CPython 3.12: compiler_pattern_as
+        /// Compile AS pattern (e.g., case [x, y] as point:)
+        /// </summary>
+        private bool CompileAsPattern(AsPattern asPattern, PatternContext pc)
+        {
+            // CPython: Need to make a copy for storing later
+            // pc->on_top++;
+            // ADDOP_I(c, LOC(p), COPY, 1);
+            pc.OnTop++;
+            _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 1, _currentLineNumber);
+
+            // CPython: RETURN_IF_ERROR(compiler_pattern(c, p->v.MatchAs.pattern, pc));
+            if (!CompilePatternMatchCFG(asPattern.Pattern, pc))
+            {
+                return false;
+            }
+
+            // CPython: Success! Store it:
+            // pc->on_top--;
+            // RETURN_IF_ERROR(pattern_helper_store_name(c, LOC(p), p->v.MatchAs.name, pc));
+            pc.OnTop--;
+            EmitStoreVariable(asPattern.Name);
+
             return true;
         }
 

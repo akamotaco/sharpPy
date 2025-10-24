@@ -1786,7 +1786,7 @@ namespace SharpPy.Generated
 
                 // MatchAs: matches pattern as name (or just name, or just wildcard)
                 GeneratedMatchAs mas => mas.Pattern != null
-                    ? ConvertPattern(mas.Pattern)
+                    ? new AsPattern(ConvertPattern(mas.Pattern), mas.Name?.ToString() ?? "_")
                     : new NameExpression(mas.Name?.ToString() ?? "_"),
 
                 // MatchOr: matches pattern1 | pattern2 | ...
