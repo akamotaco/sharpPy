@@ -7451,9 +7451,7 @@ namespace SharpPy
 
                 case OrPattern orPat:
                     // CPython 3.12: compiler_pattern_or
-                    // TODO: Implement OR pattern with proper fail_pop handling
-                    // For now, use simplified legacy path
-                    throw new NotImplementedException("OR pattern not yet implemented in CFG path with fail_pop support");
+                    return CompileOrPattern(orPat, pc);
 
                 case StarExpression starExpr:
                     // CPython 3.12: compiler_pattern_star (MatchStar_kind)
@@ -10831,6 +10829,125 @@ namespace SharpPy
             {
                 _instructionSequence.AddOpWithArg(ByteCodeOp.SWAP, count--, _currentLineNumber);
             }
+        }
+
+        /// <summary>
+        /// CPython 3.12: compiler_pattern_or
+        /// Compile OR pattern (e.g., case 1 | 2 | 3:)
+        /// </summary>
+        private bool CompileOrPattern(OrPattern orPat, PatternContext pc)
+        {
+            // CPython: NEW_JUMP_TARGET_LABEL(c, end);
+            var endLabel = _instructionSequence.NewLabel();
+            int size = orPat.Patterns.Count;
+
+            // CPython: Keep original pc info
+            var oldPc = new PatternContext
+            {
+                Stores = new List<string>(pc.Stores),
+                OnTop = pc.OnTop,
+                FailPop = new Dictionary<int, SharpPy.Label>(pc.FailPop),
+                AllowIrrefutable = pc.AllowIrrefutable
+            };
+
+            List<string> control = null;
+
+            // CPython: for (i = 0; i < size; i++)
+            for (int i = 0; i < size; i++)
+            {
+                var alt = orPat.Patterns[i];
+
+                // CPython: Create new stores for this alternative
+                pc.Stores = new List<string>();
+                pc.AllowIrrefutable = (i == size - 1) && oldPc.AllowIrrefutable;
+                pc.FailPop.Clear();
+                pc.OnTop = 0;
+
+                // CPython: COPY 1 to preserve subject for next alternative
+                _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 1, _currentLineNumber);
+
+                // CPython: compiler_pattern(c, alt, pc)
+                if (!CompilePatternMatchCFG(alt, pc))
+                {
+                    return false;
+                }
+
+                // CPython: Success! Check stores
+                int nstores = pc.Stores.Count;
+
+                if (i == 0)
+                {
+                    // First alternative - save stores as control
+                    control = new List<string>(pc.Stores);
+                }
+                else if (nstores != control.Count)
+                {
+                    // Different number of captures
+                    throw new InvalidOperationException($"alternative patterns bind different names");
+                }
+                else if (nstores > 0)
+                {
+                    // Check if stores match control (same names, possibly different order)
+                    for (int icontrol = nstores - 1; icontrol >= 0; icontrol--)
+                    {
+                        string name = control[icontrol];
+                        int istores = pc.Stores.IndexOf(name);
+
+                        if (istores < 0)
+                        {
+                            throw new InvalidOperationException($"alternative patterns bind different names");
+                        }
+
+                        if (icontrol != istores)
+                        {
+                            // Need to reorder - perform rotation
+                            // CPython: rotations = istores + 1
+                            int rotations = istores + 1;
+
+                            // Reorder pc.Stores to match control
+                            var rotated = pc.Stores.GetRange(0, rotations);
+                            pc.Stores.RemoveRange(0, rotations);
+                            pc.Stores.InsertRange(icontrol - istores, rotated);
+
+                            // Rotate stack to match
+                            for (int r = 0; r < rotations; r++)
+                            {
+                                PatternHelperRotate(icontrol + 1);
+                            }
+                        }
+                    }
+                }
+
+                // CPython: JUMP to end on success
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, endLabel, _currentLineNumber);
+
+                // CPython: emit_and_reset_fail_pop
+                EmitAndResetFailPop(pc, oldPc.FailPop[0]);
+            }
+
+            // CPython: Restore original pc and pop subject copy
+            pc.Stores = oldPc.Stores;
+            pc.OnTop = oldPc.OnTop;
+            pc.FailPop = oldPc.FailPop;
+            pc.AllowIrrefutable = oldPc.AllowIrrefutable;
+
+            // CPython: No match - POP_TOP the remaining copy
+            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
+
+            // CPython: jump_to_fail_pop(c, LOC(p), pc, JUMP)
+            JumpToFailPop(pc, ByteCodeOp.JUMP_FORWARD);
+
+            // CPython: USE_LABEL(c, end)
+            _instructionSequence.UseLabel(endLabel);
+
+            // CPython: Stores from control need to be moved to the right position
+            int controlStores = control?.Count ?? 0;
+            for (int i = 0; i < controlStores; i++)
+            {
+                pc.Stores.Add(control[i]);
+            }
+
+            return true;
         }
 
         /// <summary>
