@@ -75,22 +75,37 @@ namespace SharpPy
             // Store constructor arguments for toString() behavior
             instance.ConstructorArgs = args;
 
-            // __init__ 호출 (있다면)
-            if (HasMethod("__init__"))
+            // CPython: __init__ lookup bypasses __getattribute__ (uses _PyType_Lookup)
+            // Reference: Objects/typeobject.c:9028 (slot_tp_init -> lookup_method -> _PyType_Lookup)
+            var init = LookupInMRO("__init__");
+            if (init != null)
             {
-                var init = instance.GetAttribute("__init__");
+                // Apply descriptor protocol if needed
+                if (init is IDescriptor desc)
+                {
+                    init = desc.Get(instance, this);
+                }
+                else if (init is PyFunction function)
+                {
+                    // Convert function to bound method
+                    init = new PyMethod(instance, function);
+                }
+
+                // Call the bound init method
                 if (init is PyMethod method)
                 {
                     // PyMethod는 이미 self가 바인딩되어 있으므로 args만 전달
                     method.Call(args, kwargs);
                 }
-                else if (init is PyFunction function)
+                else if (init is PyBuiltinMethod builtinMethod)
                 {
-                    // PyFunction은 self를 수동으로 추가해야 함
-                    var allArgs = new PyObject[args.Length + 1];
-                    allArgs[0] = instance;
-                    Array.Copy(args, 0, allArgs, 1, args.Length);
-                    function.Call(allArgs, kwargs);
+                    // Builtin method도 이미 바인딩되어 있음
+                    builtinMethod.Call(args, kwargs);
+                }
+                else
+                {
+                    // Fallback: callable object
+                    init.Call(args, kwargs);
                 }
             }
 
@@ -100,6 +115,37 @@ namespace SharpPy
         public bool HasMethod(string name)
         {
             return MRO.OfType<PyClass>().Any(t => t.ClassDict.ContainsKey(name));
+        }
+
+        /// <summary>
+        /// CPython's _PyType_Lookup equivalent: Look up a name in the type's MRO
+        /// This bypasses __getattribute__ and goes directly to tp_dict/__dict__
+        /// Used for special method lookup (PEP 252: "Special method lookup bypasses __getattribute__()")
+        /// Reference: Objects/typeobject.c:4725 (_PyType_Lookup)
+        /// </summary>
+        public PyObject LookupInMRO(string name)
+        {
+            // Search through MRO (Method Resolution Order)
+            foreach (var mroType in MRO)
+            {
+                // For PyClass: check ClassDict
+                if (mroType is PyClass pyClass)
+                {
+                    if (pyClass.ClassDict.TryGetValue(name, out PyObject value))
+                    {
+                        return value;
+                    }
+                }
+                // For PyType: check TypeDict
+                else if (mroType is PyType pyType)
+                {
+                    if (pyType.TypeDict != null && pyType.TypeDict.TryGetValue(name, out PyObject value))
+                    {
+                        return value;
+                    }
+                }
+            }
+            return null;
         }
 
         // 클래스 호출 시 인스턴스 생성
@@ -511,6 +557,14 @@ namespace SharpPy
 
             try
             {
+                // FIRST: Check TypeDict for descriptors (like __setattr__, __getattribute__, etc.)
+                // This is critical for finding dynamically added descriptors
+                if (pyType.TypeDict != null && pyType.TypeDict.TryGetValue(name, out PyObject descriptor))
+                {
+                    return descriptor;
+                }
+
+                // SECOND: Fall back to hardcoded switch for legacy/special attributes
                 // object 타입의 기본 속성들
                 if (pyType == PyType.ObjectType)
                 {
@@ -1147,11 +1201,152 @@ namespace SharpPy
         }
 
         // Special attributes
+
+        /// <summary>
+        /// Internal method: Generic attribute lookup WITHOUT checking for custom __getattribute__
+        /// This is equivalent to CPython's PyObject_GenericGetAttr C function
+        /// Used by object.__getattribute__ to avoid infinite recursion
+        /// </summary>
+        internal PyObject GetAttributeGeneric(string name)
+        {
+            #if DEBUG_LOG
+            Console.WriteLine($"🔍 PyClassInstance.GetAttributeGeneric: {InstanceType.Name} instance.{name} (no custom __getattribute__)");
+            #endif
+
+            // 특별한 속성들 먼저 처리
+            if (name == "__class__")
+            {
+                return InstanceType;
+            }
+            if (name == "__dict__")
+            {
+                return new PyDict(InstanceDict);
+            }
+
+            // CPython 3.12 descriptor protocol (without custom __getattribute__ check):
+            // 1. 클래스 MRO에서 data descriptor 찾기 → Get() 호출
+            // 2. 인스턴스 __dict__ 검색
+            // 3. 클래스 MRO에서 non-data descriptor 또는 일반 attribute 찾기
+            // 4. __getattr__ 시도
+            // 5. AttributeError
+
+            PyObject classAttribute = null;
+            PyClass foundInClass = null;
+
+            // 1. Data descriptor 찾기
+            foreach (var mroType in InstanceType.MRO)
+            {
+                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))
+                {
+                    if (classValue is IDescriptor desc && desc.IsDataDescriptor())
+                    {
+                        return desc.Get(this, InstanceType);
+                    }
+
+                    if (classAttribute == null)
+                    {
+                        classAttribute = classValue;
+                        foundInClass = pyClass;
+                    }
+                    break;
+                }
+            }
+
+            // 2. 인스턴스 __dict__ 검색
+            if (InstanceDict.TryGetValue(name, out PyObject instanceValue))
+            {
+                return instanceValue;
+            }
+
+            // 3. 클래스 attribute 처리 (non-data descriptor 포함)
+            if (classAttribute != null)
+            {
+                if (classAttribute is IDescriptor desc)
+                {
+                    return desc.Get(this, InstanceType);
+                }
+                else if (classAttribute is PyFunction func)
+                {
+                    return new PyMethod(this, func);
+                }
+                return classAttribute;
+            }
+
+            // 4. 내장 속성 확인
+            foreach (var mroType in InstanceType.MRO)
+            {
+                if (mroType is PyType pyType && !(mroType is PyClass))
+                {
+                    var typeAttr = SharpPy.PyClass.GetTypeAttribute(pyType, name);
+                    if (typeAttr != null)
+                    {
+                        if (typeAttr is PyBuiltinMethod builtinMethod)
+                        {
+                            return builtinMethod.Get(this, InstanceType);
+                        }
+                        if (typeAttr is PyBuiltinFunction builtinFunction)
+                        {
+                            return new PyBuiltinBoundMethod(this, builtinFunction);
+                        }
+                        if (typeAttr is PyFunction func)
+                        {
+                            return new PyMethod(this, func);
+                        }
+                        return typeAttr;
+                    }
+                }
+            }
+
+            // 5. __getattr__ 시도
+            if (HasCustomGetAttr())
+            {
+                var customResult = CallGetAttr(name);
+                if (customResult != null)
+                {
+                    return customResult;
+                }
+            }
+
+            // 6. AttributeError
+            throw PyAttributeError.Create($"'{InstanceType.Name}' object has no attribute '{name}'");
+        }
+
         public override PyObject GetAttribute(string name)
         {
             #if DEBUG_LOG
             Console.WriteLine($"🔍 PyClassInstance.GetAttribute: {InstanceType.Name} instance.{name}");
             #endif
+
+            // CPython 3.12: Check for custom __getattribute__ FIRST
+            // (typeobject.c:8867 - _Py_slot_tp_getattr_hook)
+            PyObject customGetAttr = null;
+            foreach (var mroType in InstanceType.MRO)
+            {
+                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue("__getattribute__", out customGetAttr))
+                {
+                    break;
+                }
+                if (mroType.TypeDict != null && mroType.TypeDict.TryGetValue("__getattribute__", out customGetAttr))
+                {
+                    // Check if it's NOT the default object.__getattribute__
+                    // (CPython: check if d_wrapped == PyObject_GenericGetAttr)
+                    if (mroType == PyType.ObjectType)
+                    {
+                        // This is the default object.__getattribute__, continue with normal logic
+                        customGetAttr = null;
+                    }
+                    break;
+                }
+            }
+
+            // If custom __getattribute__ found, call it directly
+            if (customGetAttr != null)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"   🔍 calling custom __getattribute__");
+                #endif
+                return customGetAttr.Call(new PyObject[] { this, new PyString(name) }, null);
+            }
 
             // 특별한 속성들 먼저 처리
             if (name == "__class__")

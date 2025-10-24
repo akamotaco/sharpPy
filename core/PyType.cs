@@ -681,6 +681,74 @@ namespace SharpPy
                 minArgs: 1,
                 maxArgs: int.MaxValue
             );
+
+            // object.__getattribute__(self, name) - CPython PyObject_GenericGetAttr
+            // Reference: Objects/object.c:1536, typeobject.c:6566 (tp_getattro slot)
+            // CRITICAL: This must call the internal generic method to avoid infinite recursion
+            // when custom __getattribute__ calls super().__getattribute__()
+            TypeDict["__getattribute__"] = new PyMethodDescriptor(
+                "__getattribute__",
+                objectType,
+                (self, args, kwargs) => {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("__getattribute__() missing 1 required positional argument: 'name'");
+
+                    if (args[0] is not PyString nameStr)
+                        throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
+
+                    // CPython: object's tp_getattro points directly to PyObject_GenericGetAttr (C function)
+                    // SharpPy: Call GetAttributeGeneric which skips custom __getattribute__ lookup
+                    if (self is PyClassInstance instance)
+                    {
+                        return instance.GetAttributeGeneric(nameStr.Value);
+                    }
+
+                    // Fallback for non-PyClassInstance objects
+                    return self.GetAttribute(nameStr.Value);
+                },
+                minArgs: 1,
+                maxArgs: 1
+            );
+
+            // object.__setattr__(self, name, value) - CPython PyObject_GenericSetAttr
+            // Reference: Objects/object.c:1565
+            TypeDict["__setattr__"] = new PyMethodDescriptor(
+                "__setattr__",
+                objectType,
+                (self, args, kwargs) => {
+                    if (args.Length < 2)
+                        throw PyTypeError.Create("__setattr__() missing required positional arguments");
+
+                    if (args[0] is not PyString nameStr)
+                        throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
+
+                    // Call the default SetAttribute implementation
+                    self.SetAttribute(nameStr.Value, args[1]);
+                    return PyNone.Instance;
+                },
+                minArgs: 2,
+                maxArgs: 2
+            );
+
+            // object.__delattr__(self, name) - CPython PyObject_GenericSetAttr with value=NULL
+            // Reference: Objects/object.c:1565 (same function, value=NULL means delete)
+            TypeDict["__delattr__"] = new PyMethodDescriptor(
+                "__delattr__",
+                objectType,
+                (self, args, kwargs) => {
+                    if (args.Length < 1)
+                        throw PyTypeError.Create("__delattr__() missing 1 required positional argument: 'name'");
+
+                    if (args[0] is not PyString nameStr)
+                        throw PyTypeError.Create("attribute name must be string, not '" + args[0].GetTypeName() + "'");
+
+                    // Call the default DelAttribute implementation
+                    self.DelAttribute(nameStr.Value);
+                    return PyNone.Instance;
+                },
+                minArgs: 1,
+                maxArgs: 1
+            );
         }
 
         /// <summary>

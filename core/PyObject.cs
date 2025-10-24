@@ -215,9 +215,65 @@ namespace SharpPy
         protected virtual PyObject GenericGetAttribute(string name)
         {
             var type = GetPyType();
+
             #if DEBUG_LOG
             Console.WriteLine($"🔍 PyObject.GenericGetAttribute: looking for '{name}' on {type.Name}");
             #endif
+
+            // CPython 3.12: Check for custom __getattribute__ in class (not on instance!)
+            // This allows overriding the entire attribute access mechanism
+            // Reference: Objects/object.c PyObject_GenericGetAttr()
+            if (!(this is PyType || this is PyClass))  // Don't check on type objects themselves
+            {
+                foreach (var mroType in type.MRO)
+                {
+                    PyObject getAttrMethod = null;
+
+                    if (mroType.TypeDict != null && mroType.TypeDict.TryGetValue("__getattribute__", out getAttrMethod))
+                    {
+                        // Found custom __getattribute__ - must be in class, not instance
+                        // Only call if it's different from the base implementation
+                        if (mroType != PyType.ObjectType)  // Skip object.__getattribute__
+                        {
+                            #if DEBUG_LOG
+                            Console.WriteLine($"   🎯 Found custom __getattribute__ in {mroType.Name}");
+                            #endif
+
+                            try
+                            {
+                                return getAttrMethod.Call(new PyObject[] { this, new PyString(name) }, null);
+                            }
+                            catch (Exception ex)
+                            {
+                                #if DEBUG_LOG
+                                Console.WriteLine($"   ❌ Custom __getattribute__ failed: {ex.Message}");
+                                #endif
+                                throw;
+                            }
+                        }
+                        break;
+                    }
+
+                    if (mroType is PyClass customType && customType.ClassDict.TryGetValue("__getattribute__", out getAttrMethod))
+                    {
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   🎯 Found custom __getattribute__ in {customType.Name}");
+                        #endif
+
+                        try
+                        {
+                            return getAttrMethod.Call(new PyObject[] { this, new PyString(name) }, null);
+                        }
+                        catch (Exception ex)
+                        {
+                            #if DEBUG_LOG
+                            Console.WriteLine($"   ❌ Custom __getattribute__ failed: {ex.Message}");
+                            #endif
+                            throw;
+                        }
+                    }
+                }
+            }
 
             // 1. 타입의 MRO에서 descriptor 찾기
             IDescriptor descriptor = null;
