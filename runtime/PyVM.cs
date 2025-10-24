@@ -2531,11 +2531,16 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.POP_JUMP_IF_NONE:
-                    // Pop top value and jump if it's None
+                    // CPython 3.12: Pop top value and jump if it's None
                     var valueToCheck = frame.ValueStack.Pop();
                     if (valueToCheck == null || valueToCheck.Equals(PyNone.Instance))
                     {
-                        frame.InstructionPointer = instruction.Argument;
+                        // CPython 3.12: POP_JUMP_IF_NONE uses relative offset from next instruction
+                        int currentPosNone = frame.InstructionPointer;
+                        int relativeOffsetNone = instruction.Argument;
+                        int targetInstructionIndexNone = currentPosNone + 1 + relativeOffsetNone;
+                        // Subtract 1 because main loop will increment
+                        frame.InstructionPointer = targetInstructionIndexNone - 1;
                     }
                     break;
 

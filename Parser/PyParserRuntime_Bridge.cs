@@ -1756,10 +1756,12 @@ namespace SharpPy.Generated
 
                 // MatchMapping: matches dict patterns like {"key": value}
                 GeneratedMatchMapping map => new DictExpression(
-                    map.Keys.ToEnumerable<GeneratedExpr>()
-                        .Zip(map.Patterns.ToEnumerable<GeneratedPattern>(),
-                             (k, p) => (Key: ConvertAnyExpression(k), Value: ConvertPattern(p)))
-                        .ToList()
+                    (map.Keys != null && map.Patterns != null)
+                        ? map.Keys.ToEnumerable<GeneratedExpr>()
+                            .Zip(map.Patterns.ToEnumerable<GeneratedPattern>(),
+                                 (k, p) => (Key: ConvertAnyExpression(k), Value: ConvertPattern(p)))
+                            .ToList()
+                        : new List<(Expression Key, Expression Value)>()
                 ),
 
                 // MatchClass: matches class patterns like Point(x=1, y=2)

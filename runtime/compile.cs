@@ -7477,6 +7477,11 @@ namespace SharpPy
                     // Pattern like [first, *middle, last] or [a, b, c]
                     return CompileSequencePattern(listExpr.Elements, pc);
 
+                case DictExpression dictExpr:
+                    // CPython 3.12: compiler_pattern_mapping (MatchMapping_kind)
+                    // Pattern like {} or {"key": value}
+                    return CompileMappingPattern(dictExpr, pc);
+
                 default:
                     // Unsupported pattern for now
                     throw new NotImplementedException($"Pattern type {pattern?.GetType().Name} not yet supported in CFG path");
@@ -10829,6 +10834,103 @@ namespace SharpPy
             {
                 _instructionSequence.AddOpWithArg(ByteCodeOp.SWAP, count--, _currentLineNumber);
             }
+        }
+
+        /// <summary>
+        /// CPython 3.12: compiler_pattern_mapping
+        /// Compile mapping/dict pattern (e.g., case {}:  or case {"key": value}:)
+        /// </summary>
+        private bool CompileMappingPattern(DictExpression dictExpr, PatternContext pc)
+        {
+            int size = dictExpr.Items.Count;
+
+            // CPython: We need to keep the subject on top during the mapping and length checks
+            pc.OnTop++;
+
+            // CPython: MATCH_MAPPING - Check if subject is a mapping
+            _instructionSequence.AddOp(ByteCodeOp.MATCH_MAPPING, 0, _currentLineNumber);
+            JumpToFailPop(pc, ByteCodeOp.POP_JUMP_IF_FALSE);
+
+            if (size == 0)
+            {
+                // CPython: If the pattern is just "{}", we're done! Pop the subject
+                pc.OnTop--;
+                _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
+                return true;
+            }
+
+            // CPython: If the pattern has any keys, perform a length check (len >= size)
+            _instructionSequence.AddOp(ByteCodeOp.GET_LEN, 0, _currentLineNumber);
+            EmitLoadConst(new PyInt(size));
+            _instructionSequence.AddOpWithArg(ByteCodeOp.COMPARE_OP, (int)CompareOp.GE, _currentLineNumber);
+            JumpToFailPop(pc, ByteCodeOp.POP_JUMP_IF_FALSE);
+
+            // CPython: Collect all keys into a tuple for MATCH_KEYS
+            foreach (var item in dictExpr.Items)
+            {
+                // Keys must be constants or attribute lookups
+                CompileExpression(item.Key);
+            }
+
+            // CPython: BUILD_TUPLE with all keys
+            _instructionSequence.AddOpWithArg(ByteCodeOp.BUILD_TUPLE, size, _currentLineNumber);
+
+            // CPython: MATCH_KEYS - extracts values for the given keys
+            _instructionSequence.AddOp(ByteCodeOp.MATCH_KEYS, 0, _currentLineNumber);
+
+            // CPython: There's now a tuple of keys and a tuple of values on top of the subject
+            pc.OnTop += 2;
+
+            // CPython: COPY 1 to get the values tuple, then check if None (missing keys)
+            _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 1, _currentLineNumber);
+            JumpToFailPop(pc, ByteCodeOp.POP_JUMP_IF_NONE);
+
+            // CPython: UNPACK_SEQUENCE to get individual values
+            _instructionSequence.AddOpWithArg(ByteCodeOp.UNPACK_SEQUENCE, size, _currentLineNumber);
+            pc.OnTop += size - 1;
+
+            // CPython: Match each value against the pattern
+            for (int i = 0; i < size; i++)
+            {
+                pc.OnTop--;
+                var pattern = dictExpr.Items[i].Value;
+
+                // CPython: For simple variable bindings, store directly from TOS without rotation
+                // After UNPACK_SEQUENCE, values are already at the top of stack in correct order
+                if (pattern is NameExpression nameExpr && nameExpr.Name != "_")
+                {
+                    // Simple variable capture - emit STORE instruction directly
+                    if (pc.Stores.Contains(nameExpr.Name))
+                    {
+                        throw new InvalidOperationException($"multiple assignments to name {nameExpr.Name} in pattern");
+                    }
+                    // Emit STORE instruction directly (value is at TOS)
+                    EmitStoreVariable(nameExpr.Name);
+                    // Do NOT add to pc.Stores since we already stored it
+                }
+                else if (pattern is NameExpression wildcardExpr && wildcardExpr.Name == "_")
+                {
+                    // Wildcard - just pop the value
+                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
+                }
+                else
+                {
+                    // Complex pattern - use full pattern matching
+                    if (!CompilePatternMatchCFG(pattern, pc))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            // CPython: If we get this far, it's a match! Pop the tuple of keys and subject
+            // Note: We decrement pc.OnTop by 2 (keys_tuple + subject), but only POP keys_tuple here
+            // The subject will be POPped by CompileMatch (line 7360)
+            pc.OnTop -= 2;
+            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);  // Tuple of keys
+            // Subject is left on stack - will be POPped by CompileMatch
+
+            return true;
         }
 
         /// <summary>
