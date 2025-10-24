@@ -34,6 +34,10 @@ namespace SharpPy
         // **NEW**: Storage for class body variables before scope cleanup
         public Dictionary<string, PyObject>? ClassBodyVariables { get; set; }
 
+        // CPython 3.12: Class body locals dictionary (for __prepare__ dict subclasses)
+        // When executing class body, STORE_NAME writes to this dict instead of scope
+        public PyObject? ClassLocalsDict { get; set; }
+
         // CPython-style exception handling support
         public Stack<int> ExceptionHandlers { get; } = new Stack<int>();
         public PyBaseException? LastException { get; set; }
@@ -591,6 +595,18 @@ namespace SharpPy
                 ? new PyFrame(classBody, new PyObject[0], parentScope, closure)
                 : new PyFrame(classBody, new PyObject[0], parentScope);
 
+            // CPython 3.12: Check if __prepare__ returned a dict subclass
+            // If so, use it as the LOCALS() dict for STORE_NAME operations
+            PyObject? prepareResult = null;
+            if (initialNamespace != null && initialNamespace.TryGetValue("__prepare_result__", out var prepareMarker))
+            {
+                prepareResult = prepareMarker;
+                frame.ClassLocalsDict = prepareResult;
+                #if DEBUG_LOG
+                Console.WriteLine($"📦 Using __prepare__ result as ClassLocalsDict: {prepareResult?.GetType().Name}");
+                #endif
+            }
+
             // CPython 3.12: Pre-populate local scope with initial namespace from __prepare__
             if (initialNamespace != null && initialNamespace.Count > 0)
             {
@@ -599,6 +615,10 @@ namespace SharpPy
                 #endif
                 foreach (var kvp in initialNamespace)
                 {
+                    // Skip the marker - it's not a real class attribute
+                    if (kvp.Key == "__prepare_result__")
+                        continue;
+
                     frame.ScopeChain.CurrentScope.SetVariable(kvp.Key, kvp.Value);
                     #if DEBUG_LOG
                     Console.WriteLine($"  - {kvp.Key}: {kvp.Value?.GetType().Name}");
@@ -616,6 +636,10 @@ namespace SharpPy
             {
                 foreach (var kvp in initialNamespace)
                 {
+                    // Skip the marker - it's not a real class attribute
+                    if (kvp.Key == "__prepare_result__")
+                        continue;
+
                     classNamespace[kvp.Key] = kvp.Value;
                 }
             }
@@ -1221,8 +1245,21 @@ namespace SharpPy
                 case ByteCodeOp.STORE_NAME:
                     var storeName = frame.Code.Names[instruction.Argument];
                     var storeValue = frame.ValueStack.Pop();
-                    // 기존 LEGB 시스템 사용!
-                    frame.ScopeChain.AssignVariable(storeName, storeValue);
+
+                    // CPython 3.12: If executing class body with __prepare__ dict subclass,
+                    // call __setitem__ on the dict (like CPython's PyObject_SetItem)
+                    if (frame.ClassLocalsDict != null)
+                    {
+                        #if DEBUG_LOG
+                        Console.WriteLine($"📝 STORE_NAME to ClassLocalsDict: {storeName} = {storeValue?.GetType().Name}");
+                        #endif
+                        frame.ClassLocalsDict.SetItem(new PyString(storeName), storeValue);
+                    }
+                    else
+                    {
+                        // Normal case: use LEGB system
+                        frame.ScopeChain.AssignVariable(storeName, storeValue);
+                    }
                     break;
 
                 case ByteCodeOp.DELETE_NAME:

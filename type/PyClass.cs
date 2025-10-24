@@ -340,9 +340,10 @@ namespace SharpPy
                                 if (PyClassInstance.IsDescriptor(baseValue))
                                 {
                                     #if DEBUG_LOG
-                                    Console.WriteLine($"   🔧 calling descriptor.__get__(null, {Name}) for '{name}' from MRO");
+                                    Console.WriteLine($"   🔧 calling descriptor.__get__({Name}, {pyClass.Name}) for '{name}' from MRO");
                                     #endif
-                                    var result = PyClassInstance.CallDescriptorGet(baseValue, null, this);
+                                    // Pass 'this' as instance so descriptor can access the actual type object
+                                    var result = PyClassInstance.CallDescriptorGet(baseValue, this, pyClass);
                                     #if DEBUG_LOG
                                     Console.WriteLine($"   → descriptor returned: {result?.GetType().Name}");
                                     #endif
@@ -1363,29 +1364,52 @@ namespace SharpPy
 
             // 1. Data descriptor 찾기
             // CPython 3.12: Objects/object.c:1440-1453
+            // _PyType_Lookup(tp, name) searches MRO once for both PyClass and PyType
             foreach (var mroType in InstanceType.MRO)
             {
+                PyObject foundValue = null;
+
+                // Check PyClass first (user-defined classes)
                 if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))
                 {
+                    foundValue = classValue;
                     #if DEBUG_LOG
-                    Console.WriteLine($"   → Found '{name}' in {pyClass.Name}: {classValue?.GetType().Name}");
-                    Console.WriteLine($"   → IsDataDescriptor: {IsDataDescriptor(classValue)}");
-                    Console.WriteLine($"   → IsDescriptor: {IsDescriptor(classValue)}");
+                    Console.WriteLine($"   → Found '{name}' in PyClass {pyClass.Name}: {classValue?.GetType().Name}");
+                    #endif
+                }
+                // Check PyType (built-in types like dict, list, etc.)
+                else if (mroType is PyType pyType && !(mroType is PyClass))
+                {
+                    var typeAttr = SharpPy.PyClass.GetTypeAttribute(pyType, name);
+                    if (typeAttr != null)
+                    {
+                        foundValue = typeAttr;
+                        #if DEBUG_LOG
+                        Console.WriteLine($"   → Found '{name}' in PyType {pyType.Name}: {typeAttr?.GetType().Name}");
+                        #endif
+                    }
+                }
+
+                if (foundValue != null)
+                {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"   → IsDataDescriptor: {IsDataDescriptor(foundValue)}");
+                    Console.WriteLine($"   → IsDescriptor: {IsDescriptor(foundValue)}");
                     #endif
 
                     // Check if it's a data descriptor (has __set__ or __delete__)
-                    if (IsDataDescriptor(classValue))
+                    if (IsDataDescriptor(foundValue))
                     {
                         #if DEBUG_LOG
                         Console.WriteLine($"   → Calling __get__ for data descriptor");
                         #endif
-                        return CallDescriptorGet(classValue, this, InstanceType);
+                        return CallDescriptorGet(foundValue, this, InstanceType);
                     }
 
                     if (classAttribute == null)
                     {
-                        classAttribute = classValue;
-                        foundInClass = pyClass;
+                        classAttribute = foundValue;
+                        foundInClass = mroType is PyClass pc ? pc : null;
                     }
                     break;
                 }
@@ -1406,36 +1430,23 @@ namespace SharpPy
                 {
                     return CallDescriptorGet(classAttribute, this, InstanceType);
                 }
+                // PyBuiltinMethod: bind to instance (e.g., dict.items)
+                else if (classAttribute is PyBuiltinMethod builtinMethod)
+                {
+                    return builtinMethod.Get(this, InstanceType);
+                }
+                // PyBuiltinFunction: bind to instance (e.g., dict methods from GetTypeAttribute)
+                else if (classAttribute is PyBuiltinFunction builtinFunction)
+                {
+                    return new PyBuiltinBoundMethod(this, builtinFunction);
+                }
+                // PyFunction: bind to instance (user-defined methods)
                 else if (classAttribute is PyFunction func)
                 {
                     return new PyMethod(this, func);
                 }
+                // Regular class attribute (not a function/descriptor)
                 return classAttribute;
-            }
-
-            // 4. 내장 속성 확인
-            foreach (var mroType in InstanceType.MRO)
-            {
-                if (mroType is PyType pyType && !(mroType is PyClass))
-                {
-                    var typeAttr = SharpPy.PyClass.GetTypeAttribute(pyType, name);
-                    if (typeAttr != null)
-                    {
-                        if (typeAttr is PyBuiltinMethod builtinMethod)
-                        {
-                            return builtinMethod.Get(this, InstanceType);
-                        }
-                        if (typeAttr is PyBuiltinFunction builtinFunction)
-                        {
-                            return new PyBuiltinBoundMethod(this, builtinFunction);
-                        }
-                        if (typeAttr is PyFunction func)
-                        {
-                            return new PyMethod(this, func);
-                        }
-                        return typeAttr;
-                    }
-                }
             }
 
             // 5. __getattr__ 시도

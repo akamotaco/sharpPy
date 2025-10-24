@@ -1725,9 +1725,13 @@ namespace SharpPy
                             // Use InternalDict to bypass equality comparator issues
                             prepareDict.InternalDict[new PyString("__prepare_result__")] = prepareResult;
 
+                            // Also add to classNamespace so ExecuteClassBody can access it
+                            classNamespace["__prepare_result__"] = prepareResult;
+
                             #if DEBUG_LOG
                             Console.WriteLine($"  🔑 Stored original object in __prepare_result__ marker");
                             Console.WriteLine($"     prepareDict.InternalDict.Count = {prepareDict.InternalDict.Count}");
+                            Console.WriteLine($"     classNamespace has __prepare_result__: {classNamespace.ContainsKey("__prepare_result__")}");
                             Console.WriteLine($"     prepareResult type: {prepareResult.GetType().Name}");
                             #endif
                         }
