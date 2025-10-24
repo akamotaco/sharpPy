@@ -2429,7 +2429,17 @@ namespace SharpPy
                     pyClass.SetAttribute(kvp.Key, kvp.Value);
                 }
             }
-            
+
+            // PEP 560 & PEP 487: Special-case __class_getitem__ and __init_subclass__
+            // CPython 3.12: Objects/typeobject.c:3692-3699
+            // If they are plain functions, make them classmethods
+            // This MUST happen AFTER namespace attributes are set
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 PEP 560/487: Converting __class_getitem__ and __init_subclass__ to classmethods");
+            #endif
+            PyTypeMetaclass.ConvertToClassmethod(pyClass, "__init_subclass__");
+            PyTypeMetaclass.ConvertToClassmethod(pyClass, "__class_getitem__");
+
             // CPython 3.12: Update __classcell__ with created class
             if (classcell != null)
             {

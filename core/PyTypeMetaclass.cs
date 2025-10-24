@@ -625,6 +625,25 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Convert a plain function to classmethod if it exists in the class dict
+        /// CPython 3.12: Objects/typeobject.c (type_new_classmethod)
+        /// </summary>
+        internal static void ConvertToClassmethod(PyClass cls, string methodName)
+        {
+            if (cls.ClassDict.TryGetValue(methodName, out PyObject value))
+            {
+                // Only convert if it's a plain function (not already a classmethod)
+                if (value is PyFunction func)
+                {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"  Converting {methodName} to classmethod");
+                    #endif
+                    cls.ClassDict[methodName] = new PyClassmethod(func);
+                }
+            }
+        }
+
+        /// <summary>
         /// Override GetPyType to return self (type is its own type)
         /// </summary>
         public override PyType GetPyType()
@@ -1101,13 +1120,19 @@ namespace SharpPy
             if (instance == null || instance == PyNone.Instance)
                 return this;
 
+            // CPython: Return lookup_tp_bases(type)
+            // Works for both PyClass and PyType
             if (instance is PyClass pyClass)
             {
-                // CPython: Return lookup_tp_bases(type)
                 return new PyTuple(pyClass.BaseTypes);
             }
 
-            return PyNone.Instance;
+            if (instance is PyType pyType)
+            {
+                return new PyTuple(pyType.BaseTypes.Cast<PyObject>().ToArray());
+            }
+
+            throw PyTypeError.Create($"descriptor '__bases__' for 'type' objects doesn't apply to a '{instance.GetTypeName()}' object");
         }
 
         public void Set(PyObject instance, PyObject value)
@@ -1141,13 +1166,19 @@ namespace SharpPy
             if (instance == null || instance == PyNone.Instance)
                 return this;
 
+            // CPython: Return lookup_tp_mro(type)
+            // Works for both PyClass and PyType
             if (instance is PyClass pyClass)
             {
-                // CPython: Return lookup_tp_mro(type)
                 return new PyTuple(pyClass.MRO.Cast<PyObject>().ToArray());
             }
 
-            return PyNone.Instance;
+            if (instance is PyType pyType)
+            {
+                return new PyTuple(pyType.MRO.Cast<PyObject>().ToArray());
+            }
+
+            throw PyTypeError.Create($"descriptor '__mro__' for 'type' objects doesn't apply to a '{instance.GetTypeName()}' object");
         }
 
         public void Set(PyObject instance, PyObject value)

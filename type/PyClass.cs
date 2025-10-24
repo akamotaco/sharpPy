@@ -162,19 +162,9 @@ namespace SharpPy
         // PEP 695: Generic class subscript support (Stack[int])
         public override PyObject GetItem(PyObject key)
         {
-            // Create generic type with type arguments
-            var typeArgs = new List<PyObject>();
-            
-            if (key is PyTuple tuple)
-            {
-                typeArgs.AddRange(tuple.Items);
-            }
-            else
-            {
-                typeArgs.Add(key);
-            }
-
-            return new PyGenericType($"{Name}[{key}]", this, typeArgs);
+            // CPython 3.12: PEP 560 - Check for __class_getitem__ first
+            // Delegate to PyType.GetItem() which handles the full protocol
+            return base.GetItem(key);
         }
 
         // CPython 3.12: Override GetPyType to return metaclass if set

@@ -42,7 +42,10 @@ namespace SharpPy
 
         // 핵심 기본 타입들 (실제 구현된 것들만)
         public static readonly PyType ObjectType = new PyType("object", new PyType[0], null, TypeKind.Object);
-        public static readonly PyType TypeType = new PyType("type", new[] { ObjectType }, null, TypeKind.Type);
+
+        // CPython 3.12: type is its own metaclass (type.__class__ == type)
+        // TypeType is actually PyTypeMetaclass.Instance
+        public static PyType TypeType => PyTypeMetaclass.Instance;
 
         // 숫자 타입들
         public static readonly PyType IntType = new PyType("int", new[] { ObjectType });
@@ -1593,6 +1596,26 @@ namespace SharpPy
                     }
                 }
             }
+            else if (metatype is PyType metatypeType)
+            {
+                // CPython: For PyType instances, check TypeDict
+                if (metatypeType.TypeDict != null && metatypeType.TypeDict.TryGetValue(name, out metaAttribute))
+                {
+                    // Check if it's a descriptor
+                    if (metaAttribute is IDescriptor descriptor)
+                    {
+                        metaGet = descriptor;
+
+                        // CPython: if (meta_get != NULL && PyDescr_IsData(meta_attribute))
+                        if (metaGet.IsDataDescriptor())
+                        {
+                            // Data descriptors on metatype have highest priority
+                            // Call descriptor.__get__(self, type(self))
+                            return metaGet.Get(this, metatype);
+                        }
+                    }
+                }
+            }
 
             // Step 2: Look in tp_dict of this type (and its bases via MRO)
             // CPython: attribute = _PyType_Lookup(type, name)
@@ -1674,18 +1697,45 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12 compatible generic type subscripting: list[int], tuple[str, int], etc.
         /// </summary>
-        public override PyObject GetItem(PyObject key)
+        public virtual PyObject GetItem(PyObject key)
         {
-            // For built-in generic types like list, tuple, dict, etc.
+            // CPython 3.12: PEP 560 - Check for __class_getitem__ first
+            // Reference: Objects/abstract.c:164-202 (PyObject_GetItem for types)
+
+            // Try to lookup __class_getitem__ attribute
+            // CPython uses _PyObject_LookupAttr which returns NULL if not found (no exception)
+            try
+            {
+                var classGetItem = GetAttribute("__class_getitem__");
+
+                if (classGetItem != null && classGetItem != PyNone.Instance && classGetItem.IsCallable())
+                {
+                    // Call __class_getitem__(key)
+                    // Note: __class_getitem__ is converted to classmethod automatically,
+                    // so it's already bound to the class
+                    return classGetItem.Call(new PyObject[] { key }, null);
+                }
+            }
+            catch (PythonException ex)
+            {
+                // No __class_getitem__, fall through to default behavior
+                // CPython's _PyObject_LookupAttr returns NULL without exception for AttributeError
+                if (!(ex.PyException is PyAttributeError))
+                {
+                    // Re-throw other exceptions
+                    throw;
+                }
+            }
+
+            // Fallback: For built-in generic types like list, tuple, dict, etc.
             if (Name == "list" || Name == "tuple" || Name == "dict" || Name == "set" || Name == "frozenset")
             {
-                // Create a generic alias representation - for now just return the type itself
-                // In a full implementation, this would return types.GenericAlias(this, key)
+                // Create a generic alias representation
                 return new PyGenericAlias(this, key);
             }
-            
-            // Not a generic type
-            throw PyTypeError.Create($"'{Name}' object is not subscriptable");
+
+            // Not a generic type and no __class_getitem__
+            throw PyTypeError.Create($"type '{Name}' is not subscriptable");
         }
 
         #endregion

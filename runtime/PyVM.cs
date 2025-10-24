@@ -2931,6 +2931,10 @@ namespace SharpPy
                         else if (subscriptObj is PyType subscriptType)
                         {
                             // Type subscript access: Type[args] (for generics like Unpack[T], Required[T], etc.)
+                            #if DEBUG_LOG
+                            Console.WriteLine($"🔍 BINARY_SUBSCR: PyType detected - {subscriptType.Name}[{subscriptKey}]");
+                            Console.WriteLine($"   Actual type: {subscriptObj.GetType().Name}");
+                            #endif
                             subscriptResult = subscriptType.GetItem(subscriptKey);
                         }
                         else if (subscriptObj is PyGenericAlias subscriptGeneric)
