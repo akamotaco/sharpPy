@@ -209,6 +209,33 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Lookup special method bypassing __getattribute__
+        /// CPython: Special method lookup uses _PyType_Lookup which bypasses tp_getattro
+        /// Reference: Objects/typeobject.c:2188 (lookup_maybe_method)
+        /// </summary>
+        protected PyObject LookupSpecialMethod(string name)
+        {
+            var type = GetPyType();
+
+            // For PyClass instances, use LookupInMRO
+            if (type is PyClass pyClass)
+            {
+                return pyClass.LookupInMRO(name);
+            }
+
+            // For PyType instances, search TypeDict
+            foreach (var mroType in type.MRO)
+            {
+                if (mroType.TypeDict != null && mroType.TypeDict.TryGetValue(name, out PyObject value))
+                {
+                    return value;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// CPython PyObject_GenericGetAttr 호환: 제네릭 속성 접근
         /// MRO 기반 descriptor 프로토콜 구현
         /// </summary>
@@ -713,15 +740,32 @@ namespace SharpPy
         {
             try
             {
-                var lenMethod = GetAttribute("__len__");
-                var result = lenMethod.Call(new PyObject[] {  }, null);
+                // CPython: Special method lookup bypasses __getattribute__
+                // Uses _PyType_Lookup directly
+                var lenMethod = LookupSpecialMethod("__len__");
+                if (lenMethod == null)
+                {
+                    throw PyTypeError.Create($"object of type '{GetTypeName()}' has no len()");
+                }
+
+                // Apply descriptor protocol if needed
+                PyObject boundMethod = lenMethod;
+                if (lenMethod is IDescriptor desc)
+                {
+                    boundMethod = desc.Get(this, GetPyType());
+                }
+                else if (lenMethod is PyFunction func)
+                {
+                    boundMethod = new PyMethod(this, func);
+                }
+
+                var result = boundMethod.Call(new PyObject[] {  }, null);
                 if (result is PyInt pyInt)
                     return (int)pyInt.Value;
                 throw PyTypeError.Create("__len__ should return an integer");
             }
-            catch (PythonException pe)
+            catch (PythonException pe) when (pe.PyException is PyAttributeError)
             {
-                var pae = (PyAttributeError)pe.PyException;
                 throw PyTypeError.Create($"object of type '{GetTypeName()}' has no len()");
             }
         }
