@@ -749,6 +749,20 @@ namespace SharpPy
                 minArgs: 1,
                 maxArgs: 1
             );
+
+            // object.__init_subclass__() - CPython PEP 487
+            // Reference: Objects/typeobject.c:6414 (object_init_subclass)
+            // This is a classmethod (METH_CLASS | METH_NOARGS) that does nothing by default
+            // It's called automatically when a class is subclassed
+            TypeDict["__init_subclass__"] = new PyBuiltinFunction(
+                "__init_subclass__",
+                (args, kwargs) => {
+                    // object.__init_subclass__() does nothing and returns None
+                    // Subclasses can override this to customize subclass creation
+                    // The first arg would be the class, but we don't need it here
+                    return PyNone.Instance;
+                }
+            );
         }
 
         /// <summary>

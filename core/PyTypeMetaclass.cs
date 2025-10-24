@@ -582,6 +582,45 @@ namespace SharpPy
                 }
             }
 
+            // PEP 487: Call __init_subclass__ on the parent class(es)
+            // CPython 3.12: Objects/typeobject.c:10015 (type_new_init_subclass)
+            // This is called via super().__init_subclass__(**kwargs)
+            // TODO: Pass keyword arguments from class definition (e.g., class Foo(Base, plugin=True))
+            #if DEBUG_LOG
+            Console.WriteLine($"🔧 PEP 487: Calling __init_subclass__ for {nameStr.Value}");
+            #endif
+
+            try
+            {
+                // Create super(newClass, newClass) to get parent's __init_subclass__
+                var superObj = new PySuper(newClass, newClass);
+                var initSubclassMethod = superObj.GetAttribute("__init_subclass__");
+
+                if (initSubclassMethod != null && initSubclassMethod.IsCallable())
+                {
+                    #if DEBUG_LOG
+                    Console.WriteLine($"  Calling __init_subclass__ with cls={nameStr.Value}");
+                    #endif
+
+                    // Call __init_subclass__(cls, **kwargs)
+                    // CPython: __init_subclass__ is a classmethod, so first arg is the subclass
+                    // TODO: Extract kwargs from class definition and pass them here
+                    initSubclassMethod.Call(new PyObject[] { newClass }, null);
+
+                    #if DEBUG_LOG
+                    Console.WriteLine($"  ✅ __init_subclass__ completed");
+                    #endif
+                }
+            }
+            catch (PythonException ex)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"  Error calling __init_subclass__: {ex.Message}");
+                #endif
+                // Re-throw - __init_subclass__ errors should propagate
+                throw;
+            }
+
             return newClass;
         }
 
