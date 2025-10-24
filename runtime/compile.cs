@@ -7482,6 +7482,11 @@ namespace SharpPy
                     // Pattern like {} or {"key": value}
                     return CompileMappingPattern(dictExpr, pc);
 
+                case CallExpression callExpr:
+                    // CPython 3.12: compiler_pattern_class (MatchClass_kind)
+                    // Pattern like Point(x=0, y=0) or Point(x, y)
+                    return CompileClassPattern(callExpr, pc);
+
                 default:
                     // Unsupported pattern for now
                     throw new NotImplementedException($"Pattern type {pattern?.GetType().Name} not yet supported in CFG path");
@@ -7914,143 +7919,7 @@ namespace SharpPy
             
             return true;
         }
-        
-        /// <summary>
-        /// Compile class pattern matching like Point(x, y) using MATCH_CLASS
-        /// </summary>
-        private bool CompileClassPattern(CallExpression callExpr, PatternContext pc)
-        {
-            // Extract fail label from pattern context
-            var failLabel = pc.GetFailLabel();
 
-            // CPython 3.12: Class pattern matching Point(x, y) -> MATCH_CLASS
-            // We need to preserve the subject on stack for CompileMatch's POP_TOP
-
-            // 1. Duplicate subject for MATCH_CLASS (which consumes it)
-            // Stack: [subject] -> [subject, subject]
-            EmitInstruction(ByteCodeOp.COPY, 1);
-
-            // 2. Load the class to match against
-            // Stack: [subject, subject] -> [subject, subject, class]
-            CompileExpression(callExpr.Function); // Load Point class
-
-            // 3. Handle keyword arguments - extract keyword names for MATCH_CLASS
-            var keywordArgs = new List<KeywordExpression>();
-            var keywordNames = new List<PyObject>();
-
-            // Process keyword arguments from the separate Keywords property
-            foreach (var kwExpr in callExpr.Keywords)
-            {
-                keywordArgs.Add(kwExpr);
-                keywordNames.Add(new PyString(kwExpr.Arg ?? ""));
-            }
-
-            // Also check Arguments list in case keywords are stored there (fallback)
-            foreach (var arg in callExpr.Arguments)
-            {
-                if (arg is KeywordExpression kwExpr)
-                {
-                    keywordArgs.Add(kwExpr);
-                    keywordNames.Add(new PyString(kwExpr.Arg ?? ""));
-                }
-            }
-
-            // Load keyword names tuple - CPython 3.12 compatible
-            var keywordTuple = new PyTuple(keywordNames.ToArray());
-            EmitLoadConst(keywordTuple);
-
-            // 4. Use MATCH_CLASS with argument count (consumes subject, class, kw_names)
-            // Stack: [subject, subject, class, kw_names] -> [subject, result_tuple_or_none]
-            var argumentCount = callExpr.Arguments.Count;
-            EmitInstruction(ByteCodeOp.MATCH_CLASS, argumentCount);
-
-            // 5. Check if match succeeded (None = failure, tuple = success)
-            // Stack: [subject, result_tuple_or_none] -> [subject, result_tuple_or_none, result_tuple_or_none]
-            EmitInstruction(ByteCodeOp.COPY, 1); // Duplicate result for check
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_NONE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-            
-            // 6. Handle keyword arguments - CPython 3.12 approach
-            if (keywordArgs.Count > 0)
-            {
-                // Unpack the attribute values extracted by MATCH_CLASS
-                // Stack: [subject, result_tuple] -> [subject, attr1, attr2, ...]
-                EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, keywordArgs.Count);
-
-                // Process each keyword argument in forward order (CPython 3.12 compatible)
-                // UNPACK_SEQUENCE pushes items in reverse order, so we process forward to match CPython
-                for (int i = 0; i < keywordArgs.Count; i++)
-                {
-                    var kwExpr = keywordArgs[i];
-
-                    if (kwExpr.Value is NameExpression nameExpr && nameExpr.Name == kwExpr.Arg)
-                    {
-                        // Case: Point(x=x, y=y) - capture pattern, store the value to variable
-                        // Stack: [subject, ..., attrValue] -> [subject, ...]
-                        EmitStoreName(nameExpr.Name);
-                    }
-                    else
-                    {
-                        // Case: Point(x=0, y=0) - literal pattern, compare with expected value
-                        // Stack: [subject, ..., attrValue] -> [subject, ..., attrValue, expectedValue]
-                        CompileExpression(kwExpr.Value);
-
-                        // Stack: [subject, ..., attrValue, expectedValue] -> [subject, ..., comparisonResult]
-                        EmitInstruction(ByteCodeOp.COMPARE_OP, (int)CompareOp.EQ); // CPython 3.12: == is EQ(40)
-
-                        // Stack: [subject, ..., comparisonResult] -> [subject, ...]
-                        _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-                    }
-                }
-            }
-            else
-            {
-                // 7. Handle positional arguments - CPython 3.12 approach
-                var positionalArgs = callExpr.Arguments
-                    .Where(arg => !(arg is KeywordExpression))
-                    .ToList();
-
-                if (positionalArgs.Count > 0)
-                {
-                    // Unpack the attribute values extracted by MATCH_CLASS
-                    // Stack: [subject, result_tuple] -> [subject, attr1, attr2, ...]
-                    EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, positionalArgs.Count);
-
-                    // Process each positional argument and bind to variables
-                    // Arguments are pushed in reverse order by UNPACK_SEQUENCE
-                    for (int i = positionalArgs.Count - 1; i >= 0; i--)
-                    {
-                        var arg = positionalArgs[i];
-                        if (arg is NameExpression nameExpr)
-                        {
-                            // Case: Point(x, y) - capture pattern, store the value to variable
-                            // Stack: [subject, ..., attrValue] -> [subject, ...]
-                            EmitStoreName(nameExpr.Name);
-                        }
-                        else
-                        {
-                            // Case: Point(3, 4) - literal pattern, compare with expected value
-                            // Stack: [subject, ..., attrValue] -> [subject, ..., attrValue, expectedValue]
-                            CompileExpression(arg);
-
-                            // Stack: [subject, ..., attrValue, expectedValue] -> [subject, ..., comparisonResult]
-                            EmitInstruction(ByteCodeOp.COMPARE_OP, (int)CompareOp.EQ);
-
-                            // Stack: [subject, ..., comparisonResult] -> [subject, ...]
-                            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
-                        }
-                    }
-                }
-                else
-                {
-                    // No arguments at all, just pop the result tuple
-                    EmitInstruction(ByteCodeOp.POP_TOP);
-                }
-            }
-            
-            // Stack now: [subject] - this will be consumed by CompileMatch's POP_TOP
-            return true;
-        }
-        
         private bool CompileOrPatternLogic(List<Expression> patterns, PatternContext pc)
         {
             #if DEBUG_LOG
@@ -10930,6 +10799,80 @@ namespace SharpPy
             _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);  // Tuple of keys
             // Subject is left on stack - will be POPped by CompileMatch
 
+            return true;
+        }
+
+        /// <summary>
+        /// CPython 3.12: compiler_pattern_class
+        /// Compile class pattern (e.g., case Point(x=0, y=0):)
+        /// </summary>
+        private bool CompileClassPattern(CallExpression callExpr, PatternContext pc)
+        {
+            int nargs = callExpr.Arguments.Count;
+            int nattrs = callExpr.Keywords.Count;
+
+            // CPython: Compile the class expression
+            CompileExpression(callExpr.Function);
+
+            // CPython: Build tuple of keyword attribute names
+            var attrNames = callExpr.Keywords.Select(kw => new PyString(kw.Arg ?? "")).ToArray();
+            EmitLoadConst(new PyTuple(attrNames));
+
+            // CPython: MATCH_CLASS with nargs (positional count)
+            _instructionSequence.AddOpWithArg(ByteCodeOp.MATCH_CLASS, nargs, _currentLineNumber);
+
+            // CPython: COPY 1 to check if result is None
+            _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 1, _currentLineNumber);
+
+            // CPython: Check if None (isinstance failed)
+            EmitLoadConst(PyNone.Instance);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.IS_OP, 1, _currentLineNumber);
+
+            // CPython: TOS is now a tuple of (nargs + nattrs) attributes (or None)
+            pc.OnTop++;
+            JumpToFailPop(pc, ByteCodeOp.POP_JUMP_IF_FALSE);
+
+            // CPython: UNPACK_SEQUENCE to get individual attributes
+            _instructionSequence.AddOpWithArg(ByteCodeOp.UNPACK_SEQUENCE, nargs + nattrs, _currentLineNumber);
+            pc.OnTop += nargs + nattrs - 1;
+
+            // CPython: Match each attribute value against its pattern
+            for (int i = 0; i < nargs + nattrs; i++)
+            {
+                pc.OnTop--;
+                Expression pattern;
+
+                if (i < nargs)
+                {
+                    // Positional: from Arguments list
+                    pattern = callExpr.Arguments[i];
+                }
+                else
+                {
+                    // Keyword: from Keywords list
+                    pattern = callExpr.Keywords[i - nargs].Value;
+                }
+
+                // For simple variable bindings, store directly (like mapping pattern)
+                if (pattern is NameExpression nameExpr && nameExpr.Name != "_")
+                {
+                    EmitStoreVariable(nameExpr.Name);
+                }
+                else if (pattern is NameExpression wildcardExpr && wildcardExpr.Name == "_")
+                {
+                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
+                }
+                else
+                {
+                    // Complex pattern - use full pattern matching
+                    if (!CompilePatternMatchCFG(pattern, pc))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            // Success! The tuple has been consumed
             return true;
         }
 

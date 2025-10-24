@@ -1767,8 +1767,13 @@ namespace SharpPy.Generated
                 // MatchClass: matches class patterns like Point(x=1, y=2)
                 GeneratedMatchClass cls => new CallExpression(
                     ConvertAnyExpression(cls.Cls),
-                    cls.Patterns.ToEnumerable<GeneratedPattern>().Select(p => ConvertPattern(p)).ToList(),
-                    new List<KeywordExpression>()  // TODO: handle keyword patterns
+                    cls.Patterns?.ToEnumerable<GeneratedPattern>().Select(p => ConvertPattern(p)).ToList() ?? new List<Expression>(),
+                    cls.KwdAttrs != null && cls.KwdPatterns != null
+                        ? cls.KwdAttrs.ToEnumerable<GeneratedIdentifier>()
+                            .Zip(cls.KwdPatterns.ToEnumerable<GeneratedPattern>(),
+                                 (k, p) => new KeywordExpression(k.ToString()!, ConvertPattern(p)))
+                            .ToList()
+                        : new List<KeywordExpression>()
                 ),
 
                 // MatchStar: matches *rest pattern
