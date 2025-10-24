@@ -2193,18 +2193,26 @@ namespace SharpPy
                                 // CPython 3.12: staticmethod or class/instance method
                                 bool isClassAccess = (obj is PyClass) || (obj is PyType);
 
-                                if (isClassAccess || isStaticMethod)
+                                // CPython: Check if attribute is from instance __dict__ (not a method!)
+                                // Instance attributes that are functions are NOT bound as methods
+                                bool isInstanceAttribute = false;
+                                if (obj is PyClassInstance classInstance)
                                 {
-                                    // Class access or staticmethod: push [NULL, function]
+                                    isInstanceAttribute = classInstance.InstanceDict.ContainsKey(attrName);
+                                }
+
+                                if (isClassAccess || isStaticMethod || isInstanceAttribute)
+                                {
+                                    // Class access, staticmethod, or instance attribute: push [NULL, function]
                                     frame.ValueStack.Push(PyNone.Instance); // NULL marker
                                     frame.ValueStack.Push(attr); // function
                                     #if DEBUG_LOG
-                                    Console.WriteLine($"   → Class/staticmethod access: pushed [NULL, function]");
+                                    Console.WriteLine($"   → Class/staticmethod/instance-attr access: pushed [NULL, function]");
                                     #endif
                                 }
                                 else
                                 {
-                                    // Instance method: push [self, unbound_method]
+                                    // Instance method (from class): push [self, unbound_method]
                                     // This allows CALL to optimize by passing self directly
                                     frame.ValueStack.Push(obj);  // self
                                     frame.ValueStack.Push(attr); // unbound method
