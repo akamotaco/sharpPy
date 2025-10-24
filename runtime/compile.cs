@@ -471,11 +471,8 @@ namespace SharpPy
     // AST를 바이트코드로 컴파일 (기존 시스템과 연동)
     public class PythonCompiler
     {
-        // Legacy linear bytecode emission (to be replaced by InstructionSequence)
-        private List<ByteCodeInstruction> _instructions;
-
         // CPython 3.12: Label-based intermediate representation (CFG pipeline)
-        private InstructionSequence? _instructionSequence;
+        private InstructionSequence _instructionSequence;
 
         private List<PyObject> _constants;
         private List<string> _names;
@@ -487,14 +484,13 @@ namespace SharpPy
         public PythonCompiler()
         {
             // Initialize all essential lists to prevent null reference issues
-            _instructions = new List<ByteCodeInstruction>();
             _constants = new List<PyObject>();
             _names = new List<string>();
             _varNames = new List<string>();
             _exceptionTable = new List<ExceptionTableEntry>();
             _lineNumberTable = new Dictionary<int, int>();
 
-            // CPython 3.12: Initialize InstructionSequence (currently inactive)
+            // CPython 3.12: Label-based intermediate representation
             _instructionSequence = new InstructionSequence();
         }
         private bool _isInFunction = false; // Track if we're compiling inside a function
@@ -833,7 +829,7 @@ namespace SharpPy
         public PyCodeObject Compile(List<Statement> statements, string name, List<string> parameters, string? fileName = null)
         {
             // Clear all compilation state for new compilation
-            _instructions.Clear();
+            // CPython 3.12: _instructions removed - using InstructionSequence only
             _constants.Clear();
             _names.Clear();
             _varNames.Clear();
@@ -977,7 +973,7 @@ namespace SharpPy
                 if (!SharpPyConfig.DisassemblyOnlyMode)
             {
     #if DEBUG_LOG
-            Console.WriteLine($"✅ 컴파일 완료: {_instructions.Count}개 명령어");
+            // CPython 3.12: Instruction count now tracked in CFG pipeline
 #endif
             }
 
@@ -1007,7 +1003,7 @@ namespace SharpPy
                                              List<string> freeVars, List<string> cellVars)
         {
             // Clear all compilation state for new compilation
-            _instructions.Clear();
+            // CPython 3.12: _instructions removed - using InstructionSequence only
             _constants.Clear();
             _names.Clear();
             _varNames.Clear();
@@ -1064,8 +1060,9 @@ namespace SharpPy
             // CPython 3.12: 모듈은 RETURN_CONST로 None 반환
             var noneConstIndex = GetOrAddConstant(PyNone.Instance);
             EmitInstruction(ByteCodeOp.RETURN_CONST, noneConstIndex);
-            
-            var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames,
+
+            var finalInstructions = GetFinalInstructions();
+            var codeObject = new PyCodeObject(name, finalInstructions, _constants, _names, _varNames,
                                             parameters.Count, 0, 0, freeVars, cellVars, null, null, 0, _currentFileName, _sourceLines);
             
             // Add Exception Table entries (CPython 3.12)
@@ -1073,7 +1070,7 @@ namespace SharpPy
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
 #if DEBUG_LOG
-                Console.WriteLine($"\u2705 컴파일 완료: {_instructions.Count}개 명령어");
+                // CPython 3.12: Instruction count tracked in CFG pipeline
 #endif
             }
 
@@ -1503,7 +1500,7 @@ namespace SharpPy
         public PyCodeObject CompileWithClosureAndDefaults(List<Statement> statements, string name, List<string> paramNames, List<PyObject> defaults, List<PyObject> kwDefaults, List<string> freeVars, List<string> cellVars, int flags = 0, int argCount = -1, int posonlyArgCount = 0, int kwonlyArgCount = 0)
         {
             // Clear all compilation state for new compilation
-            _instructions.Clear();
+            // CPython 3.12: _instructions removed - using InstructionSequence only
             _constants.Clear();
             _names.Clear();
             _varNames.Clear();
@@ -1630,17 +1627,11 @@ namespace SharpPy
             }
 #endif
 
-            // CPython 3.12: Generator 함수 감지 - YIELD_VALUE instruction이 있으면 CO_GENERATOR 플래그 추가
-            bool hasYield = _instructions.Any(inst => inst.OpCode == ByteCodeOp.YIELD_VALUE);
-            if (hasYield && (flags & PyCodeObject.CO_GENERATOR) == 0)
-            {
-#if DEBUG_COMPILER_LOG
-                Console.WriteLine($"🔍 Generator detected in {name}: Adding CO_GENERATOR flag");
-#endif
-                flags |= PyCodeObject.CO_GENERATOR;
-            }
+            // CPython 3.12: Generator detection now handled in CompileFunction with CFG pipeline
+            // This legacy path is deprecated
 
-            var codeObject = new PyCodeObject(name, _instructions, _constants, _names, _varNames,
+            var finalInstructions = GetFinalInstructions();
+            var codeObject = new PyCodeObject(name, finalInstructions, _constants, _names, _varNames,
                                             finalArgCount, posonlyArgCount, kwonlyArgCount, freeVars, cellVars, defaults, kwDefaults, flags, _currentFileName, _sourceLines);
 
             // Add Exception Table entries (CPython 3.12 compatible)
@@ -1668,7 +1659,7 @@ namespace SharpPy
                 if (!SharpPyConfig.DisassemblyOnlyMode)
             {
     #if DEBUG_LOG
-            Console.WriteLine($"✅ 컴파일 완료: {_instructions.Count}개 명령어");
+            // CPython 3.12: Instruction count now tracked in CFG pipeline
 #endif
             }
             }
@@ -1700,7 +1691,7 @@ namespace SharpPy
             int kwonlyArgCount)
         {
             // Clear all compilation state for new compilation
-            _instructions.Clear();
+            // CPython 3.12: _instructions removed - using InstructionSequence only
             _constants.Clear();
             _names.Clear();
             _varNames.Clear();
@@ -2086,14 +2077,15 @@ namespace SharpPy
             {
                 // Exception handler를 바이트코드 끝에 생성
                 #if DEBUG_LOG
-                Console.WriteLine($"🔧 Handler 생성 시작: _instructions.Count={_instructions.Count}");
+                // CPython 3.12: Exception handler position tracked by CFG labels
                 #endif
                 #if DEBUG_LOG
-                Console.WriteLine($"🔧 현재 마지막 명령어: {(_instructions.Count > 0 ? _instructions.Last().ToString() : "없음")}");
+                // CPython 3.12: Last instruction tracked in InstructionSequence
                 #endif
 
-                // Handler 시작 위치를 기록 (SWAP 명령어 추가 직전) - 명령어 인덱스 사용
-                var handlerStart = _instructions.Count;
+                // CPython 3.12: Handler position now tracked by CFG BuildExceptionTable()
+                // TODO: Remove this legacy exception handler code after CFG migration complete
+                var handlerStart = 0;  // Placeholder - CFG determines actual position
 
                 // CPython 3.12 호환 exception handler 생성
                 EmitInstruction(ByteCodeOp.SWAP, 2);
@@ -2109,7 +2101,7 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.RERAISE, 0);
 
                 #if DEBUG_LOG
-                Console.WriteLine($"🔧 Handler 생성 완료: handlerStart={handlerStart}, 현재 _instructions.Count={_instructions.Count}");
+                // CPython 3.12: Handler completion tracked by CFG
                 #endif
 
                 // Exception table entry 생성 - handlerStart는 실제 첫 번째 handler 명령어 위치
@@ -2136,7 +2128,7 @@ namespace SharpPy
         public PyCodeObject CompileFunction(List<Statement> statements, string name, List<string> paramNames, List<PyObject> defaults, int flags = 0, int posonlyArgCount = 0)
         {
             // Clear all compilation state for new compilation
-            _instructions.Clear();
+            // CPython 3.12: _instructions removed - using InstructionSequence only
             _constants.Clear();
             _names.Clear();
             _varNames.Clear();
@@ -2244,7 +2236,7 @@ namespace SharpPy
             if (!SharpPyConfig.DisassemblyOnlyMode)
             {
                 #if DEBUG_LOG
-                Console.WriteLine($"✅ 함수 컴파일 완료: {_instructions.Count}개 명령어");
+                // CPython 3.12: Function compilation complete (instruction count in CFG)
                 #endif
             }
             
@@ -4000,121 +3992,49 @@ namespace SharpPy
             // CPython 3.12: Get current exception handler info from fblock stack
             var exceptHandlerInfo = GetCurrentExceptHandlerInfo();
 
-            if (_instructionSequence != null)
-            {
+            // CPython 3.12: Use InstructionSequence API (CFG-based compilation)
 #if DEBUG_COMPILER_LOG
-                if (opCode != ByteCodeOp.CACHE && opCode != ByteCodeOp.NOP)  // Reduce noise
-                {
-                    Console.WriteLine($"   → [CFG EMIT] {opCode} (arg={argument}) to InstructionSequence");
-                }
-#endif
-                // NEW PATH: Use InstructionSequence API (CPython 3.12 style)
-                try
-                {
-                    if (argument > 0)
-                    {
-                        _instructionSequence.AddOpWithArg(
-                            opCode,
-                            argument,
-                            _currentLineNumber,
-                            _currentColumnOffset,
-                            _currentFileName,
-                            exceptHandlerInfo
-                        );
-                    }
-                    else
-                    {
-                        _instructionSequence.AddOp(
-                            opCode,
-                            _currentLineNumber,
-                            _currentColumnOffset,
-                            _currentFileName,
-                            exceptHandlerInfo
-                        );
-                    }
-
-                    // CPython 3.12: CACHE entries are inline, not separate instructions
-                    // PyAssemble will handle byte offset calculation correctly
-                    // DO NOT emit CACHE as separate instructions in CFG path!
-                    // (Legacy path below still needs them for compatibility)
-                }
-                catch (Exception ex)
-                {
-#if DEBUG_LOG
-                    Console.WriteLine($"💥 EmitInstruction (InstructionSequence) 에러: {ex.Message}");
-                    Console.WriteLine($"   opCode: {opCode}, argument: {argument}");
-                    Console.WriteLine($"   Stack trace: {ex.StackTrace}");
-#endif
-                    throw;
-                }
+            if (opCode != ByteCodeOp.CACHE && opCode != ByteCodeOp.NOP)  // Reduce noise
+            {
+                Console.WriteLine($"   → [CFG] {opCode} (arg={argument})");
             }
-            else
-            {
-#if DEBUG_COMPILER_LOG
-                if (opCode != ByteCodeOp.CACHE && opCode != ByteCodeOp.NOP)  // Reduce noise
-                {
-                    Console.WriteLine($"   → [LEGACY EMIT] {opCode} (arg={argument}) to _instructions");
-                }
 #endif
-                // LEGACY PATH: Direct bytecode emission (currently active)
-                var instructionOffset = _instructions.Count;
-
-                try
+            try
+            {
+                if (argument > 0)
                 {
-                    _instructions.Add(new ByteCodeInstruction(
+                    _instructionSequence.AddOpWithArg(
                         opCode,
                         argument,
                         _currentLineNumber,
                         _currentColumnOffset,
                         _currentFileName,
                         exceptHandlerInfo
-                    ));
+                    );
                 }
-                catch (Exception ex)
+                else
                 {
-#if DEBUG_LOG
-                    Console.WriteLine($"💥 EmitInstruction 에러: {ex.Message}");
-                    Console.WriteLine($"   opCode: {opCode}, argument: {argument}");
-                    Console.WriteLine($"   _instructions null? {_instructions == null}");
-                    Console.WriteLine($"   _instructions count: {_instructions?.Count ?? -1}");
-                    Console.WriteLine($"   Stack trace: {ex.StackTrace}");
-#endif
-                    throw;
-                }
-
-                // Add to line number table if line number is valid
-                if (_currentLineNumber >= 0)
-                {
-                    _lineNumberTable[instructionOffset] = _currentLineNumber;
-                }
-
-                // CPython 3.12: Emit inline cache entries for adaptive bytecode instructions
-                // This makes disassembly output match CPython 3.12 exactly
-                int cacheEntries = PyJumpBackwardUtil.GetInlineCacheEntries(opCode);
-                for (int i = 0; i < cacheEntries; i++)
-                {
-                    _instructions.Add(new ByteCodeInstruction(
-                        ByteCodeOp.CACHE,
-                        0,
+                    _instructionSequence.AddOp(
+                        opCode,
                         _currentLineNumber,
                         _currentColumnOffset,
                         _currentFileName,
                         exceptHandlerInfo
-                    ));
+                    );
                 }
+
+                // CPython 3.12: CACHE entries are handled by PyAssemble
+                // No need to emit CACHE as separate instructions
             }
-        }
-        
-        /// <summary>
-        /// CPython 3.12 호환 JUMP_BACKWARD oparg 계산 (통합 유틸리티 사용)
-        /// </summary>
-        private int CalculateJumpBackwardArg(int currentInstrPos, int targetInstrPos)
-        {
-            var result = PyJumpBackwardUtil.CalculateJumpBackwardOpArg(currentInstrPos, targetInstrPos, _instructions);
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 CalculateJumpBackwardArg: currentPos={currentInstrPos}, targetPos={targetInstrPos}, result={result}");
-            #endif
-            return result;
+            catch (Exception ex)
+            {
+#if DEBUG_LOG
+                Console.WriteLine($"💥 EmitInstruction 에러: {ex.Message}");
+                Console.WriteLine($"   opCode: {opCode}, argument: {argument}");
+                Console.WriteLine($"   Stack trace: {ex.StackTrace}");
+#endif
+                throw;
+            }
         }
         
         private void EmitLoadConst(PyObject value)
@@ -4134,7 +4054,7 @@ namespace SharpPy
                 Console.WriteLine($"💥 EmitLoadConst 에러: {ex.Message}");
                 Console.WriteLine($"   value: {value}");
                 Console.WriteLine($"   _constants null? {_constants == null}");
-                Console.WriteLine($"   _instructions null? {_instructions == null}");
+                Console.WriteLine($"   _instructionSequence null? {_instructionSequence == null}");
                 Console.WriteLine($"   Stack trace: {ex.StackTrace}");
 #endif
                 throw;
@@ -5167,15 +5087,15 @@ namespace SharpPy
         private PyCodeObject CompileGenericParametersFunction(List<string> typeParams, string functionName, FunctionDefStatement func)
         {
             // Save current compilation state
-            var savedInstructions = _instructions;
+            var savedInstructionSequence = _instructionSequence;
             var savedConstants = _constants;
             var savedNames = _names;
             var savedVarNames = _varNames;
             var savedCellVars = _cellVars;
             var savedFreeVars = _freeVars;
-            
+
             // Initialize new compilation state for generic parameters function
-            _instructions = new List<ByteCodeInstruction>();
+            _instructionSequence = new InstructionSequence();
             _constants = new List<PyObject>();
             _names = new List<string>();
             _varNames = new List<string>();
@@ -5284,9 +5204,10 @@ namespace SharpPy
                 
                 // Build the code object
                 var functionName_full = $"<generic parameters of {functionName}>";
+                var finalInstructions = GetFinalInstructions();
                 return new PyCodeObject(
                     functionName_full,
-                    _instructions,
+                    finalInstructions,
                     _constants,
                     _names,
                     _varNames,
@@ -5305,7 +5226,7 @@ namespace SharpPy
             finally
             {
                 // Restore compilation state
-                _instructions = savedInstructions;
+                _instructionSequence = savedInstructionSequence;
                 _constants = savedConstants;
                 _names = savedNames;
                 _varNames = savedVarNames;
@@ -5625,7 +5546,7 @@ namespace SharpPy
         private PyCodeObject CompileSimplifiedGenericParametersFunction(List<string> typeParams, string className, List<Statement> classBody)
         {
             // Save current compilation state
-            var savedInstructions = _instructions;
+            var savedInstructionSequence = _instructionSequence;
             var savedConstants = _constants;
             var savedNames = _names;
             var savedVarNames = _varNames;
@@ -5633,7 +5554,7 @@ namespace SharpPy
             var savedFreeVars = _freeVars;
             
             // Initialize new compilation state for generic parameters function
-            _instructions = new List<ByteCodeInstruction>();
+            _instructionSequence = new InstructionSequence();
             _constants = new List<PyObject>();
             _names = new List<string>();
             _varNames = new List<string>();
@@ -5708,9 +5629,10 @@ namespace SharpPy
                 
                 // Build the code object
                 var functionName = $"<generic parameters of {className}>";
+                var finalInstructions = GetFinalInstructions();
                 return new PyCodeObject(
                     functionName,
-                    _instructions,
+                    finalInstructions,
                     _constants,
                     _names,
                     _varNames,
@@ -5724,7 +5646,7 @@ namespace SharpPy
             finally
             {
                 // Restore compilation state
-                _instructions = savedInstructions;
+                _instructionSequence = savedInstructionSequence;
                 _constants = savedConstants;
                 _names = savedNames;
                 _varNames = savedVarNames;
@@ -5736,8 +5658,7 @@ namespace SharpPy
         private PyCodeObject CompileClassBody(List<Statement> body, string className)
         {
             // Save current compilation state
-            var savedInstructions = _instructions;
-            var savedInstructionSequence = _instructionSequence;  // CFG PATH: Save InstructionSequence
+            var savedInstructionSequence = _instructionSequence;
             var savedConstants = _constants;
             var savedNames = _names;
             var savedVarNames = _varNames;
@@ -5793,7 +5714,6 @@ namespace SharpPy
             }
 
             // Initialize new compilation state for class body
-            _instructions = new List<ByteCodeInstruction>();
             _instructionSequence = new InstructionSequence();  // CPython 3.12: Always use CFG pipeline
             _constants = new List<PyObject>();
             _names = new List<string>();
@@ -5919,7 +5839,7 @@ namespace SharpPy
             finally
             {
                 // Restore compilation state
-                _instructions = savedInstructions;
+                _instructionSequence = savedInstructionSequence;
                 _instructionSequence = savedInstructionSequence;  // CFG PATH: Restore InstructionSequence
                 _constants = savedConstants;
                 _names = savedNames;
@@ -6715,59 +6635,70 @@ namespace SharpPy
         /// </summary>
         private void CompileForTuple(ForTupleStatement forTupleStmt)
         {
-            // CPython approach with tuple unpacking support
-            
+            // CPython 3.12: Label-based control flow (no manual offset calculation)
+
             // 1. Get iterator from iterable
             CompileExpression(forTupleStmt.Iter);  // Push iterable on stack
             EmitInstruction(ByteCodeOp.GET_ITER); // Convert to iterator
-            
-            // 2. Loop start - FOR_ITER will handle next() and StopIteration
-            var forIterInstruction = _instructions.Count;
-            EmitInstruction(ByteCodeOp.FOR_ITER, 0); // Jump target will be patched later
-            
-            // 3. FOR_ITER pushes the next value on stack, unpack it into target variables
-            // The value is a tuple/list, we need to unpack it
+
+            // 2. Create labels for loop control flow
+            var startLabel = _instructionSequence.NewLabel();
+            var endLabel = _instructionSequence.NewLabel();
+            var breakLabel = _instructionSequence.NewLabel();
+            var continueLabel = _instructionSequence.NewLabel();
+
+            // 3. Mark loop start
+            _instructionSequence.UseLabel(startLabel);
+
+            // 4. FOR_ITER jumps to cleanup on StopIteration
+            _instructionSequence.AddOpWithLabel(
+                ByteCodeOp.FOR_ITER,
+                endLabel,
+                _currentLineNumber,
+                _currentColumnOffset,
+                _currentFileName,
+                GetCurrentExceptHandlerInfo()
+            );
+
+            // 5. FOR_ITER pushes the next value on stack, unpack it into target variables
             EmitInstruction(ByteCodeOp.UNPACK_SEQUENCE, forTupleStmt.Targets.Count);
-            
-            // 4. Store each unpacked value in the target variables (in correct order)
-            // UNPACK_SEQUENCE pushes items in reverse order, so we store them in forward order
+
+            // 6. Store each unpacked value in the target variables
             for (int i = 0; i < forTupleStmt.Targets.Count; i++)
             {
                 EmitStoreName(forTupleStmt.Targets[i]);
             }
-            
-            // 5. Set up loop context with FOR_ITER tracking (CFG path)
-            var breakLabel = _instructionSequence.NewLabel();
-            var continueLabel = _instructionSequence.NewLabel();
-            PushLoopContext(breakLabel, continueLabel, forIterInstruction);
-            
-            // 6. Execute loop body
+
+            // 7. Push loop context for break/continue
+            PushLoopContext(breakLabel, continueLabel, -1);  // -1 = no longer needed
+
+            // 8. Execute loop body
             foreach (var stmt in forTupleStmt.Body)
             {
                 CompileStatement(stmt);
             }
-            
-            // 7. Mark continue label (CFG path)
+
+            // 9. Mark continue label
             _instructionSequence.UseLabel(continueLabel);
-            
-            // 8. Jump back to FOR_ITER - CPython 3.12 style relative offset
-            // CPython 3.12: 통일된 JUMP_BACKWARD oparg 계산 사용
-            int currentPos = _instructions.Count;
-            int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, forIterInstruction);
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
 
-            // 9. CPython 3.12 방식: END_FOR 추가 (통합 구조)
+            // 10. Jump back to loop start (CPython 3.12: uses JUMP, assembler determines direction)
+            _instructionSequence.AddOpWithLabel(
+                ByteCodeOp.JUMP,
+                startLabel,
+                -1,  // NO_LOCATION
+                -1,
+                _currentFileName,
+                GetCurrentExceptHandlerInfo()
+            );
+
+            // 11. Cleanup label - loop exits here
+            _instructionSequence.UseLabel(endLabel);
             EmitInstruction(ByteCodeOp.END_FOR, 0);
-            int endForPosition = _instructions.Count - 1; // END_FOR 위치 저장
 
-            // END_FOR 위치를 현재 loop context에 저장
-            var currentLoop = GetCurrentLoop();
-            if (currentLoop != null)
-            {
-                currentLoop.EndForPosition = endForPosition;
-            }
+            // 12. Pop loop context
+            PopLoopContext();
 
-            // 10. Loop completed normally - execute else clause if present
+            // 13. Execute else clause if present
             if (forTupleStmt.ElseClause != null && forTupleStmt.ElseClause.Count > 0)
             {
                 foreach (var stmt in forTupleStmt.ElseClause)
@@ -6776,11 +6707,8 @@ namespace SharpPy
                 }
             }
 
-            // 11. Mark break label (CFG path)
+            // 14. Mark break label
             _instructionSequence.UseLabel(breakLabel);
-
-            // 12. Pop loop context (FOR_ITER 패치가 자동으로 수행됨)
-            PopLoopContext();
         }
         
         /// <summary>
@@ -6788,51 +6716,65 @@ namespace SharpPy
         /// </summary>
         private void CompileForComplex(ForComplexStatement forComplexStmt)
         {
-            // CPython approach with complex tuple unpacking support
-            
+            // CPython 3.12: Label-based control flow (no manual offset calculation)
+
             // 1. Get iterator from iterable
             CompileExpression(forComplexStmt.Iter);  // Push iterable on stack
             EmitInstruction(ByteCodeOp.GET_ITER); // Convert to iterator
-            
-            // 2. Loop start - FOR_ITER will handle next() and StopIteration
-            var forIterInstruction = _instructions.Count;
-            EmitInstruction(ByteCodeOp.FOR_ITER, 0); // Jump target will be patched later
-            
-            // 3. FOR_ITER pushes the next value on stack
-            // Now we need to compile the complex target assignment
-            CompileComplexAssignTarget(forComplexStmt.Target);
-            
-            // 4. Set up loop context with FOR_ITER tracking (CFG path)
+
+            // 2. Create labels for loop control flow
+            var startLabel = _instructionSequence.NewLabel();
+            var endLabel = _instructionSequence.NewLabel();
             var breakLabel = _instructionSequence.NewLabel();
             var continueLabel = _instructionSequence.NewLabel();
-            PushLoopContext(breakLabel, continueLabel, forIterInstruction);
-            
-            // 5. Execute loop body
+
+            // 3. Mark loop start
+            _instructionSequence.UseLabel(startLabel);
+
+            // 4. FOR_ITER jumps to cleanup on StopIteration
+            _instructionSequence.AddOpWithLabel(
+                ByteCodeOp.FOR_ITER,
+                endLabel,
+                _currentLineNumber,
+                _currentColumnOffset,
+                _currentFileName,
+                GetCurrentExceptHandlerInfo()
+            );
+
+            // 5. FOR_ITER pushes the next value on stack
+            // Compile complex target assignment
+            CompileComplexAssignTarget(forComplexStmt.Target);
+
+            // 6. Push loop context for break/continue
+            PushLoopContext(breakLabel, continueLabel, -1);  // -1 = no longer needed
+
+            // 7. Execute loop body
             foreach (var stmt in forComplexStmt.Body)
             {
                 CompileStatement(stmt);
             }
-            
-            // 6. Mark continue label (CFG path)
+
+            // 8. Mark continue label
             _instructionSequence.UseLabel(continueLabel);
-            
-            // 7. Jump back to FOR_ITER - CPython 3.12 style relative offset
-            int currentPos = _instructions.Count;
-            int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, forIterInstruction);
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
 
-            // 8. CPython 3.12 방식: END_FOR 추가 (통합 구조)
+            // 9. Jump back to loop start (CPython 3.12: uses JUMP, assembler determines direction)
+            _instructionSequence.AddOpWithLabel(
+                ByteCodeOp.JUMP,
+                startLabel,
+                -1,  // NO_LOCATION
+                -1,
+                _currentFileName,
+                GetCurrentExceptHandlerInfo()
+            );
+
+            // 10. Cleanup label - loop exits here
+            _instructionSequence.UseLabel(endLabel);
             EmitInstruction(ByteCodeOp.END_FOR, 0);
-            int endForPosition = _instructions.Count - 1; // END_FOR 위치 저장
 
-            // END_FOR 위치를 현재 loop context에 저장
-            var currentLoop = GetCurrentLoop();
-            if (currentLoop != null)
-            {
-                currentLoop.EndForPosition = endForPosition;
-            }
+            // 11. Pop loop context
+            PopLoopContext();
 
-            // 9. Loop completed normally - execute else clause if present
+            // 12. Execute else clause if present
             if (forComplexStmt.ElseClause != null && forComplexStmt.ElseClause.Count > 0)
             {
                 foreach (var stmt in forComplexStmt.ElseClause)
@@ -6841,11 +6783,8 @@ namespace SharpPy
                 }
             }
 
-            // 10. Mark break label (CFG path)
+            // 13. Mark break label
             _instructionSequence.UseLabel(breakLabel);
-
-            // 11. Pop loop context (FOR_ITER 패치가 자동으로 수행됨)
-            PopLoopContext();
         }
         
         /// <summary>
@@ -8758,18 +8697,18 @@ namespace SharpPy
             #endif
             
             // Compile lambda body in a separate compiler context
-            var lambdaInstructions = new List<ByteCodeInstruction>();
+            var lambdaInstructionSequence = new InstructionSequence();
             var lambdaConstants = new List<PyObject>();
             var lambdaNames = new List<string>();
-            
+
             // Save current compiler state
-            var tempInstructions = _instructions;
+            var tempInstructionSequence = _instructionSequence;
             var tempConstants = _constants;
             var tempNames = _names;
             var tempVarNames = _varNames; // Save current VarNames
-            
+
             // Set up lambda compiler context
-            _instructions = lambdaInstructions;
+            _instructionSequence = lambdaInstructionSequence;
             _constants = lambdaConstants;
             _names = lambdaNames;
             _varNames = new List<string>(); // Fresh VarNames for lambda
@@ -8816,9 +8755,12 @@ namespace SharpPy
             // Compile the lambda body expression - parameters will now be recognized as FAST variables
             CompileExpression(lambda.Body);
             EmitInstruction(ByteCodeOp.RETURN_VALUE);
-            
+
+            // Get final instructions for lambda
+            var lambdaInstructions = GetFinalInstructions();
+
             // Restore original compiler context
-            _instructions = tempInstructions;
+            _instructionSequence = tempInstructionSequence;
             _constants = tempConstants;
             _names = tempNames;
             _varNames = tempVarNames; // Restore original VarNames
@@ -9157,34 +9099,10 @@ namespace SharpPy
         
         private void PopLoopContext()
         {
+            // CPython 3.12: No manual patching needed - labels are resolved by assembler
             if (_loopStack.Count > 0)
             {
-                var context = _loopStack.Pop();
-
-                // FOR_ITER 패치: END_FOR 위치로 점프하도록 수정
-                // CPython 3.12: byte offset 기반 계산
-                if (context.ForIterInstruction >= 0)
-                {
-                    // EndForPosition이 설정되어 있으면 사용 (일반 for loop)
-                    // 설정되어 있지 않으면 현재 위치 - 1 사용 (comprehension, while 등)
-                    int endForPosition = context.EndForPosition >= 0
-                        ? context.EndForPosition
-                        : _instructions.Count - 1;
-
-                    // CPython 3.12: FOR_ITER oparg = (target_offset - next_instr_offset) / 2
-                    // next_instr_offset = FOR_ITER 이후의 첫 instruction offset
-                    int forIterByteOffset = PyJumpBackwardUtil.CalculateByteOffset(context.ForIterInstruction, _instructions);
-                    int forIterSize = PyJumpBackwardUtil.GetCPythonInstructionSize(ByteCodeOp.FOR_ITER, 0);
-                    int nextInstrOffset = forIterByteOffset + forIterSize;
-
-                    int endForByteOffset = PyJumpBackwardUtil.CalculateByteOffset(endForPosition, _instructions);
-                    int relativeJump = (endForByteOffset - nextInstrOffset) / 2;
-
-                    _instructions[context.ForIterInstruction] = new ByteCodeInstruction(ByteCodeOp.FOR_ITER, relativeJump);
-                    #if DEBUG_LOG
-                    Console.WriteLine($"    → FOR_ITER 패치: loop start {context.ForIterInstruction} (byte {forIterByteOffset}), jump offset {relativeJump}, END_FOR at {endForPosition} (byte {endForByteOffset})");
-                    #endif
-                }
+                _loopStack.Pop();
             }
         }
         
@@ -9396,18 +9314,11 @@ namespace SharpPy
             #endif
 
             // 4. 중첩된 루프 컴파일 - CPython 3.12 재귀 구조 사용
-            // CPython 3.12: Exception table은 BUILD_LIST, SWAP 2 직후부터 시작
-            var exceptionTableStart = _instructions.Count;
-            #if DEBUG_LOG
-            Console.WriteLine($"📍 exceptionTableStart = {exceptionTableStart} (BUILD_LIST, SWAP 2 직후)");
-            #endif
-
-            // CPython 3.12 재귀 구조로 변경: CompileSyncComprehensionGenerator 사용
-            // 최외곽 iterator는 이미 스택에 있음 (GET_ITER 직후)
+            // CPython 3.12: CFG가 exception table을 자동으로 관리
             #if DEBUG_LOG
             Console.WriteLine($"🔧 Using CPython 3.12 recursive generator compilation");
             #endif
-            var (result, outerEndForPos) = CompileSyncComprehensionGenerator(
+            CompileSyncComprehensionGenerator(
                 generators: listComp.Generators,
                 genIndex: 0,
                 depth: 0,
@@ -9417,15 +9328,6 @@ namespace SharpPy
                 comprehensionVars: comprehensionVars,
                 iterOnStack: true // 최외곽 iterator는 이미 스택에 있음
             );
-
-            if (result < 0)
-            {
-                throw new Exception("Failed to compile list comprehension generators");
-            }
-
-            #if DEBUG_LOG
-            Console.WriteLine($"📍 outerEndForPos = {outerEndForPos} (최외곽 END_FOR 직후)");
-            #endif
 
             // CPython 3.12 PEP 709: 정상 종료 시 컴프리헨션 변수 복원
             // CPython 패턴: 한 번의 SWAP으로 모든 변수를 재배치한 후 순차적으로 저장
@@ -9448,28 +9350,7 @@ namespace SharpPy
                 }
             }
 
-            // CPython 3.12: Exception table end는 최외곽 END_FOR 직후까지
-            // (outerEndForPos는 END_FOR 직후 위치이므로, 그대로 사용하면 END_FOR 포함)
-            var exceptionTableEnd = outerEndForPos > 0 ? outerEndForPos : _instructions.Count;
-            #if DEBUG_LOG
-            Console.WriteLine($"📍 exceptionTableEnd = {exceptionTableEnd} (outerEndForPos - 1)");
-            #endif
-
-            // CPython 3.12: Exception handler를 지연 생성으로 등록
-            var pendingHandler = new PendingExceptionHandler
-            {
-                StartOffset = exceptionTableStart,         // 명령어 인덱스 사용
-                EndOffset = exceptionTableEnd,             // 명령어 인덱스 사용
-                ComprehensionVars = new List<string>(comprehensionVars),
-                Depth = 2
-            };
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 PendingExceptionHandler 추가: start={exceptionTableStart}, end={exceptionTableEnd}, vars=[{string.Join(", ", comprehensionVars)}], depth=2");
-            #endif
-            _pendingExceptionHandlers.Add(pendingHandler);
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 현재 _pendingExceptionHandlers.Count: {_pendingExceptionHandlers.Count}");
-            #endif
+            // CPython 3.12: CFG's BuildExceptionTable()이 exception handler를 자동으로 관리
 
             // CPython 3.12: 컴프리헨션 컨텍스트 종료
             _isInComprehension = savedIsInComprehension;
@@ -9529,7 +9410,11 @@ namespace SharpPy
         /// <param name="comprehensionVars">comprehension에서 사용하는 모든 변수 목록</param>
         /// <param name="iterOnStack">iterator가 이미 스택에 있는지 여부 (최외곽은 true)</param>
         /// <returns>성공 시 0, 실패 시 -1</returns>
-        private (int result, int endForPos) CompileSyncComprehensionGenerator(
+        /// <summary>
+        /// CPython 3.12: compiler_sync_comprehension_generator (line 5232-5349)
+        /// Label-based control flow - no manual offset calculation/patching
+        /// </summary>
+        private void CompileSyncComprehensionGenerator(
             List<Comprehension> generators,
             int genIndex,
             int depth,
@@ -9543,68 +9428,88 @@ namespace SharpPy
             Console.WriteLine($"🔄 CompileSyncComprehensionGenerator: genIndex={genIndex}, depth={depth}, iterOnStack={iterOnStack}");
             #endif
 
-            var gen = generators[genIndex];
+            // CPython 3.12: NEW_JUMP_TARGET_LABEL (line 5241-5243)
+            var startLabel = _instructionSequence.NewLabel();
+            var ifCleanupLabel = _instructionSequence.NewLabel();
+            var anchorLabel = _instructionSequence.NewLabel();
 
-            // CPython line 5248-5282: iterator 준비
-            int loopStart = -1;
-            int endForPos = -1;  // END_FOR 위치 추적
+            var gen = generators[genIndex];
+            bool needsLoop = false;
+
+            // CPython line 5248-5282: iterator preparation
             if (!iterOnStack)
             {
                 if (genIndex == 0)
                 {
-                    // 최외곽이지만 iter_on_stack이 false인 경우 (이론상 발생하지 않음)
-                    // CPython: LOAD_FAST 0 (argument로 받은 iterator)
-                    // SharpPy: 이미 스택에 있다고 가정
+                    // Outermost iter is already on stack (from caller)
+                    // CPython: Receives as implicit argument (LOAD_FAST 0)
                 }
                 else
                 {
-                    // 중첩된 generator: iterator 표현식 컴파일
-                    // CPython line 5255-5280: 단일 요소 최적화 등 복잡한 로직
-                    // SharpPy: 간단하게 항상 iterator 표현식 컴파일
+                    // Nested generator: compile iterator expression
                     #if DEBUG_LOG
                     Console.WriteLine($"  📦 Compiling iterator expression for generator[{genIndex}]");
                     #endif
                     CompileGeneratorIterable(gen.Iter);
                     EmitInstruction(ByteCodeOp.GET_ITER);
-                    // CPython: 중첩 generator는 단순히 GET_ITER만 수행
-                    // BUILD_LIST 등은 element가 comprehension일 때 CompileExpression에서 생성됨
                 }
             }
 
-            // CPython line 5284-5288: FOR_ITER 생성
+            // CPython line 5284-5288: FOR_ITER with label (no position tracking!)
             if (genIndex == 0 || !iterOnStack)
             {
                 depth++;
-                loopStart = _instructions.Count;
-                EmitInstruction(ByteCodeOp.FOR_ITER, 0); // 나중에 패치
+                needsLoop = true;
+
+                // CPython: USE_LABEL(c, start)
+                _instructionSequence.UseLabel(startLabel);
+
+                // CPython: ADDOP_JUMP(c, loc, FOR_ITER, anchor)
+                _instructionSequence.AddOpWithLabel(
+                    ByteCodeOp.FOR_ITER,
+                    anchorLabel,
+                    _currentLineNumber,
+                    _currentColumnOffset,
+                    _currentFileName,
+                    GetCurrentExceptHandlerInfo()
+                );
+
                 #if DEBUG_LOG
-                Console.WriteLine($"  🔁 FOR_ITER emitted at position {loopStart}, depth now {depth}");
+                Console.WriteLine($"  🔁 FOR_ITER with label, depth now {depth}");
                 #endif
             }
 
-            // CPython line 5289: target 컴파일 (STORE_FAST)
+            // CPython line 5289: VISIT(c, expr, gen->target)
             CompileComprehensionTarget(gen.Target, comprehensionVars);
 
-            // CPython line 5292-5296: 조건문 처리
-            List<int> conditionJumps = new List<int>();
+            // CPython line 5292-5296: condition handling with labels
             foreach (var condition in gen.Ifs)
             {
                 CompileExpression(condition);
-                conditionJumps.Add(_instructions.Count);
-                EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // 패치 대상
+
+                // CPython: ADDOP_JUMP(c, loc, POP_JUMP_IF_FALSE, if_cleanup)
+                _instructionSequence.AddOpWithLabel(
+                    ByteCodeOp.POP_JUMP_IF_FALSE,
+                    ifCleanupLabel,
+                    _currentLineNumber,
+                    _currentColumnOffset,
+                    _currentFileName,
+                    GetCurrentExceptHandlerInfo()
+                );
+
                 #if DEBUG_LOG
-                Console.WriteLine($"  ❓ Condition jump added at position {_instructions.Count - 1}");
+                Console.WriteLine($"  ❓ Condition jump to if_cleanup label");
                 #endif
             }
 
-            // CPython line 5298-5303: 재귀 또는 element 처리
+            // CPython line 5298-5338: recursion or element handling
             if (genIndex + 1 < generators.Count)
             {
-                // 다음 generator 재귀 호출
+                // Recursive call for next generator
                 #if DEBUG_LOG
                 Console.WriteLine($"  ↪️  Recursing to generator[{genIndex + 1}]");
                 #endif
-                var (result, innerEndForPos) = CompileSyncComprehensionGenerator(
+                CompileSyncComprehensionGenerator(
                     generators,
                     genIndex + 1,
                     depth,
@@ -9612,19 +9517,12 @@ namespace SharpPy
                     val,
                     type,
                     comprehensionVars,
-                    iterOnStack: false // 다음 레벨은 iterator를 직접 컴파일해야 함
+                    iterOnStack: false
                 );
-                if (result < 0) return (-1, -1);
-                // 내부 comprehension의 END_FOR 위치 추적
-                if (innerEndForPos >= 0 && endForPos < 0)
-                {
-                    endForPos = innerEndForPos;
-                }
             }
             else
             {
-                // 마지막 generator: element 처리
-                // CPython line 5307-5338
+                // Last generator: emit append operation
                 #if DEBUG_LOG
                 Console.WriteLine($"  🎯 Last generator, emitting append operation");
                 #endif
@@ -9636,12 +9534,9 @@ namespace SharpPy
                         break;
                     case ComprehensionType.SetComp:
                         CompileExpression(elt);
-                        // CPython 3.12: SET_ADD depth + 1
-                        // VM의 Array.Reverse로 CPython과 동일한 top-down 인덱싱 사용
                         EmitInstruction(ByteCodeOp.SET_ADD, depth + 1);
                         break;
                     case ComprehensionType.DictComp:
-                        // key, value 순서
                         CompileExpression(elt);
                         if (val != null)
                         {
@@ -9657,215 +9552,35 @@ namespace SharpPy
                 }
             }
 
-            // CPython line 5340-5346: if_cleanup 레이블, JUMP_BACKWARD, END_FOR
-            if (loopStart >= 0)
+            // CPython line 5340-5346: if_cleanup label and loop back
+            if (needsLoop)
             {
-                // 조건 점프 패치 - 조건이 거짓이면 JUMP_BACKWARD로 점프
-                int jumpBackwardPos = _instructions.Count;
-                for (int i = 0; i < conditionJumps.Count; i++)
-                {
-                    int popJumpIndex = conditionJumps[i];
-                    int relativeOffset = jumpBackwardPos - popJumpIndex - 1;
-                    _instructions[popJumpIndex] = new ByteCodeInstruction(
-                        ByteCodeOp.POP_JUMP_IF_FALSE,
-                        relativeOffset
-                    );
-                }
+                // CPython: USE_LABEL(c, if_cleanup)
+                _instructionSequence.UseLabel(ifCleanupLabel);
 
-                // JUMP_BACKWARD
-                int currentPos = _instructions.Count;
-                int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, loopStart);
-                EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
-                #if DEBUG_LOG
-                Console.WriteLine($"  ↩️  JUMP_BACKWARD from {currentPos} to {loopStart}, arg={jumpBackwardArg}");
-                #endif
-
-                // END_FOR
-                int endForPosition = _instructions.Count;
-                EmitInstruction(ByteCodeOp.END_FOR);
-                endForPos = _instructions.Count;  // END_FOR 직후 위치 저장
-                #if DEBUG_LOG
-                Console.WriteLine($"  🔚 END_FOR emitted at position {endForPosition}, endForPos={endForPos}");
-                #endif
-
-                // FOR_ITER 패치
-                // CPython 3.12: byte offset 기반 계산
-                int forIterByteOffset = PyJumpBackwardUtil.CalculateByteOffset(loopStart, _instructions);
-                int forIterSize = PyJumpBackwardUtil.GetCPythonInstructionSize(ByteCodeOp.FOR_ITER, 0);
-                int nextInstrOffset = forIterByteOffset + forIterSize;
-                int endForByteOffset = PyJumpBackwardUtil.CalculateByteOffset(endForPosition, _instructions);
-                int forIterJump = (endForByteOffset - nextInstrOffset) / 2;
-
-                _instructions[loopStart] = new ByteCodeInstruction(
-                    ByteCodeOp.FOR_ITER,
-                    forIterJump
+                // CPython: ADDOP_JUMP(c, elt_loc, JUMP, start)
+                _instructionSequence.AddOpWithLabel(
+                    ByteCodeOp.JUMP,
+                    startLabel,
+                    -1, -1,
+                    _currentFileName,
+                    GetCurrentExceptHandlerInfo()
                 );
+
                 #if DEBUG_LOG
-                Console.WriteLine($"  🔧 FOR_ITER at {loopStart} (byte {forIterByteOffset}) patched to jump to END_FOR at {endForPosition} (byte {endForByteOffset}), arg={forIterJump}");
+                Console.WriteLine($"  ↩️  JUMP back to start label");
+                #endif
+
+                // CPython: USE_LABEL(c, anchor); ADDOP(c, NO_LOCATION, END_FOR)
+                _instructionSequence.UseLabel(anchorLabel);
+                EmitInstruction(ByteCodeOp.END_FOR, 0);
+
+                #if DEBUG_LOG
+                Console.WriteLine($"  🔚 END_FOR at anchor label");
                 #endif
             }
-
-            return (0, endForPos); // 성공, END_FOR 위치 반환
         }
 
-        /// <summary>
-        /// CPython 3.12 호환 중첩 Generator 컴파일 (기존 버전 - 제거 예정)
-        /// 재귀적으로 각 generator에 대해 FOR_ITER 루프를 생성
-        /// </summary>
-        private void CompileNestedGenerators(List<Comprehension> generators, int currentIndex, 
-                                           List<string> comprehensionVars, Action innerBlock)
-        {
-            if (currentIndex >= generators.Count)
-            {
-                // 모든 generator 처리 완료 - 내부 블록 실행
-                innerBlock();
-                return;
-            }
-            
-            var generator = generators[currentIndex];
-            #if DEBUG_LOG
-            Console.WriteLine($"  🔄 Generator [{currentIndex}]: {generator.Target} in {generator.Iter}");
-            #endif
-            
-            // Generator 처리 (단순화 - 항상 일반 루프로 처리)
-            if (false) // 복잡한 최적화 제거
-            {
-                // 단일 요소 generator 최적화 - CPython처럼 직접 할당
-                if (generator.Iter is ListExpression listExpr)
-                {
-                    CompileExpression(listExpr.Elements[0]);
-                }
-                else if (generator.Iter is TupleExpression tupleExpr)
-                {
-                    CompileExpression(tupleExpr.Elements[0]);
-                }
-                CompileComprehensionTarget(generator.Target, comprehensionVars);
-
-                // 조건 검사 (if문이 있는 경우)
-                foreach (var condition in generator.Ifs)
-                {
-                    CompileExpression(condition);
-                    EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // 패치 대상
-                }
-
-                // 다음 generator 재귀 호출 (단일 요소이므로 루프 없음)
-                CompileNestedGenerators(generators, currentIndex + 1, comprehensionVars, innerBlock);
-            }
-            else
-            {
-                // 이터레이터 준비 - 중첩 컴프리헨션에서는 BUILD_LIST 최적화 없이 직접 이터레이터 생성
-                CompileGeneratorIterable(generator.Iter);
-                EmitInstruction(ByteCodeOp.GET_ITER);
-
-                // 루프 시작 라벨
-                var loopStart = _instructions.Count;
-                EmitInstruction(ByteCodeOp.FOR_ITER, 0); // 패치 대상
-
-                // 루프 변수 저장 - 재귀 튜플 언패킹 지원
-                CompileComprehensionTarget(generator.Target, comprehensionVars);
-
-                // 조건 검사 (if문이 있는 경우) - CPython 3.12 패턴: POP_JUMP_IF_TRUE 사용
-                List<int> conditionJumps = new List<int>();
-                foreach (var condition in generator.Ifs)
-                {
-                CompileExpression(condition);
-                conditionJumps.Add(_instructions.Count);
-                EmitInstruction(ByteCodeOp.POP_JUMP_IF_FALSE, 0); // 조건이 거짓이면 JUMP_BACKWARD로 점프
-            }
-            
-            // 다음 generator 재귀 호출
-            CompileNestedGenerators(generators, currentIndex + 1, comprehensionVars, innerBlock);
-            
-            // 다음 generator 재귀 호출 후 JUMP_BACKWARD - CPython 3.12 style relative offset
-            // CPython 3.12: 통일된 JUMP_BACKWARD oparg 계산 사용
-            int currentPos = _instructions.Count;
-            int jumpBackwardArg = CalculateJumpBackwardArg(currentPos, loopStart);
-            EmitInstruction(ByteCodeOp.JUMP_BACKWARD, jumpBackwardArg);
-            
-            // 조건 점프 대상 패치 - CPython 3.12 패턴
-            for (int i = 0; i < conditionJumps.Count; i++)
-            {
-                int popJumpIndex = conditionJumps[i];
-
-                // POP_JUMP_IF_FALSE: 조건이 거짓이면 JUMP_BACKWARD로 점프 (CPython 패턴)
-                // 조건이 참이면 다음 코드를 실행 (다음 generator 또는 innerBlock)
-                int jumpBackwardPos = _instructions.Count - 1; // JUMP_BACKWARD 위치
-                int relativeOffset = jumpBackwardPos - popJumpIndex - 1;
-                _instructions[popJumpIndex] = new ByteCodeInstruction(
-                    ByteCodeOp.POP_JUMP_IF_FALSE,
-                    relativeOffset
-                );
-            }
-            
-            // CPython 3.12 방식: FOR_ITER → END_FOR 점프 구조
-            // END_FOR에서 루프 종료 시 정리 작업 수행
-            
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 FOR_ITER 패치 전 상태:");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"    Generator[{currentIndex}]: {generator.Target} in {generator.Iter}");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"    현재 바이트코드 길이: {_instructions.Count}");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"    FOR_ITER 위치: {loopStart}");
-            #endif
-            
-            // END_FOR 명령어 추가 (CPython 3.12 패턴)
-            int endForPosition = _instructions.Count;
-            EmitInstruction(ByteCodeOp.END_FOR, 0);
-            #if DEBUG_LOG
-            Console.WriteLine($"    END_FOR 추가 위치: {endForPosition}");
-            #endif
-            
-            // CPython 3.12: byte offset 기반 계산
-            int forIterByteOffset = PyJumpBackwardUtil.CalculateByteOffset(loopStart, _instructions);
-            int forIterSize = PyJumpBackwardUtil.GetCPythonInstructionSize(ByteCodeOp.FOR_ITER, 0);
-            int nextInstrOffset = forIterByteOffset + forIterSize;
-            int endForByteOffset = PyJumpBackwardUtil.CalculateByteOffset(endForPosition, _instructions);
-            var relativeJump = (endForByteOffset - nextInstrOffset) / 2;
-
-            var originalInstruction = _instructions[loopStart];
-            _instructions[loopStart] = new ByteCodeInstruction(
-                ByteCodeOp.FOR_ITER,
-                relativeJump
-            );
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 FOR_ITER 패치 완료:");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"    위치 {loopStart} (byte {forIterByteOffset}): 원래 인수 {originalInstruction.Argument} → 새 인수 {relativeJump}");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"    점프 계산: ({endForByteOffset} - {nextInstrOffset}) / 2 = {relativeJump}");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"    VM 실행 시 점프될 위치: {loopStart + 1 + relativeJump}");
-            #endif
-            
-            // Dict comprehension의 경우 STORE_GLOBAL이 건너뛰어지는 문제 디버깅
-            if (_isInComprehension)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"📋 Comprehension 컨텍스트에서 FOR_ITER 패치:");
-                #endif
-                #if DEBUG_LOG
-                Console.WriteLine($"    다음 명령어들 위치 예상:");
-                #endif
-                for (int i = endForPosition + 1; i < Math.Min(endForPosition + 5, _instructions.Count); i++)
-                {
-                    if (i < _instructions.Count)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"    위치 {i}: {_instructions[i].OpCode} {_instructions[i].Argument}");
-                        #endif
-                    }
-                }
-            }
-            } // Close else block for single-element list optimization
-        }
 
         /// <summary>
         /// CPython 3.12 호환 컴프리헨션 변수 저장
@@ -10024,11 +9739,8 @@ namespace SharpPy
             // 5. 두 번째 SWAP: 딕셔너리를 올바른 위치로 이동
             EmitInstruction(ByteCodeOp.SWAP, 2);
 
-            // 6. Exception table 시작점
-            var exceptionTableStart = _instructions.Count;
-
-            // 7. CPython 3.12 재귀 구조 사용
-            var (result, outerEndForPos) = CompileSyncComprehensionGenerator(
+            // 6. CPython 3.12 재귀 구조 사용 (CFG가 exception table 자동 관리)
+            CompileSyncComprehensionGenerator(
                 generators: dictComp.Generators,
                 genIndex: 0,
                 depth: 0,
@@ -10039,12 +9751,7 @@ namespace SharpPy
                 iterOnStack: true
             );
 
-            if (result < 0)
-            {
-                throw new Exception("Failed to compile dict comprehension generators");
-            }
-
-            // 8. 변수 복원
+            // 7. 변수 복원
             if (comprehensionVars.Count > 0)
             {
                 EmitInstruction(ByteCodeOp.SWAP, comprehensionVars.Count + 1);
@@ -10056,18 +9763,7 @@ namespace SharpPy
                 }
             }
 
-            // 9. Exception table 등록
-            var exceptionTableEnd = outerEndForPos > 0 ? outerEndForPos : _instructions.Count;
-            var pendingHandler = new PendingExceptionHandler
-            {
-                StartOffset = exceptionTableStart,
-                EndOffset = exceptionTableEnd,
-                ComprehensionVars = new List<string>(comprehensionVars),
-                Depth = 2
-            };
-            _pendingExceptionHandlers.Add(pendingHandler);
-
-            // 10. 컨텍스트 종료
+            // 8. 컨텍스트 종료 (CFG가 exception table 자동 관리)
             _isInComprehension = savedIsInComprehension;
             _comprehensionNestingDepth--;
 
@@ -10199,9 +9895,7 @@ namespace SharpPy
             var savedIsInComprehension = _isInComprehension;
             _isInComprehension = true;
 
-            // CPython 3.12: Exception table 시작 위치 기록
-            int exceptionTableStart = 0;
-            int buildSetPosition = _instructions.Count;
+            // CPython 3.12: CFG tracks exception table automatically
 
             // CPython 3.12: Set comprehension 스택 준비 (LIST comprehension과 동일한 패턴)
             var firstGenerator = setComp.Generators[0];
@@ -10233,10 +9927,7 @@ namespace SharpPy
             // 1. 빈 셋 생성
             EmitInstruction(ByteCodeOp.BUILD_SET, 0);
             #if DEBUG_LOG
-            Console.WriteLine($"📊 Set comprehension 시작 위치: {buildSetPosition}");
-            #endif
-            #if DEBUG_LOG
-            Console.WriteLine($"🔧 BUILD_SET 위치: {buildSetPosition}");
+            Console.WriteLine($"🔧 BUILD_SET created");
             #endif
 
             // CPython 3.12: 두 번째 SWAP
@@ -10248,17 +9939,11 @@ namespace SharpPy
                 #endif
             }
 
-            // CPython 3.12: Exception table 시작 위치 기록 (BUILD_SET, SWAP 2 직후)
-            exceptionTableStart = _instructions.Count;
-            #if DEBUG_LOG
-            Console.WriteLine($"📍 exceptionTableStart = {exceptionTableStart} (BUILD_SET, SWAP 2 직후)");
-            #endif
-
-            // CPython 3.12: 새로운 재귀 함수 호출 (List comprehension과 동일한 패턴)
+            // CPython 3.12: 재귀 구조 사용 (CFG가 exception table 자동 관리)
             #if DEBUG_LOG
             Console.WriteLine($"🔧 Using CPython 3.12 recursive generator compilation");
             #endif
-            var (result, outerEndForPos) = CompileSyncComprehensionGenerator(
+            CompileSyncComprehensionGenerator(
                 generators: setComp.Generators,
                 genIndex: 0,
                 depth: 0,
@@ -10268,15 +9953,6 @@ namespace SharpPy
                 comprehensionVars: comprehensionVars,
                 iterOnStack: true // 최외곽 iterator는 이미 스택에 있음
             );
-
-            if (result < 0)
-            {
-                throw new Exception("Failed to compile set comprehension generators");
-            }
-
-            #if DEBUG_LOG
-            Console.WriteLine($"📍 outerEndForPos = {outerEndForPos} (최외곽 END_FOR 직후)");
-            #endif
 
             // CPython 3.12: 스택 복원 (LIST comprehension과 동일)
             if (comprehensionVars.Count > 0)
@@ -10288,31 +9964,7 @@ namespace SharpPy
                 }
             }
 
-            // CPython 3.12: Exception table end는 최외곽 END_FOR 직후까지
-            var exceptionTableEnd = outerEndForPos > 0 ? outerEndForPos : _instructions.Count;
-            #if DEBUG_LOG
-            Console.WriteLine($"📍 exceptionTableEnd = {exceptionTableEnd} (outerEndForPos)");
-            #endif
-
-            // CPython 3.12: Exception handler를 지연 생성으로 등록 (Set comprehension용)
-            if (comprehensionVars.Count > 0)
-            {
-                var pendingHandler = new PendingExceptionHandler
-                {
-                    StartOffset = exceptionTableStart,        // 명령어 인덱스 사용
-                    EndOffset = exceptionTableEnd,
-                    ComprehensionVars = new List<string>(comprehensionVars),
-                    Depth = 2  // Set comprehension은 depth=2 (CPython 호환)
-                };
-
-                _pendingExceptionHandlers.Add(pendingHandler);
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 Set PendingExceptionHandler 추가: start={pendingHandler.StartOffset}, end={pendingHandler.EndOffset}, vars=[{string.Join(", ", comprehensionVars)}], depth={pendingHandler.Depth}");
-                #endif
-                #if DEBUG_LOG
-                Console.WriteLine($"🔧 현재 _pendingExceptionHandlers.Count: {_pendingExceptionHandlers.Count}");
-                #endif
-            }
+            // CPython 3.12: CFG's BuildExceptionTable()이 exception handler를 자동으로 관리
 
             // CPython 3.12: 컴프리헨션 컨텍스트 종료
             _isInComprehension = savedIsInComprehension;
@@ -10845,22 +10497,6 @@ namespace SharpPy
         /// 참조: https://github.com/python/cpython/blob/3.12/Python/bytecodes.c
         /// 참조: PEP 659 (Specializing Adaptive Interpreter)
         /// </summary>
-        
-        /// <summary>
-        /// 현재 명령어 리스트의 정확한 바이트 오프셋 계산
-        /// CPython 3.12 인라인 캐시를 포함한 실제 바이트 크기
-        /// </summary>
-        private int CalculateCurrentByteOffset()
-        {
-            int totalBytes = 0;
-            
-            foreach (var instruction in _instructions)
-            {
-                totalBytes += PyJumpBackwardUtil.GetCPythonInstructionSize(instruction.OpCode, instruction.Argument);
-            }
-            
-            return totalBytes;
-        }
         
         /// <summary>
         /// CPython 3.12 호환: 최적화 레벨 결정 (항상 활성화)

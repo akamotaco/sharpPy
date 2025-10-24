@@ -2767,6 +2767,19 @@ namespace SharpPy
                     frame.InstructionPointer = targetPos - 1;
                     return null; // Continue execution from new position
 
+                case ByteCodeOp.JUMP:
+                    // CPython 3.12: JUMP can jump forward or backward (determined by assembler)
+                    // The argument is the absolute target instruction offset
+                    int jumpTarget = instruction.Argument;
+
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔄 JUMP: from instr {frame.InstructionPointer} to instr {jumpTarget}");
+                    #endif
+
+                    // Subtract 1 because main loop will increment
+                    frame.InstructionPointer = jumpTarget - 1;
+                    return null;
+
                 case ByteCodeOp.JUMP_BACKWARD:
                     // CPython 3.12 호환: QuickenedCodeObject 방식으로 JUMP_BACKWARD 계산
                     int currentInstrPos = frame.InstructionPointer;

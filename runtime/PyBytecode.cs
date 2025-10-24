@@ -258,6 +258,8 @@ namespace SharpPy
         SETUP_CLEANUP = 257,     // Like SETUP_FINALLY but saves lasti
         SETUP_WITH = 258,        // Setup with statement exception handling
         POP_BLOCK = 259,         // Pop exception handler from stack
+        JUMP = 260,              // Unconditional jump (direction determined by assembler)
+        JUMP_NO_INTERRUPT = 261, // Unconditional jump without interrupt check
 
         // =============================================================================
         // CPython 3.12 Adaptive Specialization - Specialized Instructions
@@ -1071,6 +1073,8 @@ namespace SharpPy
         {
             { ByteCodeOp.JUMP_FORWARD, JumpType.Forward },
             { ByteCodeOp.JUMP_BACKWARD, JumpType.Backward },
+            { ByteCodeOp.JUMP, JumpType.Absolute },  // CPython 3.12: direction determined by assembler
+            { ByteCodeOp.JUMP_NO_INTERRUPT, JumpType.Absolute },
             { ByteCodeOp.POP_JUMP_IF_TRUE, JumpType.Conditional },
             { ByteCodeOp.POP_JUMP_IF_FALSE, JumpType.Conditional },
             // CPython 3.12: JUMP_IF_*_OR_POP opcodes removed
