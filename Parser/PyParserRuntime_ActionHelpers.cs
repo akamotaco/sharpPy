@@ -775,16 +775,43 @@ namespace SharpPy.Generated
         /// </summary>
         public static GeneratedIdentifierSeq MapNamesToIds(GeneratedExprSeq seq)
         {
-            if (seq == null || seq.Count == 0) return new GeneratedIdentifierSeq();
+#if DEBUG_PARSE_LOG
+            Console.WriteLine($"[DEBUG] MapNamesToIds: seq is null? {seq == null}, count: {seq?.Count ?? 0}");
+#endif
+            if (seq == null || seq.Count == 0)
+            {
+#if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DEBUG] MapNamesToIds: Returning empty GeneratedIdentifierSeq");
+#endif
+                return new GeneratedIdentifierSeq();
+            }
 
             var result = new GeneratedIdentifierSeq(seq.Count);
             foreach (var item in seq)
             {
+#if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DEBUG] MapNamesToIds: item type = {item?.GetType().Name}, is GeneratedName? {item is GeneratedName}");
+#endif
                 if (item is GeneratedName name)
                 {
+#if DEBUG_PARSE_LOG
+                    Console.WriteLine($"[DEBUG] MapNamesToIds: Adding identifier from GeneratedName '{name.Id.Value}'");
+#endif
                     result.Add(name.Id);
                 }
+                else if (item is GeneratedTokenInfo token)
+                {
+                    // CPython: ','.NAME+ returns a sequence of NAME tokens
+                    // We need to extract the identifier from each token
+#if DEBUG_PARSE_LOG
+                    Console.WriteLine($"[DEBUG] MapNamesToIds: Processing GeneratedTokenInfo, value='{token.Value}'");
+#endif
+                    result.Add(new GeneratedIdentifier(token.Value));
+                }
             }
+#if DEBUG_PARSE_LOG
+            Console.WriteLine($"[DEBUG] MapNamesToIds: Returning {result.Count} identifiers");
+#endif
             return result;
         }
 

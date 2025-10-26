@@ -85,6 +85,7 @@ namespace SharpPy
                         Console.WriteLine($"{i}:(lines: {t.Line}-{t.EndLine}/ cols: {t.Column}-{t.EndColumn})\t{t.Value}\t[{t.Type}]");
                     }
                     Console.WriteLine("[===== tokenize end ====]");
+                    return PyNone.Instance;
                 }
 
                 var statements = PyParserRuntime.ParseSource(tokens, sourceCode, fileName ?? "<string>");
@@ -110,6 +111,7 @@ namespace SharpPy
                     Console.WriteLine("  type_ignores=[])");
 
                     Console.WriteLine("[===== ast end ====]");
+                    return PyNone.Instance;
                 }
 
                 // 2단계: 컴파일 (AST → 바이트코드)
