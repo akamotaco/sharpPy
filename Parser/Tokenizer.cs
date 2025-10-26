@@ -264,6 +264,26 @@ namespace SharpPy.Generated
         private int _fstringBraceDepth = 0;
         private char _fstringQuoteChar = '\0';
         private int _fstringQuoteSize = 0;
+        private bool _fstringInFormatSpec = false;  // PEP 701: Track if we're inside format spec after ':'
+        private int _fstringExprStartDepth = 0;     // PEP 701: Track brace depth when expr started
+
+        // PEP 701: Nested f-string support
+        private struct FStringState
+        {
+            public bool InsideFString;
+            public int BraceDepth;
+            public char QuoteChar;
+            public int QuoteSize;
+
+            public FStringState(bool insideFString, int braceDepth, char quoteChar, int quoteSize)
+            {
+                InsideFString = insideFString;
+                BraceDepth = braceDepth;
+                QuoteChar = quoteChar;
+                QuoteSize = quoteSize;
+            }
+        }
+        private Stack<FStringState> _fstringStateStack = new Stack<FStringState>();
 
         // NEWLINE position tracking for \r\n sequences
         // When we encounter \r followed by \n, we save the column before Advance() processes \r
@@ -1038,6 +1058,17 @@ namespace SharpPy.Generated
             var startLine = _line;
             var startColumn = _column;
 
+            // PEP 701: Save current f-string state for nested f-strings
+            if (_insideFString)
+            {
+                _fstringStateStack.Push(new FStringState(
+                    _insideFString,
+                    _fstringBraceDepth,
+                    _fstringQuoteChar,
+                    _fstringQuoteSize
+                ));
+            }
+
             // Skip prefix (f, F, rf, fr, RF, FR)
             bool isRawFString = false;
             while (_position < _source.Length && char.IsLetter(CurrentChar))
@@ -1076,6 +1107,21 @@ namespace SharpPy.Generated
 
             // Process f-string content
             HandleFStringContent(isRawFString);
+
+            // PEP 701: Restore previous f-string state for nested f-strings
+            if (_fstringStateStack.Count > 0)
+            {
+                var state = _fstringStateStack.Pop();
+                _insideFString = state.InsideFString;
+                _fstringBraceDepth = state.BraceDepth;
+                _fstringQuoteChar = state.QuoteChar;
+                _fstringQuoteSize = state.QuoteSize;
+            }
+            else
+            {
+                // No outer f-string, reset state
+                _insideFString = false;
+            }
 
             // Reset _atLineStart flag that might have been set during f-string processing
             _atLineStart = false;
@@ -1203,6 +1249,25 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
+        /// PEP 701: Check if current quote character starts a nested f-string
+        /// Check if the last token was 'f', 'F', 'rf', 'fr', 'RF', or 'FR' NAME token
+        /// </summary>
+        private bool IsStartOfFString()
+        {
+            // Check if the last token is a NAME token with value indicating an f-string prefix
+            if (_tokens.Count == 0)
+                return false;
+
+            var lastToken = _tokens[_tokens.Count - 1];
+            if (lastToken.Type != PyToken.Type.NAME)
+                return false;
+
+            string value = lastToken.Value.ToLower();
+            // Check for 'f', 'rf', or 'fr' prefix
+            return value == "f" || value == "rf" || value == "fr";
+        }
+
+        /// <summary>
         /// Check if we're at the end of the f-string
         /// </summary>
         private bool IsAtFStringEnd()
@@ -1224,9 +1289,33 @@ namespace SharpPy.Generated
         /// </summary>
         private void HandleFStringExpression()
         {
+            // PEP 701: Save the starting brace depth for format spec detection
+            // When we enter this function, _fstringBraceDepth has already been incremented
+            int exprStartDepth = _fstringBraceDepth;
+
             while (_position < _source.Length)
             {
                 char c = CurrentChar;
+
+                // PEP 701: Check for ':' at the base expression level (format spec)
+                // CPython: c == ':' && cursor == current_tok->curly_bracket_expr_start_depth
+                if (c == ':' && _fstringBraceDepth == exprStartDepth)
+                {
+                    // Emit ':' as OP token
+                    AddToken(PyToken.Type.OP, ":", _line, _column);
+                    _currentLineHasRealTokens = true;
+                    Advance();
+
+                    // Enter format spec mode
+                    _fstringInFormatSpec = true;
+
+                    // Collect format spec content as FSTRING_MIDDLE
+                    HandleFStringFormatSpec(exprStartDepth);
+
+                    // Format spec handler should return when it encounters '{' or '}'
+                    // Continue with regular expression processing
+                    continue;
+                }
 
                 // Check for closing brace
                 if (c == '}' && _fstringBraceDepth > 0)
@@ -1287,6 +1376,10 @@ namespace SharpPy.Generated
                     {
                         throw new InvalidOperationException($"F-string expression: unterminated expression at line {_line}, column {_column}");
                     }
+
+                    // PEP 701: Nested f-strings are handled naturally
+                    // HandleName() detects 'f' prefix and calls HandleString()
+                    // which then calls HandleFString(), creating proper nesting
                     HandleString();
                 }
                 else if (HandleLiteral())
@@ -1302,6 +1395,105 @@ namespace SharpPy.Generated
             }
 
             throw new InvalidOperationException($"Unterminated f-string expression at line {_line}, column {_column}");
+        }
+
+        /// <summary>
+        /// PEP 701: Handle format spec content after ':' in f-string expression
+        /// Collects characters as FSTRING_MIDDLE until encountering '{' or '}'
+        /// </summary>
+        private void HandleFStringFormatSpec(int exprStartDepth)
+        {
+            int start = _position;
+            int startLine = _line;
+            int startColumn = _column;
+
+            // Collect all characters until we hit '{' or '}'
+            while (_position < _source.Length)
+            {
+                char c = CurrentChar;
+
+                // CPython: if (c == '{') { if (peek != '{' || in_format_spec) { ... break ... } }
+                if (c == '{')
+                {
+                    // Check for {{ escape
+                    if (_position + 1 < _source.Length && _source[_position + 1] == '{')
+                    {
+                        // {{ is treated as literal '{' in format spec
+                        // But we still emit FSTRING_MIDDLE and return to let regular processing handle it
+                        // For now, advance to include the first '{'
+                        Advance();
+                        continue;
+                    }
+
+                    // Single '{' starts a nested expression in format spec
+                    // Emit collected format spec content as FSTRING_MIDDLE
+                    if (_position > start)
+                    {
+                        var content = _source.Substring(start, _position - start);
+                        AddToken(PyToken.Type.FSTRING_MIDDLE, content, startLine, startColumn);
+                        _currentLineHasRealTokens = true;
+                    }
+
+                    // Reset format spec mode and return to let HandleFStringExpression handle the '{'
+                    _fstringInFormatSpec = false;
+                    return;
+                }
+
+                // CPython: if (c == '}') { ... if (peek == '}' && !in_format_spec && cursor == 0) { ... } else { ... break ... } }
+                if (c == '}')
+                {
+                    // Check for }} escape
+                    if (_position + 1 < _source.Length && _source[_position + 1] == '}')
+                    {
+                        // }} is treated as literal '}' in format spec
+                        Advance();
+                        continue;
+                    }
+
+                    // Single '}' at base expression depth ends the format spec
+                    if (_fstringBraceDepth == exprStartDepth)
+                    {
+                        // Emit collected format spec content as FSTRING_MIDDLE
+                        if (_position > start)
+                        {
+                            var content = _source.Substring(start, _position - start);
+                            AddToken(PyToken.Type.FSTRING_MIDDLE, content, startLine, startColumn);
+                            _currentLineHasRealTokens = true;
+                        }
+
+                        // Reset format spec mode and return to let HandleFStringExpression handle the '}'
+                        _fstringInFormatSpec = false;
+                        return;
+                    }
+                }
+
+                // Check for newline in single-quoted f-string
+                if (c == '\n' && _fstringQuoteSize == 1)
+                {
+                    // Emit what we have so far
+                    if (_position > start)
+                    {
+                        var content = _source.Substring(start, _position - start);
+                        AddToken(PyToken.Type.FSTRING_MIDDLE, content, startLine, startColumn);
+                        _currentLineHasRealTokens = true;
+                    }
+
+                    _fstringInFormatSpec = false;
+                    throw new InvalidOperationException($"F-string: unterminated string at line {_line}, column {_column}");
+                }
+
+                Advance();
+            }
+
+            // Emit any remaining content
+            if (_position > start)
+            {
+                var content = _source.Substring(start, _position - start);
+                AddToken(PyToken.Type.FSTRING_MIDDLE, content, startLine, startColumn);
+                _currentLineHasRealTokens = true;
+            }
+
+            _fstringInFormatSpec = false;
         }
     }
 }
