@@ -1054,11 +1054,14 @@ namespace SharpPy.Generated
 #endif
                             }
 
+                            // PEP 695: Convert type parameters if present
+                            var typeParams = ConvertTypeParams(funcDef.TypeParams);
+
                             // CPython 3.12: Create function with FunctionArguments and return annotation
 #if DEBUG_AST_LOG
                             Console.WriteLine($"[DEBUG] Creating FunctionDefStatement with FunctionArguments: {functionArgs}");
 #endif
-                            var functionDef = new FunctionDefStatement(name, functionArgs, bodyStmts, null, decoratorExpressions, returnAnnotation);
+                            var functionDef = new FunctionDefStatement(name, functionArgs, bodyStmts, typeParams, decoratorExpressions, returnAnnotation);
                             CopySourceLocation(funcDef, functionDef);
                             return functionDef;
                         }
@@ -1162,19 +1165,8 @@ namespace SharpPy.Generated
                             }
                         }
 
-                        // CPython 3.12: Extract type parameters
-                        List<string> typeParams = new List<string>();
-                        if (classDef.TypeParams != null)
-                        {
-                            foreach (var tp in classDef.TypeParams.AsEnumerable())
-                            {
-                                if (tp is GeneratedTypeVar tv && !string.IsNullOrEmpty(tv.Name))
-                                {
-                                    typeParams.Add(tv.Name);
-                                }
-                                // Add other type param types (ParamSpec, TypeVarTuple) as needed
-                            }
-                        }
+                        // PEP 695: Convert type parameters
+                        var typeParams = ConvertTypeParams(classDef.TypeParams);
 
 #if DEBUG_AST_LOG
                         Console.WriteLine($"[DEBUG] ConvertStatement: Creating ClassDefStatement with name='{className}', bases={baseClassExprs.Count}, body={classBodyStmts.Count}, metaclass={metaclassExpr != null}, typeParams={typeParams.Count}");
@@ -2852,6 +2844,40 @@ namespace SharpPy.Generated
                 names.Add("**" + funcArgs.KwArg.Name);
 
             return names;
+        }
+
+        /// <summary>
+        /// PEP 695: Convert GeneratedTypeParamSeq to List<TypeParam>
+        /// Converts Generated AST type parameters to SharpPy AST type parameters
+        /// </summary>
+        private static List<TypeParam> ConvertTypeParams(GeneratedTypeParamSeq? typeParamSeq)
+        {
+            var result = new List<TypeParam>();
+
+            if (typeParamSeq == null || typeParamSeq.Count == 0)
+                return result;
+
+            foreach (var genTypeParam in typeParamSeq)
+            {
+                TypeParam converted = genTypeParam switch
+                {
+                    GeneratedTypeVar typeVar => new TypeVarParam(
+                        typeVar.Name.Value,
+                        typeVar.Bound != null ? ConvertAnyExpression(typeVar.Bound) : null
+                    ),
+                    GeneratedParamSpec paramSpec => new ParamSpecParam(
+                        paramSpec.Name.Value
+                    ),
+                    GeneratedTypeVarTuple typeVarTuple => new TypeVarTupleParam(
+                        typeVarTuple.Name.Value
+                    ),
+                    _ => throw new NotImplementedException($"Unknown GeneratedTypeParam type: {genTypeParam.GetType().Name}")
+                };
+
+                result.Add(converted);
+            }
+
+            return result;
         }
 
         /// <summary>

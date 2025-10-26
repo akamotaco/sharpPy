@@ -1082,6 +1082,66 @@ namespace SharpPy
         public override string ToString() => $"yield from {Value}";
     }
 
+    // ===== PEP 695: Type Parameter Syntax (Python 3.12) =====
+    // Represents type parameters used in generic functions, classes, and type aliases
+    // TypeVar: def func[T](x: T) -> T
+    // ParamSpec: def func[**P](x: Callable[P, int]) -> Callable[P, str]
+    // TypeVarTuple: def func[*Ts](*args: *Ts) -> tuple[*Ts]
+
+    /// <summary>
+    /// Base class for PEP 695 type parameters
+    /// </summary>
+    public abstract class TypeParam
+    {
+        public string Name { get; }
+
+        protected TypeParam(string name)
+        {
+            Name = name ?? throw new ArgumentNullException(nameof(name));
+        }
+
+        public abstract string ToString();
+    }
+
+    /// <summary>
+    /// TypeVar: Standard generic type parameter
+    /// Example: def identity[T](x: T) -> T
+    /// Example with bound: def compare[T: Comparable](a: T, b: T) -> bool
+    /// </summary>
+    public class TypeVarParam : TypeParam
+    {
+        public Expression? Bound { get; }
+
+        public TypeVarParam(string name, Expression? bound = null) : base(name)
+        {
+            Bound = bound;
+        }
+
+        public override string ToString() => Bound != null ? $"{Name}: {Bound}" : Name;
+    }
+
+    /// <summary>
+    /// ParamSpec: Callable signature parameter specification
+    /// Example: def decorator[**P](func: Callable[P, int]) -> Callable[P, str]
+    /// </summary>
+    public class ParamSpecParam : TypeParam
+    {
+        public ParamSpecParam(string name) : base(name) { }
+
+        public override string ToString() => $"**{Name}";
+    }
+
+    /// <summary>
+    /// TypeVarTuple: Variable-length tuple of types
+    /// Example: def to_tuple[*Ts](*args: *Ts) -> tuple[*Ts]
+    /// </summary>
+    public class TypeVarTupleParam : TypeParam
+    {
+        public TypeVarTupleParam(string name) : base(name) { }
+
+        public override string ToString() => $"*{Name}";
+    }
+
     public class FunctionDefStatement : Statement
     {
         public override string NodeType => "FunctionDef";
@@ -1095,30 +1155,30 @@ namespace SharpPy
         public List<string> Parameters => Arguments.GetAllParameterNames();
 
         public List<Statement> Body { get; }
-        public List<string> TypeParams { get; } // Python 3.12
+        public List<TypeParam> TypeParams { get; } // PEP 695: Type parameters (Python 3.12)
         public List<DecoratorExpression> Decorators { get; } // Decorator support
         public Expression? ReturnTypeAnnotation { get; } // Python 3.12 Type Hints
 
         // New constructor using FunctionArguments (CPython 3.12 compatible)
-        public FunctionDefStatement(string name, FunctionArguments arguments, List<Statement> body, List<string>? typeParams = null, List<DecoratorExpression>? decorators = null, Expression? returnTypeAnnotation = null)
+        public FunctionDefStatement(string name, FunctionArguments arguments, List<Statement> body, List<TypeParam>? typeParams = null, List<DecoratorExpression>? decorators = null, Expression? returnTypeAnnotation = null)
         {
             Name = name;
             Arguments = arguments;
             Body = body;
-            TypeParams = typeParams ?? new List<string>();
+            TypeParams = typeParams ?? new List<TypeParam>();
             Decorators = decorators ?? new List<DecoratorExpression>();
             ReturnTypeAnnotation = returnTypeAnnotation;
         }
 
         // Legacy constructor for backwards compatibility
         [Obsolete("Use FunctionArguments constructor instead")]
-        public FunctionDefStatement(string name, List<string> parameters, List<Statement> body, List<string>? typeParams = null, List<DecoratorExpression>? decorators = null, Expression? returnTypeAnnotation = null)
+        public FunctionDefStatement(string name, List<string> parameters, List<Statement> body, List<TypeParam>? typeParams = null, List<DecoratorExpression>? decorators = null, Expression? returnTypeAnnotation = null)
         {
             Name = name;
             // Convert old-style parameters to FunctionArguments
             Arguments = ConvertLegacyParameters(parameters);
             Body = body;
-            TypeParams = typeParams ?? new List<string>();
+            TypeParams = typeParams ?? new List<TypeParam>();
             Decorators = decorators ?? new List<DecoratorExpression>();
             ReturnTypeAnnotation = returnTypeAnnotation;
         }
@@ -1588,15 +1648,15 @@ namespace SharpPy
         public string Name { get; }
         public List<Expression> Bases { get; }
         public List<Statement> Body { get; }
-        public List<string> TypeParams { get; } // Python 3.12
+        public List<TypeParam> TypeParams { get; } // PEP 695: Type parameters (Python 3.12)
         public Expression? Metaclass { get; } // metaclass= keyword
-        
-        public ClassDefStatement(string name, List<Expression> bases, List<Statement> body, List<string>? typeParams = null, Expression? metaclass = null)
+
+        public ClassDefStatement(string name, List<Expression> bases, List<Statement> body, List<TypeParam>? typeParams = null, Expression? metaclass = null)
         {
             Name = name;
             Bases = bases;
             Body = body;
-            TypeParams = typeParams ?? new List<string>();
+            TypeParams = typeParams ?? new List<TypeParam>();
             Metaclass = metaclass;
         }
         
@@ -1655,13 +1715,13 @@ namespace SharpPy
         public override string NodeType => "TypeAlias";
         public string Name { get; }
         public Expression Value { get; }
-        public List<string> TypeParams { get; } // Python 3.12
-        
-        public TypeAliasStatement(string name, Expression value, List<string>? typeParams = null)
+        public List<TypeParam> TypeParams { get; } // PEP 695: Type parameters (Python 3.12)
+
+        public TypeAliasStatement(string name, Expression value, List<TypeParam>? typeParams = null)
         {
             Name = name;
             Value = value;
-            TypeParams = typeParams ?? new List<string>();
+            TypeParams = typeParams ?? new List<TypeParam>();
         }
         
         public override PyObject Evaluate(PyScope scope)

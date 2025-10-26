@@ -507,8 +507,8 @@ namespace SharpPy
         /// </summary>
         public static PyObject ExecuteGenericFunction(FunctionDefStatement funcDef, PyScope scope)
         {
-            Console.WriteLine($"🔧 Executing generic function: {funcDef.Name}[{string.Join(", ", funcDef.TypeParams)}]");
-            
+            Console.WriteLine($"🔧 Executing generic function: {funcDef.Name}[{string.Join(", ", funcDef.TypeParams.Select(tp => tp.Name))}]");
+
             // 1. 제네릭 타입 정보 생성
             var typeInfo = new GenericTypeInfo(funcDef.TypeParams);
             
@@ -528,7 +528,7 @@ namespace SharpPy
                 // 타입 파라미터를 함수 스코프에 추가 (임시로 문자열로 저장)
                 foreach (var typeParam in funcDef.TypeParams)
                 {
-                    functionScope.SetVariable(typeParam, new PyString(typeParam));
+                    functionScope.SetVariable(typeParam.Name, new PyString(typeParam.Name));
                 }
                 
                 // 함수 실행
@@ -540,8 +540,8 @@ namespace SharpPy
             
             // 5. 함수를 스코프에 등록
             scope.SetVariable(funcDef.Name, genericFunc);
-            
-            Console.WriteLine($"✅ Generic function complete: {funcDef.Name}[{string.Join(", ", funcDef.TypeParams)}]");
+
+            Console.WriteLine($"✅ Generic function complete: {funcDef.Name}[{string.Join(", ", funcDef.TypeParams.Select(tp => tp.Name))}]");
             return genericFunc;
         }
         
@@ -586,8 +586,8 @@ namespace SharpPy
         /// </summary>
         public static PyObject ExecuteGenericClass(ClassDefStatement classDef, PyScope scope)
         {
-            Console.WriteLine($"🔧 Executing generic class: {classDef.Name}[{string.Join(", ", classDef.TypeParams)}]");
-            
+            Console.WriteLine($"🔧 Executing generic class: {classDef.Name}[{string.Join(", ", classDef.TypeParams.Select(tp => tp.Name))}]");
+
             // 1. 상속 클래스 평가
             var baseTypes = new List<PyType>();
             foreach (var baseExpr in classDef.Bases)
@@ -602,7 +602,7 @@ namespace SharpPy
                     throw PyTypeError.Create($"Base class must be a type, not {baseObj.GetTypeName()}");
                 }
             }
-            
+
             // 2. 메타클래스 처리
             PyType? metaclass = null;
             if (classDef.Metaclass != null)
@@ -613,7 +613,7 @@ namespace SharpPy
                     metaclass = metaType;
                 }
             }
-            
+
             // 3. 제네릭 타입 정보 생성
             var typeInfo = new GenericTypeInfo(classDef.TypeParams);
             
@@ -625,7 +625,7 @@ namespace SharpPy
             foreach (var typeParam in classDef.TypeParams)
             {
                 // 타입 파라미터를 문자열로 저장 (실제 타입은 인스턴스화 시 결정)
-                classScope.SetVariable(typeParam, new PyString(typeParam));
+                classScope.SetVariable(typeParam.Name, new PyString(typeParam.Name));
             }
             
             // 6. 클래스 본체 실행
@@ -679,18 +679,18 @@ namespace SharpPy
     {
         public string Name { get; }
         public Expression Target { get; }
-        public List<string> TypeParams { get; }
-        
-        public PyTypeAlias(string name, Expression target, List<string> typeParams)
+        public List<TypeParam> TypeParams { get; }
+
+        public PyTypeAlias(string name, Expression target, List<TypeParam> typeParams)
         {
             Name = name;
             Target = target;
             TypeParams = typeParams;
         }
-        
+
         public override string ToString()
         {
-            var typeParamStr = TypeParams.Any() ? $"[{string.Join(", ", TypeParams)}]" : "";
+            var typeParamStr = TypeParams.Any() ? $"[{string.Join(", ", TypeParams.Select(tp => tp.Name))}]" : "";
             return $"type {Name}{typeParamStr} = {Target}";
         }
     }
@@ -700,13 +700,13 @@ namespace SharpPy
     /// </summary>
     public class GenericTypeInfo
     {
-        public List<string> TypeParameters { get; }
-        
-        public GenericTypeInfo(List<string> typeParams)
+        public List<TypeParam> TypeParameters { get; }
+
+        public GenericTypeInfo(List<TypeParam> typeParams)
         {
             TypeParameters = typeParams;
         }
-        
+
         public bool IsGeneric => TypeParameters.Any();
     }
     

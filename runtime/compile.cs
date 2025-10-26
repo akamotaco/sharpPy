@@ -5103,7 +5103,7 @@ namespace SharpPy
         /// Compile Generic Parameters function for PEP 695 function
         /// Creates: <code object <generic parameters of identity>>
         /// </summary>
-        private PyCodeObject CompileGenericParametersFunction(List<string> typeParams, string functionName, FunctionDefStatement func)
+        private PyCodeObject CompileGenericParametersFunction(List<TypeParam> typeParams, string functionName, FunctionDefStatement func)
         {
             // Save current compilation state
             var savedInstructionSequence = _instructionSequence;
@@ -5129,15 +5129,15 @@ namespace SharpPy
                 // Create TYPEVAR for each type parameter
                 foreach (var typeParam in typeParams)
                 {
-                    EmitLoadConst(new PyString(typeParam));
+                    EmitLoadConst(new PyString(typeParam.Name));
                     EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, 7); // INTRINSIC_TYPEVAR
                     EmitInstruction(ByteCodeOp.COPY, 1);
-                    
+
                     // Add to varNames for STORE_FAST/LOAD_FAST
-                    if (!_varNames.Contains(typeParam))
-                        _varNames.Add(typeParam);
-                    
-                    int varIndex = _varNames.IndexOf(typeParam);
+                    if (!_varNames.Contains(typeParam.Name))
+                        _varNames.Add(typeParam.Name);
+
+                    int varIndex = _varNames.IndexOf(typeParam.Name);
                     EmitInstruction(ByteCodeOp.STORE_FAST, varIndex);
                 }
                 
@@ -5187,20 +5187,20 @@ namespace SharpPy
                 {
                     EmitLoadConst(new PyString(paramName)); // parameter name
                     annotationCount++;
-                    
+
                     // Add type annotation (simplified: use first type param for now)
-                    int typeVarIndex = _varNames.IndexOf(typeParams[0]);
+                    int typeVarIndex = _varNames.IndexOf(typeParams[0].Name);
                     EmitInstruction(ByteCodeOp.LOAD_FAST, typeVarIndex);
                     annotationCount++;
                 }
-                
+
                 // Add return type annotation if exists
                 if (func.Parameters.Count > 0) // Simple heuristic: if has params, likely has return type
                 {
                     EmitLoadConst(new PyString("return"));
                     annotationCount++;
-                    
-                    int typeVarIndex = _varNames.IndexOf(typeParams[0]);
+
+                    int typeVarIndex = _varNames.IndexOf(typeParams[0].Name);
                     EmitInstruction(ByteCodeOp.LOAD_FAST, typeVarIndex);
                     annotationCount++;
                 }
@@ -5563,7 +5563,7 @@ namespace SharpPy
         /// Compile simplified Generic Parameters function for PEP 695
         /// This creates a basic working version first
         /// </summary>
-        private PyCodeObject CompileSimplifiedGenericParametersFunction(List<string> typeParams, string className, List<Statement> classBody)
+        private PyCodeObject CompileSimplifiedGenericParametersFunction(List<TypeParam> typeParams, string className, List<Statement> classBody)
         {
             // Save current compilation state
             var savedInstructionSequence = _instructionSequence;
@@ -5592,7 +5592,7 @@ namespace SharpPy
                 _cellVars.Add(".type_params");  // Index 1 in MAKE_CELL
                 foreach (var typeParam in typeParams)
                 {
-                    _cellVars.Add(typeParam);    // Index 2+ in MAKE_CELL
+                    _cellVars.Add(typeParam.Name);    // Index 2+ in MAKE_CELL
                 }
                 
                 // Emit MAKE_CELL instructions
@@ -5608,10 +5608,10 @@ namespace SharpPy
                 // 3. Create type parameters and store in cells
                 foreach (var typeParam in typeParams)
                 {
-                    EmitLoadConst(new PyString(typeParam));
+                    EmitLoadConst(new PyString(typeParam.Name));
                     EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_TYPEVAR);
                     EmitInstruction(ByteCodeOp.COPY, 1);
-                    EmitStoreDeref(typeParam);
+                    EmitStoreDeref(typeParam.Name);
                 }
                 
                 // 4. Build type parameters tuple and store
@@ -5624,7 +5624,7 @@ namespace SharpPy
                 
                 // 6. Load closure for class body (type parameters) - CPython 3.12 uses LOAD_CLOSURE
                 EmitLoadClosure(".type_params");
-                EmitLoadClosure(typeParams[0]); // Load first type parameter (e.g., 'T')
+                EmitLoadClosure(typeParams[0].Name); // Load first type parameter (e.g., 'T')
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, 2);
                 
                 // 7. Compile class body with closure
@@ -6133,13 +6133,13 @@ namespace SharpPy
             // PEP 695: type X[T] = Y creates a TypeAliasType object
             // For type aliases with type parameters, we need to make the parameters available
             // This is a simplified implementation - type parameters are bound as variables
-            
+
             // Bind type parameters to the current scope
             foreach (var typeParam in typeAlias.TypeParams)
             {
-                // Create type parameter objects and bind them to variables  
-                EmitLoadConst(new PyString(typeParam)); // Type parameter name as placeholder
-                EmitStoreName(typeParam); // Bind to current scope
+                // Create type parameter objects and bind them to variables
+                EmitLoadConst(new PyString(typeParam.Name)); // Type parameter name as placeholder
+                EmitStoreName(typeParam.Name); // Bind to current scope
             }
             
             // Compile the type expression (right-hand side) with type parameters available
