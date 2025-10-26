@@ -159,13 +159,14 @@ namespace SharpPy
 
                 // 프레임 실행 (yield까지 또는 끝까지)
                 var result = _vm.ExecuteFrame(_frame);
-                
+
                 // 정상 완료된 경우 (return 또는 end of function)
+                // CPython: Generator의 return 값은 StopIteration.value로 전달됨
                 _finished = true;
                 #if DEBUG_GENERATOR_LOG
-                Console.WriteLine("🔄 Native Generator: Completed normally");
+                Console.WriteLine($"🔄 Native Generator: Completed normally, return value: {result}");
                 #endif
-                throw PyStopIteration.Create();
+                throw PyStopIteration.Create(result);
             }
             catch (PyYieldException yieldEx)
             {
