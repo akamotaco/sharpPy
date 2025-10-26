@@ -5690,10 +5690,9 @@ namespace SharpPy
         /// </summary>
         private PyObject CreateTypeVar(PyObject nameObj)
         {
-            var name = nameObj.ToStr();
-            // For now, create a simple placeholder object
-            // In full implementation, this would create a proper TypeVar
-            return new PyString($"TypeVar('{name}')");
+            var name = nameObj.ToStr().Value;
+            // CPython 3.12: Create proper TypeVar object for PEP 695
+            return new PyTypeVar(name);
         }
 
         /// <summary>
@@ -5701,8 +5700,9 @@ namespace SharpPy
         /// </summary>
         private PyObject CreateParamSpec(PyObject nameObj)
         {
-            var name = nameObj.ToStr();
-            return new PyString($"ParamSpec('{name}')");
+            var name = nameObj.ToStr().Value;
+            // CPython 3.12: Create proper ParamSpec object for PEP 612
+            return new PyParamSpec(name);
         }
 
         /// <summary>
@@ -5710,8 +5710,9 @@ namespace SharpPy
         /// </summary>
         private PyObject CreateTypeVarTuple(PyObject nameObj)
         {
-            var name = nameObj.ToStr();
-            return new PyString($"TypeVarTuple('{name}')");
+            var name = nameObj.ToStr().Value;
+            // CPython 3.12: Create proper TypeVarTuple object for PEP 646
+            return new PyTypeVarTuple(name);
         }
 
         /// <summary>
@@ -5757,9 +5758,10 @@ namespace SharpPy
             // arg1 = function object, arg2 = type parameters tuple
             if (function is PyFunction pyFunc && typeParams is PyTuple paramTuple)
             {
-                // Set the type parameters on the function
-                // For now, just return the function as-is (basic implementation)
-                // TODO: Enhanced type parameter handling if needed
+                // CPython 3.12: Set the __type_params__ attribute on the function
+                // This makes the TypeVar objects accessible via function.__type_params__
+                pyFunc.TypeParams = paramTuple.Items.ToList();
+                pyFunc.Attributes["__type_params__"] = paramTuple;
                 return pyFunc;
             }
 

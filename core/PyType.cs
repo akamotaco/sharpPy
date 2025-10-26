@@ -148,9 +148,11 @@ namespace SharpPy
         public static readonly PyType BytesWarningType = new PyType("BytesWarning", new[] { WarningType });
         public static readonly PyType ResourceWarningType = new PyType("ResourceWarning", new[] { WarningType });
 
-        // Typing system types (PEP 484, 585, 695)
+        // Typing system types (PEP 484, 585, 612, 646, 695)
         public static readonly PyType UnionType = new PyType("Union", new[] { ObjectType });
         public static readonly PyType TypeVarType = new PyType("TypeVar", new[] { ObjectType });
+        public static readonly PyType ParamSpecType = new PyType("ParamSpec", new[] { ObjectType }); // PEP 612
+        public static readonly PyType TypeVarTupleType = new PyType("TypeVarTuple", new[] { ObjectType }); // PEP 646
         public static readonly PyType OptionalType = new PyType("Optional", new[] { ObjectType });
         public static readonly PyType CallableType = new PyType("Callable", new[] { ObjectType });
         public static readonly PyType AnyType = new PyType("Any", new[] { ObjectType });
