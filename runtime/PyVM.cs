@@ -4239,18 +4239,24 @@ namespace SharpPy
                     int conversion = formatOption & 3; // Get bits 0-1
                     bool hasFormatSpec = (formatOption & 4) != 0; // Check bit 2
 
-                    var formatValue = frame.ValueStack.Pop();
+                    // CPython 3.12 stack order: [value, formatSpec] (TOS is formatSpec)
+                    // Pop in reverse order: formatSpec first, then value
+                    PyObject formatSpec = null;
+                    if (hasFormatSpec)
+                    {
+                        formatSpec = frame.ValueStack.Pop(); // Pop format spec (TOS)
+                    }
+                    var formatValue = frame.ValueStack.Pop(); // Pop value
 
                     if (hasFormatSpec)
                     {
-                        var formatSpec = frame.ValueStack.Pop();
-                        // Apply conversion first
+                        // Apply conversion first (if specified)
                         PyObject converted = conversion switch
                         {
                             1 => formatValue.ToStr(), // !s
                             2 => formatValue.ToRepr(), // !r
                             3 => formatValue.ToRepr(), // !a (simplified as repr)
-                            _ => formatValue.ToStr()
+                            _ => formatValue // No conversion, use original value
                         };
                         formattedString = ApplyFormatting(converted, formatSpec.ToStr().Value);
                     }
@@ -5356,26 +5362,68 @@ namespace SharpPy
                 }
                 else if (obj is PyInt intObj)
                 {
-                    if (formatSpec == "d")
+                    // Parse format spec: [[fill]align][sign][#][0][width][grouping_option][.precision][type]
+                    // Examples: "d", "03d", "10d", ">10d", "0>10d"
+
+                    string typeSpec = "d"; // default
+                    int width = 0;
+                    char fillChar = ' ';
+                    char? align = null;
+
+                    // Extract type (last character if it's a type specifier)
+                    if (formatSpec.Length > 0)
                     {
-                        return new PyString(intObj.Value.ToString());
+                        char lastChar = formatSpec[formatSpec.Length - 1];
+                        if (lastChar == 'd' || lastChar == 'x' || lastChar == 'X' || lastChar == 'o' || lastChar == 'b')
+                        {
+                            typeSpec = lastChar.ToString();
+                            formatSpec = formatSpec.Substring(0, formatSpec.Length - 1);
+                        }
                     }
-                    else if (formatSpec == "x")
+
+                    // Parse width and fill/align
+                    if (formatSpec.Length > 0)
                     {
-                        return new PyString(intObj.Value.ToString("x"));
+                        // Check for zero-padding (leading 0)
+                        if (formatSpec[0] == '0')
+                        {
+                            fillChar = '0';
+                            align = '>'; // right-align for zero-padding
+                            formatSpec = formatSpec.Substring(1);
+                        }
+
+                        // Parse width
+                        if (int.TryParse(formatSpec, out int parsedWidth))
+                        {
+                            width = parsedWidth;
+                        }
                     }
-                    else if (formatSpec == "X")
+
+                    // Format the value based on type
+                    string formatted = typeSpec switch
                     {
-                        return new PyString(intObj.Value.ToString("X"));
-                    }
-                    else if (formatSpec == "o")
+                        "d" => intObj.Value.ToString(),
+                        "x" => intObj.Value.ToString("x"),
+                        "X" => intObj.Value.ToString("X"),
+                        "o" => Convert.ToString(intObj.Value, 8),
+                        "b" => Convert.ToString(intObj.Value, 2),
+                        _ => intObj.Value.ToString()
+                    };
+
+                    // Apply width and padding
+                    if (width > 0 && formatted.Length < width)
                     {
-                        return new PyString(Convert.ToString(intObj.Value, 8));
+                        if (align == '>' || fillChar == '0')
+                        {
+                            formatted = formatted.PadLeft(width, fillChar);
+                        }
+                        else
+                        {
+                            formatted = formatted.PadRight(width, fillChar);
+                        }
                     }
-                    else if (formatSpec == "b")
-                    {
-                        return new PyString(Convert.ToString(intObj.Value, 2));
-                    }
+
+                    return new PyString(formatted);
                 }
 
                 // 문자열 정렬 지원 (예: >10, <10, ^10)

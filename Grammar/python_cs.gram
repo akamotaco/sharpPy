@@ -1394,7 +1394,7 @@ fstring_conversion[GeneratedResultTokenWithMetadata]:
 
 # CPython: fstring_full_format_spec[ResultTokenWithMetadata]: ...
 # C#: F-string format spec (:format)
-fstring_full_format_spec[GeneratedResultTokenWithMetadata]:
+fstring_full_format_spec[GeneratedExpr]:
     | colon=':' spec=fstring_format_spec* { SetupFullFormatSpec(colon, spec.Cast<GeneratedExprSeq>(), EXTRA) }
 
 # CPython: fstring_format_spec[expr_ty]: ...

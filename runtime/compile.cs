@@ -3317,11 +3317,20 @@ namespace SharpPy
                 CompileExpression(value);
             }
 
-            // Use BUILD_STRING to concatenate all parts
-            EmitInstruction(ByteCodeOp.BUILD_STRING, joinedStr.Values.Count);
-
+            // CPython 3.12: Only use BUILD_STRING if there are multiple parts
+            // Single part f-strings don't need BUILD_STRING (e.g., f"{f'{x:03d}'}" → FORMAT_VALUE 4, FORMAT_VALUE 0)
+            if (joinedStr.Values.Count > 1)
+            {
+                EmitInstruction(ByteCodeOp.BUILD_STRING, joinedStr.Values.Count);
 #if DEBUG_LOG
-            Console.WriteLine($"[DEBUG] Compiler: Emitted BUILD_STRING with {joinedStr.Values.Count} parts");
+                Console.WriteLine($"[DEBUG] Compiler: Emitted BUILD_STRING with {joinedStr.Values.Count} parts");
+#endif
+            }
+#if DEBUG_LOG
+            else
+            {
+                Console.WriteLine($"[DEBUG] Compiler: Skipped BUILD_STRING for single-value JoinedStr");
+            }
 #endif
         }
 

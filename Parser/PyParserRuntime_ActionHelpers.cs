@@ -512,29 +512,22 @@ namespace SharpPy.Generated
         /// <summary>
         /// CPython: ResultTokenWithMetadata *SetupFullFormatSpec(Parser *p, Token *colon, asdl_expr_seq *spec, ...)
         /// </summary>
-        public static GeneratedResultTokenWithMetadata SetupFullFormatSpec(
-            GeneratedTokenInfo colon,
-            GeneratedExprSeq spec,
-            int lineno, int col_offset, int end_lineno, int end_col_offset)
+        // Updated to return GeneratedExpr? to match new grammar return type
+        // Changed from GeneratedResultTokenWithMetadata to GeneratedExpr?
+        public static GeneratedExpr? SetupFullFormatSpec(
+            GeneratedTokenInfo? colon,
+            GeneratedExprSeq? spec,
+            int lineno, int col_offset, int? end_lineno, int? end_col_offset)
         {
-            GeneratedExpr result = null;
-            if (spec != null && spec.Count > 0)
+            if (colon == null) return null;
+            if (spec == null || spec.Count == 0)
             {
-                if (spec.Count == 1)
-                {
-                    result = spec[0];
-                }
-                else
-                {
-                    result = new GeneratedJoinedStr { Values = spec };
-                }
+                return PyAst.Constant(new GeneratedPyConstantString(""), null, lineno, col_offset, end_lineno, end_col_offset);
             }
 
-            return new GeneratedResultTokenWithMetadata
-            {
-                Token = colon,
-                Metadata = result
-            };
+            // CPython: format_spec is ALWAYS a JoinedStr, even for simple constants
+            // This matches CPython's AST structure
+            return PyAst.JoinedStr(spec, lineno, col_offset, end_lineno, end_col_offset);
         }
 
         /// <summary>

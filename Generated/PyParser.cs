@@ -9059,7 +9059,7 @@ namespace SharpPy.Generated
                 GeneratedPtr? a = null;
                 GeneratedTokenInfo? debug_expr = null;
                 GeneratedResultTokenWithMetadata? conversion = null;
-                GeneratedResultTokenWithMetadata? format = null;
+                GeneratedExpr? format = null;
                 GeneratedTokenInfo? rbrace = null;
 
                 if (
@@ -9067,7 +9067,7 @@ namespace SharpPy.Generated
                     (a = Parse_Tmp43()) != null &&
                     ((debug_expr = (GeneratedTokenInfo)ParseOptional(() => ExpectOp("="))) == null || true) &&
                     ((conversion = (GeneratedResultTokenWithMetadata)ParseOptional(() => Parse_FstringConversion())) == null || true) &&
-                    ((format = (GeneratedResultTokenWithMetadata)ParseOptional(() => Parse_FstringFullFormatSpec())) == null || true) &&
+                    ((format = (GeneratedExpr)ParseOptional(() => Parse_FstringFullFormatSpec())) == null || true) &&
                     (rbrace = ExpectOp("}")) != null
                 )
                 {
@@ -9131,9 +9131,9 @@ namespace SharpPy.Generated
         /// <summary>
         /// Rule: fstring_full_format_spec
         /// Alternatives: 1
-        /// Return Type: GeneratedResultTokenWithMetadata
+        /// Return Type: GeneratedExpr
         /// </summary>
-        private GeneratedResultTokenWithMetadata? Parse_FstringFullFormatSpec()
+        private GeneratedExpr? Parse_FstringFullFormatSpec()
         {
             int _mark = Mark();
 

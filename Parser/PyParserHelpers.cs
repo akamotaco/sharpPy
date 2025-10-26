@@ -1805,7 +1805,7 @@ namespace SharpPy.Generated
         public static GeneratedExpr FormattedValue(
             GeneratedExpr expr,
             GeneratedTokenInfo? debug_expr,
-            GeneratedTokenInfo? conversion,
+            GeneratedResultTokenWithMetadata? conversion,
             GeneratedExpr? format_spec,
             GeneratedTokenInfo rbrace,
             int lineno, int col_offset, int end_lineno, int end_col_offset)
@@ -1814,7 +1814,8 @@ namespace SharpPy.Generated
             int conv = -1;
             if (conversion != null)
             {
-                var convStr = conversion.GetStringValue();
+                var conversionToken = conversion.Token;
+                var convStr = conversionToken.GetStringValue();
                 if (convStr == "s") conv = (int)'s';
                 else if (convStr == "r") conv = (int)'r';
                 else if (convStr == "a") conv = (int)'a';
@@ -2701,16 +2702,8 @@ namespace SharpPy.Generated
             return conv;
         }
 
-        // CPython: SetupFullFormatSpec - Setup format spec for f-string
-        public static GeneratedExpr? SetupFullFormatSpec(GeneratedTokenInfo? colon, GeneratedExprSeq? spec)
-        {
-            if (colon == null) return null;
-            if (spec == null || spec.Count == 0)
-            {
-                return PyAst.Constant(new GeneratedPyConstantString(""), null, 0, 0, 0, 0);
-            }
-            return JoinedStr(spec);
-        }
+        // CPython: SetupFullFormatSpec - Moved to PyParserRuntime_ActionHelpers.cs
+        // (No duplicate needed here)
 
         // TODO: Add more helper methods as needed during grammar rewriting
     }
