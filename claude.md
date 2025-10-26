@@ -16,7 +16,6 @@
 - **SharpPy 바이트코드 비교**: `dotnet run --ast [filename]`
 - **SharpPy 로그 최소화**: `dotnet run -c release [filename]`
 - **utf-8 인코딩 설정** : `set PYTHONUTF8=1` 또는 `export PYTHONUTF8=1`
-- **최적화 비사용** : `--no-optimize`
 - **빌드 순서** : Tokenizer 빌드&실행 -> PEG Interpreter 빌드&실행 -> SharpPy 빌드&실행
 - **CPython 3.12 로컬 소스코드 위치** : `C:\Users\m11\Desktop\work\dup\cpython-3.12`
 
@@ -86,7 +85,10 @@ dotnet run -c Release test.py
 - **추측성 변경 절대 금지** : 반드시 CPython 패턴 확인. 임시 해결보다는 근본 원인 분석 및 해결이 중요.
 - **빌드의 성공 여부 확인** : dotent run 으로 빌드시 가장 첫 문장을 먼저 확인할 것. "Error: The build failed. Fix the build errors and run again."
 - **exception table** : python 3.12 부터는 loop stack 은 사용하지 않음. exception table은 사용됨
-- **최적화/비화적화 차이** : 최적화 비활성화시에는 byte offset, 최적화 활성화시에는 instruction offset을 사용
+- **Offset vs Index 정책** (자세한 내용: `docs/offset_vs_index_analysis.md`):
+  - **CPython 3.12**: 내부적으로 instruction word offset 사용 (포인터 연산), 표시는 byte offset
+  - **SharpPy**: instruction index 기반 (C# 배열 인덱싱), bytecode 출력시에만 byte offset (index × 2)
+  - **최적화 on/off는 offset/index 선택과 무관**
 
 ## 📚 **중요 참고 문서**
 - **FAQ**: `docs/faq.md` - 개발 중 자주 발생하는 질문과 정책
@@ -102,5 +104,51 @@ dotnet run -c Release test.py
   - 작업 우선순위, 검증 방법, 백업 전략
 
 **중요:** 새 세션 시작 시 반드시 위 문서들을 먼저 읽고 컨텍스트를 파악할 것
+
+---
+
+## 🏗️ **컴파일러 아키텍처 (CPython 3.12)**
+
+SharpPy는 CPython 3.12의 CFG 기반 컴파일 파이프라인을 구현합니다.
+
+### **컴파일 파이프라인**
+```
+AST → InstructionSequence → CFG → Optimize → ByteCode
+```
+
+1. **InstructionSequence** (`runtime/InstructionSequence.cs`)
+   - CPython의 `_PyCompile_InstructionSequence` 구현
+   - 라벨 기반 중간 표현
+   - `NewLabel()`: 라벨 생성
+   - `UseLabel()`: 라벨 위치 마킹
+   - `AddOp*()`: 명령어 추가
+   - `ToByteCodeInstructions()`: ByteCodeInstruction[] 변환
+
+2. **PyFlowGraph** (`runtime/flowgraph.cs`)
+   - CPython의 `Python/flowgraph.c` 구현
+   - InstructionSequence → CFG 변환
+   - Basic block 생성 및 연결
+
+3. **ControlFlowGraph** (`runtime/ControlFlowGraph.cs`)
+   - Basic block 단위 코드 구조
+   - Instruction-level exception handler 관리
+   - `BuildExceptionTable()`: Exception table 생성
+
+4. **PyAssemble** (`runtime/assemble.cs`)
+   - CPython의 `Python/assemble.c` 구현
+   - CFG → 최종 바이트코드 변환
+   - 라벨 → 오프셋 해결
+
+### **Exception Handling**
+- Instruction-level handler offset 관리
+- `ByteCodeInstruction.ExceptionHandlerOffset`
+- `BuildExceptionTable()`: CFG에서 exception table 재구축
+
+### **주요 파일**
+- `runtime/InstructionSequence.cs`: 라벨 기반 IR
+- `runtime/flowgraph.cs`: InstructionSequence → CFG
+- `runtime/assemble.cs`: CFG → ByteCode
+- `runtime/ControlFlowGraph.cs`: CFG 관리
+- `runtime/compile.cs`: AST → InstructionSequence
 
 ---
