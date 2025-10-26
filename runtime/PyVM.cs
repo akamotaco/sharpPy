@@ -202,6 +202,28 @@ namespace SharpPy
                 }
                 else if (keywordArgs != null && keywordArgs.ContainsKey(paramName))
                 {
+                    // CPython 3.12: Check if this is a positional-only parameter
+                    // Positional-only parameters cannot be passed as keyword arguments
+                    if (paramIndex < code.PosonlyArgCount)
+                    {
+                        // Collect all positional-only parameters passed as keywords
+                        var posonlyNames = new List<string>();
+                        for (int k = 0; k < code.PosonlyArgCount; k++)
+                        {
+                            var posonlyName = code.VarNames[k];
+                            if (keywordArgs.ContainsKey(posonlyName))
+                            {
+                                posonlyNames.Add(posonlyName);
+                            }
+                        }
+
+                        if (posonlyNames.Count > 0)
+                        {
+                            var errorNames = string.Join(", ", posonlyNames);
+                            throw PyTypeError.Create($"{code.Name}() got some positional-only arguments passed as keyword arguments: '{errorNames}'");
+                        }
+                    }
+
                     // Bind keyword argument to parameter
                     var keywordValue = keywordArgs[paramName];
                     FastLocals[paramName] = keywordValue;
