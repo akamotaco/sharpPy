@@ -2220,20 +2220,22 @@ namespace SharpPy
             Console.WriteLine($"   InstructionSequence has {_instructionSequence.Count} instructions");
 #endif
 
+            // Phase 0.5: Insert prefix instructions in InstructionSequence (CPython compile.c:7517-7587)
+            // CRITICAL: This must happen BEFORE CFG conversion so labels are automatically adjusted
+            // CPython inserts prefix instructions before converting to CFG, ensuring all labels point correctly
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"   🔧 Phase 0.5: Inserting prefix instructions in InstructionSequence (flags=0x{codeFlags:X})...");
+#endif
+            _instructionSequence.InsertPrefixInstructions(codeFlags, _cellVars ?? new List<string>(), _freeVars ?? new List<string>());
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"   InstructionSequence after prefix: {_instructionSequence.Count} instructions");
+#endif
+
             // Phase 1: InstructionSequence (labels) → CFG (basic blocks)
             var cfg = PyFlowGraph.Build(_instructionSequence);
 #if DEBUG_COMPILER_LOG
             Console.WriteLine($"   CFG has {cfg.AllBlocks.Count} basic blocks");
 #endif
-
-            // Phase 1.5: Insert prefix instructions (CPython compile.c:7654)
-            // CRITICAL: This must happen BEFORE PyAssemble calculates JUMP offsets
-            // CPython calls insert_prefix_instructions in prepare_localsplus, which is called
-            // in optimize_and_assemble_code_unit BEFORE _PyCfg_ResolveJumps
-#if DEBUG_COMPILER_LOG
-            Console.WriteLine($"   🔧 Phase 1.5: Inserting prefix instructions (flags=0x{codeFlags:X})...");
-#endif
-            cfg.InsertPrefixInstructions(codeFlags, _cellVars ?? new List<string>(), _freeVars ?? new List<string>());
 
             // Phase 2: Optimize CFG (CPython 3.12, 항상 활성화)
 #if DEBUG_COMPILER_LOG
@@ -3249,9 +3251,9 @@ namespace SharpPy
                     CompileExpression(yieldFromExpr.Value);
                     // ADDOP(c, loc, GET_YIELD_FROM_ITER);
                     EmitInstruction(ByteCodeOp.GET_YIELD_FROM_ITER);
-                    // ADDOP_LOAD_CONST(c, loc, Py_None);
-                    EmitLoadConst(PyNone.Instance);
-                    // ADD_YIELD_FROM(c, loc, 0);
+                    // CPython: ADDOP_LOAD_CONST + ADD_YIELD_FROM
+                    // IMPORTANT: LOAD_CONST None must be added INSIDE CompileYieldFrom
+                    // so that sendLabel points to SEND, not LOAD_CONST
                     CompileYieldFrom(isAwait: false);
                     break;
 
@@ -6439,21 +6441,16 @@ namespace SharpPy
             var failLabel = _instructionSequence!.NewLabel();
             var exitLabel = _instructionSequence!.NewLabel();
 
-            // CPython: LOAD_CONST None is emitted by CALLER before calling compiler_add_yield_from
-            // sendLabel points to SEND instruction, NOT to LOAD_CONST None
-            // JUMP_BACKWARD loops back to SEND (sent value comes from RESUME pushing to stack)
+            // CPython: ADDOP_LOAD_CONST(c, loc, Py_None);
+            // IMPORTANT: Must be BEFORE USE_LABEL so sendLabel points to SEND, not LOAD_CONST
+            EmitLoadConst(PyNone.Instance);
 
             // USE_LABEL(c, send);
-            #if DEBUG_COMPILER_LOG
-            Console.WriteLine($"[CompileYieldFrom] UseLabel(sendLabel={sendLabel}) at instruction count {_instructionSequence.Count}");
-            #endif
+            // sendLabel points to SEND instruction (JUMP_BACKWARD loops back to SEND)
             _instructionSequence.UseLabel(sendLabel);
 
             // ADDOP_JUMP(c, loc, SEND, exit);
             _instructionSequence.AddOpWithLabel(ByteCodeOp.SEND, exitLabel, _currentLineNumber);
-            #if DEBUG_COMPILER_LOG
-            Console.WriteLine($"[CompileYieldFrom] Added SEND at instruction count {_instructionSequence.Count}");
-            #endif
 
             // Set up a virtual try/except to handle when StopIteration is raised during
             // a close or throw call. The only way YIELD_VALUE raises if they do!

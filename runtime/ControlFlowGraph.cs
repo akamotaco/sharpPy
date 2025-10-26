@@ -28,11 +28,22 @@ namespace SharpPy
         }
 
         /// <summary>
-        /// CPython 3.12: compile.c:7517-7587 insert_prefix_instructions
-        /// Insert prefix instructions into entry block BEFORE jump offset calculation
-        /// This must be called AFTER CFG construction but BEFORE PyAssemble
-        /// CRITICAL: Must adjust all JUMP targets that point to EntryBlock
+        /// DEPRECATED: This method is no longer used (as of 2025-10-26)
+        /// Prefix instructions are now inserted in InstructionSequence BEFORE CFG conversion
+        /// This ensures labels are automatically adjusted, avoiding the JUMP_BACKWARD bug
+        /// See: InstructionSequence.InsertPrefixInstructions()
+        ///
+        /// OLD APPROACH (buggy):
+        /// 1. InstructionSequence with labels
+        /// 2. Convert to CFG (labels → instruction indexes)
+        /// 3. Insert prefix instructions (shifts everything, breaks jumps!)
+        ///
+        /// NEW APPROACH (correct):
+        /// 1. InstructionSequence with labels
+        /// 2. Insert prefix instructions (InsertAt automatically adjusts labels)
+        /// 3. Convert to CFG (labels already point correctly)
         /// </summary>
+        [Obsolete("Use InstructionSequence.InsertPrefixInstructions() instead")]
         public void InsertPrefixInstructions(
             int codeFlags,
             List<string> cellVars,
@@ -63,7 +74,6 @@ namespace SharpPy
 
             // Save original instructions and adjust JUMP targets in EntryBlock
             var originalInstructions = new List<ByteCodeInstruction>(EntryBlock.Instructions);
-            Console.WriteLine($"[CRITICAL] InsertPrefixInstructions: originalInstructions.Count = {originalInstructions.Count}, totalPrefixInstructions = {totalPrefixInstructions}");
             EntryBlock.Instructions.Clear();
 
             // Calculate entryBlockStartIndex (for adjusting jumps from other blocks)
@@ -186,9 +196,9 @@ namespace SharpPy
                     {
                         int targetIndex = instr.Argument;
 
-                        // If this JUMP targets an instruction in EntryBlock, adjust it
-                        if (targetIndex >= entryBlockStartIndex &&
-                            targetIndex < entryBlockStartIndex + entryBlockOriginalCount)
+                        // If this JUMP targets an instruction in EntryBlock or later, adjust it
+                        // Because InsertPrefixInstructions shifts ALL instructions in EntryBlock and beyond
+                        if (targetIndex >= entryBlockStartIndex)
                         {
                             // This JUMP targets EntryBlock, adjust by prefix count
                             int newTargetIndex = targetIndex + prefixCount;

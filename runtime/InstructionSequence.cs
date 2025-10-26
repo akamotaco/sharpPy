@@ -338,6 +338,85 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// CPython 3.12: compile.c:7517-7587 insert_prefix_instructions
+        /// Insert prefix instructions at the start of InstructionSequence
+        /// CRITICAL: This must be called BEFORE CFG conversion so labels are automatically adjusted
+        /// </summary>
+        public void InsertPrefixInstructions(
+            int codeFlags,
+            List<string> cellVars,
+            List<string> freeVars)
+        {
+            bool isGenerator = (codeFlags & PyCodeObject.CO_GENERATOR) != 0;
+            bool isCoroutine = (codeFlags & PyCodeObject.CO_COROUTINE) != 0;
+            bool isAsyncGenerator = (codeFlags & PyCodeObject.CO_ASYNC_GENERATOR) != 0;
+
+            int insertPosition = 0;
+
+            // CPython compile.c:7576-7584: Insert COPY_FREE_VARS at position 0
+            if (freeVars.Count > 0)
+            {
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔷 [InstrSeq] Inserting COPY_FREE_VARS for {freeVars.Count} free variables at position {insertPosition}");
+#endif
+                InsertAt(insertPosition++, new Instruction(
+                    ByteCodeOp.COPY_FREE_VARS,
+                    freeVars.Count,
+                    0, // lineNumber
+                    -1, // columnOffset
+                    null, // fileName
+                    ExceptHandlerInfo.NoHandler
+                ));
+            }
+
+            // CPython compile.c:7543-7574: Insert MAKE_CELL for each cellvar
+            for (int cellIndex = 0; cellIndex < cellVars.Count; cellIndex++)
+            {
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔷 [InstrSeq] Inserting MAKE_CELL for {cellVars[cellIndex]} (index {cellIndex}) at position {insertPosition}");
+#endif
+                InsertAt(insertPosition++, new Instruction(
+                    ByteCodeOp.MAKE_CELL,
+                    cellIndex,
+                    0, // lineNumber
+                    -1, // columnOffset
+                    null, // fileName
+                    ExceptHandlerInfo.NoHandler
+                ));
+            }
+
+            // CPython compile.c:7523-7538: Insert RETURN_GENERATOR + POP_TOP for generators
+            if (isGenerator || isCoroutine || isAsyncGenerator)
+            {
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔷 [InstrSeq] Inserting RETURN_GENERATOR at position {insertPosition}");
+#endif
+                InsertAt(insertPosition++, new Instruction(
+                    ByteCodeOp.RETURN_GENERATOR,
+                    0, // lineNumber
+                    -1, // columnOffset
+                    null, // fileName
+                    ExceptHandlerInfo.NoHandler
+                ));
+
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔷 [InstrSeq] Inserting POP_TOP at position {insertPosition}");
+#endif
+                InsertAt(insertPosition++, new Instruction(
+                    ByteCodeOp.POP_TOP,
+                    0, // lineNumber
+                    -1, // columnOffset
+                    null, // fileName
+                    ExceptHandlerInfo.NoHandler
+                ));
+            }
+
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"🔷 [InstrSeq] Prefix instructions inserted. Total: {insertPosition}. New instruction count: {_instructions.Count}");
+#endif
+        }
+
+        /// <summary>
         /// Debug: Print all instructions with labels
         /// </summary>
         public void DebugPrint()
