@@ -71,6 +71,11 @@ namespace SharpPy
         private readonly List<SymbolTable> _children;
         private SymbolTable? _parent;
 
+        // CPython 3.12: symtable.h - ste_generator, ste_coroutine flags
+        // Set during symbol table analysis when yield/yield from/await are encountered
+        public bool IsGenerator { get; set; }
+        public bool IsCoroutine { get; set; }
+
         public SymbolTable(string name, SymbolTableType type, SymbolTable? parent = null)
         {
             _name = name;
@@ -78,6 +83,8 @@ namespace SharpPy
             _parent = parent;
             _symbols = new Dictionary<string, Symbol>();
             _children = new List<SymbolTable>();
+            IsGenerator = false;
+            IsCoroutine = false;
         }
 
         public string GetName() => _name;
@@ -1174,6 +1181,33 @@ namespace SharpPy
                     }
                     // Now analyze the element expression after iteration variables are defined
                     AnalyzeExpression(setComp.Element);
+                    break;
+
+                case YieldExpression yieldExpr:
+                    // CPython 3.12: symtable.c:2108-2114 - Set ste_generator flag
+                    if (_currentTable != null)
+                    {
+                        _currentTable.IsGenerator = true;
+#if DEBUG_LOG
+                        Console.WriteLine($"      AnalyzeExpression: YieldExpression - marked scope '{_currentTable.GetName()}' as generator");
+#endif
+                    }
+                    if (yieldExpr.Value != null)
+                    {
+                        AnalyzeExpression(yieldExpr.Value);
+                    }
+                    break;
+
+                case YieldFromExpression yieldFromExpr:
+                    // CPython 3.12: symtable.c:2115-2122 - Set ste_generator flag
+                    if (_currentTable != null)
+                    {
+                        _currentTable.IsGenerator = true;
+#if DEBUG_LOG
+                        Console.WriteLine($"      AnalyzeExpression: YieldFromExpression - marked scope '{_currentTable.GetName()}' as generator");
+#endif
+                    }
+                    AnalyzeExpression(yieldFromExpr.Value);
                     break;
 
                 // Skip constants and other literal expressions

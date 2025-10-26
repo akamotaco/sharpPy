@@ -2807,6 +2807,42 @@ namespace SharpPy
                     frame.InstructionPointer = jumpTarget - 1;
                     return null;
 
+                case ByteCodeOp.JUMP_NO_INTERRUPT:
+                    // CPython 3.12: JUMP_NO_INTERRUPT is like JUMP but without interrupt check
+                    // In SharpPy, we don't have interrupt checks, so it's identical to JUMP
+                    int jumpNoIntTarget = instruction.Argument;
+
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔄 JUMP_NO_INTERRUPT: from instr {frame.InstructionPointer} to instr {jumpNoIntTarget}");
+                    #endif
+
+                    // Subtract 1 because main loop will increment
+                    frame.InstructionPointer = jumpNoIntTarget - 1;
+                    return null;
+
+                case ByteCodeOp.JUMP_BACKWARD_NO_INTERRUPT:
+                    // CPython 3.12: JUMP_BACKWARD_NO_INTERRUPT for yield from loops
+                    // CPython: JUMPBY(-oparg) where next_instr is already incremented (pre-fetch)
+                    //   - delta = (index after jump) - target
+                    //   - VM: next_instr += (-delta) = next_instr - delta
+                    //   - Since next_instr already incremented: target = (IP+1) - delta
+                    //
+                    // SharpPy: IP points to current instruction, incremented at loop end
+                    //   - Same formula: target = (IP+1) - delta
+                    //   - But main loop will ++, so set IP = target - 1
+                    int jumpBackNoIntDelta = instruction.Argument;
+                    int jumpBackNoIntTarget = (frame.InstructionPointer + 1) - jumpBackNoIntDelta;
+
+                    #if DEBUG_VM_LOG
+                    Console.WriteLine($"🔄 JUMP_BACKWARD_NO_INTERRUPT: IP={frame.InstructionPointer}, delta={jumpBackNoIntDelta}, target={jumpBackNoIntTarget}");
+                    Console.WriteLine($"   Calculation: ({frame.InstructionPointer}+1) - {jumpBackNoIntDelta} = {jumpBackNoIntTarget}");
+                    Console.WriteLine($"   Setting IP to {jumpBackNoIntTarget - 1} (main loop will ++)");
+                    #endif
+
+                    // Subtract 1 because main loop will increment
+                    frame.InstructionPointer = jumpBackNoIntTarget - 1;
+                    return null;
+
                 case ByteCodeOp.JUMP_BACKWARD:
                     // CPython 3.12 호환: QuickenedCodeObject 방식으로 JUMP_BACKWARD 계산
                     int currentInstrPos = frame.InstructionPointer;
@@ -3160,6 +3196,32 @@ namespace SharpPy
                     #endif
                     break;
 
+                case ByteCodeOp.GET_YIELD_FROM_ITER:
+                    // CPython 3.12: GET_YIELD_FROM_ITER
+                    // Converts iterable to iterator for yield from
+                    #if DEBUG_VM_LOG
+                    Console.WriteLine($"🔍 GET_YIELD_FROM_ITER: Stack.Count = {frame.ValueStack.Count}");
+                    #endif
+                    var yieldFromIterable = frame.ValueStack.Pop();
+                    PyObject yieldFromIter;
+
+                    // Check if it's a generator or coroutine - use as-is
+                    if (yieldFromIterable is PyGenerator)
+                    {
+                        yieldFromIter = yieldFromIterable;
+                    }
+                    else
+                    {
+                        // Regular iterable - get iterator
+                        yieldFromIter = yieldFromIterable.GetIterator();
+                    }
+
+                    frame.ValueStack.Push(yieldFromIter);
+                    #if DEBUG_VM_LOG
+                    Console.WriteLine($"    ✅ GET_YIELD_FROM_ITER: Prepared iterator {yieldFromIter.GetType().Name}");
+                    #endif
+                    break;
+
                 case ByteCodeOp.FOR_ITER:
                     // CPython 3.12 compatible FOR_ITER implementation
                     #if DEBUG_VM_LOG
@@ -3465,6 +3527,16 @@ namespace SharpPy
                     #if DEBUG_LOG
                     Console.WriteLine($"🔍 POP_EXCEPT completed, stack size: {frame.ValueStack.Count}");
                     #endif
+                    break;
+
+                case ByteCodeOp.CLEANUP_THROW:
+                    // CPython 3.12: CLEANUP_THROW is used in yield from exception handling
+                    // This opcode is part of the exception handling for generators
+                    #if DEBUG_VM_LOG
+                    Console.WriteLine($"🔍 CLEANUP_THROW: Cleaning up after throw in generator");
+                    #endif
+                    // For now, just clear any exception state
+                    // The actual throw handling will be in the SEND opcode
                     break;
 
                 case ByteCodeOp.BEFORE_WITH:
@@ -5002,6 +5074,108 @@ namespace SharpPy
                     Console.WriteLine($"🔄 Generator: Yielding {yieldValue}, stack size: {frame.ValueStack.Count}");
                     #endif
                     throw new PyYieldException(yieldValue);
+
+                case ByteCodeOp.SEND:
+                    // CPython 3.12: SEND opcode for yield from
+                    // Stack: TOS = value to send, TOS1 = receiver (iterator/generator)
+                    // bytecodes.c:825-872
+                    #if DEBUG_VM_LOG
+                    Console.WriteLine($"🔍 SEND: IP={frame.InstructionPointer}, Stack.Count = {frame.ValueStack.Count}, Arg={instruction.Argument}");
+                    #endif
+                    var sendValue = frame.ValueStack.Pop();
+                    var receiver = frame.ValueStack.Peek(); // Keep receiver on stack
+
+                    try
+                    {
+                        PyObject sendResult;
+
+                        // CPython pattern: if (Py_IsNone(v) && PyIter_Check(receiver))
+                        // If value is None and receiver is iterator, call next
+                        if (sendValue is PyNone && receiver is PyIterator receiverIter)
+                        {
+                            sendResult = receiverIter.Next();
+                        }
+                        // If receiver is a generator, send value to it
+                        else if (receiver is PyGenerator gen)
+                        {
+                            sendResult = gen.Send(sendValue);
+                        }
+                        else
+                        {
+                            // Try to call .send() method using GetAttribute
+                            // CPython: retval = PyObject_CallMethodOneArg(receiver, &_Py_ID(send), v);
+                            try
+                            {
+                                var sendMethod = receiver.GetAttribute("send");
+                                sendResult = sendMethod.Call(new PyObject[] { sendValue }, null);
+                            }
+                            catch (PythonException pyEx) when (pyEx.PyException is PyAttributeError)
+                            {
+                                // Fallback to iterator protocol
+                                if (receiver is PyIterator receiverIterFallback)
+                                {
+                                    sendResult = receiverIterFallback.Next();
+                                }
+                                else
+                                {
+                                    throw PyTypeError.Create($"SEND: receiver {receiver.GetType().Name} is not a generator or iterator");
+                                }
+                            }
+                        }
+
+                        // CPython: Push result to stack (receiver stays on stack)
+                        frame.ValueStack.Push(sendResult);
+                        #if DEBUG_VM_LOG
+                        Console.WriteLine($"    ✅ SEND: Got result {sendResult}, continuing to next instruction");
+                        #endif
+                    }
+                    catch (PythonException pyEx) when (pyEx.PyException is PyStopIteration stopIter)
+                    {
+                        // CPython: if (_PyGen_FetchStopIterationValue(&retval) == 0) { JUMPBY(oparg); }
+                        // StopIteration raised - extract value and jump
+                        //
+                        // CRITICAL INSIGHT: CPython's JUMPBY uses instruction OFFSET, not INDEX
+                        // In CPython 3.12, SEND's oparg is the DELTA (number of instruction words to skip)
+                        // The formula is: next_instr += oparg (where next_instr was already incremented)
+                        //
+                        // In SharpPy:
+                        // - We use instruction INDEX (not byte offset)
+                        // - The main loop does IP++ AFTER executing each instruction
+                        // - So at this point, IP still points to SEND instruction
+                        // - We want to jump to END_SEND, which is (current + oparg + 1) instructions away
+                        // - But since main loop will do IP++, we add oparg only
+                        #if DEBUG_VM_LOG
+                        Console.WriteLine($"    🛑 SEND: StopIteration raised, value={stopIter.Value}");
+                        Console.WriteLine($"    🛑 SEND: Jumping from IP={frame.InstructionPointer} by {instruction.Argument} instructions");
+                        #endif
+
+                        // Push StopIteration value to stack (receiver stays on stack for END_SEND)
+                        frame.ValueStack.Push(stopIter.Value ?? PyNone.Instance);
+
+                        // Jump forward: IP += oparg
+                        // Main loop will then do IP++, arriving at END_SEND
+                        frame.InstructionPointer += instruction.Argument;
+
+                        #if DEBUG_VM_LOG
+                        Console.WriteLine($"    🛑 SEND: After jump, IP={frame.InstructionPointer} (will become {frame.InstructionPointer + 1} after main loop increment)");
+                        #endif
+                    }
+                    break;
+
+                case ByteCodeOp.END_SEND:
+                    // CPython 3.12: END_SEND opcode
+                    // Stack: TOS = value, TOS1 = receiver
+                    // Result: TOS = value (receiver is discarded)
+                    #if DEBUG_VM_LOG
+                    Console.WriteLine($"🔍 END_SEND: Stack.Count = {frame.ValueStack.Count}");
+                    #endif
+                    var endSendValue = frame.ValueStack.Pop();
+                    var endSendReceiver = frame.ValueStack.Pop();
+                    frame.ValueStack.Push(endSendValue);
+                    #if DEBUG_VM_LOG
+                    Console.WriteLine($"    ✅ END_SEND: Kept value {endSendValue}, discarded receiver");
+                    #endif
+                    break;
 
                 // CPython 3.12: YIELD_FROM removed
 

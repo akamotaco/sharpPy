@@ -393,6 +393,10 @@ namespace SharpPy
     // 확장된 PyCodeObject (기존 시스템과 연동)
     public class PyCodeObject : PyObject
     {
+        // CPython 3.12: Each instruction word is 2 bytes
+        // SharpPy uses instruction word index internally, converts to byte offset for display
+        public const int INSTRUCTION_WORD_SIZE = 2;
+
         // CPython 호환 플래그 시스템
         public const int CO_VARARGS = 0x04;        // *args 매개변수 존재
         public const int CO_VARKEYWORDS = 0x08;    // **kwargs 매개변수 존재
@@ -536,7 +540,8 @@ namespace SharpPy
                         break;
                 }
 
-                Console.WriteLine($"  {i*2,3}: {inst,-25} {extra}");
+                // Convert instruction index to byte offset for display (CPython 3.12 compatible)
+                Console.WriteLine($"  {i * INSTRUCTION_WORD_SIZE,3}: {inst,-25} {extra}");
             }
 
             // Display Exception Table if present (CPython 3.12 compatible format)
@@ -833,7 +838,7 @@ namespace SharpPy
                     // Match VM's InstructionPointer calculation for consistency
                     var currentPosJump = instructionIndex;
                     var targetInstructionIndex = currentPosJump + 1 + inst.Argument;
-                    var targetByteOffset = targetInstructionIndex * 2; // Each instruction is 2 bytes
+                    var targetByteOffset = targetInstructionIndex * PyCodeObject.INSTRUCTION_WORD_SIZE;
                     return $"(to {targetByteOffset})";
             }
             return "";

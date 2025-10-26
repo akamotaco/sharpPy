@@ -319,11 +319,15 @@ namespace SharpPy
             // CPython 3.12 호환: JUMPBY(-oparg) → next_instr -= oparg
             // Optimize ON/OFF 모두 동일한 instruction 단위 계산 사용
             // CPython 소스: Python/bytecodes.c:2161 JUMPBY(-oparg)
-            int targetIndex = currentInstrPos - opArg;
+            //
+            // 🎯 핵심: CPython의 next_instr은 이미 증가된 상태
+            // - next_instr = current_instr + 1
+            // - target = next_instr - oparg = (current_instr + 1) - oparg
+            int targetIndex = (currentInstrPos + 1) - opArg;
 
 #if DEBUG_LOG
             Console.WriteLine($"🔍 JUMP_BACKWARD 타겟 계산 (CPython 3.12 호환): currentInstr={currentInstrPos}, opArg={opArg}");
-            Console.WriteLine($"    targetIndex={targetIndex}");
+            Console.WriteLine($"    next_instr={currentInstrPos + 1}, targetIndex={targetIndex}");
 #endif
             return targetIndex;
         }

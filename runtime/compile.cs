@@ -944,7 +944,8 @@ namespace SharpPy
 
             // CPython 3.12: Get final instructions (CFG pipeline: InstructionSequence → CFG → Optimize → Assemble)
             // Exception table is built automatically in PyAssemble.Assemble()
-            var finalInstructions = GetFinalInstructions();
+            // Module-level code has no generator flags
+            var finalInstructions = GetFinalInstructions(0);
 
             var codeObject = new PyCodeObject(name, finalInstructions, _constants, _names, _varNames, parameters.Count, 0, 0, null, null, null, null, 0, _currentFileName, _sourceLines, false, _lineNumberTable);
 
@@ -1061,7 +1062,8 @@ namespace SharpPy
             var noneConstIndex = GetOrAddConstant(PyNone.Instance);
             EmitInstruction(ByteCodeOp.RETURN_CONST, noneConstIndex);
 
-            var finalInstructions = GetFinalInstructions();
+            // Comprehensions don't have generator flags
+            var finalInstructions = GetFinalInstructions(0);
             var codeObject = new PyCodeObject(name, finalInstructions, _constants, _names, _varNames,
                                             parameters.Count, 0, 0, freeVars, cellVars, null, null, 0, _currentFileName, _sourceLines);
             
@@ -1630,7 +1632,7 @@ namespace SharpPy
             // CPython 3.12: Generator detection now handled in CompileFunction with CFG pipeline
             // This legacy path is deprecated
 
-            var finalInstructions = GetFinalInstructions();
+            var finalInstructions = GetFinalInstructions(flags);
             var codeObject = new PyCodeObject(name, finalInstructions, _constants, _names, _varNames,
                                             finalArgCount, posonlyArgCount, kwonlyArgCount, freeVars, cellVars, defaults, kwDefaults, flags, _currentFileName, _sourceLines);
 
@@ -1769,66 +1771,27 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.RETURN_CONST, noneConstIndex);
             }
 
-            // CPython 3.12: Get final instructions (supports both CFG and LEGACY paths)
-            // CRITICAL: Must call GetFinalInstructions() BEFORE checking for generators or inserting prefix instructions
-            var finalInstructions = GetFinalInstructions();
+            // CPython 3.12: wrap_in_stopiteration_handler for generators/coroutines
+            // compile.c:2244-2261 - add_stopiteration_handler = c->u->u_ste->ste_coroutine || c->u->u_ste->ste_generator
+            // IMPORTANT: flags must have CO_GENERATOR/CO_COROUTINE set from SymbolTable (see CompileNestedFunction)
+            bool addStopIterationHandler = (flags & (PyCodeObject.CO_GENERATOR | PyCodeObject.CO_COROUTINE | PyCodeObject.CO_ASYNC_GENERATOR)) != 0;
 
-            // CPython 3.12: Generator detection - add CO_GENERATOR flag if YIELD_VALUE exists
-            bool hasYield = finalInstructions.Any(inst => inst.OpCode == ByteCodeOp.YIELD_VALUE);
-            if (hasYield && (flags & PyCodeObject.CO_GENERATOR) == 0)
+            if (addStopIterationHandler && _instructionSequence != null)
             {
 #if DEBUG_COMPILER_LOG
-                Console.WriteLine($"🔍 Generator detected in {name}: Adding CO_GENERATOR flag");
+                Console.WriteLine($"  → Wrapping generator/coroutine in StopIteration handler (flags=0x{flags:X})");
 #endif
-                flags |= PyCodeObject.CO_GENERATOR;
+                WrapInStopIterationHandler();
             }
 
-            // CPython 3.12: Insert prefix instructions BEFORE creating code object
-            // This follows CPython compile.c line 7517-7586 (insert_prefix_instructions)
-            // CPython inserts at specific positions, not just position 0
+            // CPython 3.12: Get final instructions with prefix insertion in CFG phase
+            // CPython compile.c:7710 prepare_localsplus calls insert_prefix_instructions
+            // BEFORE compile.c:7724 _PyCfg_ResolveJumps calculates JUMP offsets
+            var finalInstructions = GetFinalInstructions(flags);
 
-            bool isGenerator = (flags & PyCodeObject.CO_GENERATOR) != 0;
-            bool isCoroutine = (flags & PyCodeObject.CO_COROUTINE) != 0;
-            bool isAsyncGenerator = (flags & PyCodeObject.CO_ASYNC_GENERATOR) != 0;
-
-            int insertPos = 0;
-
-            // Step 1: Insert COPY_FREE_VARS at position 0 (CPython line 7577-7585)
-            if (freeVars.Count > 0)
-            {
-#if DEBUG_COMPILER_LOG
-                Console.WriteLine($"  → Inserting COPY_FREE_VARS for {freeVars.Count} free variables at position {insertPos}");
-#endif
-                finalInstructions.Insert(insertPos, new ByteCodeInstruction(ByteCodeOp.COPY_FREE_VARS, freeVars.Count));
-                insertPos++; // Next insertion will be after COPY_FREE_VARS
-            }
-
-            // Step 2: Insert MAKE_CELL instructions starting from insertPos (CPython line 7543-7575)
-            for (int cellIndex = 0; cellIndex < cellVars.Count; cellIndex++)
-            {
-                var cellVar = cellVars[cellIndex];
-#if DEBUG_COMPILER_LOG
-                Console.WriteLine($"  → Inserting MAKE_CELL for {cellVar} (index {cellIndex}) at position {insertPos}");
-#endif
-                finalInstructions.Insert(insertPos, new ByteCodeInstruction(ByteCodeOp.MAKE_CELL, cellIndex));
-                insertPos++; // Next insertion will be after this MAKE_CELL
-            }
-
-            // Step 3: Insert RETURN_GENERATOR + POP_TOP for generators (CPython line 7523-7539)
-            if (isGenerator || isCoroutine || isAsyncGenerator)
-            {
-#if DEBUG_COMPILER_LOG
-                Console.WriteLine($"🔍 Inserting generator prefix for {name} at position {insertPos}");
-#endif
-                // Insert RETURN_GENERATOR at current position
-                finalInstructions.Insert(insertPos, new ByteCodeInstruction(ByteCodeOp.RETURN_GENERATOR, 0));
-                insertPos++;
-                // Insert POP_TOP right after RETURN_GENERATOR
-                finalInstructions.Insert(insertPos, new ByteCodeInstruction(ByteCodeOp.POP_TOP, 0));
-#if DEBUG_COMPILER_LOG
-                Console.WriteLine($"  → Inserted RETURN_GENERATOR + POP_TOP at positions {insertPos-1}-{insertPos}");
-#endif
-            }
+            // Prefix instructions (RETURN_GENERATOR, POP_TOP, MAKE_CELL, COPY_FREE_VARS)
+            // are now inserted in GetFinalInstructions during CFG phase
+            // This ensures JUMP offsets are calculated AFTER prefix insertion
 
             // Create code object
             var codeObject = new PyCodeObject(
@@ -2195,9 +2158,10 @@ namespace SharpPy
                 Console.WriteLine($"  → Skipping implicit None return for {name} (already ends with return)");
             }
 #endif
-            
+
             // CPython 3.12: Get final instructions from CFG pipeline FIRST
-            var finalInstructions = GetFinalInstructions();
+            // This is a legacy path that shouldn't be used for generators
+            var finalInstructions = GetFinalInstructions(0);
 
             // CPython 3.12: Generator 함수 감지 - 임시 객체로 체크
             var tempCodeObject = new PyCodeObject(name, finalInstructions, _constants, _names, _varNames,
@@ -2248,11 +2212,11 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12: Get final instruction list from CFG pipeline
         /// </summary>
-        private List<ByteCodeInstruction> GetFinalInstructions()
+        private List<ByteCodeInstruction> GetFinalInstructions(int codeFlags)
         {
-            // CPython 3.12 CFG PIPELINE: InstructionSequence → CFG → Optimize → ByteCode
+            // CPython 3.12 CFG PIPELINE: InstructionSequence → CFG → InsertPrefix → Optimize → ByteCode
 #if DEBUG_COMPILER_LOG
-            Console.WriteLine($"🔷 [CFG PIPELINE] GetFinalInstructions: InstructionSequence → CFG → Optimize → Assemble");
+            Console.WriteLine($"🔷 [CFG PIPELINE] GetFinalInstructions: InstructionSequence → CFG → InsertPrefix → Optimize → Assemble");
             Console.WriteLine($"   InstructionSequence has {_instructionSequence.Count} instructions");
 #endif
 
@@ -2261,6 +2225,15 @@ namespace SharpPy
 #if DEBUG_COMPILER_LOG
             Console.WriteLine($"   CFG has {cfg.AllBlocks.Count} basic blocks");
 #endif
+
+            // Phase 1.5: Insert prefix instructions (CPython compile.c:7654)
+            // CRITICAL: This must happen BEFORE PyAssemble calculates JUMP offsets
+            // CPython calls insert_prefix_instructions in prepare_localsplus, which is called
+            // in optimize_and_assemble_code_unit BEFORE _PyCfg_ResolveJumps
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"   🔧 Phase 1.5: Inserting prefix instructions (flags=0x{codeFlags:X})...");
+#endif
+            cfg.InsertPrefixInstructions(codeFlags, _cellVars ?? new List<string>(), _freeVars ?? new List<string>());
 
             // Phase 2: Optimize CFG (CPython 3.12, 항상 활성화)
 #if DEBUG_COMPILER_LOG
@@ -2273,6 +2246,7 @@ namespace SharpPy
 #endif
 
             // Phase 3: CFG → ByteCode (with correct offsets)
+            // CPython compile.c:7724 _PyCfg_ResolveJumps - JUMP offsets calculated here
 #if DEBUG_COMPILER_LOG
             Console.WriteLine($"   🔧 Phase 3: Calling PyAssemble.Assemble...");
 #endif
@@ -2424,10 +2398,21 @@ namespace SharpPy
                     break;
                     
                 case YieldFromStatement yieldFrom:
+                    // CPython 3.12: compile.c:6128-6131
+                    // VISIT(c, expr, e->v.YieldFrom.value);
                     CompileExpression(yieldFrom.Value);
-                    EmitInstruction(ByteCodeOp.GET_ITER);
-                    // CPython 3.12: YIELD_FROM removed, use yield loop pattern
-                    EmitInstruction(ByteCodeOp.YIELD_VALUE);
+                    // ADDOP(c, loc, GET_YIELD_FROM_ITER);
+                    EmitInstruction(ByteCodeOp.GET_YIELD_FROM_ITER);
+                    #if DEBUG_COMPILER_LOG
+                    Console.WriteLine($"[YieldFrom] Added GET_YIELD_FROM_ITER at instruction count {_instructionSequence!.Count}");
+                    #endif
+                    // ADDOP_LOAD_CONST(c, loc, Py_None);
+                    EmitLoadConst(PyNone.Instance);
+                    #if DEBUG_COMPILER_LOG
+                    Console.WriteLine($"[YieldFrom] Added LOAD_CONST None at instruction count {_instructionSequence!.Count}");
+                    #endif
+                    // ADD_YIELD_FROM(c, loc, 0);
+                    CompileYieldFrom(isAwait: false);
                     break;
                     
                 case FunctionDefStatement func:
@@ -3259,10 +3244,15 @@ namespace SharpPy
                     break;
 
                 case YieldFromExpression yieldFromExpr:
+                    // CPython 3.12: compile.c:6128-6131 (same pattern as YieldFromStatement)
+                    // VISIT(c, expr, e->v.YieldFrom.value);
                     CompileExpression(yieldFromExpr.Value);
-                    EmitInstruction(ByteCodeOp.GET_ITER);
-                    // CPython 3.12: YIELD_FROM removed, use yield loop pattern
-                    EmitInstruction(ByteCodeOp.YIELD_VALUE);
+                    // ADDOP(c, loc, GET_YIELD_FROM_ITER);
+                    EmitInstruction(ByteCodeOp.GET_YIELD_FROM_ITER);
+                    // ADDOP_LOAD_CONST(c, loc, Py_None);
+                    EmitLoadConst(PyNone.Instance);
+                    // ADD_YIELD_FROM(c, loc, 0);
+                    CompileYieldFrom(isAwait: false);
                     break;
 
                 default:
@@ -3575,7 +3565,7 @@ namespace SharpPy
             #if DEBUG_LOG
             Console.WriteLine($"  Cell variables: [{string.Join(", ", cellVars)}]");
             #endif
-            
+
             // CPython 3.12: 내부 함수의 nonlocal 선언을 고려한 추가 cell 분석
             var additionalCellVars = new List<string>(cellVars);
             var allFreeVars = new HashSet<string>();
@@ -3599,6 +3589,33 @@ namespace SharpPy
             
             // 2. 매개변수와 기본값 파싱 (CPython 3.12: use Arguments instead of Parameters)
             var (paramNames, defaultExprs, kwDefaultExprs, flags, argCount, posonlyArgCount, kwonlyArgCount, annotations) = ParseFunctionArguments(func.Arguments);
+
+            // CPython 3.12: Set CO_GENERATOR/CO_COROUTINE flags from symbol table
+            // compile.c:7428-7433 - Read ste->ste_generator and ste->ste_coroutine
+            if (funcSymbolTable != null)
+            {
+                if (funcSymbolTable.IsGenerator && !funcSymbolTable.IsCoroutine)
+                {
+                    flags |= PyCodeObject.CO_GENERATOR;
+#if DEBUG_COMPILER_LOG
+                    Console.WriteLine($"  ✅ Set CO_GENERATOR flag (SymbolTable.IsGenerator=true)");
+#endif
+                }
+                else if (!funcSymbolTable.IsGenerator && funcSymbolTable.IsCoroutine)
+                {
+                    flags |= PyCodeObject.CO_COROUTINE;
+#if DEBUG_COMPILER_LOG
+                    Console.WriteLine($"  ✅ Set CO_COROUTINE flag (SymbolTable.IsCoroutine=true)");
+#endif
+                }
+                else if (funcSymbolTable.IsGenerator && funcSymbolTable.IsCoroutine)
+                {
+                    flags |= PyCodeObject.CO_ASYNC_GENERATOR;
+#if DEBUG_COMPILER_LOG
+                    Console.WriteLine($"  ✅ Set CO_ASYNC_GENERATOR flag (both IsGenerator and IsCoroutine)");
+#endif
+                }
+            }
 
             #if DEBUG_LOG
             Console.WriteLine($"🔍 Function {func.Name}: annotations = {annotations.Count}");
@@ -5201,10 +5218,11 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.CALL_INTRINSIC_2, 4); // INTRINSIC_SET_FUNCTION_TYPE_PARAMS
                 
                 EmitInstruction(ByteCodeOp.RETURN_VALUE);
-                
+
                 // Build the code object
                 var functionName_full = $"<generic parameters of {functionName}>";
-                var finalInstructions = GetFinalInstructions();
+                // Generic parameters wrapper has no generator flags
+                var finalInstructions = GetFinalInstructions(0);
                 return new PyCodeObject(
                     functionName_full,
                     finalInstructions,
@@ -5626,10 +5644,11 @@ namespace SharpPy
                 
                 // 11. Return the created class
                 EmitInstruction(ByteCodeOp.RETURN_VALUE);
-                
+
                 // Build the code object
                 var functionName = $"<generic parameters of {className}>";
-                var finalInstructions = GetFinalInstructions();
+                // Generic parameters wrapper has no generator flags
+                var finalInstructions = GetFinalInstructions(0);
                 return new PyCodeObject(
                     functionName,
                     finalInstructions,
@@ -5813,7 +5832,8 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.RETURN_VALUE);
 
                 // CPython 3.12: Get final instructions (supports both CFG and LEGACY paths)
-                var finalInstructions = GetFinalInstructions();
+                // Class body has no generator flags
+                var finalInstructions = GetFinalInstructions(0);
 
                 // Create code object for class body with free variables
                 var codeObject = new PyCodeObject(
@@ -6405,6 +6425,114 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// CPython 3.12: compiler_add_yield_from implementation
+        /// Corresponds to Python/compile.c:1497-1519
+        /// Generates the SEND loop pattern for yield from delegation
+        /// </summary>
+        private void CompileYieldFrom(bool isAwait = false)
+        {
+            // CPython pattern from compiler_add_yield_from:
+            // NEW_JUMP_TARGET_LABEL(c, send);
+            // NEW_JUMP_TARGET_LABEL(c, fail);
+            // NEW_JUMP_TARGET_LABEL(c, exit);
+            var sendLabel = _instructionSequence!.NewLabel();
+            var failLabel = _instructionSequence!.NewLabel();
+            var exitLabel = _instructionSequence!.NewLabel();
+
+            // CPython: LOAD_CONST None is emitted by CALLER before calling compiler_add_yield_from
+            // sendLabel points to SEND instruction, NOT to LOAD_CONST None
+            // JUMP_BACKWARD loops back to SEND (sent value comes from RESUME pushing to stack)
+
+            // USE_LABEL(c, send);
+            #if DEBUG_COMPILER_LOG
+            Console.WriteLine($"[CompileYieldFrom] UseLabel(sendLabel={sendLabel}) at instruction count {_instructionSequence.Count}");
+            #endif
+            _instructionSequence.UseLabel(sendLabel);
+
+            // ADDOP_JUMP(c, loc, SEND, exit);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.SEND, exitLabel, _currentLineNumber);
+            #if DEBUG_COMPILER_LOG
+            Console.WriteLine($"[CompileYieldFrom] Added SEND at instruction count {_instructionSequence.Count}");
+            #endif
+
+            // Set up a virtual try/except to handle when StopIteration is raised during
+            // a close or throw call. The only way YIELD_VALUE raises if they do!
+            // ADDOP_JUMP(c, loc, SETUP_FINALLY, fail);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, failLabel, _currentLineNumber);
+
+            // ADDOP_I(c, loc, YIELD_VALUE, 0);
+            EmitInstruction(ByteCodeOp.YIELD_VALUE, 0);
+
+            // ADDOP(c, NO_LOCATION, POP_BLOCK);
+            EmitInstruction(ByteCodeOp.POP_BLOCK);
+
+            // ADDOP_I(c, loc, RESUME, await ? 3 : 2);
+            EmitInstruction(ByteCodeOp.RESUME, isAwait ? 3 : 2);
+
+            // ADDOP_JUMP(c, loc, JUMP_NO_INTERRUPT, send);
+            // CPython: Use JUMP_NO_INTERRUPT, assembler will convert to JUMP_BACKWARD_NO_INTERRUPT
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_NO_INTERRUPT, sendLabel, _currentLineNumber);
+
+            // USE_LABEL(c, fail);
+            _instructionSequence.UseLabel(failLabel);
+
+            // ADDOP(c, loc, CLEANUP_THROW);
+            EmitInstruction(ByteCodeOp.CLEANUP_THROW);
+
+            // USE_LABEL(c, exit);
+            _instructionSequence.UseLabel(exitLabel);
+
+            // ADDOP(c, loc, END_SEND);
+            EmitInstruction(ByteCodeOp.END_SEND);
+
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"✅ [CFG] CompileYieldFrom: Generated SEND loop pattern (await={isAwait})");
+#endif
+        }
+
+        /// <summary>
+        /// CPython 3.12: wrap_in_stopiteration_handler (compile.c:2118-2134)
+        /// Wraps generator/coroutine body with StopIteration exception handler
+        /// Inserts SETUP_CLEANUP at start and CALL_INTRINSIC_1 + RERAISE at end
+        /// </summary>
+        private void WrapInStopIterationHandler()
+        {
+            // CPython: NEW_JUMP_TARGET_LABEL(c, handler);
+            var handlerLabel = _instructionSequence!.NewLabel();
+
+            // CPython: Insert SETUP_CLEANUP at start (position 0)
+            // RETURN_IF_ERROR(instr_sequence_insert_instruction(
+            //     INSTR_SEQUENCE(c), 0, SETUP_CLEANUP, handler.id, NO_LOCATION));
+            _instructionSequence.InsertAt(0, new Instruction(
+                ByteCodeOp.SETUP_CLEANUP,
+                handlerLabel,
+                _currentLineNumber,
+                _currentColumnOffset,
+                _currentFileName,
+                ExceptHandlerInfo.NoHandler
+            ));
+
+            // CPython: ADDOP_LOAD_CONST(c, NO_LOCATION, Py_None);
+            EmitLoadConst(PyNone.Instance);
+
+            // CPython: ADDOP(c, NO_LOCATION, RETURN_VALUE);
+            EmitInstruction(ByteCodeOp.RETURN_VALUE);
+
+            // CPython: USE_LABEL(c, handler);
+            _instructionSequence.UseLabel(handlerLabel);
+
+            // CPython: ADDOP_I(c, NO_LOCATION, CALL_INTRINSIC_1, INTRINSIC_STOPITERATION_ERROR);
+            EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, 3);  // 3 = INTRINSIC_STOPITERATION_ERROR
+
+            // CPython: ADDOP_I(c, NO_LOCATION, RERAISE, 1);
+            EmitInstruction(ByteCodeOp.RERAISE, 1);
+
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"✅ [CFG] WrapInStopIterationHandler: Added SETUP_CLEANUP wrapper for generator");
+#endif
+        }
+
+        /// <summary>
         /// LEGACY: Offset-based while True compilation
         /// </summary>
         /// <summary>
@@ -6444,18 +6572,19 @@ namespace SharpPy
         private void CompileWhileWithLabels(WhileStatement whileStmt)
         {
             #if DEBUG_LOG
-            Console.WriteLine("🔧 CPython 3.12 호환 while 루프 컴파일 (Label-based)");
+            Console.WriteLine("🔧 CPython 3.12 호환 while 루프 컴파일 (Label-based with loop rotation)");
             #endif
 
-            // Create labels for loop control (use SharpPy.Label, NOT PythonCompiler.Label)
-            var loopLabel = _instructionSequence!.NewLabel();    // continue target (loop start)
-            var endLabel = _instructionSequence!.NewLabel();     // break target (loop end)
+            // Create labels for loop control
+            var loopStartLabel = _instructionSequence!.NewLabel();   // Initial condition check
+            var loopBodyLabel = _instructionSequence!.NewLabel();    // Loop body start (continue target)
+            var endLabel = _instructionSequence!.NewLabel();         // break target (loop end)
 
-            // Push loop context
-            PushLoopContext(endLabel, loopLabel);  // break → end, continue → loop
+            // Push loop context (continue goes to loop body, not initial check)
+            PushLoopContext(endLabel, loopBodyLabel);
 
-            // Phase 1: Mark loop start and check condition
-            _instructionSequence.UseLabel(loopLabel);
+            // Phase 1: Initial condition check at loop start
+            _instructionSequence.UseLabel(loopStartLabel);
             CompileExpression(whileStmt.Test);
 
             // If condition is false, jump to end
@@ -6467,16 +6596,29 @@ namespace SharpPy
                 _currentFileName
             );
 
-            // Phase 2: Compile loop body
+            // Phase 2: Mark loop body start and compile loop body
+            _instructionSequence.UseLabel(loopBodyLabel);
             foreach (var stmt in whileStmt.Body)
             {
                 CompileStatement(stmt);
             }
 
-            // Phase 3: Jump back to loop start
+            // Phase 3: CPython 3.12 loop rotation - re-check condition at loop end
+            CompileExpression(whileStmt.Test);
+
+            // If condition is still true, jump back to loop body (skip initial check)
+            _instructionSequence.AddOpWithLabel(
+                ByteCodeOp.POP_JUMP_IF_FALSE,
+                endLabel,
+                _currentLineNumber,
+                _currentColumnOffset,
+                _currentFileName
+            );
+
+            // Jump back to loop body
             _instructionSequence.AddOpWithLabel(
                 ByteCodeOp.JUMP_BACKWARD,
-                loopLabel,
+                loopBodyLabel,
                 _currentLineNumber,
                 _currentColumnOffset,
                 _currentFileName
@@ -6498,7 +6640,7 @@ namespace SharpPy
             }
 
             #if DEBUG_LOG
-            Console.WriteLine("🔧 CPython 3.12 호환 while 루프 컴파일 완료 (Label-based)");
+            Console.WriteLine("🔧 CPython 3.12 호환 while 루프 컴파일 완료 (with loop rotation)");
             #endif
         }
 
@@ -8635,7 +8777,8 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.RETURN_VALUE);
 
             // Get final instructions for lambda
-            var lambdaInstructions = GetFinalInstructions();
+            // Lambda has no generator flags (lambdas cannot be generators in Python)
+            var lambdaInstructions = GetFinalInstructions(0);
 
             // Restore original compiler context
             _instructionSequence = tempInstructionSequence;

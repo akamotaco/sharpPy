@@ -45,6 +45,34 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// Find instruction offset (accounting for EXTENDED_ARG) for a given instruction index
+        /// CPython 3.12: Instructions may expand to multiple words if args > 255
+        /// </summary>
+        private static int FindInstructionOffset(ControlFlowGraph cfg, int targetIndex)
+        {
+            int offset = 0;
+            int currentIndex = 0;
+
+            foreach (var block in cfg.AllBlocks)
+            {
+                foreach (var instr in block.Instructions)
+                {
+                    if (currentIndex == targetIndex)
+                    {
+                        return offset;
+                    }
+
+                    // Each instruction may take multiple words
+                    offset += CountInstructionWords(instr);
+                    currentIndex++;
+                }
+            }
+
+            // Target not found, return target index as fallback
+            return targetIndex;
+        }
+
+        /// <summary>
         /// Calculate byte offsets for each basic block
         /// CPython: assemble_compute_code_flags_and_offsets()
         /// </summary>
@@ -101,75 +129,156 @@ namespace SharpPy
         /// <summary>
         /// Flatten CFG blocks to linear instruction list
         /// Resolve jump targets and insert EXTENDED_ARG where needed
-        /// CPython: assemble_emit_instr_sequence()
+        /// CPython: assemble_emit_instr_sequence() + flowgraph.c:resolve_jump_offsets()
+        ///
+        /// Strategy: Iterative refinement (CPython pattern)
+        /// 1. Calculate jump deltas based on current instruction sizes
+        /// 2. If any jump arg changes size (needs/loses EXTENDED_ARG), recompile
+        /// 3. Repeat until stable
         /// </summary>
         private static List<ByteCodeInstruction> FlattenBlocks(ControlFlowGraph cfg)
         {
-            var result = new List<ByteCodeInstruction>();
+            // Phase 1: Resolve jump offsets with iterative refinement
+            // CPython: Python/flowgraph.c:481-536 (resolve_jump_offsets)
+            ResolveJumpOffsets(cfg);
 
-            // Build block → offset mapping for jump resolution
-            var blockOffsets = cfg.AllBlocks.ToDictionary(b => b, b => b.Offset);
+            // Phase 2: Emit final bytecode with EXTENDED_ARG
+            return EmitInstructions(cfg);
+        }
+
+        /// <summary>
+        /// CPython: resolve_jump_offsets()
+        /// Iteratively calculate jump deltas until stable
+        /// </summary>
+        private static void ResolveJumpOffsets(ControlFlowGraph cfg)
+        {
+            bool needRecompile;
+            int iterationCount = 0;
+            const int MAX_ITERATIONS = 10; // Safety limit
+
+            do
+            {
+                needRecompile = false;
+                iterationCount++;
+
+                if (iterationCount > MAX_ITERATIONS)
+                {
+                    throw new InvalidOperationException(
+                        $"Jump offset resolution did not converge after {MAX_ITERATIONS} iterations");
+                }
+
+                // Recalculate block offsets based on current instruction sizes
+                int currentIndex = 0;
+                foreach (var block in cfg.AllBlocks)
+                {
+                    block.Offset = currentIndex;
+
+                    foreach (var instr in block.Instructions)
+                    {
+                        // Count instruction words (1 + EXTENDED_ARG count)
+                        int instrWords = CountInstructionWords(instr);
+                        currentIndex += instrWords;
+                    }
+                }
+
+                // Update jump arguments based on new offsets
+                foreach (var block in cfg.AllBlocks)
+                {
+                    int instrIndex = block.Offset;
+
+                    for (int i = 0; i < block.Instructions.Count; i++)
+                    {
+                        var instr = block.Instructions[i];
+                        int oldInstrWords = CountInstructionWords(instr);
+
+                        if (IsJumpInstruction(instr.OpCode))
+                        {
+                            // instr.Argument is target instruction index from InstructionSequence
+                            // We need to find which CFG block contains this target
+                            int targetIndex = instr.Argument;
+                            int currentIndexAfter = instrIndex + oldInstrWords;
+
+                            // Determine jump direction and opcode
+                            bool isBackwardJump = targetIndex < instrIndex;
+                            ByteCodeOp finalOpCode = instr.OpCode;
+
+                            // Convert JUMP/JUMP_NO_INTERRUPT to backward variants
+                            if (instr.OpCode == ByteCodeOp.JUMP && isBackwardJump)
+                            {
+                                finalOpCode = ByteCodeOp.JUMP_BACKWARD;
+                            }
+                            else if (instr.OpCode == ByteCodeOp.JUMP_NO_INTERRUPT && isBackwardJump)
+                            {
+                                finalOpCode = ByteCodeOp.JUMP_BACKWARD_NO_INTERRUPT;
+                            }
+
+                            // Calculate jump delta (CPython 3.12 pattern: instruction word units)
+                            // CPython 3.12: All instructions occupy instruction word slots,
+                            // regardless of actual byte size (including inline cache)
+                            int jumpArg;
+                            if (finalOpCode == ByteCodeOp.JUMP_BACKWARD ||
+                                finalOpCode == ByteCodeOp.JUMP_BACKWARD_NO_INTERRUPT)
+                            {
+                                // BACKWARD: delta = (index after jump) - target (instruction word units)
+                                jumpArg = currentIndexAfter - targetIndex;
+                            }
+                            else
+                            {
+                                // FORWARD: delta = target - (index after jump) (instruction word units)
+                                jumpArg = targetIndex - currentIndexAfter;
+                            }
+
+                            // Update instruction with new delta and opcode
+                            var newInstr = new ByteCodeInstruction(
+                                finalOpCode,
+                                jumpArg,
+                                instr.LineNumber,
+                                instr.ColumnOffset,
+                                instr.FileName,
+                                instr.ExceptHandler,
+                                instr.ExceptionHandlerOffset
+                            );
+
+                            // Check if instruction size changed
+                            int newInstrWords = CountInstructionWords(newInstr);
+                            if (oldInstrWords != newInstrWords)
+                            {
+                                needRecompile = true;  // EXTENDED_ARG count changed
+                            }
+
+                            block.Instructions[i] = newInstr;
+                        }
+
+                        instrIndex += oldInstrWords;
+                    }
+                }
+
+            } while (needRecompile);
+
+            #if DEBUG_COMPILER_LOG
+            Console.WriteLine($"[assemble] Jump offset resolution converged after {iterationCount} iteration(s)");
+            #endif
+        }
+
+        /// <summary>
+        /// Emit final bytecode instructions with EXTENDED_ARG
+        /// </summary>
+        private static List<ByteCodeInstruction> EmitInstructions(ControlFlowGraph cfg)
+        {
+            var result = new List<ByteCodeInstruction>();
 
             foreach (var block in cfg.AllBlocks)
             {
                 foreach (var instr in block.Instructions)
                 {
-                    ByteCodeInstruction finalInstr = instr;
-
-                    // Resolve jump targets: If this is a jump instruction,
-                    // convert block reference to actual offset
-                    if (IsJumpInstruction(instr.OpCode))
+                    // Add EXTENDED_ARG if needed (arguments > 255)
+                    if (HasArgument(instr.OpCode) && instr.Argument > 0xFF)
                     {
-                        // Find target block from successors
-                        int targetOffset = instr.Argument;  // Default (already resolved)
-
-                        // If jump target needs to be resolved from block successors
-                        if (block.Successors.Count > 0)
-                        {
-                            var targetBlock = block.Successors[0];
-                            if (blockOffsets.TryGetValue(targetBlock, out int offset))
-                            {
-                                targetOffset = offset;
-                            }
-                        }
-
-                        // CPython 3.12: All jump instructions use delta (relative offset)
-                        // Delta is calculated from NEXT instruction (current + 1)
-                        int currentOffset = result.Count;
-                        int jumpArg;
-
-                        if (instr.OpCode == ByteCodeOp.JUMP_BACKWARD ||
-                            instr.OpCode == ByteCodeOp.JUMP_BACKWARD_NO_INTERRUPT)
-                        {
-                            // JUMP_BACKWARD: delta = current - target (backward from current position)
-                            jumpArg = currentOffset - targetOffset;
-                        }
-                        else
-                        {
-                            // JUMP_FORWARD, POP_JUMP_IF_*, etc:
-                            // delta = target - (current + 1) (forward from NEXT instruction)
-                            jumpArg = targetOffset - (currentOffset + 1);
-                        }
-
-                        finalInstr = new ByteCodeInstruction(
-                            instr.OpCode,
-                            jumpArg,
-                            instr.LineNumber,
-                            instr.ColumnOffset,
-                            instr.FileName,
-                            instr.ExceptHandler,
-                            instr.ExceptionHandlerOffset
-                        );
-                    }
-
-                    // Add EXTENDED_ARG if needed (CPython 3.12: arguments > 255)
-                    if (HasArgument(finalInstr.OpCode) && finalInstr.Argument > 0xFF)
-                    {
-                        EmitWithExtendedArg(result, finalInstr);
+                        EmitWithExtendedArg(result, instr);
                     }
                     else
                     {
-                        result.Add(finalInstr);
+                        result.Add(instr);
                     }
                 }
             }
@@ -272,14 +381,17 @@ namespace SharpPy
 
         private static bool IsJumpInstruction(ByteCodeOp op)
         {
-            return op == ByteCodeOp.JUMP_FORWARD ||
+            return op == ByteCodeOp.JUMP ||
+                   op == ByteCodeOp.JUMP_FORWARD ||
                    op == ByteCodeOp.JUMP_BACKWARD ||
+                   op == ByteCodeOp.JUMP_NO_INTERRUPT ||
+                   op == ByteCodeOp.JUMP_BACKWARD_NO_INTERRUPT ||
                    op == ByteCodeOp.POP_JUMP_IF_FALSE ||
                    op == ByteCodeOp.POP_JUMP_IF_TRUE ||
                    op == ByteCodeOp.POP_JUMP_IF_NONE ||
                    op == ByteCodeOp.POP_JUMP_IF_NOT_NONE ||
-                   op == ByteCodeOp.JUMP_BACKWARD_NO_INTERRUPT ||
-                   op == ByteCodeOp.FOR_ITER;
+                   op == ByteCodeOp.FOR_ITER ||
+                   op == ByteCodeOp.SEND;  // CPython 3.12: SEND is conditional jump
         }
 
         private static bool HasArgument(ByteCodeOp op)

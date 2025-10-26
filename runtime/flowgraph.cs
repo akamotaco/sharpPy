@@ -190,6 +190,7 @@ namespace SharpPy
                     }
 
                     // Get current exception handler from stack
+                    // CPython 3.12: flowgraph.c:825-849 (set i_except for each instruction)
                     var currentHandler = exceptStack.Top();
                     int handlerOffset = currentHandler?.Offset ?? -1;
 
@@ -197,9 +198,22 @@ namespace SharpPy
                     var resolvedHandler = ResolveExceptHandler(instr.ExceptHandler, labelToOffset);
 
                     // If no explicit handler info, use ExceptStack
+                    // CPython 3.12: instr->i_except = handler (flowgraph.c:849)
                     if (resolvedHandler.HandlerOffset == -1 && handlerOffset >= 0)
                     {
-                        resolvedHandler = new ExceptHandlerInfo(handlerOffset, 0, false);
+                        // CPython 3.12: Get depth and lasti from ExceptStack/handler block
+                        int depth = exceptStack.Depth;
+                        bool lasti = currentHandler?.PreserveLasti ?? false;
+
+                        resolvedHandler = new ExceptHandlerInfo(handlerOffset, depth, lasti);
+                    }
+
+                    // CPython 3.12: Special handling for YIELD_VALUE (flowgraph.c:846-847)
+                    // YIELD_VALUE stores exception stack depth in its argument
+                    int instrArg = instr.Arg ?? 0;
+                    if (instr.OpCode == ByteCodeOp.YIELD_VALUE)
+                    {
+                        instrArg = exceptStack.Depth;
                     }
 
                     // Convert Instruction to ByteCodeInstruction
@@ -207,12 +221,45 @@ namespace SharpPy
 
                     if (instr.IsJump && instr.Target.HasValue)
                     {
-                        // For jump instructions, keep target as label reference for now
-                        // We'll resolve to actual offset later in LinkBlocks
-                        int targetIndex = instrSeq.GetLabelTarget(instr.Target.Value);
+                        // For jump instructions, resolve target to block offset
+                        // CPython: instr->i_oparg = instr->i_target->b_offset
+                        int targetInstrIndex = instrSeq.GetLabelTarget(instr.Target.Value);
+
+                        // Find which block contains this target instruction
+                        // We need to find block whose range [start, end) contains targetInstrIndex
+                        BasicBlock? targetBlock = null;
+                        for (int bi = 0; bi < sortedStarts.Count; bi++)
+                        {
+                            int blockStart = sortedStarts[bi];
+                            int blockEnd = (bi + 1 < sortedStarts.Count) ? sortedStarts[bi + 1] : instructions.Count;
+
+                            if (blockStart <= targetInstrIndex && targetInstrIndex < blockEnd)
+                            {
+                                if (indexToBlock.TryGetValue(blockStart, out var candidateBlock))
+                                {
+                                    targetBlock = candidateBlock;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (targetBlock == null)
+                        {
+                            throw new InvalidOperationException(
+                                $"Jump target block not found for instruction index {targetInstrIndex}");
+                        }
+
+                        #if DEBUG_COMPILER_LOG
+                        if (instr.OpCode == ByteCodeOp.JUMP_NO_INTERRUPT)
+                        {
+                            Console.WriteLine($"[flowgraph] JUMP_NO_INTERRUPT at index {j}, target label {instr.Target.Value} resolves to InstrSeq index {targetInstrIndex}, block offset {targetBlock.Offset}");
+                        }
+                        #endif
+
+                        // Store target block's offset (will be updated after recalculation)
                         bcInstr = new ByteCodeInstruction(
                             instr.OpCode,
-                            targetIndex,  // Temporary: instruction index (will be updated later)
+                            targetBlock.Offset,  // Target block offset
                             instr.LineNumber,
                             instr.ColumnOffset,
                             instr.FileName,
@@ -225,7 +272,7 @@ namespace SharpPy
                         // Regular instruction with integer argument (or no argument)
                         bcInstr = new ByteCodeInstruction(
                             instr.OpCode,
-                            instr.Arg ?? 0,
+                            instrArg,  // Use instrArg (may be modified for YIELD_VALUE)
                             instr.LineNumber,
                             instr.ColumnOffset,
                             instr.FileName,
@@ -256,23 +303,48 @@ namespace SharpPy
                 finalOffset += block.Instructions.Count;
             }
 
-            // Update ExceptionHandlerOffset in all instructions to use final offsets
+            // Update jump targets and exception handler offsets to use final block offsets
+            // CPython: After block offset recalculation, jump i_oparg references updated b_offset
             foreach (var block in cfg.AllBlocks)
             {
                 for (int i = 0; i < block.Instructions.Count; i++)
                 {
                     var instr = block.Instructions[i];
-                    if (instr.ExceptionHandlerOffset >= 0 && oldToNewOffset.TryGetValue(instr.ExceptionHandlerOffset, out int newOffset))
+                    bool needUpdate = false;
+                    int newArgument = instr.Argument;
+                    int newExceptionHandlerOffset = instr.ExceptionHandlerOffset;
+
+                    // Update jump target (if this is a jump instruction)
+                    if (IsJumpInstruction(instr.OpCode))
                     {
-                        // Create new instruction with updated handler offset
+                        if (oldToNewOffset.TryGetValue(instr.Argument, out int updatedTargetOffset))
+                        {
+                            newArgument = updatedTargetOffset;
+                            needUpdate = true;
+                        }
+                    }
+
+                    // Update exception handler offset
+                    if (instr.ExceptionHandlerOffset >= 0)
+                    {
+                        if (oldToNewOffset.TryGetValue(instr.ExceptionHandlerOffset, out int updatedHandlerOffset))
+                        {
+                            newExceptionHandlerOffset = updatedHandlerOffset;
+                            needUpdate = true;
+                        }
+                    }
+
+                    if (needUpdate)
+                    {
+                        // Create new instruction with updated offsets
                         block.Instructions[i] = new ByteCodeInstruction(
                             instr.OpCode,
-                            instr.Argument,
+                            newArgument,  // Updated jump target or original argument
                             instr.LineNumber,
                             instr.ColumnOffset,
                             instr.FileName,
-                            instr.ExceptHandler,  // Note: ExceptHandler, not ExceptionHandler
-                            newOffset  // Updated handler offset
+                            instr.ExceptHandler,
+                            newExceptionHandlerOffset  // Updated handler offset
                         );
                     }
                 }
@@ -362,14 +434,17 @@ namespace SharpPy
 
         private static bool IsJumpInstruction(ByteCodeOp op)
         {
-            return op == ByteCodeOp.JUMP_FORWARD ||
+            return op == ByteCodeOp.JUMP ||
+                   op == ByteCodeOp.JUMP_FORWARD ||
                    op == ByteCodeOp.JUMP_BACKWARD ||
+                   op == ByteCodeOp.JUMP_NO_INTERRUPT ||
+                   op == ByteCodeOp.JUMP_BACKWARD_NO_INTERRUPT ||
                    op == ByteCodeOp.POP_JUMP_IF_FALSE ||
                    op == ByteCodeOp.POP_JUMP_IF_TRUE ||
                    op == ByteCodeOp.POP_JUMP_IF_NONE ||
                    op == ByteCodeOp.POP_JUMP_IF_NOT_NONE ||
-                   op == ByteCodeOp.JUMP_BACKWARD_NO_INTERRUPT ||
-                   op == ByteCodeOp.FOR_ITER;
+                   op == ByteCodeOp.FOR_ITER ||
+                   op == ByteCodeOp.SEND;  // CPython 3.12: SEND jumps on StopIteration
         }
 
         private static bool IsConditionalJump(ByteCodeOp op)

@@ -28,6 +28,189 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// CPython 3.12: compile.c:7517-7587 insert_prefix_instructions
+        /// Insert prefix instructions into entry block BEFORE jump offset calculation
+        /// This must be called AFTER CFG construction but BEFORE PyAssemble
+        /// CRITICAL: Must adjust all JUMP targets that point to EntryBlock
+        /// </summary>
+        public void InsertPrefixInstructions(
+            int codeFlags,
+            List<string> cellVars,
+            List<string> freeVars)
+        {
+            if (EntryBlock == null || EntryBlock.Instructions == null)
+            {
+                return;
+            }
+
+            bool isGenerator = (codeFlags & PyCodeObject.CO_GENERATOR) != 0;
+            bool isCoroutine = (codeFlags & PyCodeObject.CO_COROUTINE) != 0;
+            bool isAsyncGenerator = (codeFlags & PyCodeObject.CO_ASYNC_GENERATOR) != 0;
+
+            int entryBlockOriginalInstructionCount = EntryBlock.Instructions.Count;
+            int totalPrefixInstructions = 0;
+
+            // Calculate how many prefix instructions we'll insert
+            if (isGenerator || isCoroutine || isAsyncGenerator)
+            {
+                totalPrefixInstructions += 2; // RETURN_GENERATOR + POP_TOP
+            }
+            totalPrefixInstructions += cellVars.Count; // MAKE_CELL for each
+            if (freeVars.Count > 0)
+            {
+                totalPrefixInstructions++; // COPY_FREE_VARS
+            }
+
+            // Save original instructions and adjust JUMP targets in EntryBlock
+            var originalInstructions = new List<ByteCodeInstruction>(EntryBlock.Instructions);
+            Console.WriteLine($"[CRITICAL] InsertPrefixInstructions: originalInstructions.Count = {originalInstructions.Count}, totalPrefixInstructions = {totalPrefixInstructions}");
+            EntryBlock.Instructions.Clear();
+
+            // Calculate entryBlockStartIndex (for adjusting jumps from other blocks)
+            int entryBlockStartIndex = 0;
+            foreach (var block in AllBlocks)
+            {
+                if (block == EntryBlock)
+                {
+                    break;
+                }
+                entryBlockStartIndex += block.Instructions.Count;
+            }
+
+            // CPython compile.c:7576-7584: Insert COPY_FREE_VARS at position 0
+            if (freeVars.Count > 0)
+            {
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔷 [CFG] Inserting COPY_FREE_VARS for {freeVars.Count} free variables");
+#endif
+                EntryBlock.Instructions.Add(new ByteCodeInstruction(ByteCodeOp.COPY_FREE_VARS, freeVars.Count));
+            }
+
+            // CPython compile.c:7543-7574: Insert MAKE_CELL for each cellvar
+            for (int cellIndex = 0; cellIndex < cellVars.Count; cellIndex++)
+            {
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔷 [CFG] Inserting MAKE_CELL for {cellVars[cellIndex]} (index {cellIndex})");
+#endif
+                EntryBlock.Instructions.Add(new ByteCodeInstruction(ByteCodeOp.MAKE_CELL, cellIndex));
+            }
+
+            // CPython compile.c:7523-7538: Insert RETURN_GENERATOR + POP_TOP for generators
+            if (isGenerator || isCoroutine || isAsyncGenerator)
+            {
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔷 [CFG] Inserting RETURN_GENERATOR + POP_TOP");
+#endif
+                EntryBlock.Instructions.Add(new ByteCodeInstruction(ByteCodeOp.RETURN_GENERATOR, 0));
+                EntryBlock.Instructions.Add(new ByteCodeInstruction(ByteCodeOp.POP_TOP, 0));
+            }
+
+            // Now add original instructions, adjusting JUMP targets
+            foreach (var instr in originalInstructions)
+            {
+                if (IsJumpInstruction(instr.OpCode))
+                {
+                    int targetIndex = instr.Argument;
+
+                    // If JUMP targets within EntryBlock, adjust by prefix count
+                    if (targetIndex >= entryBlockStartIndex &&
+                        targetIndex < entryBlockStartIndex + entryBlockOriginalInstructionCount)
+                    {
+                        int newTargetIndex = targetIndex + totalPrefixInstructions;
+#if DEBUG_COMPILER_LOG
+                        Console.WriteLine($"🔷 [CFG] Adjusting JUMP {instr.OpCode} in EntryBlock: target {targetIndex} → {newTargetIndex}");
+#endif
+                        EntryBlock.Instructions.Add(new ByteCodeInstruction(
+                            instr.OpCode,
+                            newTargetIndex,
+                            instr.LineNumber,
+                            instr.ColumnOffset,
+                            instr.FileName,
+                            instr.ExceptHandler,
+                            instr.ExceptionHandlerOffset
+                        ));
+                    }
+                    else
+                    {
+                        EntryBlock.Instructions.Add(instr);
+                    }
+                }
+                else
+                {
+                    EntryBlock.Instructions.Add(instr);
+                }
+            }
+
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"🔷 [CFG] Prefix instructions inserted. Entry block now has {EntryBlock.Instructions.Count} instructions");
+            Console.WriteLine($"🔷 [CFG] Total prefix instructions: {totalPrefixInstructions}. Adjusting JUMP targets...");
+#endif
+
+            // CRITICAL: Adjust all JUMP instruction arguments that target the EntryBlock
+            // Since we inserted prefix instructions at the beginning of EntryBlock,
+            // all JUMP targets that point to EntryBlock need to be adjusted
+            if (totalPrefixInstructions > 0)
+            {
+                AdjustJumpTargetsForPrefixInstructions(totalPrefixInstructions, entryBlockOriginalInstructionCount);
+            }
+        }
+
+        /// <summary>
+        /// Adjust JUMP instruction arguments after prefix instructions are inserted
+        /// All JUMP targets that point to EntryBlock instructions need to be shifted
+        /// </summary>
+        private void AdjustJumpTargetsForPrefixInstructions(int prefixCount, int entryBlockOriginalCount)
+        {
+            // Calculate total instruction count before EntryBlock
+            int entryBlockStartIndex = 0;
+
+            // Find EntryBlock's starting index in the full instruction sequence
+            foreach (var block in AllBlocks)
+            {
+                if (block == EntryBlock)
+                {
+                    break;
+                }
+                entryBlockStartIndex += block.Instructions.Count;
+            }
+
+            // Adjust all JUMP instructions in ALL blocks
+            foreach (var block in AllBlocks)
+            {
+                for (int i = 0; i < block.Instructions.Count; i++)
+                {
+                    var instr = block.Instructions[i];
+
+                    // Check if this is a JUMP instruction
+                    if (IsJumpInstruction(instr.OpCode))
+                    {
+                        int targetIndex = instr.Argument;
+
+                        // If this JUMP targets an instruction in EntryBlock, adjust it
+                        if (targetIndex >= entryBlockStartIndex &&
+                            targetIndex < entryBlockStartIndex + entryBlockOriginalCount)
+                        {
+                            // This JUMP targets EntryBlock, adjust by prefix count
+                            int newTargetIndex = targetIndex + prefixCount;
+#if DEBUG_COMPILER_LOG
+                            Console.WriteLine($"🔷 [CFG] Adjusting JUMP {instr.OpCode} in block {block.BlockId}: target {targetIndex} → {newTargetIndex}");
+#endif
+                            block.Instructions[i] = new ByteCodeInstruction(
+                                instr.OpCode,
+                                newTargetIndex,
+                                instr.LineNumber,
+                                instr.ColumnOffset,
+                                instr.FileName,
+                                instr.ExceptHandler,
+                                instr.ExceptionHandlerOffset
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
         /// CPython 3.12: Build CFG from InstructionSequence (label-based IR)
         /// This is the NEW path: InstructionSequence → CFG
         /// Uses CFGBuilder to convert label-based IR to CFG
@@ -342,7 +525,8 @@ namespace SharpPy
             var table = new List<ExceptionTableEntry>();
 
             // Collect all instructions with their handler info (INSTRUCTION-LEVEL)
-            var instructions = new List<(int offset, int handlerOffset)>();
+            // CPython 3.12: assemble.c:150-161 reads i_except_handler_info (full struct)
+            var instructions = new List<(int offset, ExceptHandlerInfo handlerInfo)>();
             int currentOffset = 0;
             foreach (var block in AllBlocks)
             {
@@ -350,7 +534,7 @@ namespace SharpPy
                 {
                     instructions.Add((
                         currentOffset,
-                        instr.ExceptionHandlerOffset  // ← KEY: Use instruction-level handler
+                        instr.ExceptHandler  // ← KEY: Use full ExceptHandlerInfo struct
                     ));
                     currentOffset++;
                 }
@@ -362,46 +546,50 @@ namespace SharpPy
             }
 
             // Traverse instructions and detect handler changes
-            // (same algorithm as CPython's assemble_exception_table at line 152-159)
-            int currentHandlerOffset = -1;
+            // CPython 3.12: assemble.c:150-165 (same algorithm)
+            ExceptHandlerInfo currentHandler = ExceptHandlerInfo.NoHandler;
             int startOffset = -1;
 
             for (int i = 0; i < instructions.Count; i++)
             {
-                var (offset, handlerOffset) = instructions[i];
+                var (offset, handlerInfo) = instructions[i];
 
-                // Check if exception handler changed (CPython: instr->i_except_handler_info.h_offset != handler.h_offset)
-                if (handlerOffset != currentHandlerOffset)
+                // Check if exception handler changed
+                // CPython: instr->i_except_handler_info.h_offset != handler.h_offset
+                // We need to compare the full struct (offset, depth, lasti)
+                if (handlerInfo.HandlerOffset != currentHandler.HandlerOffset ||
+                    handlerInfo.StackDepth != currentHandler.StackDepth ||
+                    handlerInfo.PreserveLasti != currentHandler.PreserveLasti)
                 {
                     // Emit entry for previous handler region
-                    if (currentHandlerOffset >= 0 && startOffset >= 0)
+                    if (currentHandler.HandlerOffset >= 0 && startOffset >= 0)
                     {
                         table.Add(new ExceptionTableEntry(
                             start: startOffset,
                             end: offset,
-                            handler: currentHandlerOffset,
-                            depth: 0,  // TODO: Get from instruction if needed
-                            lasti: true
+                            handler: currentHandler.HandlerOffset,
+                            depth: currentHandler.StackDepth,
+                            lasti: currentHandler.PreserveLasti
                         ));
                     }
 
                     // Start new handler region
-                    currentHandlerOffset = handlerOffset;
-                    startOffset = handlerOffset >= 0 ? offset : -1;
+                    currentHandler = handlerInfo;
+                    startOffset = handlerInfo.HandlerOffset >= 0 ? offset : -1;
                 }
             }
 
-            // Final entry (CPython: line 162-163)
-            if (currentHandlerOffset >= 0 && startOffset >= 0)
+            // Final entry (CPython: assemble.c:162-165)
+            if (currentHandler.HandlerOffset >= 0 && startOffset >= 0)
             {
                 int endOffset = instructions.Count;
 
                 table.Add(new ExceptionTableEntry(
                     start: startOffset,
                     end: endOffset,
-                    handler: currentHandlerOffset,
-                    depth: 0,  // TODO: Get from instruction if needed
-                    lasti: true
+                    handler: currentHandler.HandlerOffset,
+                    depth: currentHandler.StackDepth,
+                    lasti: currentHandler.PreserveLasti
                 ));
             }
 

@@ -267,6 +267,30 @@ namespace SharpPy
         public int Count => _instructions.Count;
 
         /// <summary>
+        /// CPython 3.12: Insert instruction at specific position
+        /// Used by wrap_in_stopiteration_handler to insert SETUP_CLEANUP at start
+        /// </summary>
+        public void InsertAt(int index, Instruction instruction)
+        {
+            _instructions.Insert(index, instruction);
+
+            // Update label map: all labels pointing to index >= insertion point need to be shifted by 1
+            var labelsToUpdate = new List<(int labelId, int oldIndex)>();
+            foreach (var kvp in _labelTargets)
+            {
+                if (kvp.Value >= index)
+                {
+                    labelsToUpdate.Add((kvp.Key, kvp.Value));
+                }
+            }
+
+            foreach (var (labelId, oldIndex) in labelsToUpdate)
+            {
+                _labelTargets[labelId] = oldIndex + 1;
+            }
+        }
+
+        /// <summary>
         /// DEPRECATED: Convert to linear bytecode instructions
         /// This is a legacy bridge for LEGACY compilation path only
         /// CFG path uses InstructionSequence → PyFlowGraph → CFG → PyAssemble
