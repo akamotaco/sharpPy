@@ -249,7 +249,9 @@ namespace SharpPy.Generated
 
         // Parentheses context tracking for correct NL/NEWLINE classification
         private readonly Stack<char> _parenStack = new();
-        private bool IsInsideParentheses => _parenStack.Count > 0;
+        // CPython 3.12: Check if inside parentheses/brackets/braces using _level
+        // _level > 0 means we're inside (), [], or {}
+        private bool IsInsideParentheses => _level > 0;
 
         // CPython 3.12: Parenthesis nesting level tracking (tok->level in CPython)
         // Increments on '(', '[', '{' and decrements on ')', ']', '}'
@@ -910,17 +912,20 @@ namespace SharpPy.Generated
             // Before '(': level=0 → token.level=0 → increment to level=1
             // Before ')': level=1 → decrement to level=0 → token.level=0
 
-            // Decrement BEFORE creating token for closing parens
-            if (lit.type == PyToken.Type.RPAR || lit.type == PyToken.Type.RSQB || lit.type == PyToken.Type.RBRACE)
+            // Decrement BEFORE creating token for closing parens/brackets/braces
+            // Note: Literals are registered as Type.OP, so check by name
+            if (lit.name == ")" || lit.name == "]" || lit.name == "}")
             {
                 if (_level > 0)
                     _level--;
             }
 
             AddToken(lit.type, lit.name, _line, _column);
+            _currentLineHasRealTokens = true; // Mark line as having real tokens
 
-            // Increment AFTER creating token for opening parens
-            if (lit.type == PyToken.Type.LPAR || lit.type == PyToken.Type.LSQB || lit.type == PyToken.Type.LBRACE)
+            // Increment AFTER creating token for opening parens/brackets/braces
+            // Note: Literals are registered as Type.OP, so check by name
+            if (lit.name == "(" || lit.name == "[" || lit.name == "{")
             {
                 _level++;
             }
