@@ -422,9 +422,11 @@ namespace SharpPy
         // CPython 3.12 Exception Table lookup
         public (int? handlerOffset, ExceptionTableEntry? entry) GetExceptionHandlerFromTableWithEntry()
         {
-            var currentOffset = InstructionPointer;
+            // CPython 3.12: Exception table uses byte offsets, but InstructionPointer is instruction index
+            // Convert instruction index to byte offset: byteOffset = instructionIndex * 2
+            var currentByteOffset = InstructionPointer * 2;
             #if DEBUG_LOG
-            Console.WriteLine($"🔍 Searching Exception Table for offset {currentOffset}:");
+            Console.WriteLine($"🔍 Searching Exception Table for instruction {InstructionPointer} (byte offset {currentByteOffset}):");
             #endif
 
             // Search Exception Table for a handler covering current instruction
@@ -434,18 +436,21 @@ namespace SharpPy
                 Console.WriteLine($"   Entry: Start={entry.StartOffset}, End={entry.EndOffset}, Handler={entry.HandlerOffset}");
                 #endif
                 #if DEBUG_LOG
-                Console.WriteLine($"   Check: {currentOffset} >= {entry.StartOffset} && {currentOffset} < {entry.EndOffset}");
+                Console.WriteLine($"   Check: {currentByteOffset} >= {entry.StartOffset} && {currentByteOffset} < {entry.EndOffset}");
                 #endif
 
-                if (currentOffset >= entry.StartOffset && currentOffset < entry.EndOffset)
+                if (currentByteOffset >= entry.StartOffset && currentByteOffset < entry.EndOffset)
                 {
+                    // CPython 3.12: Handler offset in exception table is byte offset
+                    // Convert to instruction index: instructionIndex = byteOffset / 2
+                    int handlerInstructionIndex = entry.HandlerOffset / 2;
                     #if DEBUG_LOG
-                    Console.WriteLine($"✅ Exception Table: MATCH! Handler at {entry.HandlerOffset} for instruction {currentOffset}");
+                    Console.WriteLine($"✅ Exception Table: MATCH! Handler at byte offset {entry.HandlerOffset} (instruction {handlerInstructionIndex}) for instruction {InstructionPointer}");
                     #endif
                     #if DEBUG_LOG
                     Console.WriteLine($"   Entry details: Depth={entry.Depth}, Lasti={entry.Lasti}");
                     #endif
-                    return (entry.HandlerOffset, entry);
+                    return (handlerInstructionIndex, entry);
                 }
                 else
                 {
@@ -456,7 +461,7 @@ namespace SharpPy
             }
 
             #if DEBUG_LOG
-            Console.WriteLine($"❌ Exception Table: No handler found for instruction {currentOffset}");
+            Console.WriteLine($"❌ Exception Table: No handler found for instruction {InstructionPointer} (byte offset {currentByteOffset})");
             #endif
             return (null, null);
         }

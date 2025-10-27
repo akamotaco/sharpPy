@@ -2500,7 +2500,7 @@ namespace SharpPy
 #endif
                             _cfgPathCount++;
                             _instructionSequence!.AddOpWithLabel(
-                                ByteCodeOp.JUMP_FORWARD,
+                                ByteCodeOp.JUMP,
                                 currentLoop.NewBreakLabel.Value,
                                 _currentLineNumber,
                                 _currentColumnOffset,
@@ -2510,7 +2510,7 @@ namespace SharpPy
                     }
                     else
                     {
-                        EmitInstruction(ByteCodeOp.JUMP_FORWARD, 0); // Fallback - will be patched
+                        EmitInstruction(ByteCodeOp.JUMP, 0); // Fallback - will be patched
                     }
                     break;
                     
@@ -2528,7 +2528,7 @@ namespace SharpPy
 #endif
                             _cfgPathCount++;
                             _instructionSequence!.AddOpWithLabel(
-                                ByteCodeOp.JUMP_BACKWARD,
+                                ByteCodeOp.JUMP,
                                 currentLoop.NewContinueLabel.Value,
                                 _currentLineNumber,
                                 _currentColumnOffset,
@@ -2538,7 +2538,7 @@ namespace SharpPy
                     }
                     else
                     {
-                        EmitInstruction(ByteCodeOp.JUMP_BACKWARD, 0); // Fallback - will be patched
+                        EmitInstruction(ByteCodeOp.JUMP, 0); // Fallback - will be patched
                     }
                     break;
                     
@@ -6343,7 +6343,7 @@ namespace SharpPy
                 if (needsJump)
                 {
                     _instructionSequence.AddOpWithLabel(
-                        ByteCodeOp.JUMP_FORWARD,
+                        ByteCodeOp.JUMP,
                         endLabel,
                         _currentLineNumber,
                         _currentColumnOffset,
@@ -6421,7 +6421,7 @@ namespace SharpPy
 
             // JUMP_BACKWARD to loop start
             _instructionSequence.AddOpWithLabel(
-                ByteCodeOp.JUMP_BACKWARD,
+                ByteCodeOp.JUMP,
                 continueLabel,
                 _currentLineNumber,
                 _currentColumnOffset,
@@ -6627,7 +6627,7 @@ namespace SharpPy
 
             // Jump back to loop body
             _instructionSequence.AddOpWithLabel(
-                ByteCodeOp.JUMP_BACKWARD,
+                ByteCodeOp.JUMP,
                 loopBodyLabel,
                 _currentLineNumber,
                 _currentColumnOffset,
@@ -6747,7 +6747,7 @@ namespace SharpPy
             // 7. Jump back to FOR_ITER
             // CPython 3.12: Uses JUMP_BACKWARD for backward jumps
             _instructionSequence.AddOpWithLabel(
-                ByteCodeOp.JUMP_BACKWARD,
+                ByteCodeOp.JUMP,
                 startLabel,
                 _currentLineNumber,
                 _currentColumnOffset,
@@ -7121,14 +7121,17 @@ namespace SharpPy
                 }
             }
 
-            // 5. Jump to finally (normal path) or end (no finally)
+            // 5. Try block completed successfully - ALWAYS use JUMP
+            // CPython 3.12: Both module-level and function-level use JUMP to skip handlers
+            //               RETURN_CONST is only added at the END of the module
+            // NOTE: This is crucial for nested try-except blocks!
             if (hasFinally)
             {
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, finallyLabel, _currentLineNumber);
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, finallyLabel, _currentLineNumber);
             }
             else
             {
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, endLabel, _currentLineNumber);
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
             }
 
             // 6. Exception handler entry
@@ -7181,15 +7184,16 @@ namespace SharpPy
                     // The SETUP_CLEANUP at line 7160 is managed by the per-block ExceptStack in flowgraph.cs
                     _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
 
-                    // Jump to finally (exception path) or end (no finally)
+                    // Except handler completed - jump to finally or end
+                    // Module/Function 구분 없이 통일: except 블록 이후 코드가 있을 수 있으므로 점프 사용
                     if (hasFinally)
                     {
                         // CPython pattern: JUMP_BACKWARD to finally block (offset 18 in disassembly)
-                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_BACKWARD, finallyLabel, _currentLineNumber);
+                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, finallyLabel, _currentLineNumber);
                     }
                     else
                     {
-                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, endLabel, _currentLineNumber);
+                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
                     }
 
                     // Next exception handler label
@@ -7198,9 +7202,15 @@ namespace SharpPy
 
                 // Reraise if no handler matched
                 _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 0, _currentLineNumber);
+
+                // CPython pattern: POP_BLOCK after except handlers to pop SETUP_CLEANUP
+                // This ensures the cleanup block itself is NOT protected by an exception handler
+                _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
             }
 
             // 8. Cleanup handler (CPython pattern for exception propagation)
+            // This block is reached when an exception occurs in the except handlers
+            // It should NOT be protected by any exception handler
             _instructionSequence.UseLabel(cleanupLabel);
             _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 3, _currentLineNumber);
             _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
@@ -7218,7 +7228,7 @@ namespace SharpPy
                 }
 
                 // Jump to actual end
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, endLabel, _currentLineNumber);
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
 
                 // 10. Finally block (exception path) - offset 120 in CPython disassembly
                 // This executes when an exception occurs in except handler
@@ -7347,7 +7357,7 @@ namespace SharpPy
 
             // Jump to end
             _instructionSequence.AddOpWithLabel(
-                ByteCodeOp.JUMP_FORWARD,
+                ByteCodeOp.JUMP,
                 endLabel,
                 _currentLineNumber,
                 _currentColumnOffset,
@@ -7519,7 +7529,7 @@ namespace SharpPy
                 }
 
                 // Jump to end
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, endLabel, _currentLineNumber);
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
 
                 // CPython 3.12: emit_and_reset_fail_pop - generate POP_TOP chain for cleanup
                 EmitAndResetFailPop(pc, failLabel);
@@ -8168,14 +8178,14 @@ namespace SharpPy
                         // Last pattern - if false, fail the entire OR
                         _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                         // If true, OR pattern succeeds - jump to success
-                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, successLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
+                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, successLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                     }
                     else
                     {
                         // Not last pattern - if false, try next pattern
                         _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, nextLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                         // If true, OR pattern succeeds - jump to success
-                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, successLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
+                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, successLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                     }
                 }
                 else
@@ -8189,13 +8199,13 @@ namespace SharpPy
                     if (!CompilePatternMatch(pattern, patternContext))
                     {
                         // Pattern compilation failed
-                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
+                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, failLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                         return false;
                     }
                     else
                     {
                         // Pattern matched - jump to success
-                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, successLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
+                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, successLabel, _currentLineNumber, _currentColumnOffset, _currentFileName);
                     }
                 }
             }
@@ -8595,7 +8605,7 @@ namespace SharpPy
             }
 
             // Jump to end after successful completion
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, endLabel, _currentLineNumber);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
 
             // Cleanup: when any comparison fails
             _instructionSequence.UseLabel(cleanupLabel);
@@ -8654,7 +8664,7 @@ namespace SharpPy
             }
 
             // Jump to end after successful completion
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, endLabel, _currentLineNumber);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
 
             // Cleanup: when any comparison fails
             _instructionSequence.UseLabel(cleanupLabel);
@@ -8961,7 +8971,7 @@ namespace SharpPy
             if (IsInComplexExpression())
             {
                 var endLabel = _instructionSequence.NewLabel();
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, endLabel, _currentLineNumber);
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
 
                 // 5. False 분기
                 _instructionSequence.UseLabel(elseLabel);
@@ -11429,7 +11439,7 @@ namespace SharpPy
                 }
 
                 // CPython: JUMP to end on success
-                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP_FORWARD, endLabel, _currentLineNumber);
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
 
                 // CPython: emit_and_reset_fail_pop
                 EmitAndResetFailPop(pc, oldPc.FailPop[0]);
@@ -11445,7 +11455,7 @@ namespace SharpPy
             _instructionSequence.AddOp(ByteCodeOp.POP_TOP, 0, _currentLineNumber);
 
             // CPython: jump_to_fail_pop(c, LOC(p), pc, JUMP)
-            JumpToFailPop(pc, ByteCodeOp.JUMP_FORWARD);
+            JumpToFailPop(pc, ByteCodeOp.JUMP);
 
             // CPython: USE_LABEL(c, end)
             _instructionSequence.UseLabel(endLabel);

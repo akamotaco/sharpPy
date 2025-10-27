@@ -202,10 +202,11 @@ namespace SharpPy
                             bool isBackwardJump = targetIndex < instrIndex;
                             ByteCodeOp finalOpCode = instr.OpCode;
 
-                            // Convert JUMP/JUMP_NO_INTERRUPT to backward variants
-                            if (instr.OpCode == ByteCodeOp.JUMP && isBackwardJump)
+                            // Convert JUMP/JUMP_NO_INTERRUPT to forward/backward variants
+                            // CPython 3.12: compile.c emits JUMP, assembler converts to JUMP_FORWARD/JUMP_BACKWARD
+                            if (instr.OpCode == ByteCodeOp.JUMP)
                             {
-                                finalOpCode = ByteCodeOp.JUMP_BACKWARD;
+                                finalOpCode = isBackwardJump ? ByteCodeOp.JUMP_BACKWARD : ByteCodeOp.JUMP_FORWARD;
                             }
                             else if (instr.OpCode == ByteCodeOp.JUMP_NO_INTERRUPT && isBackwardJump)
                             {

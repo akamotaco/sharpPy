@@ -42,30 +42,84 @@ namespace SharpPy
         /// <summary>
         /// Build mapping from label names to instruction offsets
         /// This is needed for resolving ExceptHandlerInfo.HandlerLabel
+        /// IMPORTANT: Skip pseudo-instructions and return offset of first real instruction
         /// </summary>
         private static Dictionary<string, int> BuildLabelMapping(InstructionSequence instrSeq)
         {
             var mapping = new Dictionary<string, int>();
 
-            // Iterate through all labels and find their target offsets
-            // InstructionSequence doesn't expose its label map directly,
-            // so we need to scan for all possible label IDs
-            for (int labelId = 0; labelId < 1000; labelId++)  // Reasonable upper bound
+            // CPython 3.12 approach: Build mapping AFTER accounting for pseudo-instruction removal
+            // We need to calculate what the offset will be after SETUP_*/POP_BLOCK are skipped
+
+            // First pass: Build InstructionSequence offset → CFG offset mapping
+            var instrSeqToCfgOffset = new Dictionary<int, int>();
+            int cfgOffset = 0;
+            for (int i = 0; i < instrSeq.Instructions.Count; i++)
+            {
+                var instr = instrSeq.Instructions[i];
+
+                // Skip pseudo-instructions
+                if (IsBlockPush(instr.OpCode) || IsBlockPop(instr.OpCode))
+                {
+                    // Don't increment cfgOffset for pseudo-instructions
+                    continue;
+                }
+
+                // Map InstructionSequence offset → CFG offset (after pseudo removal)
+                instrSeqToCfgOffset[i] = cfgOffset;
+                cfgOffset++;
+            }
+
+            // Second pass: Resolve labels to CFG offsets
+            for (int labelId = 0; labelId < 1000; labelId++)
             {
                 var label = new Label(labelId);
-                int targetOffset = instrSeq.GetLabelTarget(label);
+                int instrSeqOffset = instrSeq.GetLabelTarget(label);
 
-                if (targetOffset >= 0)
+                if (instrSeqOffset >= 0)
                 {
-                    // This label exists and points to targetOffset
-                    // Store multiple name patterns that might be used
-                    mapping[$"Label({labelId})"] = targetOffset;
-                    mapping[$"with_cleanup_{labelId}"] = targetOffset;
-                    mapping[$"label_{labelId}"] = targetOffset;
+                    // Find next real instruction in InstructionSequence
+                    int realInstrSeqOffset = FindNextRealInstruction(instrSeq, instrSeqOffset);
+
+                    // Convert to CFG offset (after pseudo-instruction removal)
+                    if (instrSeqToCfgOffset.TryGetValue(realInstrSeqOffset, out int resolvedCfgOffset))
+                    {
+                        mapping[$"Label({labelId})"] = resolvedCfgOffset;
+                        mapping[$"with_cleanup_{labelId}"] = resolvedCfgOffset;
+                        mapping[$"label_{labelId}"] = resolvedCfgOffset;
+                    }
                 }
             }
 
             return mapping;
+        }
+
+        /// <summary>
+        /// Find next real (non-pseudo) instruction starting from given offset
+        /// CPython flowgraph.c removes pseudo-instructions before label resolution
+        /// SharpPy resolves labels first, so we need to skip pseudo-instructions here
+        /// </summary>
+        private static int FindNextRealInstruction(InstructionSequence instrSeq, int startOffset)
+        {
+            var instructions = instrSeq.Instructions;
+
+            for (int i = startOffset; i < instructions.Count; i++)
+            {
+                var instr = instructions[i];
+
+                // Skip pseudo-instructions (SETUP_*, POP_BLOCK)
+                if (IsBlockPush(instr.OpCode) || IsBlockPop(instr.OpCode))
+                {
+                    continue;  // Keep looking for real instruction
+                }
+
+                // Found first real instruction
+                return i;
+            }
+
+            // No real instruction found after startOffset (shouldn't happen normally)
+            // Return original offset as fallback
+            return startOffset;
         }
 
         /// <summary>
@@ -142,12 +196,19 @@ namespace SharpPy
             }
 
             // Second pass: process instructions with ExceptStack
+            // Track real instruction count to update block offsets
+            int realInstructionCount = 0;
+
             for (int i = 0; i < sortedStarts.Count; i++)
             {
                 int start = sortedStarts[i];
                 int end = (i + 1 < sortedStarts.Count) ? sortedStarts[i + 1] : instructions.Count;
 
                 var block = indexToBlock[start];
+
+                // IMPORTANT: Update block.Offset to point to first real instruction (not pseudo-instruction)
+                // This is crucial for exception table generation
+                int blockRealStart = -1;
 
                 // Add instructions to this block
                 for (int j = start; j < end; j++)
@@ -161,14 +222,35 @@ namespace SharpPy
                         if (instr.Target.HasValue)
                         {
                             int targetIndex = instrSeq.GetLabelTarget(instr.Target.Value);
+                            // IMPORTANT: Look up block using original targetIndex (block start),
+                            // but the block's Offset will be updated to point to the real instruction
                             if (indexToBlock.TryGetValue(targetIndex, out var handlerBlock))
                             {
+                                // FIX: Update handlerBlock.Offset to use correct CFG offset from labelToOffset
+                                // handlerBlock.Offset is still the old InstructionSequence offset (includes pseudo-instructions)
+                                // We need the CFG offset (after pseudo-instruction removal) from BuildLabelMapping
+                                string labelKey = instr.Target.Value.ToString();
+                                if (labelToOffset.TryGetValue(labelKey, out int correctCfgOffset))
+                                {
+                                    // Update the block's offset to the correct CFG offset
+                                    handlerBlock.Offset = correctCfgOffset;
+                                }
+
                                 exceptStack.Push(handlerBlock);
 
-                                // Mark handler block to preserve lasti for SETUP_CLEANUP/SETUP_WITH
+                                // CPython 3.12 exception table semantics:
+                                // - SETUP_FINALLY: depth=0 (pop all), lasti=false (don't preserve)
+                                // - SETUP_CLEANUP: depth=1 (keep exception), lasti=true (preserve for reraise)
+                                // - SETUP_WITH: depth=1, lasti=true
                                 if (instr.OpCode == ByteCodeOp.SETUP_CLEANUP || instr.OpCode == ByteCodeOp.SETUP_WITH)
                                 {
                                     handlerBlock.PreserveLasti = true;
+                                    handlerBlock.ExceptionDepth = 1;
+                                }
+                                else // SETUP_FINALLY
+                                {
+                                    handlerBlock.PreserveLasti = false;
+                                    handlerBlock.ExceptionDepth = 0;
                                 }
                             }
                         }
@@ -189,6 +271,13 @@ namespace SharpPy
                         continue;
                     }
 
+                    // This is a real instruction - record block start if first in block
+                    if (blockRealStart == -1)
+                    {
+                        blockRealStart = realInstructionCount;
+                        block.Offset = realInstructionCount;
+                    }
+
                     // Get current exception handler from stack
                     // CPython 3.12: flowgraph.c:825-849 (set i_except for each instruction)
                     var currentHandler = exceptStack.Top();
@@ -201,8 +290,10 @@ namespace SharpPy
                     // CPython 3.12: instr->i_except = handler (flowgraph.c:849)
                     if (resolvedHandler.HandlerOffset == -1 && handlerOffset >= 0)
                     {
-                        // CPython 3.12: Get depth and lasti from ExceptStack/handler block
-                        int depth = exceptStack.Depth;
+                        // CPython 3.12: Get depth and lasti from handler block (not stack depth!)
+                        // depth = number of stack values to preserve on exception
+                        // lasti = whether to preserve last_i for reraise
+                        int depth = currentHandler?.ExceptionDepth ?? 0;
                         bool lasti = currentHandler?.PreserveLasti ?? false;
 
                         resolvedHandler = new ExceptHandlerInfo(handlerOffset, depth, lasti);
@@ -221,45 +312,58 @@ namespace SharpPy
 
                     if (instr.IsJump && instr.Target.HasValue)
                     {
-                        // For jump instructions, resolve target to block offset
-                        // CPython: instr->i_oparg = instr->i_target->b_offset
-                        int targetInstrIndex = instrSeq.GetLabelTarget(instr.Target.Value);
+                        // For jump instructions, resolve target to CFG offset using labelToOffset mapping
+                        // IMPORTANT: Don't use targetBlock.Offset here because it might not be updated yet!
+                        // labelToOffset already contains the correct CFG offset (after pseudo-instruction removal)
+                        string labelKey = instr.Target.Value.ToString();
+                        int targetCfgOffset;
 
-                        // Find which block contains this target instruction
-                        // We need to find block whose range [start, end) contains targetInstrIndex
-                        BasicBlock? targetBlock = null;
-                        for (int bi = 0; bi < sortedStarts.Count; bi++)
+                        if (labelToOffset.TryGetValue(labelKey, out targetCfgOffset))
                         {
-                            int blockStart = sortedStarts[bi];
-                            int blockEnd = (bi + 1 < sortedStarts.Count) ? sortedStarts[bi + 1] : instructions.Count;
+                            // Use the pre-calculated CFG offset from labelToOffset
+                        }
+                        else
+                        {
+                            // Fallback: resolve using InstructionSequence offset (shouldn't happen for well-formed code)
+                            int targetInstrIndex = instrSeq.GetLabelTarget(instr.Target.Value);
 
-                            if (blockStart <= targetInstrIndex && targetInstrIndex < blockEnd)
+                            // Find which block contains this target instruction
+                            BasicBlock? targetBlock = null;
+                            for (int bi = 0; bi < sortedStarts.Count; bi++)
                             {
-                                if (indexToBlock.TryGetValue(blockStart, out var candidateBlock))
+                                int blockStart = sortedStarts[bi];
+                                int blockEnd = (bi + 1 < sortedStarts.Count) ? sortedStarts[bi + 1] : instructions.Count;
+
+                                if (blockStart <= targetInstrIndex && targetInstrIndex < blockEnd)
                                 {
-                                    targetBlock = candidateBlock;
-                                    break;
+                                    if (indexToBlock.TryGetValue(blockStart, out var candidateBlock))
+                                    {
+                                        targetBlock = candidateBlock;
+                                        break;
+                                    }
                                 }
                             }
-                        }
 
-                        if (targetBlock == null)
-                        {
-                            throw new InvalidOperationException(
-                                $"Jump target block not found for instruction index {targetInstrIndex}");
+                            if (targetBlock == null)
+                            {
+                                throw new InvalidOperationException(
+                                    $"Jump target block not found for instruction index {targetInstrIndex}");
+                            }
+
+                            targetCfgOffset = targetBlock.Offset;
                         }
 
                         #if DEBUG_COMPILER_LOG
                         if (instr.OpCode == ByteCodeOp.JUMP_NO_INTERRUPT)
                         {
-                            Console.WriteLine($"[flowgraph] JUMP_NO_INTERRUPT at index {j}, target label {instr.Target.Value} resolves to InstrSeq index {targetInstrIndex}, block offset {targetBlock.Offset}");
+                            Console.WriteLine($"[flowgraph] JUMP_NO_INTERRUPT target label {instr.Target.Value} resolves to CFG offset {targetCfgOffset}");
                         }
                         #endif
 
-                        // Store target block's offset (will be updated after recalculation)
+                        // Store target CFG offset
                         bcInstr = new ByteCodeInstruction(
                             instr.OpCode,
-                            targetBlock.Offset,  // Target block offset
+                            targetCfgOffset,  // Target CFG offset from labelToOffset mapping
                             instr.LineNumber,
                             instr.ColumnOffset,
                             instr.FileName,
@@ -282,6 +386,7 @@ namespace SharpPy
                     }
 
                     block.Instructions.Add(bcInstr);
+                    realInstructionCount++;  // Increment count for each real instruction added
                 }
             }
 
@@ -293,13 +398,22 @@ namespace SharpPy
 
             // Recalculate block offsets after pseudo-opcodes were removed
             // (pseudo-opcodes like SETUP_FINALLY were skipped in the loop above)
+            // IMPORTANT: Build mapping for ALL instruction offsets, not just block starts!
+            // This is needed for updating ExceptionHandlerOffset which can point anywhere
             int finalOffset = 0;
             var oldToNewOffset = new Dictionary<int, int>();
             foreach (var block in sortedStarts.Select(s => indexToBlock[s]))
             {
-                int oldOffset = block.Offset;
+                int oldBlockOffset = block.Offset;
                 block.Offset = finalOffset;
-                oldToNewOffset[oldOffset] = finalOffset;
+
+                // Map ALL instructions in this block (not just block start)
+                // Exception handler offsets can point to any instruction
+                for (int i = 0; i < block.Instructions.Count; i++)
+                {
+                    oldToNewOffset[oldBlockOffset + i] = finalOffset + i;
+                }
+
                 finalOffset += block.Instructions.Count;
             }
 

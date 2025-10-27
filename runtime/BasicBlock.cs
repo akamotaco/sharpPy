@@ -46,6 +46,13 @@ namespace SharpPy
         public bool IsExceptionHandler { get; set; }
 
         /// <summary>
+        /// CPython 3.12: Exception table depth (number of stack values to preserve)
+        /// - SETUP_FINALLY: depth=0 (pop all)
+        /// - SETUP_CLEANUP/WITH: depth=1 (keep exception object)
+        /// </summary>
+        public int ExceptionDepth { get; set; } = 0;
+
+        /// <summary>
         /// Stack depth at block entry (for exception handling)
         /// </summary>
         public int StartDepth { get; set; }

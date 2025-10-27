@@ -534,19 +534,23 @@ namespace SharpPy
         {
             var table = new List<ExceptionTableEntry>();
 
-            // Collect all instructions with their handler info (INSTRUCTION-LEVEL)
-            // CPython 3.12: assemble.c:150-161 reads i_except_handler_info (full struct)
-            var instructions = new List<(int offset, ExceptHandlerInfo handlerInfo)>();
+            // Collect all instructions with their handler info AND block boundaries
+            // CPython 3.12: Each basic block can have separate exception table entries
+            // even if they share the same handler offset
+            var instructions = new List<(int offset, ExceptHandlerInfo handlerInfo, bool isBlockStart)>();
             int currentOffset = 0;
             foreach (var block in AllBlocks)
             {
+                bool isFirst = true;
                 foreach (var instr in block.Instructions)
                 {
                     instructions.Add((
                         currentOffset,
-                        instr.ExceptHandler  // ← KEY: Use full ExceptHandlerInfo struct
+                        instr.ExceptHandler,  // ← KEY: Use full ExceptHandlerInfo struct
+                        isFirst  // Mark first instruction of each block
                     ));
                     currentOffset++;
+                    isFirst = false;
                 }
             }
 
@@ -555,29 +559,33 @@ namespace SharpPy
                 return table;
             }
 
-            // Traverse instructions and detect handler changes
-            // CPython 3.12: assemble.c:150-165 (same algorithm)
+            // Traverse instructions and detect handler changes OR block boundaries
+            // CPython 3.12: assemble.c:150-165 + flowgraph.c per-block except_stack
             ExceptHandlerInfo currentHandler = ExceptHandlerInfo.NoHandler;
             int startOffset = -1;
 
             for (int i = 0; i < instructions.Count; i++)
             {
-                var (offset, handlerInfo) = instructions[i];
+                var (offset, handlerInfo, isBlockStart) = instructions[i];
 
-                // Check if exception handler changed
+                // Check if exception handler changed OR new basic block started
                 // CPython: instr->i_except_handler_info.h_offset != handler.h_offset
-                // We need to compare the full struct (offset, depth, lasti)
-                if (handlerInfo.HandlerOffset != currentHandler.HandlerOffset ||
-                    handlerInfo.StackDepth != currentHandler.StackDepth ||
-                    handlerInfo.PreserveLasti != currentHandler.PreserveLasti)
+                // SharpPy extension: Also split on basic block boundaries (CPython has per-block except_stack)
+                bool handlerChanged = handlerInfo.HandlerOffset != currentHandler.HandlerOffset;
+                bool shouldSplit = handlerChanged || (isBlockStart && i > 0 && currentHandler.HandlerOffset >= 0);
+
+                if (shouldSplit)
                 {
                     // Emit entry for previous handler region
                     if (currentHandler.HandlerOffset >= 0 && startOffset >= 0)
                     {
+                        // Convert instruction index to byte offset (index * 2)
+                        // CPython 3.12 stores instruction word offset, displays as byte offset
+                        // SharpPy uses instruction index, stores/displays as byte offset
                         table.Add(new ExceptionTableEntry(
-                            start: startOffset,
-                            end: offset,
-                            handler: currentHandler.HandlerOffset,
+                            start: startOffset * 2,
+                            end: offset * 2,
+                            handler: currentHandler.HandlerOffset * 2,
                             depth: currentHandler.StackDepth,
                             lasti: currentHandler.PreserveLasti
                         ));
@@ -594,10 +602,11 @@ namespace SharpPy
             {
                 int endOffset = instructions.Count;
 
+                // Convert instruction index to byte offset (index * 2)
                 table.Add(new ExceptionTableEntry(
-                    start: startOffset,
-                    end: endOffset,
-                    handler: currentHandler.HandlerOffset,
+                    start: startOffset * 2,
+                    end: endOffset * 2,
+                    handler: currentHandler.HandlerOffset * 2,
                     depth: currentHandler.StackDepth,
                     lasti: currentHandler.PreserveLasti
                 ));
