@@ -5225,9 +5225,10 @@ namespace SharpPy
 
                 case ByteCodeOp.CALL_INTRINSIC_2:
                     // CPython 3.12: CALL_INTRINSIC_2 for exception handling
-                    var arg2_2 = frame.ValueStack.Pop();
-                    var arg2_1 = frame.ValueStack.Pop();
-                    var result2 = ExecuteIntrinsicFunction2(instruction.Argument, arg2_1, arg2_2);
+                    // Stack: [..., arg1, arg2] -> pop arg2 first, then arg1
+                    var intrinsic2_arg2 = frame.ValueStack.Pop();  // TOS (second argument)
+                    var intrinsic2_arg1 = frame.ValueStack.Pop();  // TOS-1 (first argument)
+                    var result2 = ExecuteIntrinsicFunction2(instruction.Argument, intrinsic2_arg1, intrinsic2_arg2);
                     frame.ValueStack.Push(result2);
                     break;
 
@@ -5795,7 +5796,10 @@ namespace SharpPy
             switch (functionId)
             {
                 case 0: // INTRINSIC_PREP_RERAISE_STAR - Exception Groups cleanup (CPython 3.12: PREP_RERAISE_STAR = 0)
-                    return PrepReraiseStarExceptions(arg1, arg2);
+                    // CPython signature: _PyExc_PrepReraiseStar(orig, excs)
+                    // Stack layout: [orig, excs] -> arg1=orig, arg2=excs (list)
+                    // But PrepReraiseStarExceptions expects (list, orig), so swap
+                    return PrepReraiseStarExceptions(arg2, arg1);
                 case 4: // INTRINSIC_SET_FUNCTION_TYPE_PARAMS - PEP 695 Generic Function
                     return SetFunctionTypeParams(arg1, arg2);
                 default:
@@ -5884,7 +5888,27 @@ namespace SharpPy
                     #if DEBUG_LOG
                     Console.WriteLine($"🔍 Checking exception: {exc.GetType().Name} vs {exceptionType?.GetType().Name}");
                     #endif
-                    if (ExceptionMatches(exc, exceptionType))
+
+                    // CPython 3.12: If exc is also an ExceptionGroup, recursively split it
+                    if (exc is PyBaseExceptionGroup nestedGroup)
+                    {
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔄 Recursively checking nested ExceptionGroup with {nestedGroup.Exceptions.Count} exceptions");
+                        #endif
+
+                        var (nestedMatched, nestedRemainder) = ExceptionGroupMatches(exc, exceptionType);
+
+                        if (nestedMatched != null && nestedMatched is PyException matchedExc)
+                        {
+                            matchedExceptions.Add(matchedExc);
+                        }
+
+                        if (nestedRemainder != null && nestedRemainder is PyException remainderExc)
+                        {
+                            remainderExceptions.Add(remainderExc);
+                        }
+                    }
+                    else if (ExceptionMatches(exc, exceptionType))
                     {
                         #if DEBUG_LOG
                         Console.WriteLine($"✅ Match found: {exc.GetType().Name}");

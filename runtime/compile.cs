@@ -7507,13 +7507,78 @@ namespace SharpPy
 
         /// <summary>
         /// CPython 3.12: compiler_try_star_finally() - Handle try-except*-finally
-        /// Reference: Python/compile.c lines 3282-3316
+        /// Reference: Python/compile.c lines 3290-3338
         /// </summary>
         private void CompileTryStarFinallyCFG(TryStarStatement tryStarStmt)
         {
-            // TODO: Implement finally pattern for try-except*
-            // For now, throw not implemented
-            throw new NotImplementedException("try-except*-finally pattern not yet implemented. Use try-except* without finally for now.");
+            // CPython pattern from compile.c:3290-3338
+            var bodyLabel = _instructionSequence.NewLabel();
+            var endLabel = _instructionSequence.NewLabel();
+            var exitLabel = _instructionSequence.NewLabel();
+            var cleanupLabel = _instructionSequence.NewLabel();
+
+            // SETUP_FINALLY end (line 3299)
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, endLabel, _currentLineNumber);
+
+            // USE_LABEL body (line 3301)
+            _instructionSequence.UseLabel(bodyLabel);
+
+            // Try body: if has handlers, call compiler_try_star_except, else compile body (lines 3306-3311)
+            var hasHandlers = tryStarStmt.Handlers != null && tryStarStmt.Handlers.Count > 0;
+            if (hasHandlers)
+            {
+                // Call compiler_try_star_except for the except* handlers
+                CompileTryStarExceptCFG(tryStarStmt);
+            }
+            else
+            {
+                // No handlers, just compile the body
+                foreach (var stmt in tryStarStmt.Body)
+                {
+                    CompileStatement(stmt);
+                }
+            }
+
+            // POP_BLOCK (line 3312)
+            _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
+
+            // Visit finalbody (line 3314)
+            foreach (var stmt in tryStarStmt.FinalBody)
+            {
+                CompileStatement(stmt);
+            }
+
+            // JUMP exit (line 3316)
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, exitLabel, _currentLineNumber);
+
+            // Finally block: USE_LABEL end (line 3319)
+            _instructionSequence.UseLabel(endLabel);
+
+            // SETUP_CLEANUP cleanup, PUSH_EXC_INFO (lines 3322-3323)
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, cleanupLabel, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.PUSH_EXC_INFO, _currentLineNumber);
+
+            // Visit finalbody again (line 3327)
+            foreach (var stmt in tryStarStmt.FinalBody)
+            {
+                CompileStatement(stmt);
+            }
+
+            // RERAISE 0 (line 3331)
+            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 0, _currentLineNumber);
+
+            // USE_LABEL cleanup: POP_EXCEPT_AND_RERAISE (lines 3333-3334)
+            _instructionSequence.UseLabel(cleanupLabel);
+            // POP_EXCEPT_AND_RERAISE pattern
+            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 1, _currentLineNumber);
+
+            // USE_LABEL exit (line 3336)
+            _instructionSequence.UseLabel(exitLabel);
+
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"✅ [CFG] CompileTryStarFinallyCFG: Complete (try-except*-finally pattern)");
+#endif
         }
 
         private void CompileWith(WithStatement withStmt)
