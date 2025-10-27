@@ -772,6 +772,16 @@ namespace SharpPy
                     if (tryStmt.FinalBody != null && tryStmt.FinalBody.Count > 0)
                         PreScanFunction(tryStmt.FinalBody);
                     break;
+
+                case TryStarStatement tryStarStmt:
+                    PreScanFunction(tryStarStmt.Body);
+                    foreach (var handler in tryStarStmt.Handlers)
+                        PreScanFunction(handler.Body);
+                    if (tryStarStmt.OrElse != null && tryStarStmt.OrElse.Count > 0)
+                        PreScanFunction(tryStarStmt.OrElse);
+                    if (tryStarStmt.FinalBody != null && tryStarStmt.FinalBody.Count > 0)
+                        PreScanFunction(tryStarStmt.FinalBody);
+                    break;
                 case WithStatement withStmt:
                     PreScanFunction(withStmt.Body);
                     break;
@@ -2470,7 +2480,12 @@ namespace SharpPy
                     // CPython 3.12: Always use InstructionSequence/CFG path
                     CompileTryStatementCFG(tryStmt);
                     break;
-                    
+
+                case TryStarStatement tryStarStmt:
+                    // CPython 3.12: Exception Groups (PEP 654) - except* syntax
+                    CompileTryStarStatementCFG(tryStarStmt);
+                    break;
+
                 case WithStatement withStmt:
                     CompileWith(withStmt);
                     break;
@@ -7083,6 +7098,21 @@ namespace SharpPy
         /// </summary>
         private void CompileTryStatementCFG(TryStatement tryStmt)
         {
+            // Check if any handler is an except* handler (IsStar = true)
+            bool hasExceptStar = tryStmt.Handlers != null && tryStmt.Handlers.Any(h => h.IsStar);
+            if (hasExceptStar)
+            {
+                // Convert TryStatement to TryStarStatement and use except* compilation
+                var tryStarStmt = new TryStarStatement(
+                    tryStmt.Body,
+                    tryStmt.Handlers.Select(h => new ExceptStarHandler(h.Type, h.Name, h.Body)).ToList(),
+                    tryStmt.OrElse,
+                    tryStmt.FinalBody
+                );
+                CompileTryStarStatementCFG(tryStarStmt);
+                return;
+            }
+
 #if DEBUG_COMPILER_LOG
             Console.WriteLine($"🔷 [CFG] CompileTryStatementCFG: Using InstructionSequence with SETUP_FINALLY (CPython 3.12 CFG path)");
 #endif
@@ -7262,6 +7292,228 @@ namespace SharpPy
 #if DEBUG_COMPILER_LOG
             Console.WriteLine($"✅ [CFG] CompileTryStatementCFG: Complete (SETUP_FINALLY pattern)");
 #endif
+        }
+
+        /// <summary>
+        /// CPython 3.12 CFG: Compile try-except* (exception groups) using SETUP_FINALLY
+        /// Follows CPython compile.c:compiler_try_star_except() pattern
+        /// </summary>
+        private void CompileTryStarStatementCFG(TryStarStatement tryStarStmt)
+        {
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"🔷 [CFG] CompileTryStarStatementCFG: Using InstructionSequence with SETUP_FINALLY (CPython 3.12 except* pattern)");
+#endif
+            _cfgPathCount++;
+
+            var hasHandlers = tryStarStmt.Handlers != null && tryStarStmt.Handlers.Count > 0;
+            var hasElse = tryStarStmt.OrElse != null && tryStarStmt.OrElse.Count > 0;
+            var hasFinally = tryStarStmt.FinalBody != null && tryStarStmt.FinalBody.Count > 0;
+
+            // CPython: If we have finally, use try_star_finally pattern
+            if (hasFinally)
+            {
+                CompileTryStarFinallyCFG(tryStarStmt);
+                return;
+            }
+
+            // Otherwise, use try_star_except pattern (lines 3563-3716 in CPython compile.c)
+            CompileTryStarExceptCFG(tryStarStmt);
+        }
+
+        /// <summary>
+        /// CPython 3.12: compiler_try_star_except() - Handle except* blocks for exception groups
+        /// Reference: Python/compile.c lines 3563-3716
+        /// </summary>
+        private void CompileTryStarExceptCFG(TryStarStatement tryStarStmt)
+        {
+            // Create labels (CPython pattern)
+            var bodyLabel = _instructionSequence.NewLabel();
+            var exceptLabel = _instructionSequence.NewLabel();
+            var orelseLabel = _instructionSequence.NewLabel();
+            var cleanupLabel = _instructionSequence.NewLabel();
+            var endLabel = _instructionSequence.NewLabel();
+            var reraiseStarLabel = _instructionSequence.NewLabel();
+            var reraiseLabel = _instructionSequence.NewLabel();
+
+            // SETUP_FINALLY except (line 3563)
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, exceptLabel, _currentLineNumber);
+
+            // USE_LABEL body (line 3565)
+            _instructionSequence.UseLabel(bodyLabel);
+
+            // Try body (line 3568)
+            foreach (var stmt in tryStarStmt.Body)
+            {
+                CompileStatement(stmt);
+            }
+
+            // POP_BLOCK and JUMP orelse (lines 3570-3571)
+            _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, orelseLabel, _currentLineNumber);
+
+            int n = tryStarStmt.Handlers.Count;
+
+            // USE_LABEL except (line 3574)
+            _instructionSequence.UseLabel(exceptLabel);
+
+            // SETUP_CLEANUP cleanup and PUSH_EXC_INFO (lines 3576-3577)
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, cleanupLabel, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.PUSH_EXC_INFO, _currentLineNumber);
+
+            // Process each except* handler (lines 3584-3686)
+            for (int i = 0; i < n; i++)
+            {
+                var handler = tryStarStmt.Handlers[i];
+                var nextExceptLabel = _instructionSequence.NewLabel();
+                var exceptWithErrorLabel = _instructionSequence.NewLabel();
+                var noMatchLabel = _instructionSequence.NewLabel();
+
+                // First handler: BUILD_LIST 0 and COPY 2 (lines 3592-3604)
+                if (i == 0)
+                {
+                    // Build empty list for collected exceptions
+                    _instructionSequence.AddOpWithArg(ByteCodeOp.BUILD_LIST, 0, _currentLineNumber);
+                    // Copy the original exception group
+                    _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 2, _currentLineNumber);
+                }
+
+                // If handler has type, check for match (lines 3605-3610)
+                if (handler.Type != null)
+                {
+                    CompileExpression(handler.Type);
+                    // CHECK_EG_MATCH: Check if exception group matches type
+                    _instructionSequence.AddOp(ByteCodeOp.CHECK_EG_MATCH, _currentLineNumber);
+                    _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 1, _currentLineNumber);
+                    _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_NONE, noMatchLabel, _currentLineNumber);
+                }
+
+                var cleanupEndLabel = _instructionSequence.NewLabel();
+                var cleanupBodyLabel = _instructionSequence.NewLabel();
+
+                // Bind exception name or POP_TOP (lines 3615-3621)
+                if (!string.IsNullOrEmpty(handler.Name))
+                {
+                    EmitStoreName(handler.Name);
+                }
+                else
+                {
+                    _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber);
+                }
+
+                // SETUP_CLEANUP for handler body (line 3634)
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, cleanupEndLabel, _currentLineNumber);
+
+                _instructionSequence.UseLabel(cleanupBodyLabel);
+
+                // Handler body (line 3642)
+                foreach (var stmt in handler.Body)
+                {
+                    CompileStatement(stmt);
+                }
+
+                // POP_BLOCK after handler body (line 3645)
+                _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
+
+                // Clean up exception name (lines 3646-3652)
+                if (!string.IsNullOrEmpty(handler.Name))
+                {
+                    EmitLoadConst(PyNone.Instance);
+                    EmitStoreName(handler.Name);
+                    EmitDeleteName(handler.Name);
+                }
+
+                // JUMP to next except label (line 3653)
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, nextExceptLabel, _currentLineNumber);
+
+                // Cleanup handler (lines 3656-3670)
+                _instructionSequence.UseLabel(cleanupEndLabel);
+
+                if (!string.IsNullOrEmpty(handler.Name))
+                {
+                    EmitLoadConst(PyNone.Instance);
+                    EmitStoreName(handler.Name);
+                    EmitDeleteName(handler.Name);
+                }
+
+                // LIST_APPEND to collected exceptions list (line 3668)
+                _instructionSequence.AddOpWithArg(ByteCodeOp.LIST_APPEND, 3, _currentLineNumber);
+                _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber); // lasti
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, exceptWithErrorLabel, _currentLineNumber);
+
+                // Next except handler (lines 3672-3674)
+                _instructionSequence.UseLabel(nextExceptLabel);
+                _instructionSequence.AddOp(ByteCodeOp.NOP, _currentLineNumber);
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, exceptWithErrorLabel, _currentLineNumber);
+
+                // No match handler (lines 3676-3677)
+                _instructionSequence.UseLabel(noMatchLabel);
+                _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber); // match (None)
+
+                _instructionSequence.UseLabel(exceptWithErrorLabel);
+
+                // Last handler: LIST_APPEND and jump to reraise_star (lines 3681-3685)
+                if (i == n - 1)
+                {
+                    _instructionSequence.AddOpWithArg(ByteCodeOp.LIST_APPEND, 1, _currentLineNumber);
+                    _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, reraiseStarLabel, _currentLineNumber);
+                }
+
+                exceptLabel = nextExceptLabel;
+            }
+
+            // Reraise star logic (lines 3691-3706)
+            _instructionSequence.UseLabel(reraiseStarLabel);
+            // PREP_RERAISE_STAR intrinsic: Prepares exception group for re-raising
+            _instructionSequence.AddOpWithArg(ByteCodeOp.CALL_INTRINSIC_2, (int)IntrinsicFunction.INTRINSIC_PREP_RERAISE_STAR, _currentLineNumber);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 1, _currentLineNumber);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_NOT_NONE, reraiseLabel, _currentLineNumber);
+
+            // Nothing to reraise (lines 3696-3700)
+            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
+
+            // Reraise exception group (lines 3702-3706)
+            _instructionSequence.UseLabel(reraiseLabel);
+            _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.SWAP, 2, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 0, _currentLineNumber);
+
+            // Cleanup handler (lines 3708-3709)
+            _instructionSequence.UseLabel(cleanupLabel);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 3, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 1, _currentLineNumber);
+
+            // Else block (lines 3711-3712)
+            _instructionSequence.UseLabel(orelseLabel);
+            if (tryStarStmt.OrElse != null)
+            {
+                foreach (var stmt in tryStarStmt.OrElse)
+                {
+                    CompileStatement(stmt);
+                }
+            }
+
+            // End label (line 3714)
+            _instructionSequence.UseLabel(endLabel);
+
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"✅ [CFG] CompileTryStarExceptCFG: Complete (except* pattern)");
+#endif
+        }
+
+        /// <summary>
+        /// CPython 3.12: compiler_try_star_finally() - Handle try-except*-finally
+        /// Reference: Python/compile.c lines 3282-3316
+        /// </summary>
+        private void CompileTryStarFinallyCFG(TryStarStatement tryStarStmt)
+        {
+            // TODO: Implement finally pattern for try-except*
+            // For now, throw not implemented
+            throw new NotImplementedException("try-except*-finally pattern not yet implemented. Use try-except* without finally for now.");
         }
 
         private void CompileWith(WithStatement withStmt)

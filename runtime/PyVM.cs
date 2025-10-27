@@ -5794,7 +5794,7 @@ namespace SharpPy
             // CPython 3.12 intrinsic function IDs for 2-argument functions
             switch (functionId)
             {
-                case 1: // INTRINSIC_PREP_RERAISE_STAR - Exception Groups cleanup
+                case 0: // INTRINSIC_PREP_RERAISE_STAR - Exception Groups cleanup (CPython 3.12: PREP_RERAISE_STAR = 0)
                     return PrepReraiseStarExceptions(arg1, arg2);
                 case 4: // INTRINSIC_SET_FUNCTION_TYPE_PARAMS - PEP 695 Generic Function
                     return SetFunctionTypeParams(arg1, arg2);

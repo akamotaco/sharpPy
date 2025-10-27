@@ -716,7 +716,11 @@ namespace SharpPy
         INTRINSIC_PARAMSPEC = 8,            // CPython 3.12: INTRINSIC_PARAMSPEC ✅ 이미 정확
         INTRINSIC_TYPEVARTUPLE = 9,         // CPython 3.12: INTRINSIC_TYPEVARTUPLE ✅ 이미 정확
         INTRINSIC_SUBSCRIPT_GENERIC = 10,   // CPython 3.12: INTRINSIC_SUBSCRIPT_GENERIC ✅ 이미 정확
-        INTRINSIC_TYPEALIAS = 11            // CPython 3.12: INTRINSIC_TYPEALIAS ✅ 이미 정확
+        INTRINSIC_TYPEALIAS = 11,           // CPython 3.12: INTRINSIC_TYPEALIAS ✅ 이미 정확
+
+        // INTRINSIC_2 (CALL_INTRINSIC_2)
+        INTRINSIC_PREP_RERAISE_STAR = 0,    // CPython 3.12: PREP_RERAISE_STAR for except* exception group handling
+        INTRINSIC_SET_FUNCTION_TYPE_PARAMS = 4  // Already used in compile.cs
     }
     
     // CPython 3.12 정확한 비교 연산자 열거형 (복잡한 바이트 인코딩 사용)
@@ -806,9 +810,8 @@ namespace SharpPy
                     break;
                     
                 case ByteCodeOp.CALL_INTRINSIC_1:
-                case ByteCodeOp.CALL_INTRINSIC_2:
                     // CPython 3.12 정확한 intrinsic function 이름들
-                    var intrinsics = new[] {
+                    var intrinsics1 = new[] {
                         "INVALID",              // 0: INTRINSIC_1_INVALID
                         "PRINT",                // 1: INTRINSIC_PRINT
                         "IMPORT_STAR",          // 2: INTRINSIC_IMPORT_STAR
@@ -822,8 +825,21 @@ namespace SharpPy
                         "SUBSCRIPT_GENERIC",    // 10: INTRINSIC_SUBSCRIPT_GENERIC
                         "TYPEALIAS"             // 11: INTRINSIC_TYPEALIAS
                     };
-                    if (inst.Argument < intrinsics.Length)
-                        return $"({intrinsics[inst.Argument]})";
+                    if (inst.Argument < intrinsics1.Length)
+                        return $"({intrinsics1[inst.Argument]})";
+                    break;
+
+                case ByteCodeOp.CALL_INTRINSIC_2:
+                    // CPython 3.12 INTRINSIC_2 함수 이름들
+                    var intrinsics2 = new[] {
+                        "PREP_RERAISE_STAR",           // 0: INTRINSIC_PREP_RERAISE_STAR (exception groups)
+                        "INTRINSIC_2_INVALID",         // 1: reserved
+                        "INTRINSIC_2_INVALID",         // 2: reserved
+                        "INTRINSIC_2_INVALID",         // 3: reserved
+                        "SET_FUNCTION_TYPE_PARAMS"     // 4: INTRINSIC_SET_FUNCTION_TYPE_PARAMS
+                    };
+                    if (inst.Argument < intrinsics2.Length)
+                        return $"({intrinsics2[inst.Argument]})";
                     break;
 
                 // Jump instructions - calculate actual target instruction index

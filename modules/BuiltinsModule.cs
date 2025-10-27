@@ -69,6 +69,10 @@ namespace SharpPy.Modules
             module.ModuleDict["RecursionError"] = PyType.RecursionErrorType;
             module.ModuleDict["UnboundLocalError"] = PyType.UnboundLocalErrorType;
 
+            // Exception Groups (PEP 654 - Python 3.11+)
+            module.ModuleDict["BaseExceptionGroup"] = PyType.BaseExceptionGroupType;
+            module.ModuleDict["ExceptionGroup"] = PyType.ExceptionGroupType;
+
             // Built-in functions (commonly used in standard library)
             module.ModuleDict["abs"] = new PyBuiltinFunction("abs", Abs);
             module.ModuleDict["len"] = new PyBuiltinFunction("len", Len);
