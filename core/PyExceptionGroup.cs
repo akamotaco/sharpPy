@@ -26,6 +26,8 @@ namespace SharpPy
 
         public override PyType GetPyType() => PyType.BaseExceptionGroupType;
 
+        public override string GetTypeName() => "BaseExceptionGroup";
+
         public override string ToString()
         {
             var exceptionsText = string.Join(", ", Exceptions.Select(e => e.GetType().Name));
@@ -159,6 +161,8 @@ namespace SharpPy
         }
 
         public override PyType GetPyType() => PyType.ExceptionGroupType;
+
+        public override string GetTypeName() => "ExceptionGroup";
 
         public static new PyExceptionGroup Create(string message, List<PyException> exceptions)
         {

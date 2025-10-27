@@ -290,52 +290,6 @@ namespace SharpPy
             }
         }
 
-        /// <summary>
-        /// DEPRECATED: Convert to linear bytecode instructions
-        /// This is a legacy bridge for LEGACY compilation path only
-        /// CFG path uses InstructionSequence → PyFlowGraph → CFG → PyAssemble
-        /// </summary>
-        public List<ByteCodeInstruction> ToByteCodeInstructions()
-        {
-            var result = new List<ByteCodeInstruction>();
-
-            foreach (var instr in _instructions)
-            {
-                if (instr.IsJump && instr.Target.HasValue)
-                {
-                    // Resolve label to instruction index
-                    int targetInstrIndex = GetLabelTarget(instr.Target.Value);
-                    if (targetInstrIndex < 0)
-                    {
-                        throw new InvalidOperationException(
-                            $"Jump to undefined label: {instr.Target.Value}");
-                    }
-
-                    result.Add(new ByteCodeInstruction(
-                        instr.OpCode,
-                        targetInstrIndex,
-                        instr.LineNumber,
-                        instr.ColumnOffset,
-                        instr.FileName,
-                        instr.ExceptHandler
-                    ));
-                }
-                else
-                {
-                    // Regular instruction with integer argument (or no argument)
-                    result.Add(new ByteCodeInstruction(
-                        instr.OpCode,
-                        instr.Arg ?? 0,
-                        instr.LineNumber,
-                        instr.ColumnOffset,
-                        instr.FileName,
-                        instr.ExceptHandler
-                    ));
-                }
-            }
-
-            return result;
-        }
 
         /// <summary>
         /// CPython 3.12: compile.c:7517-7587 insert_prefix_instructions

@@ -516,7 +516,29 @@ namespace SharpPy
         
         // CPython 3.12: 지연된 exception handler 생성 시스템
         private List<PendingExceptionHandler> _pendingExceptionHandlers = new List<PendingExceptionHandler>();
-        
+
+        // CPython 3.12: Exception handler stack (compile.c: compiler->u->u_except_stack)
+        // Tracks active exception handlers during compilation (SETUP_FINALLY/CLEANUP push, POP_BLOCK pop)
+        private Stack<Label> _exceptionHandlerStack = new Stack<Label>();
+
+        /// <summary>
+        /// Get the current outer exception handler from the exception handler stack
+        /// Returns ExceptHandlerInfo with the handler label, or NoHandler if stack is empty
+        /// </summary>
+        private ExceptHandlerInfo GetCurrentOuterHandler()
+        {
+            if (_exceptionHandlerStack.Count > 0)
+            {
+                var handlerLabel = _exceptionHandlerStack.Peek();
+                // Return handler with label reference (will be resolved to offset later)
+                // Use stackDepth=0 and preserveLasti=false as they will be determined by flowgraph
+                string labelString = handlerLabel.ToString();
+                Console.WriteLine($"[TEMP] GetCurrentOuterHandler: Creating ExceptHandlerInfo with label '{labelString}'");
+                return new ExceptHandlerInfo(-1, 0, false, labelString);
+            }
+            return ExceptHandlerInfo.NoHandler;
+        }
+
         // CPython 3.12 Exception Handler 정보
         private class PendingExceptionHandler
         {
@@ -7337,6 +7359,8 @@ namespace SharpPy
 
             // SETUP_FINALLY except (line 3563)
             _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, exceptLabel, _currentLineNumber);
+            // Push exception handler to stack (CPython: compiler->u->u_except_stack)
+            _exceptionHandlerStack.Push(exceptLabel);
 
             // USE_LABEL body (line 3565)
             _instructionSequence.UseLabel(bodyLabel);
@@ -7349,12 +7373,21 @@ namespace SharpPy
 
             // POP_BLOCK and JUMP orelse (lines 3570-3571)
             _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
+            // Pop exception handler from stack (normal completion path)
+            if (_exceptionHandlerStack.Count > 0)
+            {
+                _exceptionHandlerStack.Pop();
+            }
             _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, orelseLabel, _currentLineNumber);
 
             int n = tryStarStmt.Handlers.Count;
 
             // USE_LABEL except (line 3574)
             _instructionSequence.UseLabel(exceptLabel);
+
+            // IMPORTANT: Capture outer handler BEFORE SETUP_CLEANUP pushes new handler
+            // The cleanup handler (COPY 3, POP_EXCEPT, RERAISE 1) needs outer try block's handler
+            var outerHandlerForCleanup = GetCurrentOuterHandler();
 
             // SETUP_CLEANUP cleanup and PUSH_EXC_INFO (lines 3576-3577)
             _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, cleanupLabel, _currentLineNumber);
@@ -7482,10 +7515,12 @@ namespace SharpPy
             _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 0, _currentLineNumber);
 
             // Cleanup handler (lines 3708-3709)
+            // CRITICAL: Pass outerHandlerForCleanup to all instructions
+            // This ensures RERAISE is protected by outer try block's exception handler
             _instructionSequence.UseLabel(cleanupLabel);
-            _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 3, _currentLineNumber);
-            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
-            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 1, _currentLineNumber);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 3, _currentLineNumber, exceptHandler: outerHandlerForCleanup);
+            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber, exceptHandler: outerHandlerForCleanup);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 1, _currentLineNumber, exceptHandler: outerHandlerForCleanup);
 
             // Else block (lines 3711-3712)
             _instructionSequence.UseLabel(orelseLabel);

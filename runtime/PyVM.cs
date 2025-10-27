@@ -6878,6 +6878,10 @@ namespace SharpPy
                     return expectedTypeName == "BaseException";
                 case "GeneratorExit":
                     return expectedTypeName == "BaseException";
+                case "ExceptionGroup":
+                    return expectedTypeName == "Exception" || expectedTypeName == "BaseException";
+                case "BaseExceptionGroup":
+                    return expectedTypeName == "BaseException";
                 default:
                     // For unknown exceptions, assume they inherit from Exception
                     return expectedTypeName == "Exception" || expectedTypeName == "BaseException";

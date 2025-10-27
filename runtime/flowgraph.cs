@@ -36,6 +36,10 @@ namespace SharpPy
             // Phase 4: Link blocks together (set successors and next)
             LinkBlocks(cfg, instrSeq, indexToBlock);
 
+            // NOTE: Exception handler propagation is already done in CreateBasicBlocks (Phase 3)
+            // during instruction processing. No need for a separate phase.
+            // CPython's label_exception_targets() happens during CFG build, not after.
+
             return cfg;
         }
 
@@ -180,9 +184,6 @@ namespace SharpPy
             var sortedStarts = blockStarts.OrderBy(x => x).ToList();
             var instructions = instrSeq.Instructions;
 
-            // CPython 3.12: Create ExceptStack to track exception handlers
-            var exceptStack = new ExceptStack();
-
             // Create instruction index → block mapping
             var indexToBlock = new Dictionary<int, BasicBlock>();
 
@@ -195,7 +196,13 @@ namespace SharpPy
                 indexToBlock[start] = block;
             }
 
-            // Second pass: process instructions with ExceptStack
+            // CPython 3.12 pattern: Per-block ExceptStack
+            // Each block carries its own exception stack state
+            // Store ExceptStack for each block (block start index → ExceptStack)
+            var blockExceptStacks = new Dictionary<int, ExceptStack>();
+            blockExceptStacks[sortedStarts[0]] = new ExceptStack(); // Entry block starts with empty stack
+
+            // Second pass: process instructions with per-block ExceptStack
             // Track real instruction count to update block offsets
             int realInstructionCount = 0;
 
@@ -205,6 +212,14 @@ namespace SharpPy
                 int end = (i + 1 < sortedStarts.Count) ? sortedStarts[i + 1] : instructions.Count;
 
                 var block = indexToBlock[start];
+
+                // CPython pattern: Get this block's ExceptStack (or create if jump target)
+                if (!blockExceptStacks.ContainsKey(start))
+                {
+                    // This block hasn't been visited yet - should not happen in well-formed code
+                    blockExceptStacks[start] = new ExceptStack();
+                }
+                var exceptStack = blockExceptStacks[start];
 
                 // IMPORTANT: Update block.Offset to point to first real instruction (not pseudo-instruction)
                 // This is crucial for exception table generation
@@ -238,6 +253,13 @@ namespace SharpPy
 
                                 exceptStack.Push(handlerBlock);
 
+                                // CPython pattern: Copy ExceptStack for target block (handler branch)
+                                // The handler block needs current stack state before pushing
+                                if (!blockExceptStacks.ContainsKey(targetIndex))
+                                {
+                                    blockExceptStacks[targetIndex] = exceptStack.Copy();
+                                }
+
                                 // CPython 3.12 exception table semantics:
                                 // - SETUP_FINALLY: depth=0 (pop all), lasti=false (don't preserve)
                                 // - SETUP_CLEANUP: depth=1 (keep exception), lasti=true (preserve for reraise)
@@ -262,7 +284,6 @@ namespace SharpPy
                         // POP_BLOCK: Pop handler from ExceptStack
                         // NOTE: CPython uses per-block ExceptStack copies, so each handler branch
                         // gets a fresh copy and can independently pop the same SETUP_CLEANUP.
-                        // SharpPy uses a simplified linear approach, so we ignore underflows here.
                         if (exceptStack.Depth > 0)
                         {
                             exceptStack.Pop();
@@ -387,6 +408,26 @@ namespace SharpPy
 
                     block.Instructions.Add(bcInstr);
                     realInstructionCount++;  // Increment count for each real instruction added
+
+                    // CPython pattern: Propagate ExceptStack to jump targets
+                    if (instr.IsJump && instr.Target.HasValue)
+                    {
+                        int targetInstrIndex = instrSeq.GetLabelTarget(instr.Target.Value);
+                        if (targetInstrIndex >= 0 && !blockExceptStacks.ContainsKey(targetInstrIndex))
+                        {
+                            blockExceptStacks[targetInstrIndex] = exceptStack.Copy();
+                        }
+                    }
+                }
+
+                // CPython pattern: Propagate ExceptStack to fallthrough block
+                if (i + 1 < sortedStarts.Count)
+                {
+                    int nextBlockStart = sortedStarts[i + 1];
+                    if (!blockExceptStacks.ContainsKey(nextBlockStart))
+                    {
+                        blockExceptStacks[nextBlockStart] = exceptStack.Copy();
+                    }
                 }
             }
 
@@ -589,6 +630,148 @@ namespace SharpPy
         {
             return op == ByteCodeOp.POP_BLOCK;
         }
+
+        /// <summary>
+        /// DEPRECATED: This method is no longer used (as of 2025-10-28)
+        /// Exception handler propagation is done during CreateBasicBlocks (Phase 3) at lines 285-304
+        /// CPython's label_exception_targets() happens during CFG build, not after
+        /// </summary>
+        [Obsolete("Exception handler propagation is done in CreateBasicBlocks")]
+        private static void PropagateExceptionHandlers_DEPRECATED(ControlFlowGraph cfg)
+        {
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"🔷 [FlowGraph] PropagateExceptionHandlers: Processing {cfg.AllBlocks.Count} blocks");
+#endif
+
+            // Build offset mapping (block index → instruction offset)
+            var blockToOffset = new Dictionary<BasicBlock, int>();
+            int currentOffset = 0;
+            foreach (var block in cfg.AllBlocks)
+            {
+                blockToOffset[block] = currentOffset;
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔷   Block {block.BlockId} → offset {currentOffset} ({block.Instructions.Count} instructions)");
+#endif
+                currentOffset += block.Instructions.Count;
+            }
+
+            // Process blocks with exception handler stack (CPython pattern)
+            // Each block carries its own exception stack state
+            var visited = new HashSet<BasicBlock>();
+            var queue = new Queue<(BasicBlock block, ExceptStack exceptStack)>();
+
+            queue.Enqueue((cfg.EntryBlock, new ExceptStack()));
+            visited.Add(cfg.EntryBlock);
+
+            while (queue.Count > 0)
+            {
+                var (currentBlock, exceptStack) = queue.Dequeue();
+
+                // Get current handler from stack top
+                BasicBlock? handler = exceptStack.Top();
+
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"🔷   Processing block {currentBlock.BlockId}, stack depth: {exceptStack.Depth}, handler: {handler?.BlockId ?? -1}");
+#endif
+
+                // Process each instruction in the block
+                for (int i = 0; i < currentBlock.Instructions.Count; i++)
+                {
+                    var instr = currentBlock.Instructions[i];
+
+                    // CPython: is_block_push (SETUP_CLEANUP, SETUP_WITH, etc.)
+                    if (IsBlockPush(instr.OpCode))
+                    {
+                        // Find the target block of SETUP_CLEANUP
+                        BasicBlock? targetBlock = null;
+                        int targetInstrIndex = instr.Argument;
+                        int instrIndex = 0;
+                        foreach (var block in cfg.AllBlocks)
+                        {
+                            if (instrIndex + block.Instructions.Count > targetInstrIndex)
+                            {
+                                targetBlock = block;
+                                break;
+                            }
+                            instrIndex += block.Instructions.Count;
+                        }
+
+                        if (targetBlock != null)
+                        {
+                            // Push new handler onto stack (CPython: push_except_block)
+                            exceptStack.Push(targetBlock);
+                            handler = targetBlock;
+
+#if DEBUG_COMPILER_LOG
+                            Console.WriteLine($"🔷     SETUP_CLEANUP at offset {blockToOffset[currentBlock] + i}: pushed handler block {targetBlock.BlockId} (offset {blockToOffset[targetBlock]}), stack depth now {exceptStack.Depth}");
+#endif
+                        }
+                    }
+                    // CPython: POP_BLOCK
+                    else if (instr.OpCode == ByteCodeOp.POP_BLOCK)
+                    {
+                        // Pop handler from stack (CPython: pop_except_block)
+                        if (exceptStack.Depth > 0)
+                        {
+                            exceptStack.Pop();
+                            handler = exceptStack.Top();  // Revert to outer handler
+#if DEBUG_COMPILER_LOG
+                            Console.WriteLine($"🔷     POP_BLOCK at offset {blockToOffset[currentBlock] + i}: popped handler, stack depth now {exceptStack.Depth}, handler: {handler?.BlockId ?? -1}");
+#endif
+                        }
+                    }
+
+                    // Set i_except for this instruction (CPython: instr->i_except = handler)
+                    int handlerOffset = handler != null && blockToOffset.ContainsKey(handler)
+                        ? blockToOffset[handler]
+                        : -1;
+
+#if DEBUG_COMPILER_LOG
+                    // Debug: Track RERAISE instructions specifically
+                    if (instr.OpCode == ByteCodeOp.RERAISE && instr.Argument == 1)
+                    {
+                        Console.WriteLine($"🔷     RERAISE 1 at offset {blockToOffset[currentBlock] + i}:");
+                        Console.WriteLine($"🔷       handler block: {handler?.BlockId ?? -1}");
+                        Console.WriteLine($"🔷       handler in blockToOffset: {(handler != null && blockToOffset.ContainsKey(handler) ? "YES" : "NO")}");
+                        Console.WriteLine($"🔷       calculated handlerOffset: {handlerOffset}");
+                        Console.WriteLine($"🔷       stack depth: {exceptStack.Depth}");
+                    }
+#endif
+
+                    currentBlock.Instructions[i] = new ByteCodeInstruction(
+                        instr.OpCode,
+                        instr.Argument,
+                        instr.LineNumber,
+                        instr.ColumnOffset,
+                        instr.FileName,
+                        instr.ExceptHandler,
+                        handlerOffset  // Set instruction-level handler offset
+                    );
+                }
+
+                // Propagate exception stack to successor blocks (CPython pattern)
+                foreach (var successor in currentBlock.Successors)
+                {
+                    if (!visited.Contains(successor))
+                    {
+                        visited.Add(successor);
+                        // Copy exception stack for this successor
+                        queue.Enqueue((successor, exceptStack.Copy()));
+                    }
+                }
+
+                // Also propagate to Next block (fallthrough)
+                if (currentBlock.Next != null && !visited.Contains(currentBlock.Next))
+                {
+                    visited.Add(currentBlock.Next);
+                    queue.Enqueue((currentBlock.Next, exceptStack.Copy()));
+                }
+            }
+
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"🔷 [FlowGraph] PropagateExceptionHandlers: Complete");
+#endif
+        }
     }
 
     /// <summary>
@@ -624,6 +807,20 @@ namespace SharpPy
         public BasicBlock? Top()
         {
             return _depth > 0 ? _handlers[_depth - 1] : null;
+        }
+
+        /// <summary>
+        /// CPython's copy_except_stack: Create a deep copy of the exception stack
+        /// </summary>
+        public ExceptStack Copy()
+        {
+            var copy = new ExceptStack();
+            copy._depth = _depth;
+            for (int i = 0; i < _depth; i++)
+            {
+                copy._handlers[i] = _handlers[i];
+            }
+            return copy;
         }
     }
 }
