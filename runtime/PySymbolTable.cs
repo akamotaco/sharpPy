@@ -398,6 +398,30 @@ namespace SharpPy
                     }
                     break;
 
+                case WhileStatement whileStmt:
+                    // CPython 3.12: symtable.c:1718-1723 - VISIT while test, body, and orelse
+#if DEBUG_LOG
+                    Console.WriteLine($"  AnalyzeStatement: WhileStatement in scope '{_currentTable?.GetName()}'");
+#endif
+                    // 1. Analyze test condition (CPython: VISIT(st, expr, s->v.While.test))
+                    AnalyzeExpression(whileStmt.Test);
+
+                    // 2. Analyze loop body (CPython: VISIT_SEQ(st, stmt, s->v.While.body))
+                    foreach (var stmt in whileStmt.Body)
+                    {
+                        AnalyzeStatement(stmt);
+                    }
+
+                    // 3. Analyze else clause if present (CPython: VISIT_SEQ(st, stmt, s->v.While.orelse))
+                    if (whileStmt.ElseClause != null)
+                    {
+                        foreach (var stmt in whileStmt.ElseClause)
+                        {
+                            AnalyzeStatement(stmt);
+                        }
+                    }
+                    break;
+
                 case ImportStatement importStmt:
                     // Register imported modules as global variables
                     foreach (var moduleName in importStmt.Names)

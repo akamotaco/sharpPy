@@ -1741,6 +1741,7 @@ namespace SharpPy
             Console.WriteLine($"  Defaults: [{string.Join(", ", defaults.Select(d => d?.ToString() ?? "None"))}]");
             Console.WriteLine($"  FreeVars: [{string.Join(", ", freeVars)}]");
             Console.WriteLine($"  CellVars: [{string.Join(", ", cellVars)}]");
+            Console.WriteLine($"  Flags received: 0x{flags:X} (CO_GENERATOR={((flags & PyCodeObject.CO_GENERATOR) != 0)})");
 #endif
 
             // CPython 3.12 compile.c line 1340: Add RESUME 0 at function entry
@@ -3603,13 +3604,16 @@ namespace SharpPy
 
             // CPython 3.12: Set CO_GENERATOR/CO_COROUTINE flags from symbol table
             // compile.c:7428-7433 - Read ste->ste_generator and ste->ste_coroutine
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"  🔍 funcSymbolTable={funcSymbolTable?.Name ?? "null"}, IsGenerator={funcSymbolTable?.IsGenerator}, IsCoroutine={funcSymbolTable?.IsCoroutine}");
+#endif
             if (funcSymbolTable != null)
             {
                 if (funcSymbolTable.IsGenerator && !funcSymbolTable.IsCoroutine)
                 {
                     flags |= PyCodeObject.CO_GENERATOR;
 #if DEBUG_COMPILER_LOG
-                    Console.WriteLine($"  ✅ Set CO_GENERATOR flag (SymbolTable.IsGenerator=true)");
+                    Console.WriteLine($"  ✅ Set CO_GENERATOR flag (SymbolTable.IsGenerator=true), flags=0x{flags:X}");
 #endif
                 }
                 else if (!funcSymbolTable.IsGenerator && funcSymbolTable.IsCoroutine)
