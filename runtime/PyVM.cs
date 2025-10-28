@@ -2571,6 +2571,20 @@ namespace SharpPy
                     }
                     break;
 
+                case ByteCodeOp.POP_JUMP_IF_NOT_NONE:
+                    // CPython 3.12: Pop top value and jump if it's NOT None
+                    var valueToCheckNotNone = frame.ValueStack.Pop();
+                    if (valueToCheckNotNone != null && !valueToCheckNotNone.Equals(PyNone.Instance))
+                    {
+                        // CPython 3.12: POP_JUMP_IF_NOT_NONE uses relative offset from next instruction
+                        int currentPosNotNone = frame.InstructionPointer;
+                        int relativeOffsetNotNone = instruction.Argument;
+                        int targetInstructionIndexNotNone = currentPosNotNone + 1 + relativeOffsetNotNone;
+                        // Subtract 1 because main loop will increment
+                        frame.InstructionPointer = targetInstructionIndexNotNone - 1;
+                    }
+                    break;
+
                 case ByteCodeOp.MATCH_CLASS:
                     // Match class pattern - CPython 3.12 compatible implementation
                     var classKwNames = frame.ValueStack.Pop(); // keyword names tuple (unused for now)
@@ -3502,6 +3516,10 @@ namespace SharpPy
                     // CPython 3.12: POP_EXCEPT pops the prev_exc value left by PUSH_EXC_INFO
                     // Stack before: [..., prev_exc]
                     // Stack after: [...]
+                    // IMPORTANT: Does NOT clear CurrentException - preserved for RERAISE 0
+                    // Exception is only cleared when:
+                    // 1. RERAISE re-raises it (becomes outer handler's problem)
+                    // 2. Normal exit from handler (no reraise)
                     #if DEBUG_LOG
                     Console.WriteLine($"🔧 POP_EXCEPT: stack size = {frame.ValueStack.Count}");
                     #endif
@@ -3512,15 +3530,14 @@ namespace SharpPy
                         var prevExcValue = frame.ValueStack.Pop();
                         #if DEBUG_LOG
                         Console.WriteLine($"🔧 POP_EXCEPT: Popped prev_exc={prevExcValue} from stack");
+                        Console.WriteLine($"🔧 POP_EXCEPT: CurrentException={frame.CurrentException} (preserved for RERAISE)");
                         #endif
 
-                        // CPython 3.12: Clear exception handling state after successful exception processing
-                        frame.CurrentException = null;
-                        frame.LastException = null;
-                        frame.ExceptionHandlerCallCount = 0;
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 POP_EXCEPT: Cleared exception handling state");
-                        #endif
+                        // NOTE: We do NOT clear frame.CurrentException here!
+                        // If RERAISE 0 follows, it needs CurrentException to still be set
+                        // The exception will be cleared by:
+                        // - RERAISE itself when it re-raises
+                        // - Normal handler exit (not implemented yet, but should be)
                     }
                     else
                     {

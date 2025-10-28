@@ -524,17 +524,29 @@ namespace SharpPy
         /// <summary>
         /// Get the current outer exception handler from the exception handler stack
         /// Returns ExceptHandlerInfo with the handler label, or NoHandler if stack is empty
+        ///
+        /// For except* blocks: We need the OUTER try block's handler, not the except* block's own handler
+        /// Stack layout when called:
+        ///   Top: Inner except* handler (SETUP_FINALLY from line 3560)
+        ///   Below: Outer try block's handler (if nested)
         /// </summary>
         private ExceptHandlerInfo GetCurrentOuterHandler()
         {
-            if (_exceptionHandlerStack.Count > 0)
+            // Skip the top (current) handler and get the one below it (outer handler)
+            if (_exceptionHandlerStack.Count > 1)
             {
-                var handlerLabel = _exceptionHandlerStack.Peek();
-                // Return handler with label reference (will be resolved to offset later)
-                // Use stackDepth=0 and preserveLasti=false as they will be determined by flowgraph
-                string labelString = handlerLabel.ToString();
-                Console.WriteLine($"[TEMP] GetCurrentOuterHandler: Creating ExceptHandlerInfo with label '{labelString}'");
+                // Convert stack to array to access second element
+                var handlersArray = _exceptionHandlerStack.ToArray();
+                var outerHandlerLabel = handlersArray[1]; // Index 1 = second from top
+                string labelString = outerHandlerLabel.ToString();
+                Console.WriteLine($"[TEMP] GetCurrentOuterHandler: Found outer handler at label '{labelString}' (skipped top handler)");
                 return new ExceptHandlerInfo(-1, 0, false, labelString);
+            }
+            else if (_exceptionHandlerStack.Count == 1)
+            {
+                // Only one handler on stack = no outer handler (module level)
+                Console.WriteLine($"[TEMP] GetCurrentOuterHandler: Only one handler on stack, no outer handler");
+                return ExceptHandlerInfo.NoHandler;
             }
             return ExceptHandlerInfo.NoHandler;
         }
@@ -7154,6 +7166,9 @@ namespace SharpPy
 
             // 1. SETUP_FINALLY - marks try block start, pushes exception handler to stack
             _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, exceptLabel, _currentLineNumber);
+            // Push exception handler to compiler stack (CPython: compiler->u->u_except_stack)
+            _exceptionHandlerStack.Push(exceptLabel);
+            Console.WriteLine($"[TEMP] CompileTryStatementCFG: Pushed outer handler {exceptLabel} to stack. Stack count = {_exceptionHandlerStack.Count}");
 
             // 2. Try body (immediately follows SETUP_FINALLY, no label needed)
             foreach (var stmt in tryStmt.Body)
@@ -7163,6 +7178,9 @@ namespace SharpPy
 
             // 3. POP_BLOCK - pop exception handler from stack (normal completion)
             _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
+            // Pop exception handler from compiler stack
+            _exceptionHandlerStack.Pop();
+            Console.WriteLine($"[TEMP] CompileTryStatementCFG: Popped outer handler from stack. Stack count = {_exceptionHandlerStack.Count}");
 
             // 4. Else clause (only runs if no exception)
             if (hasElse)
@@ -7361,6 +7379,7 @@ namespace SharpPy
             _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, exceptLabel, _currentLineNumber);
             // Push exception handler to stack (CPython: compiler->u->u_except_stack)
             _exceptionHandlerStack.Push(exceptLabel);
+            Console.WriteLine($"[TEMP] CompileTryStarExceptCFG: Pushed inner except* handler {exceptLabel} to stack. Stack count = {_exceptionHandlerStack.Count}");
 
             // USE_LABEL body (line 3565)
             _instructionSequence.UseLabel(bodyLabel);
@@ -7371,12 +7390,18 @@ namespace SharpPy
                 CompileStatement(stmt);
             }
 
+            // CRITICAL: Capture outer handler BEFORE POP_BLOCK removes it from stack
+            // The cleanup handler needs to know the OUTER try block's handler (not the inner except* handler)
+            var outerHandlerForCleanup = GetCurrentOuterHandler();
+            Console.WriteLine($"[DEBUG] except* outerHandlerForCleanup = {outerHandlerForCleanup.HandlerLabel} (captured BEFORE POP_BLOCK)");
+
             // POP_BLOCK and JUMP orelse (lines 3570-3571)
             _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
             // Pop exception handler from stack (normal completion path)
             if (_exceptionHandlerStack.Count > 0)
             {
                 _exceptionHandlerStack.Pop();
+                Console.WriteLine($"[TEMP] CompileTryStarExceptCFG: Popped inner except* handler from stack. Stack count = {_exceptionHandlerStack.Count}");
             }
             _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, orelseLabel, _currentLineNumber);
 
@@ -7384,10 +7409,6 @@ namespace SharpPy
 
             // USE_LABEL except (line 3574)
             _instructionSequence.UseLabel(exceptLabel);
-
-            // IMPORTANT: Capture outer handler BEFORE SETUP_CLEANUP pushes new handler
-            // The cleanup handler (COPY 3, POP_EXCEPT, RERAISE 1) needs outer try block's handler
-            var outerHandlerForCleanup = GetCurrentOuterHandler();
 
             // SETUP_CLEANUP cleanup and PUSH_EXC_INFO (lines 3576-3577)
             _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, cleanupLabel, _currentLineNumber);
@@ -7502,17 +7523,22 @@ namespace SharpPy
             _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_NOT_NONE, reraiseLabel, _currentLineNumber);
 
             // Nothing to reraise (lines 3696-3700)
-            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber);
-            _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
-            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
+            // CRITICAL: Use outerHandlerForCleanup so POP_EXCEPT is protected by outer try block
+            Console.WriteLine($"[DEBUG] Adding POP_TOP with outerHandler = {outerHandlerForCleanup.HandlerLabel}");
+            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber, exceptHandler: outerHandlerForCleanup);
+            Console.WriteLine($"[DEBUG] Adding POP_EXCEPT with outerHandler = {outerHandlerForCleanup.HandlerLabel}");
+            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber, exceptHandler: outerHandlerForCleanup);
             _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
 
             // Reraise exception group (lines 3702-3706)
+            // CRITICAL: Use outerHandlerForCleanup so RERAISE 0 is protected by outer try block
             _instructionSequence.UseLabel(reraiseLabel);
-            _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
-            _instructionSequence.AddOpWithArg(ByteCodeOp.SWAP, 2, _currentLineNumber);
-            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
-            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 0, _currentLineNumber);
+            Console.WriteLine($"[DEBUG] Adding SWAP with outerHandler = {outerHandlerForCleanup.HandlerLabel}");
+            _instructionSequence.AddOpWithArg(ByteCodeOp.SWAP, 2, _currentLineNumber, exceptHandler: outerHandlerForCleanup);
+            Console.WriteLine($"[DEBUG] Adding POP_EXCEPT (reraise) with outerHandler = {outerHandlerForCleanup.HandlerLabel}");
+            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber, exceptHandler: outerHandlerForCleanup);
+            Console.WriteLine($"[DEBUG] Adding RERAISE 0 with outerHandler = {outerHandlerForCleanup.HandlerLabel}");
+            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 0, _currentLineNumber, exceptHandler: outerHandlerForCleanup);
 
             // Cleanup handler (lines 3708-3709)
             // CRITICAL: Pass outerHandlerForCleanup to all instructions
