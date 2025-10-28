@@ -154,15 +154,28 @@ namespace SharpPy
         {
             bool needRecompile;
             int iterationCount = 0;
-            const int MAX_ITERATIONS = 10; // Safety limit
+            const int MAX_ITERATIONS = 500; // Safety limit (CPython can need many iterations for large code)
 
             do
             {
                 needRecompile = false;
                 iterationCount++;
 
-                if (iterationCount > MAX_ITERATIONS)
+                #if DEBUG_COMPILER_LOG
+                Console.WriteLine($"[assemble] ResolveJumpOffsets iteration {iterationCount}");
+                #endif
+
+                if (MAX_ITERATIONS > 0 && iterationCount > MAX_ITERATIONS)
                 {
+                    #if DEBUG_COMPILER_LOG
+                    Console.WriteLine($"[assemble] ERROR: Did not converge after {MAX_ITERATIONS} iterations");
+                    Console.WriteLine($"[assemble] Block count: {cfg.AllBlocks.Count}");
+                    for (int i = 0; i < Math.Min(5, cfg.AllBlocks.Count); i++)
+                    {
+                        var block = cfg.AllBlocks[i];
+                        Console.WriteLine($"[assemble]   Block {i}: offset={block.Offset}, instructions={block.Instructions.Count}");
+                    }
+                    #endif
                     throw new InvalidOperationException(
                         $"Jump offset resolution did not converge after {MAX_ITERATIONS} iterations");
                 }
@@ -193,9 +206,11 @@ namespace SharpPy
 
                         if (IsJumpInstruction(instr.OpCode))
                         {
-                            // instr.Argument is target instruction index from InstructionSequence
-                            // We need to find which CFG block contains this target
-                            int targetIndex = instr.Argument;
+                            // CRITICAL: Use TargetBlock.Offset instead of instr.Argument
+                            // instr.Argument was the original InstructionSequence index
+                            // But after EXTENDED_ARG insertion, offsets change
+                            // TargetBlock.Offset is dynamically updated each iteration
+                            int targetIndex = instr.TargetBlock?.Offset ?? instr.Argument;
                             int currentIndexAfter = instrIndex + oldInstrWords;
 
                             // Determine jump direction and opcode
@@ -244,6 +259,9 @@ namespace SharpPy
                             int newInstrWords = CountInstructionWords(newInstr);
                             if (oldInstrWords != newInstrWords)
                             {
+                                #if DEBUG_COMPILER_LOG
+                                Console.WriteLine($"[assemble]   Instruction size changed: {instr.OpCode} at block offset {block.Offset}, old={oldInstrWords}, new={newInstrWords}, jumpArg={jumpArg}");
+                                #endif
                                 needRecompile = true;  // EXTENDED_ARG count changed
                             }
 
