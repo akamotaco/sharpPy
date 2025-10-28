@@ -97,7 +97,7 @@ namespace SharpPy
         private (int start, int stop) GetStartStopValues(int length, int step)
         {
             int start, stop;
-            
+
             // Start 값 처리
             if (Start == PyNone.Instance)
             {
@@ -107,13 +107,22 @@ namespace SharpPy
             {
                 start = (int)startInt.Value;
                 if (start < 0) start += length;
-                start = Math.Max(0, Math.Min(start, length - 1));
+                // CPython 3.12: PySlice_AdjustIndices (sliceobject.c:289-290)
+                // if (*start >= length) { *start = (step < 0) ? length - 1 : length; }
+                if (start < 0)
+                {
+                    start = (step < 0) ? -1 : 0;
+                }
+                else if (start >= length)
+                {
+                    start = (step < 0) ? length - 1 : length;
+                }
             }
             else
             {
                 throw PyTypeError.Create("slice indices must be integers or None");
             }
-            
+
             // Stop 값 처리
             if (Stop == PyNone.Instance)
             {
@@ -123,13 +132,22 @@ namespace SharpPy
             {
                 stop = (int)stopInt.Value;
                 if (stop < 0) stop += length;
-                stop = Math.Max(-1, Math.Min(stop, length));
+                // CPython 3.12: PySlice_AdjustIndices (sliceobject.c:299-300)
+                // if (*stop >= length) { *stop = (step < 0) ? length - 1 : length; }
+                if (stop < 0)
+                {
+                    stop = (step < 0) ? -1 : 0;
+                }
+                else if (stop >= length)
+                {
+                    stop = (step < 0) ? length - 1 : length;
+                }
             }
             else
             {
                 throw PyTypeError.Create("slice indices must be integers or None");
             }
-            
+
             return (start, stop);
         }
 

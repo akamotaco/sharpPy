@@ -229,25 +229,25 @@ namespace SharpPy
             {
                 // 슬라이싱 처리
                 var (start, stop, step) = slice.Indices(_items.Count);
-                
+
                 var result = new List<PyObject>();
                 if (step > 0)
                 {
+                    // After Indices() normalization, start/stop are guaranteed to be within bounds
                     for (int i = start; i < stop; i += step)
                     {
-                        if (i >= 0 && i < _items.Count)
-                            result.Add(_items[i]);
+                        result.Add(_items[i]);
                     }
                 }
                 else if (step < 0)
                 {
+                    // After Indices() normalization, start/stop are guaranteed to be within bounds
                     for (int i = start; i > stop; i += step)
                     {
-                        if (i >= 0 && i < _items.Count)
-                            result.Add(_items[i]);
+                        result.Add(_items[i]);
                     }
                 }
-                
+
                 return new PyList(result);
             }
             else

@@ -1297,6 +1297,9 @@ namespace SharpPy.Generated
             // PEP 701: Save the starting brace depth for format spec detection
             // When we enter this function, _fstringBraceDepth has already been incremented
             int exprStartDepth = _fstringBraceDepth;
+            // Also save the starting parenthesis/bracket level
+            // This prevents ':' inside subscripts (e.g., lst[2:4]) from being treated as format spec
+            int exprStartLevel = _level;
 
             while (_position < _source.Length)
             {
@@ -1304,7 +1307,9 @@ namespace SharpPy.Generated
 
                 // PEP 701: Check for ':' at the base expression level (format spec)
                 // CPython: c == ':' && cursor == current_tok->curly_bracket_expr_start_depth
-                if (c == ':' && _fstringBraceDepth == exprStartDepth)
+                // IMPORTANT: Also check _level to prevent ':' in subscripts (e.g., f"{lst[2:4]}")
+                // from being treated as format spec
+                if (c == ':' && _fstringBraceDepth == exprStartDepth && _level == exprStartLevel)
                 {
                     // Emit ':' as OP token
                     AddToken(PyToken.Type.OP, ":", _line, _column);
