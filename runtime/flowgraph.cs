@@ -251,14 +251,17 @@ namespace SharpPy
                                     handlerBlock.Offset = correctCfgOffset;
                                 }
 
-                                exceptStack.Push(handlerBlock);
-
-                                // CPython pattern: Copy ExceptStack for target block (handler branch)
-                                // The handler block needs current stack state before pushing
+                                // CPython pattern: Copy ExceptStack for target block (handler branch) BEFORE pushing
+                                // CRITICAL: The handler block needs current stack state BEFORE pushing the new handler
+                                // CPython flowgraph.c:811-820 does copy_except_stack() before push_except_block()
+                                // This ensures cleanup code doesn't point to itself as the handler
                                 if (!blockExceptStacks.ContainsKey(targetIndex))
                                 {
                                     blockExceptStacks[targetIndex] = exceptStack.Copy();
                                 }
+
+                                // Now push the handler to the current block's stack (after copying)
+                                exceptStack.Push(handlerBlock);
 
                                 // CPython 3.12 exception table semantics:
                                 // - SETUP_FINALLY: depth=0 (pop all), lasti=false (don't preserve)
@@ -737,6 +740,7 @@ namespace SharpPy
                         Console.WriteLine($"🔷       stack depth: {exceptStack.Depth}");
                     }
 #endif
+
 
                     currentBlock.Instructions[i] = new ByteCodeInstruction(
                         instr.OpCode,

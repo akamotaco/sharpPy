@@ -7272,15 +7272,18 @@ namespace SharpPy
 
                 // Reraise if no handler matched
                 _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 0, _currentLineNumber);
+            }
 
-                // CPython pattern: POP_BLOCK after except handlers to pop SETUP_CLEANUP
-                // This ensures the cleanup block itself is NOT protected by an exception handler
+            // CPython pattern: POP_BLOCK MUST come before cleanup label
+            // This ends the SETUP_CLEANUP scope so cleanup code is NOT protected
+            if (hasExceptHandlers)
+            {
                 _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
             }
 
             // 8. Cleanup handler (CPython pattern for exception propagation)
             // This block is reached when an exception occurs in the except handlers
-            // It should NOT be protected by any exception handler
+            // IMPORTANT: This code is NOT protected by any exception handler (POP_BLOCK above)
             _instructionSequence.UseLabel(cleanupLabel);
             _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 3, _currentLineNumber);
             _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);

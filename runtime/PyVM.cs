@@ -4181,27 +4181,15 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.RERAISE:
-                    // CPython 3.12: RERAISE argument controls stack management
-                    // arg 0: only pops exception from stack
-                    // arg 1: pops both exception and additional value (lasti) from stack
+                    // CPython 3.12: RERAISE stack layout: (values[oparg], exc -- values[oparg])
+                    // - exc: exception to reraise (top of stack)
+                    // - values[oparg]: oparg values below exc (e.g., lasti for cleanup)
+                    // - After reraise: exc is popped and raised, values are left on stack if oparg > 0
                     var reraiseArg = instruction.Argument;
 
                     #if DEBUG_LOG
                     Console.WriteLine($"🔧 RERAISE: arg={reraiseArg}, stack size={frame.ValueStack.Count}");
                     #endif
-
-                    // CPython 3.12: Handle stack cleanup based on argument
-                    if (reraiseArg > 0)
-                    {
-                        // Pop additional value (last instruction pointer) from stack
-                        if (frame.ValueStack.Count > 0)
-                        {
-                            var additionalValue = frame.ValueStack.Pop();
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 RERAISE: Popped additional value: {additionalValue}");
-                            #endif
-                        }
-                    }
 
                     // CPython 3.12: For RERAISE 0 in finally handlers, only reraise if there's an active exception
                     // If exception was handled normally, don't reraise
@@ -4222,26 +4210,49 @@ namespace SharpPy
                         break; // Continue normally without raising
                     }
 
-                    // CPython 3.12: Pop exception from stack if present
+                    // CPython 3.12: Pop exception from top of stack (this is what we reraise)
+                    PyBaseException exceptionToReraise = null;
                     if (frame.ValueStack.Count > 0)
                     {
                         var exceptionOnStack = frame.ValueStack.Pop();
                         #if DEBUG_LOG
-                        Console.WriteLine($"🔧 RERAISE: Popped exception from stack: {exceptionOnStack}");
+                        Console.WriteLine($"🔧 RERAISE: Popped exception from stack (TOS): {exceptionOnStack}");
                         #endif
 
                         // If it's a PyExceptionInfo, extract the actual exception
                         if (exceptionOnStack is PyExceptionInfo reraiseExcInfo)
                         {
-                            if (reraiseExcInfo.ExcValue is PyBaseException exception)
-                            {
-                                throw new PythonException(exception);
-                            }
+                            exceptionToReraise = reraiseExcInfo.ExcValue as PyBaseException;
                         }
                         else if (exceptionOnStack is PyBaseException directException)
                         {
-                            throw new PythonException(directException);
+                            exceptionToReraise = directException;
                         }
+                    }
+
+                    // CPython 3.12: If oparg > 0, pop additional values from stack (but don't use them)
+                    // These are typically lasti values used for traceback reconstruction
+                    if (reraiseArg > 0)
+                    {
+                        for (int i = 0; i < reraiseArg; i++)
+                        {
+                            if (frame.ValueStack.Count > 0)
+                            {
+                                var additionalValue = frame.ValueStack.Pop();
+                                #if DEBUG_LOG
+                                Console.WriteLine($"🔧 RERAISE: Popped additional value[{i}]: {additionalValue}");
+                                #endif
+                            }
+                        }
+                    }
+
+                    // Reraise the exception
+                    if (exceptionToReraise != null)
+                    {
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔧 RERAISE: Reraising exception: {exceptionToReraise}");
+                        #endif
+                        throw new PythonException(exceptionToReraise);
                     }
 
                     // Fallback: use LastException if no exception on stack
