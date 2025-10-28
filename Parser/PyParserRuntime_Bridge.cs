@@ -17,7 +17,7 @@ namespace SharpPy.Generated
         /// <summary>
         /// Main parsing entry point - uses auto-generated CPython 3.12 compatible tokenizer and parser
         /// </summary>
-        public static List<GeneratedTokenInfo> LexerSource(string source)
+        public static List<GeneratedTokenInfo> LexerSource(string source, bool generateExtraTokens = false)
         {
 #if DEBUG_AST_LOG
             Console.WriteLine($"[DEBUG] PyParserRuntime.LexerSource START");
@@ -28,7 +28,9 @@ namespace SharpPy.Generated
             Console.WriteLine("[DEBUG] Creating tokenizer...");
 #endif
             // Use generated tokenizer
-            var tokenizer = new Tokenizer(source);
+            // CPython 3.12: generateExtraTokens = true for tokenize module (--tokens flag)
+            // CPython 3.12: generateExtraTokens = false for parser (default)
+            var tokenizer = new Tokenizer(source, generateExtraTokens);
 #if DEBUG_AST_LOG
             Console.WriteLine("[DEBUG] Calling tokenizer.Tokenize()...");
 #endif
@@ -46,6 +48,7 @@ namespace SharpPy.Generated
             Console.WriteLine("[DEBUG] Creating parser...");
 #endif
             // Use generated parser
+            // CPython 3.12: COMMENT and NL tokens are not generated in parser mode (generateExtraTokens=false)
             var parser = new PyParser(generatedTokens, filename, source);
 #if DEBUG_AST_LOG
             Console.WriteLine("[DEBUG] Calling parser.ParseFile()...");

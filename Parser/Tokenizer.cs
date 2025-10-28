@@ -291,11 +291,17 @@ namespace SharpPy.Generated
         // When we encounter \r followed by \n, we save the column before Advance() processes \r
         private int _savedNewlineColumn = -1;
 
-        public Tokenizer(string source)
+        // CPython 3.12: tok_extra_tokens flag
+        // When true, COMMENT and NL tokens are generated (for tokenize module)
+        // When false, COMMENT and NL tokens are skipped (for parser)
+        private readonly bool _generateExtraTokens;
+
+        public Tokenizer(string source, bool generateExtraTokens = false)
         {
             _source = source ?? throw new ArgumentNullException(nameof(source));
             _position = 0;
             _indentStack.Push(0); // Initialize with base indentation level
+            _generateExtraTokens = generateExtraTokens;
         }
 
         /// <summary>
@@ -497,6 +503,12 @@ namespace SharpPy.Generated
 
         private void AddToken(PyToken.Type type, string value, int startLine, int startColumn)
         {
+            // CPython 3.12: Skip COMMENT and NL tokens unless generateExtraTokens is enabled
+            if (!_generateExtraTokens && (type == PyToken.Type.COMMENT || type == PyToken.Type.NL))
+            {
+                return; // Skip this token
+            }
+
             // CPython 3.12: Use current _line, _column as end position (already points to end of token)
             var token = new GeneratedTokenInfo(type, value, startLine, startColumn, _line, _column);
             token.Level = _level; // CPython 3.12: Assign current parenthesis nesting level
@@ -669,6 +681,8 @@ namespace SharpPy.Generated
                 Advance();
             }
             var comment = _source.Substring(start, _position - start);
+
+            // CPython 3.12: AddToken will skip COMMENT if generateExtraTokens is false
             AddToken(PyToken.Type.COMMENT, comment, startLine, startColumn);
         }
 

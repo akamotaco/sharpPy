@@ -74,7 +74,8 @@ namespace SharpPy
                 Console.WriteLine("1️⃣ 파싱: 소스 → AST");
                 Console.WriteLine(new string('=', 30));
 #endif
-                var tokens = PyParserRuntime.LexerSource(sourceCode);
+                // CPython 3.12: Pass generateExtraTokens=true for --tokens mode to include COMMENT/NL
+                var tokens = PyParserRuntime.LexerSource(sourceCode, generateExtraTokens: showTokenize);
 
                 if(showTokenize)
                 {
