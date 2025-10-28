@@ -16,6 +16,9 @@ namespace SharpPy
         // CPython 3.12: Frame chain for proper call stack tracking
         public PyFrame? ParentFrame { get; set; }     // 부모 프레임 (call stack)
 
+        // CPython 3.12: f_globals - Reference to module's __dict__ for import resolution
+        public Dictionary<string, PyObject> Globals { get; private set; }
+
         // Helper property to access local scope from ScopeChain
         public PyScope? LocalScope => ScopeChain?.CurrentScope;
 
@@ -72,6 +75,9 @@ namespace SharpPy
 
             // CPython 3.12: Set parent frame for call stack tracking
             ParentFrame = parentFrame;
+
+            // CPython 3.12: Initialize f_globals from ScopeChain.GlobalScope
+            Globals = ScopeChain.GlobalScope?.Variables ?? new Dictionary<string, PyObject>();
 
             // Initialize filename from code object
             CurrentFileName = code.FileName;
@@ -4531,8 +4537,8 @@ namespace SharpPy
                             .ToArray();
                     }
 
-                    // Call import system with level and fromlist
-                    var importedModule = PyImportSystem.Import(moduleName, importLevel, fromlistArray);
+                    // CPython 3.12: Pass frame.Globals to import system for relative import resolution
+                    var importedModule = PyImportSystem.Import(moduleName, importLevel, fromlistArray, frame.Globals);
                     frame.ValueStack.Push(importedModule);
                     break;
 

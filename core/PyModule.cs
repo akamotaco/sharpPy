@@ -101,6 +101,26 @@ public class PyModule : PyObject
         ModuleDict["__name__"] = new PyString(Name);
         ModuleDict["__file__"] = new PyString(FileName);
         ModuleDict["__doc__"] = new PyString($"Module {Name}");
+
+        // CPython 3.12: Set __package__
+        // For packages (__init__.py): __package__ = __name__
+        // For modules: __package__ = parent package name (or "" for top-level)
+        bool isPackage = FileName != null && FileName.EndsWith("__init__.py");
+
+        if (isPackage)
+        {
+            // Package: __package__ == __name__
+            ModuleDict["__package__"] = new PyString(Name);
+        }
+        else
+        {
+            // Module: __package__ is parent package
+            int lastDot = Name.LastIndexOf('.');
+            string packageName = lastDot >= 0 ? Name.Substring(0, lastDot) : "";
+            ModuleDict["__package__"] = string.IsNullOrEmpty(packageName)
+                ? PyNone.Instance
+                : new PyString(packageName);
+        }
     }
     
     public override PyType GetPyType() => PyType.ModuleType;
@@ -294,17 +314,17 @@ public class PyModule : PyObject
         /// CPython 3.12 compatible import
         /// Implements: __import__(name, globals, locals, fromlist, level)
         /// </summary>
-        public static PyModule Import(string moduleName, int level = 0, string[] fromlist = null)
+        public static PyModule Import(string moduleName, int level = 0, string[] fromlist = null, Dictionary<string, PyObject> globals = null)
         {
             // CPython 3.12: level parameter for relative imports
             // level=0: absolute import (default)
             // level>0: relative import (1=., 2=.., etc)
 
-            // TODO: Implement relative import using level parameter
-            // For now, only support absolute imports (level=0)
+            // CPython 3.12: Use globals dict to resolve relative imports
             if (level > 0)
             {
-                throw new NotImplementedException($"Relative imports (level={level}) not yet implemented");
+                // Resolve relative import using globals['__package__'] or globals['__name__']
+                moduleName = ResolveRelativeImport(moduleName, level, globals);
             }
 
             // CPython 3.12: fromlist parameter affects what is returned
@@ -430,7 +450,10 @@ public class PyModule : PyObject
             var subpackageInit = System.IO.Path.Combine(subpackageDir, "__init__.py");
             if (System.IO.Directory.Exists(subpackageDir) && System.IO.File.Exists(subpackageInit))
             {
-                return LoadModuleFromFile(fullName, subpackageInit);
+                // CPython 3.12: Set __path__ for packages
+                var module = LoadModuleFromFile(fullName, subpackageInit);
+                module.ModuleDict["__path__"] = new PyList(new[] { new PyString(subpackageDir) });
+                return module;
             }
             
             // PEP 420: 네임스페이스 서브패키지 검색 (__init__.py 없는 디렉토리)
@@ -468,7 +491,10 @@ public class PyModule : PyObject
                 var initFile = System.IO.Path.Combine(packageDir, "__init__.py");
                 if (System.IO.Directory.Exists(packageDir) && System.IO.File.Exists(initFile))
                 {
-                    return LoadModuleFromFile(moduleName, initFile);
+                    // CPython 3.12: Pass package directory for __path__ attribute
+                    var module = LoadModuleFromFile(moduleName, initFile);
+                    module.ModuleDict["__path__"] = new PyList(new[] { new PyString(packageDir) });
+                    return module;
                 }
 
                 // PEP 420: 네임스페이스 패키지 검색 (__init__.py 없는 디렉토리)
@@ -572,11 +598,11 @@ public class PyModule : PyObject
         }
 
         // from module_name import item1, item2
+        // NOTE: This method is deprecated - IMPORT_FROM opcode handles this in VM
         public static Dictionary<string, PyObject> FromImport(string moduleName, params string[] itemNames)
         {
-            // 상대 import 처리
-            string resolvedModuleName = ResolveRelativeImport(moduleName);
-            var module = PyImportSystem.Import(resolvedModuleName);
+            // Only supports absolute imports (relative imports handled by VM with globals)
+            var module = PyImportSystem.Import(moduleName);
             var result = new Dictionary<string, PyObject>();
 
             foreach (var itemName in itemNames)
@@ -604,49 +630,88 @@ public class PyModule : PyObject
         /// <summary>
         /// 상대 import 경로 해석 (.module, ..module 등)
         /// </summary>
-        private static string ResolveRelativeImport(string moduleName)
+        /// <summary>
+        /// CPython 3.12 compatible relative import resolution
+        /// Based on CPython's resolve_name() in Python/import.c
+        /// </summary>
+        private static string ResolveRelativeImport(string moduleName, int level, Dictionary<string, PyObject> globals)
         {
-            if (!moduleName.StartsWith("."))
-                return moduleName; // 절대 import
-            
-            // 현재 패키지 컨텍스트 가져오기
-            string currentPackage = GetCurrentPackage();
-            
-            // 상대 import 레벨 계산
-            int level = 0;
-            while (level < moduleName.Length && moduleName[level] == '.')
-                level++;
-            
-            string relativeModule = moduleName.Substring(level);
-            
-            if (string.IsNullOrEmpty(currentPackage))
+            if (globals == null)
             {
                 throw PyImportError.Create("attempted relative import with no known parent package");
             }
-            
-            // 패키지 경로를 레벨만큼 올라가기
-            string[] packageParts = currentPackage.Split('.');
-            if (level - 1 > packageParts.Length)
+
+            // CPython 3.12 resolution algorithm:
+            // 1. Try __package__
+            string package = null;
+            if (globals.TryGetValue("__package__", out PyObject pkgObj) &&
+                pkgObj != PyNone.Instance && pkgObj is PyString pkgStr)
+            {
+                package = pkgStr.Value;
+            }
+
+            // 2. Try __spec__.parent (TODO: implement when PyModuleSpec is added)
+            if (string.IsNullOrEmpty(package) &&
+                globals.TryGetValue("__spec__", out PyObject specObj) &&
+                specObj != PyNone.Instance)
+            {
+                // TODO: Access spec.parent when PyModuleSpec is implemented
+                // For now, skip this step
+            }
+
+            // 3. Fallback: derive from __name__ and __path__
+            if (string.IsNullOrEmpty(package))
+            {
+                if (!globals.TryGetValue("__name__", out PyObject nameObj) ||
+                    !(nameObj is PyString nameStr))
+                {
+                    throw PyImportError.Create("'__name__' not in globals or not a string");
+                }
+
+                package = nameStr.Value;
+
+                // If module (not package), strip last component
+                if (!globals.ContainsKey("__path__"))
+                {
+                    int lastDot = package.LastIndexOf('.');
+                    if (lastDot >= 0)
+                    {
+                        package = package.Substring(0, lastDot);
+                    }
+                    else
+                    {
+                        // Top-level module cannot do relative import
+                        package = "";
+                    }
+                }
+            }
+
+            if (string.IsNullOrEmpty(package))
+            {
+                throw PyImportError.Create("attempted relative import with no known parent package");
+            }
+
+            // 4. Walk up 'level - 1' times
+            string[] parts = package.Split('.');
+            int levelsUp = level - 1;
+
+            if (levelsUp >= parts.Length)
             {
                 throw PyImportError.Create("attempted relative import beyond top-level package");
             }
-            
-            string[] targetParts = packageParts.Take(packageParts.Length - (level - 1)).ToArray();
+
+            string[] targetParts = parts.Take(parts.Length - levelsUp).ToArray();
             string targetPackage = string.Join(".", targetParts);
-            
-            if (string.IsNullOrEmpty(relativeModule))
-                return targetPackage; // from .. import something
+
+            // 5. Combine with relative name
+            if (string.IsNullOrEmpty(moduleName))
+            {
+                return targetPackage;  // from .. import something
+            }
             else
-                return $"{targetPackage}.{relativeModule}"; // from ..module import something
-        }
-        
-        /// <summary>
-        /// 현재 실행 중인 패키지 컨텍스트 가져오기 (간단한 구현)
-        /// </summary>
-        private static string GetCurrentPackage()
-        {
-            // 현재는 간단하게 구현. 실제로는 execution context에서 가져와야 함
-            return "testpackage"; // TODO: 실제 패키지 컨텍스트 구현
+            {
+                return $"{targetPackage}.{moduleName}";  // from ..module import something
+            }
         }
 
         private static Dictionary<string, PyObject> ImportAll(PyModule module)
