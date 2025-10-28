@@ -146,6 +146,42 @@ namespace SharpPy
                 },
                 minArgs: 2, maxArgs: 3
             );
+
+            // CPython 3.12: str.zfill(width) - pad string with zeros on the left
+            strType.TypeDict["zfill"] = new PyMethodDescriptor(
+                "zfill", strType,
+                (self, args, kwargs) => {
+                    if (args.Length != 1)
+                        throw PyTypeError.Create($"zfill() takes exactly one argument ({args.Length} given)");
+                    if (self is not PyString str)
+                        throw PyTypeError.Create($"descriptor 'zfill' requires a 'str' object but received a '{self.GetTypeName()}'");
+
+                    if (args[0] is not PyInt widthInt)
+                        throw PyTypeError.Create("zfill() width must be an integer");
+
+                    int width = (int)widthInt.Value;
+                    string value = str.Value;
+
+                    // If already long enough, return unchanged
+                    if (value.Length >= width)
+                        return str;
+
+                    int fillCount = width - value.Length;
+
+                    // Check if string starts with '+' or '-'
+                    if (value.Length > 0 && (value[0] == '+' || value[0] == '-'))
+                    {
+                        // Move sign to beginning: sign + zeros + rest
+                        return new PyString(value[0] + new string('0', fillCount) + value.Substring(1));
+                    }
+                    else
+                    {
+                        // Just prepend zeros
+                        return new PyString(new string('0', fillCount) + value);
+                    }
+                },
+                minArgs: 1, maxArgs: 1
+            );
         }
 
         #region Core Properties
