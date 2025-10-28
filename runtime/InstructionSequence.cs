@@ -40,6 +40,7 @@ namespace SharpPy
     /// <summary>
     /// Single instruction in the sequence - corresponds to CPython's _PyCompile_Instruction
     /// Can have either an integer argument OR a label target (for jumps)
+    /// CPython 3.12: Exception handler info is NOT stored here, set later in CFG phase
     /// </summary>
     public struct Instruction
     {
@@ -58,7 +59,6 @@ namespace SharpPy
         public int LineNumber { get; }
         public int ColumnOffset { get; }
         public string? FileName { get; }
-        public ExceptHandlerInfo ExceptHandler { get; }
 
         // Constructor for non-jump instructions with integer argument
         public Instruction(
@@ -66,8 +66,7 @@ namespace SharpPy
             int arg,
             int lineNumber,
             int columnOffset,
-            string? fileName,
-            ExceptHandlerInfo exceptHandler)
+            string? fileName)
         {
             OpCode = opCode;
             Arg = arg;
@@ -75,7 +74,6 @@ namespace SharpPy
             LineNumber = lineNumber;
             ColumnOffset = columnOffset;
             FileName = fileName;
-            ExceptHandler = exceptHandler;
         }
 
         // Constructor for jump instructions with label target
@@ -84,8 +82,7 @@ namespace SharpPy
             Label target,
             int lineNumber,
             int columnOffset,
-            string? fileName,
-            ExceptHandlerInfo exceptHandler)
+            string? fileName)
         {
             OpCode = opCode;
             Arg = null;
@@ -93,7 +90,6 @@ namespace SharpPy
             LineNumber = lineNumber;
             ColumnOffset = columnOffset;
             FileName = fileName;
-            ExceptHandler = exceptHandler;
         }
 
         // Constructor for instructions with no argument (NOP, POP_TOP, etc.)
@@ -101,8 +97,7 @@ namespace SharpPy
             ByteCodeOp opCode,
             int lineNumber,
             int columnOffset,
-            string? fileName,
-            ExceptHandlerInfo exceptHandler)
+            string? fileName)
         {
             OpCode = opCode;
             Arg = null;
@@ -110,7 +105,6 @@ namespace SharpPy
             LineNumber = lineNumber;
             ColumnOffset = columnOffset;
             FileName = fileName;
-            ExceptHandler = exceptHandler;
         }
 
         public bool IsJump => Target.HasValue;
@@ -174,54 +168,52 @@ namespace SharpPy
 
         /// <summary>
         /// Add an instruction with no argument
+        /// CPython 3.12: Exception handler is set later in CFG phase
         /// </summary>
         public void AddOp(
             ByteCodeOp opCode,
             int lineNumber,
             int columnOffset = -1,
-            string? fileName = null,
-            ExceptHandlerInfo? exceptHandler = null)
+            string? fileName = null)
         {
             _instructions.Add(new Instruction(
                 opCode,
                 lineNumber,
                 columnOffset,
-                fileName,
-                exceptHandler ?? ExceptHandlerInfo.NoHandler
+                fileName
             ));
         }
 
         /// <summary>
         /// Add an instruction with integer argument
+        /// CPython 3.12: Exception handler is set later in CFG phase
         /// </summary>
         public void AddOpWithArg(
             ByteCodeOp opCode,
             int arg,
             int lineNumber,
             int columnOffset = -1,
-            string? fileName = null,
-            ExceptHandlerInfo? exceptHandler = null)
+            string? fileName = null)
         {
             _instructions.Add(new Instruction(
                 opCode,
                 arg,
                 lineNumber,
                 columnOffset,
-                fileName,
-                exceptHandler ?? ExceptHandlerInfo.NoHandler
+                fileName
             ));
         }
 
         /// <summary>
         /// Add a jump instruction with label target
+        /// CPython 3.12: Exception handler is set later in CFG phase
         /// </summary>
         public void AddOpWithLabel(
             ByteCodeOp opCode,
             Label target,
             int lineNumber,
             int columnOffset = -1,
-            string? fileName = null,
-            ExceptHandlerInfo? exceptHandler = null)
+            string? fileName = null)
         {
             if (!target.IsValid)
                 throw new ArgumentException("Invalid label for jump target", nameof(target));
@@ -231,8 +223,7 @@ namespace SharpPy
                 target,
                 lineNumber,
                 columnOffset,
-                fileName,
-                exceptHandler ?? ExceptHandlerInfo.NoHandler
+                fileName
             ));
         }
 
@@ -318,8 +309,7 @@ namespace SharpPy
                     freeVars.Count,
                     0, // lineNumber
                     -1, // columnOffset
-                    null, // fileName
-                    ExceptHandlerInfo.NoHandler
+                    null // fileName
                 ));
             }
 
@@ -334,8 +324,7 @@ namespace SharpPy
                     cellIndex,
                     0, // lineNumber
                     -1, // columnOffset
-                    null, // fileName
-                    ExceptHandlerInfo.NoHandler
+                    null // fileName
                 ));
             }
 
@@ -349,8 +338,7 @@ namespace SharpPy
                     ByteCodeOp.RETURN_GENERATOR,
                     0, // lineNumber
                     -1, // columnOffset
-                    null, // fileName
-                    ExceptHandlerInfo.NoHandler
+                    null // fileName
                 ));
 
 #if DEBUG_COMPILER_LOG
@@ -360,8 +348,7 @@ namespace SharpPy
                     ByteCodeOp.POP_TOP,
                     0, // lineNumber
                     -1, // columnOffset
-                    null, // fileName
-                    ExceptHandlerInfo.NoHandler
+                    null // fileName
                 ));
             }
 

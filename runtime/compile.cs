@@ -521,35 +521,8 @@ namespace SharpPy
         // Tracks active exception handlers during compilation (SETUP_FINALLY/CLEANUP push, POP_BLOCK pop)
         private Stack<Label> _exceptionHandlerStack = new Stack<Label>();
 
-        /// <summary>
-        /// Get the current outer exception handler from the exception handler stack
-        /// Returns ExceptHandlerInfo with the handler label, or NoHandler if stack is empty
-        ///
-        /// For except* blocks: We need the OUTER try block's handler, not the except* block's own handler
-        /// Stack layout when called:
-        ///   Top: Inner except* handler (SETUP_FINALLY from line 3560)
-        ///   Below: Outer try block's handler (if nested)
-        /// </summary>
-        private ExceptHandlerInfo GetCurrentOuterHandler()
-        {
-            // Skip the top (current) handler and get the one below it (outer handler)
-            if (_exceptionHandlerStack.Count > 1)
-            {
-                // Convert stack to array to access second element
-                var handlersArray = _exceptionHandlerStack.ToArray();
-                var outerHandlerLabel = handlersArray[1]; // Index 1 = second from top
-                string labelString = outerHandlerLabel.ToString();
-                Console.WriteLine($"[TEMP] GetCurrentOuterHandler: Found outer handler at label '{labelString}' (skipped top handler)");
-                return new ExceptHandlerInfo(-1, 0, false, labelString);
-            }
-            else if (_exceptionHandlerStack.Count == 1)
-            {
-                // Only one handler on stack = no outer handler (module level)
-                Console.WriteLine($"[TEMP] GetCurrentOuterHandler: Only one handler on stack, no outer handler");
-                return ExceptHandlerInfo.NoHandler;
-            }
-            return ExceptHandlerInfo.NoHandler;
-        }
+        // CPython 3.12: Exception handler info removed from InstructionSequence
+        // Will be set later in flowgraph.cs during CFG building
 
         // CPython 3.12 Exception Handler 정보
         private class PendingExceptionHandler
@@ -4044,36 +4017,13 @@ namespace SharpPy
                 _currentColumnOffset = node.ColOffset;
         }
         
-        /// <summary>
-        /// CPython 3.12: Get current exception handler info from fblock stack
-        /// </summary>
-        private ExceptHandlerInfo GetCurrentExceptHandlerInfo()
-        {
-            // Find the topmost exception handler fblock
-            foreach (var fblock in _fblockStack)
-            {
-                if (fblock.Type == FBlockType.EXCEPTION_HANDLER ||
-                    fblock.Type == FBlockType.EXCEPTION_GROUP_HANDLER ||
-                    fblock.Type == FBlockType.HANDLER_CLEANUP)
-                {
-                    // CPython 3.12: Store handler label name for resolution after optimization
-                    return new ExceptHandlerInfo(
-                        handlerOffset: -1,  // Will be resolved from label
-                        stackDepth: fblock.StackDepth,
-                        preserveLasti: fblock.PreserveLasti,
-                        handlerLabel: fblock.HandlerLabel  // Store label name
-                    );
-                }
-            }
-            return ExceptHandlerInfo.NoHandler;
-        }
+        // CPython 3.12: Exception handler info removed from InstructionSequence
+        // Will be set later in flowgraph.cs during CFG building
 
         private void EmitInstruction(ByteCodeOp opCode, int argument = 0)
         {
-            // CPython 3.12: Get current exception handler info from fblock stack
-            var exceptHandlerInfo = GetCurrentExceptHandlerInfo();
-
             // CPython 3.12: Use InstructionSequence API (CFG-based compilation)
+            // Exception handler info is NOT stored here, set later in CFG phase
 #if DEBUG_COMPILER_LOG
             if (opCode != ByteCodeOp.CACHE && opCode != ByteCodeOp.NOP)  // Reduce noise
             {
@@ -4089,8 +4039,7 @@ namespace SharpPy
                         argument,
                         _currentLineNumber,
                         _currentColumnOffset,
-                        _currentFileName,
-                        exceptHandlerInfo
+                        _currentFileName
                     );
                 }
                 else
@@ -4099,8 +4048,7 @@ namespace SharpPy
                         opCode,
                         _currentLineNumber,
                         _currentColumnOffset,
-                        _currentFileName,
-                        exceptHandlerInfo
+                        _currentFileName
                     );
                 }
 
@@ -6567,8 +6515,7 @@ namespace SharpPy
                 handlerLabel,
                 _currentLineNumber,
                 _currentColumnOffset,
-                _currentFileName,
-                ExceptHandlerInfo.NoHandler
+                _currentFileName
             ));
 
             // CPython: ADDOP_LOAD_CONST(c, NO_LOCATION, Py_None);
@@ -6773,8 +6720,7 @@ namespace SharpPy
                 cleanupLabel,  // Jump to cleanup (END_FOR) on StopIteration
                 _currentLineNumber,
                 _currentColumnOffset,
-                _currentFileName,
-                GetCurrentExceptHandlerInfo()
+                _currentFileName
             );
 
             // 3. Mark body label
@@ -6800,8 +6746,7 @@ namespace SharpPy
                 startLabel,
                 _currentLineNumber,
                 _currentColumnOffset,
-                _currentFileName,
-                GetCurrentExceptHandlerInfo()
+                _currentFileName
             );
 
             // 8. Mark cleanup label and emit END_FOR
@@ -6857,8 +6802,7 @@ namespace SharpPy
                 endLabel,
                 _currentLineNumber,
                 _currentColumnOffset,
-                _currentFileName,
-                GetCurrentExceptHandlerInfo()
+                _currentFileName
             );
 
             // 5. FOR_ITER pushes the next value on stack, unpack it into target variables
@@ -6888,8 +6832,7 @@ namespace SharpPy
                 startLabel,
                 -1,  // NO_LOCATION
                 -1,
-                _currentFileName,
-                GetCurrentExceptHandlerInfo()
+                _currentFileName
             );
 
             // 11. Cleanup label - loop exits here
@@ -6938,8 +6881,7 @@ namespace SharpPy
                 endLabel,
                 _currentLineNumber,
                 _currentColumnOffset,
-                _currentFileName,
-                GetCurrentExceptHandlerInfo()
+                _currentFileName
             );
 
             // 5. FOR_ITER pushes the next value on stack
@@ -6964,8 +6906,7 @@ namespace SharpPy
                 startLabel,
                 -1,  // NO_LOCATION
                 -1,
-                _currentFileName,
-                GetCurrentExceptHandlerInfo()
+                _currentFileName
             );
 
             // 10. Cleanup label - loop exits here
@@ -7395,8 +7336,6 @@ namespace SharpPy
 
             // CRITICAL: Capture outer handler BEFORE POP_BLOCK removes it from stack
             // The cleanup handler needs to know the OUTER try block's handler (not the inner except* handler)
-            var outerHandlerForCleanup = GetCurrentOuterHandler();
-            Console.WriteLine($"[DEBUG] except* outerHandlerForCleanup = {outerHandlerForCleanup.HandlerLabel} (captured BEFORE POP_BLOCK)");
 
             // POP_BLOCK and JUMP orelse (lines 3570-3571)
             _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
@@ -7527,29 +7466,24 @@ namespace SharpPy
 
             // Nothing to reraise (lines 3696-3700)
             // CRITICAL: Use outerHandlerForCleanup so POP_EXCEPT is protected by outer try block
-            Console.WriteLine($"[DEBUG] Adding POP_TOP with outerHandler = {outerHandlerForCleanup.HandlerLabel}");
-            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber, exceptHandler: outerHandlerForCleanup);
-            Console.WriteLine($"[DEBUG] Adding POP_EXCEPT with outerHandler = {outerHandlerForCleanup.HandlerLabel}");
-            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber, exceptHandler: outerHandlerForCleanup);
+            _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
             _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
 
             // Reraise exception group (lines 3702-3706)
             // CRITICAL: Use outerHandlerForCleanup so RERAISE 0 is protected by outer try block
             _instructionSequence.UseLabel(reraiseLabel);
-            Console.WriteLine($"[DEBUG] Adding SWAP with outerHandler = {outerHandlerForCleanup.HandlerLabel}");
-            _instructionSequence.AddOpWithArg(ByteCodeOp.SWAP, 2, _currentLineNumber, exceptHandler: outerHandlerForCleanup);
-            Console.WriteLine($"[DEBUG] Adding POP_EXCEPT (reraise) with outerHandler = {outerHandlerForCleanup.HandlerLabel}");
-            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber, exceptHandler: outerHandlerForCleanup);
-            Console.WriteLine($"[DEBUG] Adding RERAISE 0 with outerHandler = {outerHandlerForCleanup.HandlerLabel}");
-            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 0, _currentLineNumber, exceptHandler: outerHandlerForCleanup);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.SWAP, 2, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 0, _currentLineNumber);
 
             // Cleanup handler (lines 3708-3709)
             // CRITICAL: Pass outerHandlerForCleanup to all instructions
             // This ensures RERAISE is protected by outer try block's exception handler
             _instructionSequence.UseLabel(cleanupLabel);
-            _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 3, _currentLineNumber, exceptHandler: outerHandlerForCleanup);
-            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber, exceptHandler: outerHandlerForCleanup);
-            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 1, _currentLineNumber, exceptHandler: outerHandlerForCleanup);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 3, _currentLineNumber);
+            _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
+            _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 1, _currentLineNumber);
 
             // Else block (lines 3711-3712)
             _instructionSequence.UseLabel(orelseLabel);
@@ -7742,8 +7676,7 @@ namespace SharpPy
                 endLabel,
                 _currentLineNumber,
                 _currentColumnOffset,
-                _currentFileName,
-                GetCurrentExceptHandlerInfo()
+                _currentFileName
             );
 
             // 8. Exception handler (CPython 3.12: PUSH_EXC_INFO → WITH_EXCEPT_START)
@@ -7758,8 +7691,7 @@ namespace SharpPy
                 suppressLabel,
                 _currentLineNumber,
                 _currentColumnOffset,
-                _currentFileName,
-                GetCurrentExceptHandlerInfo()
+                _currentFileName
             );
 
             // Re-raise exception if not suppressed
@@ -9883,8 +9815,7 @@ namespace SharpPy
                     anchorLabel,
                     _currentLineNumber,
                     _currentColumnOffset,
-                    _currentFileName,
-                    GetCurrentExceptHandlerInfo()
+                    _currentFileName
                 );
 
                 #if DEBUG_LOG
@@ -9906,8 +9837,7 @@ namespace SharpPy
                     ifCleanupLabel,
                     _currentLineNumber,
                     _currentColumnOffset,
-                    _currentFileName,
-                    GetCurrentExceptHandlerInfo()
+                    _currentFileName
                 );
 
                 #if DEBUG_LOG
@@ -9976,8 +9906,7 @@ namespace SharpPy
                     ByteCodeOp.JUMP,
                     startLabel,
                     -1, -1,
-                    _currentFileName,
-                    GetCurrentExceptHandlerInfo()
+                    _currentFileName
                 );
 
                 #if DEBUG_LOG

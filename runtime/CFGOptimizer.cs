@@ -77,17 +77,16 @@ namespace SharpPy
                 bool hasHandlerInfo = false;
                 foreach (var instr in block.Instructions)
                 {
-                    if (instr.ExceptionHandlerOffset >= 0)
+                    // CPython 3.12: instr->i_except is a BasicBlock pointer (not offset)
+                    if (instr.ExceptBlock != null)
                     {
                         hasHandlerInfo = true;
-                        // Find the handler block
-                        if (offsetToBlock.TryGetValue(instr.ExceptionHandlerOffset, out var handlerBlock))
+                        // ExceptBlock is already a BasicBlock reference
+                        var handlerBlock = instr.ExceptBlock;
+                        if (!reachable.Contains(handlerBlock))
                         {
-                            if (!reachable.Contains(handlerBlock))
-                            {
-                                reachable.Add(handlerBlock);
-                                queue.Enqueue(handlerBlock);
-                            }
+                            reachable.Add(handlerBlock);
+                            queue.Enqueue(handlerBlock);
                         }
                     }
                 }
@@ -203,8 +202,8 @@ namespace SharpPy
                                 instr.LineNumber,
                                 instr.ColumnOffset,
                                 instr.FileName,
-                                instr.ExceptHandler,
-                                instr.ExceptionHandlerOffset
+                                instr.TargetBlock,
+                                instr.ExceptBlock
                             );
                         }
                     }
@@ -291,8 +290,8 @@ namespace SharpPy
                             last.LineNumber,
                             last.ColumnOffset,
                             last.FileName,
-                            last.ExceptHandler,
-                            last.ExceptionHandlerOffset
+                            last.TargetBlock,
+                            last.ExceptBlock
                         );
                     }
                 }

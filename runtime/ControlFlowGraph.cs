@@ -136,8 +136,8 @@ namespace SharpPy
                             instr.LineNumber,
                             instr.ColumnOffset,
                             instr.FileName,
-                            instr.ExceptHandler,
-                            instr.ExceptionHandlerOffset
+                            instr.TargetBlock,
+                            instr.ExceptBlock
                         ));
                     }
                     else
@@ -211,8 +211,8 @@ namespace SharpPy
                                 instr.LineNumber,
                                 instr.ColumnOffset,
                                 instr.FileName,
-                                instr.ExceptHandler,
-                                instr.ExceptionHandlerOffset
+                                instr.TargetBlock,
+                                instr.ExceptBlock
                             );
                         }
                     }
@@ -252,10 +252,10 @@ namespace SharpPy
         {
             var table = new List<ExceptionTableEntry>();
 
-            // Collect all instructions with their handler info AND block boundaries
+            // Collect all instructions with their exception handler BasicBlock AND block boundaries
             // CPython 3.12: Each basic block can have separate exception table entries
-            // even if they share the same handler offset
-            var instructions = new List<(int offset, ExceptHandlerInfo handlerInfo, bool isBlockStart)>();
+            // even if they share the same handler (using BasicBlock reference, not offset)
+            var instructions = new List<(int offset, BasicBlock? exceptBlock, bool isBlockStart)>();
             int currentOffset = 0;
             foreach (var block in AllBlocks)
             {
@@ -264,7 +264,7 @@ namespace SharpPy
                 {
                     instructions.Add((
                         currentOffset,
-                        instr.ExceptHandler,  // ← KEY: Use full ExceptHandlerInfo struct
+                        instr.ExceptBlock,  // CPython's i_except: BasicBlock reference
                         isFirst  // Mark first instruction of each block
                     ));
                     currentOffset++;
@@ -279,54 +279,63 @@ namespace SharpPy
 
             // Traverse instructions and detect handler changes OR block boundaries
             // CPython 3.12: assemble.c:150-165 + flowgraph.c per-block except_stack
-            ExceptHandlerInfo currentHandler = ExceptHandlerInfo.NoHandler;
+            BasicBlock? currentHandlerBlock = null;
             int startOffset = -1;
 
             for (int i = 0; i < instructions.Count; i++)
             {
-                var (offset, handlerInfo, isBlockStart) = instructions[i];
+                var (offset, exceptBlock, isBlockStart) = instructions[i];
 
                 // Check if exception handler changed OR new basic block started
-                // CPython: instr->i_except_handler_info.h_offset != handler.h_offset
+                // CPython: instr->i_except != handler (BasicBlock pointer comparison)
                 // SharpPy extension: Also split on basic block boundaries (CPython has per-block except_stack)
-                bool handlerChanged = handlerInfo.HandlerOffset != currentHandler.HandlerOffset;
-                bool shouldSplit = handlerChanged || (isBlockStart && i > 0 && currentHandler.HandlerOffset >= 0);
+                bool handlerChanged = exceptBlock != currentHandlerBlock;
+                bool shouldSplit = handlerChanged || (isBlockStart && i > 0 && currentHandlerBlock != null);
 
                 if (shouldSplit)
                 {
                     // Emit entry for previous handler region
-                    if (currentHandler.HandlerOffset >= 0 && startOffset >= 0)
+                    if (currentHandlerBlock != null && startOffset >= 0)
                     {
                         // Convert instruction index to byte offset (index * 2)
                         // CPython 3.12 stores instruction word offset, displays as byte offset
-                        // SharpPy uses instruction index, stores/displays as byte offset
+                        // Get handler offset, depth, and lasti from BasicBlock
+                        int handlerOffset = currentHandlerBlock.Offset;
+                        int depth = currentHandlerBlock.ExceptionDepth;
+                        bool lasti = currentHandlerBlock.PreserveLasti;
+
                         table.Add(new ExceptionTableEntry(
                             start: startOffset * 2,
                             end: offset * 2,
-                            handler: currentHandler.HandlerOffset * 2,
-                            depth: currentHandler.StackDepth,
-                            lasti: currentHandler.PreserveLasti
+                            handler: handlerOffset * 2,
+                            depth: depth,
+                            lasti: lasti
                         ));
                     }
 
                     // Start new handler region
-                    currentHandler = handlerInfo;
-                    startOffset = handlerInfo.HandlerOffset >= 0 ? offset : -1;
+                    currentHandlerBlock = exceptBlock;
+                    startOffset = exceptBlock != null ? offset : -1;
                 }
             }
 
             // Final entry (CPython: assemble.c:162-165)
-            if (currentHandler.HandlerOffset >= 0 && startOffset >= 0)
+            if (currentHandlerBlock != null && startOffset >= 0)
             {
                 int endOffset = instructions.Count;
+
+                // Get handler info from BasicBlock
+                int handlerOffset = currentHandlerBlock.Offset;
+                int depth = currentHandlerBlock.ExceptionDepth;
+                bool lasti = currentHandlerBlock.PreserveLasti;
 
                 // Convert instruction index to byte offset (index * 2)
                 table.Add(new ExceptionTableEntry(
                     start: startOffset * 2,
                     end: endOffset * 2,
-                    handler: currentHandler.HandlerOffset * 2,
-                    depth: currentHandler.StackDepth,
-                    lasti: currentHandler.PreserveLasti
+                    handler: handlerOffset * 2,
+                    depth: depth,
+                    lasti: lasti
                 ));
             }
 
@@ -396,7 +405,7 @@ namespace SharpPy
                             instr.LineNumber,
                             instr.ColumnOffset,
                             instr.FileName,
-                            instr.ExceptHandler
+                            instr.TargetBlock
                         );
                     }
                 }

@@ -236,8 +236,8 @@ namespace SharpPy
                                 instr.LineNumber,
                                 instr.ColumnOffset,
                                 instr.FileName,
-                                instr.ExceptHandler,
-                                instr.ExceptionHandlerOffset
+                                instr.TargetBlock,
+                                instr.ExceptBlock
                             );
 
                             // Check if instruction size changed
@@ -310,8 +310,8 @@ namespace SharpPy
                     instr.LineNumber,
                     instr.ColumnOffset,
                     instr.FileName,
-                    instr.ExceptHandler,
-                    instr.ExceptionHandlerOffset
+                    instr.TargetBlock,
+                    instr.ExceptBlock
                 ));
                 result.Add(new ByteCodeInstruction(
                     ByteCodeOp.EXTENDED_ARG,
@@ -319,8 +319,8 @@ namespace SharpPy
                     instr.LineNumber,
                     instr.ColumnOffset,
                     instr.FileName,
-                    instr.ExceptHandler,
-                    instr.ExceptionHandlerOffset
+                    instr.TargetBlock,
+                    instr.ExceptBlock
                 ));
                 result.Add(new ByteCodeInstruction(
                     ByteCodeOp.EXTENDED_ARG,
@@ -328,8 +328,8 @@ namespace SharpPy
                     instr.LineNumber,
                     instr.ColumnOffset,
                     instr.FileName,
-                    instr.ExceptHandler,
-                    instr.ExceptionHandlerOffset
+                    instr.TargetBlock,
+                    instr.ExceptBlock
                 ));
             }
             else if (arg > 0xFFFF)
@@ -341,8 +341,8 @@ namespace SharpPy
                     instr.LineNumber,
                     instr.ColumnOffset,
                     instr.FileName,
-                    instr.ExceptHandler,
-                    instr.ExceptionHandlerOffset
+                    instr.TargetBlock,
+                    instr.ExceptBlock
                 ));
                 result.Add(new ByteCodeInstruction(
                     ByteCodeOp.EXTENDED_ARG,
@@ -350,8 +350,8 @@ namespace SharpPy
                     instr.LineNumber,
                     instr.ColumnOffset,
                     instr.FileName,
-                    instr.ExceptHandler,
-                    instr.ExceptionHandlerOffset
+                    instr.TargetBlock,
+                    instr.ExceptBlock
                 ));
             }
             else if (arg > 0xFF)
@@ -363,8 +363,8 @@ namespace SharpPy
                     instr.LineNumber,
                     instr.ColumnOffset,
                     instr.FileName,
-                    instr.ExceptHandler,
-                    instr.ExceptionHandlerOffset
+                    instr.TargetBlock,
+                    instr.ExceptBlock
                 ));
             }
 
@@ -375,8 +375,8 @@ namespace SharpPy
                 instr.LineNumber,
                 instr.ColumnOffset,
                 instr.FileName,
-                instr.ExceptHandler,
-                instr.ExceptionHandlerOffset
+                instr.TargetBlock,
+                instr.ExceptBlock
             ));
         }
 

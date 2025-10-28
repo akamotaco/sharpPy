@@ -327,37 +327,8 @@ namespace SharpPy
         MATRIX_MULTIPLY = 12      // @  (행렬 곱셈) - was 4
     }
 
-    // 바이트코드 명령 구조체
-    /// <summary>
-    /// CPython 3.12: Exception handler information stored in each instruction
-    /// Used to generate exception table in assembly phase
-    /// </summary>
-    public struct ExceptHandlerInfo
-    {
-        public int HandlerOffset { get; }       // h_offset: target handler offset (-1 if no handler)
-        public string? HandlerLabel { get; }    // Handler label name (for resolution after optimization)
-        public int StackDepth { get; }          // h_startdepth: stack depth at handler entry
-        public bool PreserveLasti { get; }      // h_preserve_lasti: lasti flag for exception table
-
-        public ExceptHandlerInfo(int handlerOffset, int stackDepth, bool preserveLasti, string? handlerLabel = null)
-        {
-            HandlerOffset = handlerOffset;
-            HandlerLabel = handlerLabel;
-            StackDepth = stackDepth;
-            PreserveLasti = preserveLasti;
-        }
-
-        public static ExceptHandlerInfo NoHandler => new ExceptHandlerInfo(-1, 0, false, null);
-
-        public bool Equals(ExceptHandlerInfo other)
-        {
-            return HandlerOffset == other.HandlerOffset &&
-                   HandlerLabel == other.HandlerLabel &&
-                   StackDepth == other.StackDepth &&
-                   PreserveLasti == other.PreserveLasti;
-        }
-    }
-
+    // CPython 3.12: ByteCodeInstruction directly maps to _PyCfgInstruction
+    // No intermediate ExceptHandlerInfo struct needed - use ExceptBlock reference directly
     public struct ByteCodeInstruction
     {
         public ByteCodeOp OpCode { get; }
@@ -366,22 +337,26 @@ namespace SharpPy
         public int ColumnOffset { get; }    // Source column offset (0-based)
         public string? FileName { get; }    // Source file name
 
-        // CPython 3.12: Exception handler info for this instruction
-        public ExceptHandlerInfo ExceptHandler { get; }
+        // CPython 3.12: _PyCfgInstruction compatibility
+        // typedef struct {
+        //     int i_opcode;                          -> OpCode
+        //     int i_oparg;                           -> Argument
+        //     struct _PyCfgBasicblock_ *i_target;    -> TargetBlock
+        //     struct _PyCfgBasicblock_ *i_except;    -> ExceptBlock
+        // } _PyCfgInstruction;
 
-        // CPython 3.12: Instruction-level exception handler (assemble.c:i_except_handler_info)
-        // This is the instruction offset of the handler block (-1 if no handler)
-        public int ExceptionHandlerOffset { get; }
+        public BasicBlock? TargetBlock { get; set; }  // i_target: Jump/branch target block
+        public BasicBlock? ExceptBlock { get; set; }  // i_except: Exception handler block
 
-        public ByteCodeInstruction(ByteCodeOp opCode, int argument = 0, int lineNumber = -1, int columnOffset = -1, string? fileName = null, ExceptHandlerInfo? exceptHandler = null, int exceptionHandlerOffset = -1)
+        public ByteCodeInstruction(ByteCodeOp opCode, int argument = 0, int lineNumber = -1, int columnOffset = -1, string? fileName = null, BasicBlock? targetBlock = null, BasicBlock? exceptBlock = null)
         {
             OpCode = opCode;
             Argument = argument;
             LineNumber = lineNumber;
             ColumnOffset = columnOffset;
             FileName = fileName;
-            ExceptHandler = exceptHandler ?? ExceptHandlerInfo.NoHandler;
-            ExceptionHandlerOffset = exceptionHandlerOffset;
+            TargetBlock = targetBlock;
+            ExceptBlock = exceptBlock;
         }
         
         public override string ToString()

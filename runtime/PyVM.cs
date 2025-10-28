@@ -779,8 +779,8 @@ namespace SharpPy
                             instruction.LineNumber,
                             instruction.ColumnOffset,
                             instruction.FileName,
-                            instruction.ExceptHandler,
-                            instruction.ExceptionHandlerOffset
+                            instruction.TargetBlock,
+                            instruction.ExceptBlock
                         );
                         extendedArg = 0; // Reset for next instruction
                     }

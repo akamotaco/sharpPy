@@ -304,24 +304,8 @@ namespace SharpPy
 
                     // Get current exception handler from stack
                     // CPython 3.12: flowgraph.c:825-849 (set i_except for each instruction)
-                    var currentHandler = exceptStack.Top();
-                    int handlerOffset = currentHandler?.Offset ?? -1;
-
-                    // Resolve ExceptHandlerInfo: convert HandlerLabel → HandlerOffset
-                    var resolvedHandler = ResolveExceptHandler(instr.ExceptHandler, labelToOffset);
-
-                    // If no explicit handler info, use ExceptStack
-                    // CPython 3.12: instr->i_except = handler (flowgraph.c:849)
-                    if (resolvedHandler.HandlerOffset == -1 && handlerOffset >= 0)
-                    {
-                        // CPython 3.12: Get depth and lasti from handler block (not stack depth!)
-                        // depth = number of stack values to preserve on exception
-                        // lasti = whether to preserve last_i for reraise
-                        int depth = currentHandler?.ExceptionDepth ?? 0;
-                        bool lasti = currentHandler?.PreserveLasti ?? false;
-
-                        resolvedHandler = new ExceptHandlerInfo(handlerOffset, depth, lasti);
-                    }
+                    // Store BasicBlock reference directly (CPython's i_except is a pointer to basicblock)
+                    var currentHandlerBlock = exceptStack.Top();
 
                     // CPython 3.12: Special handling for YIELD_VALUE (flowgraph.c:846-847)
                     // YIELD_VALUE stores exception stack depth in its argument
@@ -336,23 +320,38 @@ namespace SharpPy
 
                     if (instr.IsJump && instr.Target.HasValue)
                     {
-                        // For jump instructions, resolve target to CFG offset using labelToOffset mapping
-                        // IMPORTANT: Don't use targetBlock.Offset here because it might not be updated yet!
-                        // labelToOffset already contains the correct CFG offset (after pseudo-instruction removal)
+                        // For jump instructions, resolve target BasicBlock for TargetBlock reference
+                        // Also get CFG offset for Argument field
                         string labelKey = instr.Target.Value.ToString();
                         int targetCfgOffset;
+                        BasicBlock? targetBlock = null;
 
                         if (labelToOffset.TryGetValue(labelKey, out targetCfgOffset))
                         {
-                            // Use the pre-calculated CFG offset from labelToOffset
+                            // Find target block by searching for block with this offset
+                            // (We need the BasicBlock reference for CPython's i_target)
+                            int targetInstrIndex = instrSeq.GetLabelTarget(instr.Target.Value);
+                            for (int bi = 0; bi < sortedStarts.Count; bi++)
+                            {
+                                int blockStart = sortedStarts[bi];
+                                int blockEnd = (bi + 1 < sortedStarts.Count) ? sortedStarts[bi + 1] : instructions.Count;
+
+                                if (blockStart <= targetInstrIndex && targetInstrIndex < blockEnd)
+                                {
+                                    if (indexToBlock.TryGetValue(blockStart, out var candidateBlock))
+                                    {
+                                        targetBlock = candidateBlock;
+                                        break;
+                                    }
+                                }
+                            }
                         }
                         else
                         {
-                            // Fallback: resolve using InstructionSequence offset (shouldn't happen for well-formed code)
+                            // Fallback: resolve using InstructionSequence offset
                             int targetInstrIndex = instrSeq.GetLabelTarget(instr.Target.Value);
 
                             // Find which block contains this target instruction
-                            BasicBlock? targetBlock = null;
                             for (int bi = 0; bi < sortedStarts.Count; bi++)
                             {
                                 int blockStart = sortedStarts[bi];
@@ -384,28 +383,29 @@ namespace SharpPy
                         }
                         #endif
 
-                        // Store target CFG offset
+                        // CPython 3.12: Create instruction with TargetBlock and ExceptBlock references
                         bcInstr = new ByteCodeInstruction(
                             instr.OpCode,
-                            targetCfgOffset,  // Target CFG offset from labelToOffset mapping
+                            targetCfgOffset,  // Argument: target CFG offset
                             instr.LineNumber,
                             instr.ColumnOffset,
                             instr.FileName,
-                            resolvedHandler,  // Use resolved handler
-                            resolvedHandler.HandlerOffset  // Set ExceptionHandlerOffset
+                            targetBlock,       // TargetBlock: i_target (BasicBlock reference)
+                            currentHandlerBlock  // ExceptBlock: i_except (BasicBlock reference)
                         );
                     }
                     else
                     {
                         // Regular instruction with integer argument (or no argument)
+                        // CPython 3.12: Only set ExceptBlock (no TargetBlock for non-jump instructions)
                         bcInstr = new ByteCodeInstruction(
                             instr.OpCode,
                             instrArg,  // Use instrArg (may be modified for YIELD_VALUE)
                             instr.LineNumber,
                             instr.ColumnOffset,
                             instr.FileName,
-                            resolvedHandler,  // Use resolved handler
-                            resolvedHandler.HandlerOffset  // Set ExceptionHandlerOffset
+                            null,              // TargetBlock: null (not a jump)
+                            currentHandlerBlock  // ExceptBlock: i_except (BasicBlock reference)
                         );
                     }
 
@@ -461,49 +461,32 @@ namespace SharpPy
                 finalOffset += block.Instructions.Count;
             }
 
-            // Update jump targets and exception handler offsets to use final block offsets
+            // Update jump targets to use final block offsets
             // CPython: After block offset recalculation, jump i_oparg references updated b_offset
+            // Note: ExceptBlock and TargetBlock are BasicBlock references, so they don't need offset updates
             foreach (var block in cfg.AllBlocks)
             {
                 for (int i = 0; i < block.Instructions.Count; i++)
                 {
                     var instr = block.Instructions[i];
-                    bool needUpdate = false;
-                    int newArgument = instr.Argument;
-                    int newExceptionHandlerOffset = instr.ExceptionHandlerOffset;
 
-                    // Update jump target (if this is a jump instruction)
+                    // Update jump target Argument (if this is a jump instruction)
                     if (IsJumpInstruction(instr.OpCode))
                     {
                         if (oldToNewOffset.TryGetValue(instr.Argument, out int updatedTargetOffset))
                         {
-                            newArgument = updatedTargetOffset;
-                            needUpdate = true;
+                            // Create new instruction with updated jump target offset
+                            // TargetBlock and ExceptBlock references remain unchanged
+                            block.Instructions[i] = new ByteCodeInstruction(
+                                instr.OpCode,
+                                updatedTargetOffset,  // Updated jump target offset
+                                instr.LineNumber,
+                                instr.ColumnOffset,
+                                instr.FileName,
+                                instr.TargetBlock,     // Keep same TargetBlock reference
+                                instr.ExceptBlock      // Keep same ExceptBlock reference
+                            );
                         }
-                    }
-
-                    // Update exception handler offset
-                    if (instr.ExceptionHandlerOffset >= 0)
-                    {
-                        if (oldToNewOffset.TryGetValue(instr.ExceptionHandlerOffset, out int updatedHandlerOffset))
-                        {
-                            newExceptionHandlerOffset = updatedHandlerOffset;
-                            needUpdate = true;
-                        }
-                    }
-
-                    if (needUpdate)
-                    {
-                        // Create new instruction with updated offsets
-                        block.Instructions[i] = new ByteCodeInstruction(
-                            instr.OpCode,
-                            newArgument,  // Updated jump target or original argument
-                            instr.LineNumber,
-                            instr.ColumnOffset,
-                            instr.FileName,
-                            instr.ExceptHandler,
-                            newExceptionHandlerOffset  // Updated handler offset
-                        );
                     }
                 }
             }
@@ -511,34 +494,8 @@ namespace SharpPy
             return indexToBlock;
         }
 
-        /// <summary>
-        /// Resolve ExceptHandlerInfo: convert HandlerLabel (string) to HandlerOffset (int)
-        /// </summary>
-        private static ExceptHandlerInfo ResolveExceptHandler(
-            ExceptHandlerInfo handler,
-            Dictionary<string, int> labelToOffset)
-        {
-            // If no handler or handler label, return as-is
-            if (handler.HandlerLabel == null)
-            {
-                return handler;
-            }
-
-            // Try to resolve label to offset
-            if (labelToOffset.TryGetValue(handler.HandlerLabel, out int offset))
-            {
-                return new ExceptHandlerInfo(
-                    handlerOffset: offset,
-                    stackDepth: handler.StackDepth,
-                    preserveLasti: handler.PreserveLasti,
-                    handlerLabel: null  // Clear label after resolution
-                );
-            }
-            else
-            {
-                return handler;  // Return unresolved
-            }
-        }
+        // CPython 3.12: Exception handler resolution removed
+        // ExceptBlock (BasicBlock reference) is set directly during CFG building
 
         /// <summary>
         /// Link blocks together: set successors and next pointers
@@ -725,14 +682,16 @@ namespace SharpPy
                     }
 
                     // Set i_except for this instruction (CPython: instr->i_except = handler)
-                    int handlerOffset = handler != null && blockToOffset.ContainsKey(handler)
-                        ? blockToOffset[handler]
-                        : -1;
+                    // CPython 3.12: Store handler BasicBlock reference directly (not offset)
+                    // handler is already a BasicBlock reference from exceptStack
 
 #if DEBUG_COMPILER_LOG
                     // Debug: Track RERAISE instructions specifically
                     if (instr.OpCode == ByteCodeOp.RERAISE && instr.Argument == 1)
                     {
+                        int handlerOffset = handler != null && blockToOffset.ContainsKey(handler)
+                            ? blockToOffset[handler]
+                            : -1;
                         Console.WriteLine($"🔷     RERAISE 1 at offset {blockToOffset[currentBlock] + i}:");
                         Console.WriteLine($"🔷       handler block: {handler?.BlockId ?? -1}");
                         Console.WriteLine($"🔷       handler in blockToOffset: {(handler != null && blockToOffset.ContainsKey(handler) ? "YES" : "NO")}");
@@ -741,15 +700,15 @@ namespace SharpPy
                     }
 #endif
 
-
+                    // Update instruction with handler BasicBlock reference (CPython's i_except)
                     currentBlock.Instructions[i] = new ByteCodeInstruction(
                         instr.OpCode,
                         instr.Argument,
                         instr.LineNumber,
                         instr.ColumnOffset,
                         instr.FileName,
-                        instr.ExceptHandler,
-                        handlerOffset  // Set instruction-level handler offset
+                        instr.TargetBlock,  // Keep existing TargetBlock
+                        handler             // ExceptBlock: BasicBlock reference
                     );
                 }
 
