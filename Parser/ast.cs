@@ -2876,28 +2876,60 @@ namespace SharpPy
 
             try
             {
-                // Use existing PyImportSystem for CPython 3.12 compatibility
-                string moduleName = ConstructModuleName(Module, Level, scope);
+                // CPython 3.12: Use proper import mechanism with globals
+                // Get globals dict from scope for relative import resolution
+                Dictionary<string, PyObject> globals = null;
+                if (scope != null)
+                {
+                    // Try to get __name__ and __package__ from scope for relative imports
+                    globals = new Dictionary<string, PyObject>();
+                    var nameVar = scope.GetVariable("__name__");
+                    if (nameVar != null)
+                    {
+                        globals["__name__"] = nameVar;
+                    }
+                    var packageVar = scope.GetVariable("__package__");
+                    if (packageVar != null)
+                    {
+                        globals["__package__"] = packageVar;
+                    }
+                    var pathVar = scope.GetVariable("__path__");
+                    if (pathVar != null)
+                    {
+                        globals["__path__"] = pathVar;
+                    }
+                }
 
-                // Extract item names for PyImportSystem.FromImport
-                var itemNames = Names.Select(alias => alias.Name).ToArray();
+                // Import the module using PyImportSystem.Import (CPython 3.12 compatible)
+                var module = PyImportSystem.Import(Module ?? "", Level, null, globals);
 
-                // Use PyImportSystem.FromImport which handles modules, caching, relative imports
-                var importedItems = PyImportSystem.FromImport(moduleName, itemNames);
-
-                // Set variables in scope with proper aliases
+                // Import items from module
                 foreach (var alias in Names)
                 {
-                    if (importedItems.TryGetValue(alias.Name, out var value))
+                    PyObject item;
+                    if (alias.Name == "*")
                     {
-                        var localName = alias.AsName ?? alias.Name;
-                        scope.SetVariable(localName, value);
-                        Console.WriteLine($"📥 Imported {alias.Name} as {localName}");
+                        // from module import *
+                        var allItems = ImportAll(module);
+                        foreach (var kvp in allItems)
+                        {
+                            scope.SetVariable(kvp.Key, kvp.Value);
+                        }
+                        continue;
                     }
-                    else
+
+                    try
                     {
-                        throw PyImportError.Create($"cannot import name '{alias.Name}' from '{moduleName}'");
+                        item = module.GetAttribute(alias.Name);
                     }
+                    catch (PythonException)
+                    {
+                        throw PyImportError.Create($"cannot import name '{alias.Name}' from '{Module ?? "."}'");
+                    }
+
+                    var localName = alias.AsName ?? alias.Name;
+                    scope.SetVariable(localName, item);
+                    Console.WriteLine($"📥 Imported {alias.Name} as {localName}");
                 }
 
                 return PyNone.Instance;
@@ -2910,17 +2942,40 @@ namespace SharpPy
             }
         }
 
-        private string ConstructModuleName(string? module, int level, PyScope scope)
+        // Helper method for "from module import *"
+        private Dictionary<string, PyObject> ImportAll(PyModule module)
         {
-            if (level == 0)
+            var result = new Dictionary<string, PyObject>();
+
+            if (module.All.Count > 0)
             {
-                // Absolute import
-                return module ?? "";
+                // Use __all__ if present
+                foreach (var name in module.All)
+                {
+                    try
+                    {
+                        var value = module.GetAttribute(name);
+                        result[name] = value;
+                    }
+                    catch (PythonException)
+                    {
+                        // Skip items that can't be imported
+                    }
+                }
+            }
+            else
+            {
+                // Import all public attributes (not starting with '_')
+                foreach (var kvp in module.ModuleDict)
+                {
+                    if (!kvp.Key.StartsWith("_"))
+                    {
+                        result[kvp.Key] = kvp.Value;
+                    }
+                }
             }
 
-            // Relative import - construct dotted name
-            var prefix = new string('.', level);
-            return prefix + (module ?? "");
+            return result;
         }
 
         public override string ToString() => $"from {Module ?? "."} import {string.Join(", ", Names)}";

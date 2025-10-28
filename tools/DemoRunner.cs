@@ -188,17 +188,15 @@ namespace SharpPy.Tools
                 // import math
                 var mathModule = PyImportSystem.Import("math");
                 scopeChain.AssignVariable("math", mathModule);
-                
+
                 var pi = mathModule.GetAttribute("pi");
                 Console.WriteLine($"math.pi: {pi}");
-                
+
                 // from os import name
-                var osItems = PyImportSystem.FromImport("os", "name");
-                foreach (var item in osItems)
-                {
-                    scopeChain.AssignVariable(item.Key, item.Value);
-                    Console.WriteLine($"Imported {item.Key}: {item.Value}");
-                }
+                var osModule = PyImportSystem.Import("os");
+                var osName = osModule.GetAttribute("name");
+                scopeChain.AssignVariable("name", osName);
+                Console.WriteLine($"Imported name: {osName}");
             }
             catch (Exception ex)
             {
