@@ -301,31 +301,52 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// CPython: expr_ty ConstantFromToken(Parser *p, Token *tok)
-        /// Equivalent to CPython's _PyPegen_constant_from_string
+        /// CPython: expr_ty _PyPegen_constant_from_token(Parser *p, Token *tok)
+        /// Used for FSTRING_MIDDLE tokens - needs escape processing
+        /// CPython reference: Parser/string_parser.c:1491-1503 (fstring_decode_literal)
         /// </summary>
         public static GeneratedExpr ConstantFromToken(GeneratedTokenInfo token)
         {
-            // CPython: PyObject *s = _PyPegen_parse_string(p, tok);
-            // Decode string literal (remove quotes, prefixes, handle escapes)
-            string decoded = DecodeStringLiteral(token.Value);
+            // CPython: F-string middle parts need escape sequence processing
+            // The tokenizer extracts the literal text, but doesn't process escapes
+            // We must call ProcessEscapeSequences() to handle \n, \t, \x41, etc.
+            string processed = ProcessEscapeSequences(token.Value);
             return new GeneratedConstant
             {
-                Value = new GeneratedPyConstantString(decoded)
+                Value = new GeneratedPyConstantString(processed)
             };
         }
 
         /// <summary>
-        /// CPython: expr_ty DecodedConstantFromToken(Parser *p, Token *tok)
+        /// CPython: expr_ty _PyPegen_constant_from_string(Parser *p, Token *tok)
+        /// This function DOES decode the token value (removes quotes, processes escapes)
+        /// Used for STRING tokens that need decoding
         /// </summary>
         public static GeneratedExpr DecodedConstantFromToken(GeneratedTokenInfo token)
         {
-            // Decode string literal (remove quotes, handle escapes)
+            // CPython: Calls _PyPegen_parse_string to decode quotes and escapes
             string decoded = DecodeStringLiteral(token.Value);
-            return new GeneratedConstant
+
+            // Check if it's a bytes literal by looking at the prefix
+            bool isBytes = token.Value.Length > 0 &&
+                          (token.Value[0] == 'b' || token.Value[0] == 'B');
+
+            if (isBytes)
             {
-                Value = new GeneratedPyConstantString(decoded)
-            };
+                // Convert string to bytes
+                var bytes = System.Text.Encoding.UTF8.GetBytes(decoded);
+                return new GeneratedConstant
+                {
+                    Value = new GeneratedPyConstantBytes(bytes)
+                };
+            }
+            else
+            {
+                return new GeneratedConstant
+                {
+                    Value = new GeneratedPyConstantString(decoded)
+                };
+            }
         }
 
         /// <summary>
@@ -897,6 +918,206 @@ namespace SharpPy.Generated
             }
         }
 
+        // Helper: Process escape sequences in string literals
+        // CPython reference: Objects/unicodeobject.c:6049-6300 (_PyUnicode_DecodeUnicodeEscapeInternal2)
+        private static string ProcessEscapeSequences(string input)
+        {
+            if (string.IsNullOrEmpty(input)) return input;
+
+            var result = new System.Text.StringBuilder(input.Length);
+            int i = 0;
+
+            while (i < input.Length)
+            {
+                if (input[i] == '\\' && i + 1 < input.Length)
+                {
+                    char next = input[i + 1];
+
+                    switch (next)
+                    {
+                        // Basic escape sequences
+                        case '\\':
+                            result.Append('\\');
+                            i += 2;
+                            break;
+                        case '\'':
+                            result.Append('\'');
+                            i += 2;
+                            break;
+                        case '\"':
+                            result.Append('\"');
+                            i += 2;
+                            break;
+                        case 'a':
+                            result.Append('\a');  // Bell (0x07)
+                            i += 2;
+                            break;
+                        case 'b':
+                            result.Append('\b');  // Backspace (0x08)
+                            i += 2;
+                            break;
+                        case 'f':
+                            result.Append('\f');  // Form feed (0x0C)
+                            i += 2;
+                            break;
+                        case 'n':
+                            result.Append('\n');  // Newline (0x0A)
+                            i += 2;
+                            break;
+                        case 'r':
+                            result.Append('\r');  // Carriage return (0x0D)
+                            i += 2;
+                            break;
+                        case 't':
+                            result.Append('\t');  // Tab (0x09)
+                            i += 2;
+                            break;
+                        case 'v':
+                            result.Append('\v');  // Vertical tab (0x0B)
+                            i += 2;
+                            break;
+
+                        // Hex escape: \xHH (exactly 2 hex digits)
+                        case 'x':
+                            if (i + 3 < input.Length)
+                            {
+                                string hexStr = input.Substring(i + 2, 2);
+                                if (IsHexDigits(hexStr, 2))
+                                {
+                                    int value = Convert.ToInt32(hexStr, 16);
+                                    result.Append((char)value);
+                                    i += 4;
+                                    break;
+                                }
+                            }
+                            // Invalid hex escape: keep as-is
+                            result.Append('\\');
+                            i++;
+                            break;
+
+                        // Unicode escape: \uHHHH (exactly 4 hex digits)
+                        case 'u':
+                            if (i + 5 < input.Length)
+                            {
+                                string hexStr = input.Substring(i + 2, 4);
+                                if (IsHexDigits(hexStr, 4))
+                                {
+                                    int value = Convert.ToInt32(hexStr, 16);
+                                    result.Append((char)value);
+                                    i += 6;
+                                    break;
+                                }
+                            }
+                            // Invalid unicode escape: keep as-is
+                            result.Append('\\');
+                            i++;
+                            break;
+
+                        // Unicode escape: \UHHHHHHHH (exactly 8 hex digits)
+                        case 'U':
+                            if (i + 9 < input.Length)
+                            {
+                                string hexStr = input.Substring(i + 2, 8);
+                                if (IsHexDigits(hexStr, 8))
+                                {
+                                    int value = Convert.ToInt32(hexStr, 16);
+                                    if (value <= 0x10FFFF)  // Valid Unicode range
+                                    {
+                                        result.Append(char.ConvertFromUtf32(value));
+                                        i += 10;
+                                        break;
+                                    }
+                                }
+                            }
+                            // Invalid unicode escape: keep as-is
+                            result.Append('\\');
+                            i++;
+                            break;
+
+                        // Octal escape: \0-\377 (up to 3 octal digits)
+                        case '0': case '1': case '2': case '3':
+                        case '4': case '5': case '6': case '7':
+                            {
+                                int octalValue = 0;
+                                int octalDigits = 0;
+                                int j = i + 1;
+
+                                // Read up to 3 octal digits
+                                while (j < input.Length && octalDigits < 3 &&
+                                       input[j] >= '0' && input[j] <= '7')
+                                {
+                                    octalValue = octalValue * 8 + (input[j] - '0');
+                                    octalDigits++;
+                                    j++;
+
+                                    // Stop if value would exceed 255 (0377 octal)
+                                    if (octalValue > 255)
+                                    {
+                                        // Backtrack one digit
+                                        octalValue /= 8;
+                                        octalDigits--;
+                                        j--;
+                                        break;
+                                    }
+                                }
+
+                                if (octalDigits > 0)
+                                {
+                                    result.Append((char)octalValue);
+                                    i = j;
+                                }
+                                else
+                                {
+                                    // Should never happen
+                                    result.Append('\\');
+                                    i++;
+                                }
+                            }
+                            break;
+
+                        // Named Unicode escape: \N{name}
+                        // TODO: This requires a Unicode name database, skipping for now
+                        case 'N':
+                            // For now, keep as-is
+                            result.Append('\\');
+                            i++;
+                            break;
+
+                        // Unknown escape: keep the backslash
+                        default:
+                            result.Append('\\');
+                            i++;
+                            break;
+                    }
+                }
+                else
+                {
+                    // Regular character
+                    result.Append(input[i]);
+                    i++;
+                }
+            }
+
+            return result.ToString();
+        }
+
+        // Helper: Check if string contains only hex digits
+        private static bool IsHexDigits(string s, int expectedLength)
+        {
+            if (s.Length != expectedLength) return false;
+
+            foreach (char c in s)
+            {
+                if (!((c >= '0' && c <= '9') ||
+                      (c >= 'a' && c <= 'f') ||
+                      (c >= 'A' && c <= 'F')))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         // Helper: Decode string literal
         // CPython: _PyPegen_parse_string in Parser/string_parser.c:239-302
         private static string DecodeStringLiteral(string s)
@@ -974,19 +1195,20 @@ namespace SharpPy.Generated
             }
 
             // Extract string content
+            // Safety check: ensure we don't have negative length
+            if (endIdx < startIdx)
+            {
+                // This shouldn't happen with valid string literals
+                // If it does, return empty string instead of crashing
+                return "";
+            }
             string literal = s.Substring(startIdx, endIdx - startIdx);
 
-            // CPython: Handle escape sequences (only if not raw mode) - string_parser.c:305
+            // CPython: Handle escape sequences (only if not raw mode)
+            // CPython reference: Objects/unicodeobject.c:6049-6300 (_PyUnicode_DecodeUnicodeEscapeInternal2)
             if (!rawmode)
             {
-                // Note: This is a simplified version. CPython uses _PyBytes_DecodeEscape2
-                // For full compatibility, we should handle all Python escape sequences
-                literal = literal.Replace("\\n", "\n");
-                literal = literal.Replace("\\r", "\r");
-                literal = literal.Replace("\\t", "\t");
-                literal = literal.Replace("\\\\", "\\");
-                literal = literal.Replace("\\\"", "\"");
-                literal = literal.Replace("\\'", "'");
+                literal = ProcessEscapeSequences(literal);
             }
 
             return literal;

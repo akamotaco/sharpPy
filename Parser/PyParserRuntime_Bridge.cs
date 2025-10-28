@@ -2657,96 +2657,14 @@ namespace SharpPy.Generated
 
         #endregion
 
-        /// <summary>
-        /// Convert string literal with proper handling of bytes literals (CPython 3.12 compatible)
-        /// </summary>
-        private static Expression ConvertStringLiteral(string literal)
-        {
-            // Handle empty string
-            if (string.IsNullOrEmpty(literal))
-                return new ConstantExpression(new PyString(""));
-
-            // Check for string prefixes (b, r, f, br, rb, fr, rf)
-            string prefix = "";
-            string content = literal;
-
-            // Extract prefix
-            int quoteStart = -1;
-            for (int i = 0; i < literal.Length; i++)
-            {
-                if (literal[i] == '"' || literal[i] == '\'')
-                {
-                    quoteStart = i;
-                    break;
-                }
-                else if (char.IsLetter(literal[i]))
-                {
-                    prefix += char.ToLower(literal[i]);
-                }
-                else
-                {
-                    break;
-                }
-            }
-
-            // Extract content (remove quotes)
-            if (quoteStart >= 0)
-            {
-                content = literal.Substring(quoteStart);
-                if (content.Length >= 2)
-                {
-                    // Handle triple quotes
-                    if (content.StartsWith("\"\"\"") && content.EndsWith("\"\"\"") && content.Length >= 6)
-                    {
-                        content = content.Substring(3, content.Length - 6);
-                    }
-                    else if (content.StartsWith("'''") && content.EndsWith("'''") && content.Length >= 6)
-                    {
-                        content = content.Substring(3, content.Length - 6);
-                    }
-                    // Handle single quotes
-                    else if ((content.StartsWith("\"") && content.EndsWith("\"")) ||
-                             (content.StartsWith("'") && content.EndsWith("'")))
-                    {
-                        content = content.Substring(1, content.Length - 2);
-                    }
-                }
-            }
-
-            // Create appropriate object based on prefix
-            if (prefix.Contains("b"))
-            {
-                // Bytes literal (b"..." or br"..." or rb"...")
-                try
-                {
-                    // For now, create bytes from UTF-8 encoding
-                    // TODO: Handle proper bytes literal parsing with escape sequences
-                    var bytes = System.Text.Encoding.UTF8.GetBytes(content);
-                    return new ConstantExpression(new PyBytesObject(bytes));
-                }
-                catch
-                {
-                    // Fallback to empty bytes
-                    return new ConstantExpression(new PyBytesObject(new byte[0]));
-                }
-            }
-            else if (prefix.Contains("f"))
-            {
-                // F-string literal - for now treat as regular string
-                // TODO: Implement proper f-string parsing
-                return new ConstantExpression(new PyString(content));
-            }
-            else
-            {
-                // Regular string literal (may include r prefix for raw strings)
-                if (prefix.Contains("r"))
-                {
-                    // Raw string - don't process escape sequences
-                    // TODO: Implement proper raw string handling
-                }
-                return new ConstantExpression(new PyString(content));
-            }
-        }
+        // NOTE: This function was removed as it was dead code.
+        // String literal processing (including escape sequences) is now handled by:
+        // - PyParserRuntime_ActionHelpers.DecodeStringLiteral() for quote removal and escape processing
+        // - Converted to PyString via GeneratedPyConstantString at line 2895
+        //
+        // TODO (Future work, not related to escape sequences):
+        // - Bytes literal escape handling (currently uses UTF-8 encoding)
+        // - F-string parsing (currently treats as regular strings)
 
         /// <summary>
         /// Helper method to convert default values to string representation

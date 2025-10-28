@@ -2660,10 +2660,10 @@ namespace SharpPy.Generated
         }
 
         // ==================== F-string Helper Methods ====================
-        // CPython: ConstantFromToken - Creates a Constant from a string token
+        // CPython: _PyPegen_constant_from_string - Creates a Constant from a STRING token with decoding
         public static GeneratedExpr ConstantFromString(GeneratedTokenInfo tok)
         {
-            return PyParserRuntime.ConstantFromToken(tok);
+            return PyParserRuntime.DecodedConstantFromToken(tok);
         }
 
         // CPython: DecodedConstantFromToken - Decode constant from token

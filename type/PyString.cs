@@ -1136,21 +1136,30 @@ namespace SharpPy
         {
             if (args.Length < 1 || args.Length > 3)
                 throw PyTypeError.Create($"find() takes 1 to 3 arguments ({args.Length} given)");
-            
+
             var sub = args[0] switch
             {
                 PyString str => str.Value,
                 _ => throw PyTypeError.Create("find() sub must be str")
             };
-            
+
             int start = 0;
             int end = Value.Length;
 
+            // Handle negative indices (Python convention: -1 means last character)
             if (args.Length >= 2 && args[1] is PyInt startInt)
-                start = Math.Max(0, (int)startInt.Value);
+            {
+                start = (int)startInt.Value;
+                if (start < 0) start += Value.Length;
+                start = Math.Max(0, Math.Min(Value.Length, start));
+            }
 
             if (args.Length >= 3 && args[2] is PyInt endInt)
-                end = Math.Min(Value.Length, (int)endInt.Value);
+            {
+                end = (int)endInt.Value;
+                if (end < 0) end += Value.Length;
+                end = Math.Max(0, Math.Min(Value.Length, end));
+            }
 
             if (start >= end) return new PyInt(-1);
             
@@ -1166,21 +1175,30 @@ namespace SharpPy
         {
             if (args.Length < 1 || args.Length > 3)
                 throw PyTypeError.Create($"count() takes 1 to 3 arguments ({args.Length} given)");
-            
+
             var sub = args[0] switch
             {
                 PyString str => str.Value,
                 _ => throw PyTypeError.Create("count() sub must be str")
             };
-            
+
             int start = 0;
             int end = Value.Length;
 
+            // Handle negative indices (Python convention: -1 means last character)
             if (args.Length >= 2 && args[1] is PyInt startInt)
-                start = Math.Max(0, (int)startInt.Value);
+            {
+                start = (int)startInt.Value;
+                if (start < 0) start += Value.Length;
+                start = Math.Max(0, Math.Min(Value.Length, start));
+            }
 
             if (args.Length >= 3 && args[2] is PyInt endInt)
-                end = Math.Min(Value.Length, (int)endInt.Value);
+            {
+                end = (int)endInt.Value;
+                if (end < 0) end += Value.Length;
+                end = Math.Max(0, Math.Min(Value.Length, end));
+            }
 
             if (start >= end || sub.Length == 0) return new PyInt(0);
             
