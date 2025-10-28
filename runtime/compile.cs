@@ -7174,37 +7174,88 @@ namespace SharpPy
                         _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_FALSE, nextExceptLabel, _currentLineNumber);
                     }
 
-                    // CPython pattern: POP_TOP to remove exception value from stack (if no name binding)
+                    // CPython pattern: Handle exception variable binding
+                    // CPython compile.c:3417-3468
                     if (string.IsNullOrEmpty(handler.Name))
                     {
+                        // No variable binding: just POP_TOP
                         _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber);
+
+                        // Handler body
+                        foreach (var stmt in handler.Body)
+                        {
+                            CompileStatement(stmt);
+                        }
+
+                        // Clean exit: POP_BLOCK + POP_EXCEPT + JUMP
+                        _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
+                        _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
+
+                        if (hasFinally)
+                        {
+                            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, finallyLabel, _currentLineNumber);
+                        }
+                        else
+                        {
+                            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
+                        }
                     }
                     else
                     {
-                        // Bind exception variable if specified
+                        // Variable binding: CPython wraps handler body in nested try-finally
+                        // CPython compile.c:3424-3433 pattern:
+                        //   except type as name:
+                        //       try:
+                        //           # body
+                        //       finally:
+                        //           name = None
+                        //           del name
+
+                        var cleanupEndLabel = _instructionSequence.NewLabel();
+                        var cleanupBodyLabel = _instructionSequence.NewLabel();
+
+                        // Store exception to variable
                         EmitStoreName(handler.Name);
-                    }
 
-                    // Handler body
-                    foreach (var stmt in handler.Body)
-                    {
-                        CompileStatement(stmt);
-                    }
+                        // Inner SETUP_CLEANUP for exception variable cleanup
+                        _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, cleanupEndLabel, _currentLineNumber);
 
-                    // CPython 3.12 pattern: POP_EXCEPT only (POP_BLOCK is handled by flowgraph per-block)
-                    // The SETUP_CLEANUP at line 7160 is managed by the per-block ExceptStack in flowgraph.cs
-                    _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
+                        _instructionSequence.UseLabel(cleanupBodyLabel);
 
-                    // Except handler completed - jump to finally or end
-                    // Module/Function 구분 없이 통일: except 블록 이후 코드가 있을 수 있으므로 점프 사용
-                    if (hasFinally)
-                    {
-                        // CPython pattern: JUMP_BACKWARD to finally block (offset 18 in disassembly)
-                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, finallyLabel, _currentLineNumber);
-                    }
-                    else
-                    {
-                        _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
+                        // Handler body
+                        foreach (var stmt in handler.Body)
+                        {
+                            CompileStatement(stmt);
+                        }
+
+                        // Normal path cleanup (CPython compile.c:3447-3455)
+                        _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);  // Inner SETUP_CLEANUP
+                        _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);  // Outer SETUP_CLEANUP
+                        _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
+
+                        // Exception variable cleanup: name = None; del name
+                        EmitLoadConst(PyNone.Instance);
+                        EmitStoreName(handler.Name);
+                        EmitDeleteName(handler.Name);
+
+                        if (hasFinally)
+                        {
+                            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, finallyLabel, _currentLineNumber);
+                        }
+                        else
+                        {
+                            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, endLabel, _currentLineNumber);
+                        }
+
+                        // Exception path cleanup (CPython compile.c:3458-3467)
+                        _instructionSequence.UseLabel(cleanupEndLabel);
+
+                        // Exception variable cleanup: name = None; del name
+                        EmitLoadConst(PyNone.Instance);
+                        EmitStoreName(handler.Name);
+                        EmitDeleteName(handler.Name);
+
+                        _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 1, _currentLineNumber);
                     }
 
                     // Next exception handler label
