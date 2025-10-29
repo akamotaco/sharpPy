@@ -3329,8 +3329,9 @@ namespace SharpPy
 
             var obj = args[0];
 
-            // Use the object's ToRepr() method, which should provide the canonical string representation
-            return new PyString(obj.ToRepr().Value);
+            // Use the object's ToRepr() method, which already returns a PyString
+            // Don't wrap it again, as that would add extra quotes
+            return obj.ToRepr();
         }
 
         #endregion

@@ -133,6 +133,38 @@ public partial class PyFunction : PyObject, IDescriptor
             }
         );
 
+        // __defaults__ getset descriptor - CPython 3.12
+        funcType.TypeDict["__defaults__"] = new PyGetSetDescriptor(
+            "__defaults__",
+            funcType,
+            getter: self => {
+                if (self is PyFunction func)
+                {
+                    if (func.Attributes.TryGetValue("__defaults__", out var defaults))
+                        return defaults;
+                    return PyNone.Instance;
+                }
+                throw PyTypeError.Create("descriptor '__defaults__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+            },
+            setter: (self, value) => {
+                if (self is PyFunction func)
+                {
+                    // CPython 3.12: None is converted to NULL (we use None directly)
+                    if (value == PyNone.Instance)
+                    {
+                        func.Attributes.Remove("__defaults__");
+                        return;
+                    }
+                    // CPython 3.12: __defaults__ must be a tuple
+                    if (!(value is PyTuple))
+                        throw PyTypeError.Create("__defaults__ must be set to a tuple object");
+                    func.Attributes["__defaults__"] = value;
+                    return;
+                }
+                throw PyTypeError.Create("descriptor '__defaults__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+            }
+        );
+
         // __dict__ getset descriptor
         funcType.TypeDict["__dict__"] = new PyGetSetDescriptor(
             "__dict__",
@@ -223,7 +255,30 @@ public partial class PyFunction : PyObject, IDescriptor
                 #endif
             }
 
-            var frame = new PyFrame(CodeObject, args, functionScopeChain, Closure);
+            // CPython 3.12: Pass defaults from func.__defaults__ to PyFrame
+            var defaults = GetDefaults();
+            #if DEBUG_VM_LOG
+            Console.WriteLine($"[PyFunction.Call] Getting defaults for {Name}:");
+            Console.WriteLine($"  defaults is null: {defaults == null}");
+            if (defaults != null)
+            {
+                Console.WriteLine($"  defaults.Items.Length: {defaults.Items.Length}");
+                for (int i = 0; i < defaults.Items.Length; i++)
+                {
+                    Console.WriteLine($"  defaults[{i}]: {defaults.Items[i]}");
+                }
+            }
+            Console.WriteLine($"  Attributes.Count: {Attributes.Count}");
+            Console.WriteLine($"  Attributes.ContainsKey(\"__defaults__\"): {Attributes.ContainsKey("__defaults__")}");
+            if (Attributes.ContainsKey("__defaults__"))
+            {
+                var attr = Attributes["__defaults__"];
+                Console.WriteLine($"  Attributes[\"__defaults__\"] type: {attr?.GetType().Name}");
+                Console.WriteLine($"  Attributes[\"__defaults__\"] value: {attr}");
+            }
+            #endif
+
+            var frame = new PyFrame(CodeObject, args, functionScopeChain, Closure, null, defaults);
             var vm = PyVM.Instance;
             return vm.ExecuteFrame(frame);
         }
@@ -232,6 +287,18 @@ public partial class PyFunction : PyObject, IDescriptor
         return Implementation(args);
     }
     
+    /// <summary>
+    /// CPython 3.12: Get defaults tuple from func.__defaults__ attribute
+    /// </summary>
+    private PyTuple GetDefaults()
+    {
+        if (Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
+        {
+            return defaultsTuple;
+        }
+        return null;
+    }
+
     /// <summary>
     /// async generator 객체 생성 - PEP 525 호환
     /// </summary>
@@ -242,17 +309,20 @@ public partial class PyFunction : PyObject, IDescriptor
         {
             throw new InvalidOperationException("Cannot create async generator without code object");
         }
-        
+
         // async generator용 VM 인스턴스 사용
         var vm = PyVM.Instance;
-        
+
+        // CPython 3.12: Pass defaults from func.__defaults__
+        var defaults = GetDefaults();
+
         // async generator 실행용 Frame 생성
-        var frame = new PyFrame(CodeObject, args, null, Closure);
+        var frame = new PyFrame(CodeObject, args, null, Closure, null, defaults);
         frame.IsGenerator = true;  // CPython 3.12: generator frame 표시
-        
+
         // async generator enumerator 생성
         var enumerator = new FrameGeneratorEnumerator(frame, vm);
-        
+
         return new SharpPy.Core.PyAsyncGenerator(enumerator, Name);
     }
 
@@ -270,8 +340,11 @@ public partial class PyFunction : PyObject, IDescriptor
         // 코루틴용 VM 인스턴스 사용
         var vm = PyVM.Instance;
 
+        // CPython 3.12: Pass defaults from func.__defaults__
+        var defaults = GetDefaults();
+
         // 코루틴 실행용 Frame 생성
-        var frame = new PyFrame(CodeObject, args, null, Closure);
+        var frame = new PyFrame(CodeObject, args, null, Closure, null, defaults);
         frame.IsCoroutine = true;  // CPython 3.12: coroutine frame 표시
 
         return new SharpPy.Core.PyCoroutine(frame, vm, Name);
@@ -327,7 +400,10 @@ public partial class PyFunction : PyObject, IDescriptor
             #endif
         }
 
-        var frame = new PyFrame(CodeObject, args, generatorScopeChain, Closure);
+        // CPython 3.12: Pass defaults from func.__defaults__
+        var defaults = GetDefaults();
+
+        var frame = new PyFrame(CodeObject, args, generatorScopeChain, Closure, null, defaults);
         frame.IsGenerator = true;  // CPython 3.12: generator frame 표시
 
         // CPython 3.12 완전 호환 PyGenerator 사용

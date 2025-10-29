@@ -18,7 +18,8 @@ namespace SharpPy
             Object,     // object 타입
             Type,       // type 타입
             Str,        // str 타입
-            // 필요시 추가: Int, Float, List, Dict, etc.
+            Int,        // int 타입
+            // 필요시 추가: Float, List, Dict, etc.
         }
 
         /// <summary>
@@ -48,7 +49,7 @@ namespace SharpPy
         public static PyType TypeType => PyTypeMetaclass.Instance;
 
         // 숫자 타입들
-        public static readonly PyType IntType = new PyType("int", new[] { ObjectType });
+        public static readonly PyType IntType = new PyType("int", new[] { ObjectType }, null, TypeKind.Int);
         public static readonly PyType FloatType = new PyType("float", new[] { ObjectType });
         public static readonly PyType BoolType = new PyType("bool", new[] { IntType });
         public static readonly PyType ComplexType = new PyType("complex", new[] { ObjectType });
@@ -114,6 +115,7 @@ namespace SharpPy
         public static readonly PyType OSErrorType = new PyType("OSError", new[] { ExceptionType });
         public static readonly PyType FileNotFoundErrorType = new PyType("FileNotFoundError", new[] { OSErrorType });
         public static readonly PyType EOFErrorType = new PyType("EOFError", new[] { ExceptionType });
+        public static readonly PyType BufferErrorType = new PyType("BufferError", new[] { ExceptionType });
 
         // Exception Groups (PEP 654)
         public static readonly PyType BaseExceptionGroupType = new PyType("BaseExceptionGroup", new[] { BaseExceptionType });
@@ -579,6 +581,20 @@ namespace SharpPy
                         return new PyFrozenSet(items);
                     }
                     throw PyTypeError.Create($"frozenset expected at most 1 arguments ({args.Length} given)");
+                case "bytearray":
+                    // bytearray() constructor - create a mutable byte array
+                    if (args.Length == 0)
+                        return new PyByteArray();
+                    if (args.Length == 1)
+                    {
+                        var arg = args[0];
+                        // bytearray(int) - create zero-filled array
+                        if (arg is PyInt pyInt)
+                            return new PyByteArray((int)pyInt.Value);
+                        // bytearray(bytes) or bytearray(bytearray) or bytearray(iterable)
+                        return PyByteArray.FromIterable(arg);
+                    }
+                    throw PyTypeError.Create($"bytearray() takes at most 1 argument ({args.Length} given)");
             }
 
             // 내장 타입들에 대한 특별 처리 (타입 변환) - PyBuiltinFunction 위임
@@ -617,6 +633,10 @@ namespace SharpPy
                     InitializeStrTypeDescriptors();
                     break;
 
+                case TypeKind.Int:
+                    InitializeIntTypeDescriptors();
+                    break;
+
                 case TypeKind.Object:
                     InitializeObjectTypeDescriptors();
                     break;
@@ -649,6 +669,44 @@ namespace SharpPy
         {
             // PyString.InitializeStringDescriptors()에서 모든 str descriptor를 등록하므로
             // 여기서는 아무것도 하지 않음 (중복 방지)
+        }
+
+        /// <summary>
+        /// int 타입의 descriptor 테이블 초기화 (CPython longobject.c 참조)
+        /// </summary>
+        private void InitializeIntTypeDescriptors()
+        {
+            var intType = this;
+
+            // int.bit_length() - CPython Objects/longobject.c:long_bit_length
+            TypeDict["bit_length"] = new PyMethodDescriptor(
+                "bit_length",
+                intType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"bit_length() takes no arguments ({args.Length} given)");
+                    if (self is not PyInt pyInt)
+                        throw PyTypeError.Create("descriptor 'bit_length' for 'int' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return pyInt.BitLength();
+                },
+                minArgs: 0,
+                maxArgs: 0
+            );
+
+            // int.bit_count() - CPython Objects/longobject.c:long_bit_count
+            TypeDict["bit_count"] = new PyMethodDescriptor(
+                "bit_count",
+                intType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"bit_count() takes no arguments ({args.Length} given)");
+                    if (self is not PyInt pyInt)
+                        throw PyTypeError.Create("descriptor 'bit_count' for 'int' objects doesn't apply to a '" + self.GetTypeName() + "' object");
+                    return pyInt.BitCount();
+                },
+                minArgs: 0,
+                maxArgs: 0
+            );
         }
 
         /// <summary>

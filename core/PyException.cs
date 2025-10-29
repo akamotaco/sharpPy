@@ -623,6 +623,28 @@ namespace SharpPy
 
     #endregion
 
+    #region Buffer Exception
+
+    /// <summary>
+    /// Python BufferError - buffer protocol violation
+    /// CPython 3.12: Raised when buffer operations fail
+    /// </summary>
+    public class PyBufferError : PyException
+    {
+        public PyBufferError(string message = "") : base(message) { }
+
+        public override string GetTypeName() => "BufferError";
+        public override PyType GetPyType() => PyType.BufferErrorType;
+
+        public new static PythonException Create(string message = "")
+        {
+            var pyException = new PyBufferError(message);
+            return new PythonException(pyException);
+        }
+    }
+
+    #endregion
+
     #region OS Exceptions
 
     /// <summary>

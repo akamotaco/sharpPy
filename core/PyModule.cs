@@ -277,6 +277,7 @@ public class PyModule : PyObject
             ["itertools"] = () => ItertoolsModule.Instance,
             ["_collections"] = () => SharpPy.Modules._CollectionsModule.CreateCollectionsModule(),
             ["_functools"] = () => SharpPy.Modules._FunctoolsModule.CreateFunctoolsModule(),
+            ["statistics"] = () => SharpPy.Modules.StatisticsModule.CreateStatisticsModule(),
 
             // CPython 3.12 C 확장 모듈 (Python 모듈의 백엔드)
             ["_random"] = () => SharpPy.Modules.RandomModule.CreateRandomModule(),  // random.py가 사용
@@ -597,35 +598,6 @@ public class PyModule : PyObject
             return namespaceModule;
         }
 
-        // from module_name import item1, item2
-        // NOTE: This method is deprecated - IMPORT_FROM opcode handles this in VM
-        public static Dictionary<string, PyObject> FromImport(string moduleName, params string[] itemNames)
-        {
-            // Only supports absolute imports (relative imports handled by VM with globals)
-            var module = PyImportSystem.Import(moduleName);
-            var result = new Dictionary<string, PyObject>();
-
-            foreach (var itemName in itemNames)
-            {
-                if (itemName == "*")
-                {
-                    return ImportAll(module);
-                }
-
-                try
-                {
-                    var item = module.GetAttribute(itemName);
-                    result[itemName] = item;
-                }
-                catch (PythonException pe)
-                {
-                    var pae = (PyAttributeError)pe.PyException;
-                    throw PyImportError.Create($"cannot import name '{itemName}' from '{moduleName}'");
-                }
-            }
-
-            return result;
-        }
 
         /// <summary>
         /// 상대 import 경로 해석 (.module, ..module 등)
