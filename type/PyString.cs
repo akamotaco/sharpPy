@@ -455,6 +455,38 @@ namespace SharpPy
                                 else
                                     replacement = value.ToStr().Value;
                                 break;
+                            case 'g': // General format (lowercase) - Python uses 6 significant digits by default
+                                if (value is PyFloat pyFloatG)
+                                    replacement = pyFloatG.Value.ToString("g6", CultureInfo.InvariantCulture);
+                                else if (value is PyInt pyIntG)
+                                    replacement = ((double)pyIntG.Value).ToString("g6", CultureInfo.InvariantCulture);
+                                else
+                                    replacement = value.ToStr().Value;
+                                break;
+                            case 'G': // General format (uppercase) - Python uses 6 significant digits by default
+                                if (value is PyFloat pyFloatGUpper)
+                                    replacement = pyFloatGUpper.Value.ToString("G6", CultureInfo.InvariantCulture);
+                                else if (value is PyInt pyIntGUpper)
+                                    replacement = ((double)pyIntGUpper.Value).ToString("G6", CultureInfo.InvariantCulture);
+                                else
+                                    replacement = value.ToStr().Value;
+                                break;
+                            case 'e': // Exponent format (lowercase)
+                                if (value is PyFloat pyFloatE)
+                                    replacement = pyFloatE.Value.ToString("e", CultureInfo.InvariantCulture);
+                                else if (value is PyInt pyIntE)
+                                    replacement = ((double)pyIntE.Value).ToString("e", CultureInfo.InvariantCulture);
+                                else
+                                    replacement = value.ToStr().Value;
+                                break;
+                            case 'E': // Exponent format (uppercase)
+                                if (value is PyFloat pyFloatEUpper)
+                                    replacement = pyFloatEUpper.Value.ToString("E", CultureInfo.InvariantCulture);
+                                else if (value is PyInt pyIntEUpper)
+                                    replacement = ((double)pyIntEUpper.Value).ToString("E", CultureInfo.InvariantCulture);
+                                else
+                                    replacement = value.ToStr().Value;
+                                break;
                             default:
                                 throw PyValueError.Create($"unsupported format character '{formatChar}' (0x{(int)formatChar:x}) at index {i + 1}");
                         }
