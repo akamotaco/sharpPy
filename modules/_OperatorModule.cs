@@ -185,10 +185,43 @@ namespace SharpPy.Modules
             if (args.Length != 1)
                 throw PyTypeError.Create($"index() takes exactly 1 argument ({args.Length} given)");
 
-            if (args[0] is PyInt pyInt)
+            var obj = args[0];
+
+            // Fast path: PyInt (but not PyBool subclass)
+            if (obj is PyInt pyInt && obj is not PyBool)
                 return pyInt;
 
-            throw PyTypeError.Create($"'{args[0].GetTypeName()}' object cannot be interpreted as an integer");
+            // Special case: PyBool → PyInt(0 or 1)
+            if (obj is PyBool pyBool)
+                return new PyInt(pyBool.Value ? 1 : 0);
+
+            // Try calling __index__() method (CPython 3.12 protocol)
+            try
+            {
+                var indexMethod = obj.GetAttribute("__index__");
+                if (indexMethod != null && indexMethod != PyNone.Instance)
+                {
+                    var result = indexMethod.Call(new PyObject[0], null);
+
+                    // Validate that __index__() returned an int
+                    if (result is PyInt resultInt)
+                    {
+                        return resultInt;
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create(
+                            $"__index__ returned non-int (type {result.GetTypeName()})");
+                    }
+                }
+            }
+            catch (System.Exception ex) when (ex.Message.Contains("has no attribute '__index__'") ||
+                                               ex is PythonException pyEx && pyEx.PyException is PyAttributeError)
+            {
+                // __index__ not found, fall through to error
+            }
+
+            throw PyTypeError.Create($"'{obj.GetTypeName()}' object cannot be interpreted as an integer");
         }
 
         private static PyObject Inv(PyObject[] args)

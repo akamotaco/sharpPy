@@ -60,7 +60,7 @@ namespace SharpPy
         public bool IsGenerator { get; set; } = false;
         public bool IsCoroutine { get; set; } = false;
 
-        public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null, PyFrame parentFrame = null)
+        public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null, PyFrame parentFrame = null, PyTuple defaults = null)
         {
 #if DEBUG_LOG
             Console.WriteLine($"🆕 PyFrame 생성: {code.Name}, args={args.Length}개");
@@ -122,7 +122,7 @@ namespace SharpPy
             }
 
             // CPython 3.12 호환: 매개변수 바인딩 (키워드 인수 지원)
-            BindArgumentsToParametersCPython312(args, code, parentFrame);
+            BindArgumentsToParametersCPython312(args, code, parentFrame, defaults);
         }
 
         /// <summary>
@@ -138,8 +138,22 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12 호환: 키워드 인수를 지원하는 매개변수 바인딩
         /// </summary>
-        private void BindArgumentsToParametersCPython312(PyObject[] args, PyCodeObject code, PyFrame parentFrame)
+        private void BindArgumentsToParametersCPython312(PyObject[] args, PyCodeObject code, PyFrame parentFrame, PyTuple runtimeDefaults = null)
         {
+            #if DEBUG_VM_LOG
+            Console.WriteLine($"[BIND ARGS] BindArgumentsToParametersCPython312 for {code.Name}:");
+            Console.WriteLine($"  runtimeDefaults is null: {runtimeDefaults == null}");
+            if (runtimeDefaults != null)
+            {
+                Console.WriteLine($"  runtimeDefaults.Items.Length: {runtimeDefaults.Items.Length}");
+                for (int i = 0; i < runtimeDefaults.Items.Length; i++)
+                {
+                    Console.WriteLine($"  runtimeDefaults[{i}]: {runtimeDefaults.Items[i]}");
+                }
+            }
+            Console.WriteLine($"  code.DefaultValues.Count: {code.DefaultValues.Count}");
+            #endif
+
             // CPython 3.12: Check for keyword arguments from parent frame
             PyTuple kwNames = null;
             Dictionary<string, PyObject> keywordArgs = null;
@@ -242,11 +256,14 @@ namespace SharpPy
                 }
                 else
                 {
-                    // Check for default value
-                    int numRequiredParams = regularArgCount - code.DefaultValues.Count;
-                    if (paramIndex >= numRequiredParams && paramIndex - numRequiredParams < code.DefaultValues.Count)
+                    // CPython 3.12: Check for default value from runtime defaults (captured from MAKE_FUNCTION)
+                    // Priority: runtimeDefaults (from func.__defaults__) > code.DefaultValues (compile-time, legacy)
+                    var effectiveDefaults = runtimeDefaults ?? (code.DefaultValues.Count > 0 ? new PyTuple(code.DefaultValues.ToArray()) : null);
+                    int numRequiredParams = regularArgCount - (effectiveDefaults?.Items.Length ?? 0);
+
+                    if (effectiveDefaults != null && paramIndex >= numRequiredParams && paramIndex - numRequiredParams < effectiveDefaults.Items.Length)
                     {
-                        var defaultValue = code.DefaultValues[paramIndex - numRequiredParams];
+                        var defaultValue = effectiveDefaults.Items[paramIndex - numRequiredParams];
                         FastLocals[paramName] = defaultValue;
                         ScopeChain.AssignVariable(paramName, defaultValue);
 
@@ -2124,6 +2141,20 @@ namespace SharpPy
                             }
 
                             // Create function implementation with proper parameter binding
+                            // CPython 3.12: Capture defaults at function definition time
+                            var capturedDefaults = defaults; // Capture for closure
+                            #if DEBUG_VM_LOG
+                            Console.WriteLine($"[DEFAULTS CAPTURE] Capturing defaults for {pyCode.Name}:");
+                            Console.WriteLine($"  defaults is null: {defaults == null}");
+                            if (defaults != null)
+                            {
+                                Console.WriteLine($"  defaults.Items.Length: {defaults.Items.Length}");
+                                for (int i = 0; i < defaults.Items.Length; i++)
+                                {
+                                    Console.WriteLine($"  defaults[{i}]: {defaults.Items[i]}");
+                                }
+                            }
+                            #endif
                             Func<PyObject[], PyObject> implementation = args =>
                             {
                             // CPython 3.12: Create new ScopeChain with captured globals
@@ -2131,6 +2162,15 @@ namespace SharpPy
                             #if DEBUG_VM_LOG
                             Console.WriteLine($"[FUNCTION CALL] Function {pyCode.Name} called:");
                             Console.WriteLine($"  globalsDict count at call time: {globalsDict?.Count ?? 0}");
+                            Console.WriteLine($"  capturedDefaults is null: {capturedDefaults == null}");
+                            if (capturedDefaults != null)
+                            {
+                                Console.WriteLine($"  capturedDefaults.Items.Length: {capturedDefaults.Items.Length}");
+                                for (int i = 0; i < capturedDefaults.Items.Length; i++)
+                                {
+                                    Console.WriteLine($"  capturedDefaults[{i}]: {capturedDefaults.Items[i]}");
+                                }
+                            }
                             #endif
                             if (globalsDict != null)
                             {
@@ -2153,8 +2193,8 @@ namespace SharpPy
                             #endif
 
                             var functionFrame = closure != null && closure.Length > 0
-                                ? new PyFrame(pyCode, args, functionScopeChain, closure, frame)
-                                : new PyFrame(pyCode, args, functionScopeChain, null, frame);
+                                ? new PyFrame(pyCode, args, functionScopeChain, closure, frame, capturedDefaults)
+                                : new PyFrame(pyCode, args, functionScopeChain, null, frame, capturedDefaults);
                             return ExecuteFrame(functionFrame);
                         };
 
@@ -6323,7 +6363,13 @@ namespace SharpPy
                     }
 
                     // Create minimal frame for simple function - CPython 3.12: include parent frame
-                    var frame = new PyFrame(code, argsWithSelf, functionScope, pyFunc.Closure, CurrentFrame);
+                    // CPython 3.12: Get defaults from func.__defaults__ attribute
+                    PyTuple defaults = null;
+                    if (pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
+                    {
+                        defaults = defaultsTuple;
+                    }
+                    var frame = new PyFrame(code, argsWithSelf, functionScope, pyFunc.Closure, CurrentFrame, defaults);
                     return ExecuteFrame(frame);
                 }
                 catch (PyReturnException retEx)
@@ -6376,7 +6422,13 @@ namespace SharpPy
                     }
 
                     // Create minimal frame for simple function - CPython 3.12: include parent frame
-                    var frame = new PyFrame(code, args, functionScope, pyFunc.Closure, CurrentFrame);
+                    // CPython 3.12: Get defaults from func.__defaults__ attribute
+                    PyTuple defaults = null;
+                    if (pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
+                    {
+                        defaults = defaultsTuple;
+                    }
+                    var frame = new PyFrame(code, args, functionScope, pyFunc.Closure, CurrentFrame, defaults);
                     return ExecuteFrame(frame);
                 }
                 catch (PyReturnException retEx)

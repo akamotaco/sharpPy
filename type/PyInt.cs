@@ -439,5 +439,22 @@ namespace SharpPy
         }
 
         #endregion
+
+        #region Special Methods
+
+        /// <summary>
+        /// CPython 3.12: __index__() returns self for int objects
+        /// </summary>
+        public override PyObject GetAttribute(string name)
+        {
+            if (name == "__index__")
+            {
+                // Return a bound method that returns self
+                return new PyBuiltinFunction("__index__", (args) => this);
+            }
+            return base.GetAttribute(name);
+        }
+
+        #endregion
     }
 }

@@ -340,5 +340,22 @@ namespace SharpPy
         }
 
         #endregion
+
+        #region Special Methods
+
+        /// <summary>
+        /// CPython 3.12: __index__() returns 0 or 1 for bool objects
+        /// </summary>
+        public override PyObject GetAttribute(string name)
+        {
+            if (name == "__index__")
+            {
+                // Return a bound method that returns 0 or 1
+                return new PyBuiltinFunction("__index__", (args) => new PyInt(Value ? 1 : 0));
+            }
+            return base.GetAttribute(name);
+        }
+
+        #endregion
     }
 }
