@@ -915,6 +915,7 @@ namespace SharpPy.Generated
 
         private bool HandleLiteral()
         {
+            // Use GetLiteralIndex for longest match (literals sorted by length)
             var index = PyToken.GetLiteralIndex(_source, _position);
             if (index == -1)
                 return false;
@@ -927,18 +928,17 @@ namespace SharpPy.Generated
             // Before ')': level=1 → decrement to level=0 → token.level=0
 
             // Decrement BEFORE creating token for closing parens/brackets/braces
-            // Note: Literals are registered as Type.OP, so check by name
             if (lit.name == ")" || lit.name == "]" || lit.name == "}")
             {
                 if (_level > 0)
                     _level--;
             }
 
-            AddToken(lit.type, lit.name, _line, _column);
+            // CPython 3.12: All literals are tokenized as OP type
+            AddToken(PyToken.Type.OP, lit.name, _line, _column);
             _currentLineHasRealTokens = true; // Mark line as having real tokens
 
             // Increment AFTER creating token for opening parens/brackets/braces
-            // Note: Literals are registered as Type.OP, so check by name
             if (lit.name == "(" || lit.name == "[" || lit.name == "{")
             {
                 _level++;

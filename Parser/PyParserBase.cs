@@ -844,15 +844,8 @@ namespace SharpPy.Generated
         /// </summary>
         private PyToken.Type MapOperatorToTokenType(string op)
         {
-            // Use PyToken.Literals list to find matching token type
-            foreach (var (name, type) in PyToken.Literals)
-            {
-                if (name == op)
-                {
-                    return type;
-                }
-            }
-            // Default to OP if not found
+            // CPython 3.12: Tokenizer outputs OP for all operators
+            // Parser just needs to know it's an OP type token
             return PyToken.Type.OP;
         }
 
