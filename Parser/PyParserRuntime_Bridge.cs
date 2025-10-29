@@ -105,7 +105,9 @@ namespace SharpPy.Generated
             }
 
             // Phase 2: Start implementing AST conversion
+            #if DEBUG
             Console.WriteLine("[DEBUG] ConvertToSharpPyAST: Calling ConvertGeneratedAST...");
+            #endif
 #endif
             var result = ConvertGeneratedAST(moduleResult, filename);
 #if DEBUG_AST_LOG
@@ -764,28 +766,40 @@ namespace SharpPy.Generated
                             // OLD CODE BELOW - will be removed after testing
                             /*
                             // Debug Arguments structure
+                            #if DEBUG
                             Console.WriteLine($"[DEBUG] Arguments type: {funcData.Arguments.GetType().Name}");
+                            #endif
+                            #if DEBUG
                             Console.WriteLine($"[DEBUG] Arguments value: {funcData.Arguments}");
+                            #endif
 
                                 // Arguments structure parsing - try Dictionary first
                                 if (funcData.Arguments is Dictionary<string, object> argsDict)
                                 {
+                                    #if DEBUG
                                     Console.WriteLine($"[DEBUG] Arguments is Dictionary with keys: [{string.Join(", ", argsDict.Keys)}]");
+                                    #endif
                                     foreach (var kvp in argsDict)
                                     {
+                                        #if DEBUG
                                         Console.WriteLine($"[DEBUG] Key: {kvp.Key}, Value: {kvp.Value} (Type: {kvp.Value?.GetType().Name})");
+                                        #endif
 
                                         // Look for posonlyargs (CPython 3.12 positional-only parameters)
                                         if (kvp.Key == "posonlyargs")
                                         {
                                             if (kvp.Value is List<object> posonlyArgsList)
                                             {
+                                                #if DEBUG
                                                 Console.WriteLine($"[DEBUG] Found posonlyargs list with {posonlyArgsList.Count} items");
+                                                #endif
                                                 foreach (var param in posonlyArgsList)
                                                 {
                                                     if (param != null)
                                                     {
+                                                        #if DEBUG
                                                         Console.WriteLine($"[DEBUG] Processing positional-only parameter: {param} (Type: {param.GetType().Name})");
+                                                        #endif
 
                                                         if (param is GeneratedExpr genExpr && genExpr.Value != null)
                                                         {
@@ -797,14 +811,18 @@ namespace SharpPy.Generated
                                                                 var extractedParamName = extractedArg?.ToString();
                                                                 if (!string.IsNullOrEmpty(extractedParamName))
                                                                 {
+                                                                    #if DEBUG
                                                                     Console.WriteLine($"[DEBUG] Adding positional-only parameter: {extractedParamName}");
+                                                                    #endif
                                                                     parameters.Add(extractedParamName + " [posonly]"); // Mark as positional-only
                                                                 }
                                                             }
                                                         }
                                                         else
                                                         {
+                                                            #if DEBUG
                                                             Console.WriteLine($"[DEBUG] Adding positional-only parameter (toString): {param}");
+                                                            #endif
                                                             parameters.Add(param.ToString() + " [posonly]");
                                                         }
                                                     }
@@ -817,13 +835,19 @@ namespace SharpPy.Generated
                                         {
                                             if (kvp.Value is List<object> paramList)
                                             {
+                                                #if DEBUG
                                                 Console.WriteLine($"[DEBUG] Found parameter list with {paramList.Count} items");
+                                                #endif
                                                 foreach (var param in paramList)
                                                 {
+                                                    #if DEBUG
                                                     Console.WriteLine($"[DEBUG] Processing param: {param} (Type: {param?.GetType().Name})");
+                                                    #endif
                                                     if (param is string paramName)
                                                     {
+                                                        #if DEBUG
                                                         Console.WriteLine($"[DEBUG] Adding string parameter: {paramName}");
+                                                        #endif
                                                         parameters.Add(paramName);
                                                     }
                                                     else if (param != null)
@@ -831,20 +855,28 @@ namespace SharpPy.Generated
                                                         // Try to extract parameter name from complex objects
                                                         if (param is Dictionary<string, object> paramDict)
                                                         {
+                                                            #if DEBUG
                                                             Console.WriteLine($"[DEBUG] Parameter is Dictionary with keys: [{string.Join(", ", paramDict.Keys)}]");
+                                                            #endif
                                                             if (paramDict.ContainsKey("arg"))
                                                             {
+                                                                #if DEBUG
                                                                 Console.WriteLine($"[DEBUG] Adding arg parameter: {paramDict["arg"]}");
+                                                                #endif
                                                                 parameters.Add(paramDict["arg"].ToString());
                                                             }
                                                             else if (paramDict.ContainsKey("name"))
                                                             {
+                                                                #if DEBUG
                                                                 Console.WriteLine($"[DEBUG] Adding name parameter: {paramDict["name"]}");
+                                                                #endif
                                                                 parameters.Add(paramDict["name"].ToString());
                                                             }
                                                             else
                                                             {
+                                                                #if DEBUG
                                                                 Console.WriteLine($"[DEBUG] No 'arg' or 'name' key found in parameter dict");
+                                                                #endif
                                                             }
                                                         }
                                                         else
@@ -854,23 +886,31 @@ namespace SharpPy.Generated
                                                             {
                                                                 if (genExpr.Value is object valueObj)
                                                                 {
+                                                                    #if DEBUG
                                                                     Console.WriteLine($"[DEBUG] GeneratedExpr.Value type: {valueObj.GetType().Name}");
+                                                                    #endif
 
                                                                     // Try 'arg' property first (for function parameters)
                                                                     var argProperty = valueObj.GetType().GetProperty("arg");
                                                                     if (argProperty != null)
                                                                     {
                                                                         var argValue = argProperty.GetValue(valueObj);
+                                                                        #if DEBUG
                                                                         Console.WriteLine($"[DEBUG] Found 'arg' property: '{argValue}' (type: {argValue?.GetType().Name})");
+                                                                        #endif
                                                                         var extractedParamName = argValue?.ToString();
                                                                         if (!string.IsNullOrEmpty(extractedParamName))
                                                                         {
+                                                                            #if DEBUG
                                                                             Console.WriteLine($"[DEBUG] Adding extracted parameter name from 'arg': {extractedParamName}");
+                                                                            #endif
                                                                             parameters.Add(extractedParamName);
                                                                         }
                                                                         else
                                                                         {
+                                                                            #if DEBUG
                                                                             Console.WriteLine($"[DEBUG] 'arg' property is empty, using toString: {param}");
+                                                                            #endif
                                                                             parameters.Add(param.ToString());
                                                                         }
                                                                     }
@@ -881,29 +921,39 @@ namespace SharpPy.Generated
                                                                         if (valueProperty != null)
                                                                         {
                                                                             var extractedValue = valueProperty.GetValue(valueObj);
+                                                                            #if DEBUG
                                                                             Console.WriteLine($"[DEBUG] Found 'value' property: '{extractedValue}' (type: {extractedValue?.GetType().Name})");
+                                                                            #endif
                                                                             var extractedParamName = extractedValue?.ToString();
                                                                             if (!string.IsNullOrEmpty(extractedParamName))
                                                                             {
+                                                                                #if DEBUG
                                                                                 Console.WriteLine($"[DEBUG] Adding extracted parameter name from 'value': {extractedParamName}");
+                                                                                #endif
                                                                                 parameters.Add(extractedParamName);
                                                                             }
                                                                             else
                                                                             {
+                                                                                #if DEBUG
                                                                                 Console.WriteLine($"[DEBUG] 'value' property is empty, using toString: {param}");
+                                                                                #endif
                                                                                 parameters.Add(param.ToString());
                                                                             }
                                                                         }
                                                                         else
                                                                         {
+                                                                            #if DEBUG
                                                                             Console.WriteLine($"[DEBUG] No 'arg' or 'value' property found in {valueObj.GetType().Name}, using toString: {param}");
+                                                                            #endif
                                                                             parameters.Add(param.ToString());
                                                                         }
                                                                     }
                                                                 }
                                                                 else
                                                                 {
+                                                                    #if DEBUG
                                                                     Console.WriteLine($"[DEBUG] GeneratedExpr.Value is null, using toString: {param}");
+                                                                    #endif
                                                                     parameters.Add(param.ToString());
                                                                 }
                                                             }
@@ -912,11 +962,15 @@ namespace SharpPy.Generated
                                                                 // Debug info for non-GeneratedExpr case
                                                                 if (param is GeneratedExpr genExprDebug)
                                                                 {
+                                                                    #if DEBUG
                                                                     Console.WriteLine($"[DEBUG] GeneratedExpr with ExpressionType '{genExprDebug.ExpressionType}' != 'Name', using toString: {param}");
+                                                                    #endif
                                                                 }
                                                                 else
                                                                 {
+                                                                    #if DEBUG
                                                                     Console.WriteLine($"[DEBUG] Not a GeneratedExpr (type: {param?.GetType().Name}), using toString: {param}");
+                                                                    #endif
                                                                 }
                                                                 parameters.Add(param.ToString());
                                                             }
@@ -924,13 +978,17 @@ namespace SharpPy.Generated
                                                     }
                                                     else
                                                     {
+                                                        #if DEBUG
                                                         Console.WriteLine("[DEBUG] Parameter is null, skipping");
+                                                        #endif
                                                     }
                                                 }
                                             }
                                             else if (kvp.Value != null)
                                             {
+                                                #if DEBUG
                                                 Console.WriteLine($"[DEBUG] Parameter value is not a list: {kvp.Value}");
+                                                #endif
                                             }
                                         }
 
@@ -939,12 +997,16 @@ namespace SharpPy.Generated
                                         {
                                             if (kvp.Value is List<object> defaultsList)
                                             {
+                                                #if DEBUG
                                                 Console.WriteLine($"[DEBUG] Found defaults list with {defaultsList.Count} items");
+                                                #endif
                                                 // Store defaults by index - we'll match them to parameters later
                                                 for (int i = 0; i < defaultsList.Count; i++)
                                                 {
                                                     var defaultValue = defaultsList[i];
+                                                    #if DEBUG
                                                     Console.WriteLine($"[DEBUG] Processing default {i}: {defaultValue} (Type: {defaultValue?.GetType().Name})");
+                                                    #endif
                                                     defaultValues[i.ToString()] = defaultValue;
                                                 }
                                             }
@@ -959,7 +1021,9 @@ namespace SharpPy.Generated
                                         var argsData = funcData.Arguments as dynamic;
                                         if (argsData != null && argsData.args != null)
                                         {
+                                            #if DEBUG
                                             Console.WriteLine("[DEBUG] Found args field via dynamic");
+                                            #endif
                                             foreach (var arg in argsData.args)
                                             {
                                                 var argData = arg as dynamic;
@@ -972,12 +1036,16 @@ namespace SharpPy.Generated
                                     }
                                     catch (Exception ex)
                                     {
+                                        #if DEBUG
                                         Console.WriteLine($"[DEBUG] Dynamic parsing failed: {ex.Message}");
+                                        #endif
 
                                         // Final fallback - try as List<object>
                                         if (funcData.Arguments is List<object> argsList)
                                         {
+                                            #if DEBUG
                                             Console.WriteLine("[DEBUG] Arguments is List<object>");
+                                            #endif
                                             foreach (var arg in argsList)
                                             {
                                                 if (arg is string argName)
@@ -993,11 +1061,15 @@ namespace SharpPy.Generated
                                     }
                                 }
 
+                                #if DEBUG
                                 Console.WriteLine($"[DEBUG] Extracted function parameters: [{string.Join(", ", parameters)}]");
+                                #endif
                             }
                             else
                             {
+                                #if DEBUG
                                 Console.WriteLine("[DEBUG] funcData.Arguments is null");
+                                #endif
                             }
                             */
                             // END OF OLD CODE
@@ -1311,44 +1383,62 @@ namespace SharpPy.Generated
                 case GeneratedImportFrom importFromStmt:
                     // From import statement (from module import name) - CPython 3.12 compatible
                     {
+#if DEBUG
                         Console.WriteLine($"[DEBUG] importFromStmt.Module type: {importFromStmt.Module?.GetType()?.Name}, value: {importFromStmt.Module}");
+#endif
                         var module = importFromStmt.Module?.ToString();
+#if DEBUG
                         Console.WriteLine($"[DEBUG] Processing from_import: module={module}, level={importFromStmt.Level}, names={importFromStmt.Names?.Count ?? 0}");
+#endif
                         var level = importFromStmt.Level ?? 0;  // CPython 3.12: None → 0 (absolute import)
                         var importAliases = new List<ImportAlias>();
 
                         if (importFromStmt.Names != null)
                         {
+#if DEBUG
                             Console.WriteLine($"[DEBUG] importFromStmt.Names type: {importFromStmt.Names.GetType().Name}");
+#endif
                             int nameIndex = 0;
                             foreach (var nameItem in importFromStmt.Names)
                             {
+#if DEBUG
                                 Console.WriteLine($"[DEBUG] Processing name item #{nameIndex}: type={nameItem?.GetType()?.Name}");
+#endif
                                 var alias = (GeneratedAlias)nameItem;
+#if DEBUG
                                 Console.WriteLine($"[DEBUG] alias.Name type: {alias.Name?.GetType()?.Name}, value: {alias.Name}");
                                 Console.WriteLine($"[DEBUG] alias.Asname type: {alias.Asname?.GetType()?.Name}, value: {alias.Asname}");
+#endif
                                 var name = alias.Name?.ToString();
                                 var asName = alias.Asname?.ToString();
+#if DEBUG
                                 Console.WriteLine($"[DEBUG] Converted: name={name}, asName={asName}");
+#endif
                                 nameIndex++;
 
                                 if (!string.IsNullOrEmpty(name))
                                 {
                                     importAliases.Add(new ImportAlias(name, asName));
+#if DEBUG
                                     Console.WriteLine($"[DEBUG] Added import alias: {name} as {asName ?? name}");
+#endif
                                 }
                             }
                         }
 
                         if (importAliases.Count > 0)
                         {
+#if DEBUG
                             Console.WriteLine($"[DEBUG] Creating ImportFromStatement: module={module}, level={level}, aliases={importAliases.Count}");
+#endif
                             var result = new ImportFromStatement(module, importAliases, level);
                             CopySourceLocation(importFromStmt, result);
                             return result;
                         }
 
+#if DEBUG
                         Console.WriteLine("[DEBUG] Failed to parse from_import, returning placeholder");
+#endif
                         return new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                     }
 
@@ -1626,7 +1716,9 @@ namespace SharpPy.Generated
             var value = attrExpr.value;
             var attr = attrExpr.attr.ToString();
 
+            #if DEBUG
             Console.WriteLine($"[DEBUG] ConvertAttributeAccess: attr='{attr}', value type={value.GetType().Name}");
+            #endif
 
             // Convert the base object expression
             Expression valueExpr = ConvertAnyExpression(value);
@@ -1640,7 +1732,9 @@ namespace SharpPy.Generated
             var value = subscriptExpr.value;
             var slice = subscriptExpr.slice;
 
+            #if DEBUG
             Console.WriteLine($"[DEBUG] ConvertSubscriptAccess: slice type={slice.GetType().Name}, value type={value.GetType().Name}");
+            #endif
 
             // Convert the base object expression
             Expression valueExpr = ConvertAnyExpression(value);
@@ -2307,7 +2401,9 @@ namespace SharpPy.Generated
             // TODO: Implement specific expression conversions
             // This will handle all Python expression types (name, constant, binop, etc.)
 
+            #if DEBUG
             Console.WriteLine($"[DEBUG] ConvertExpression: Converting {expr.GetType()}");
+            #endif
 
             // Return a simple constant for now
             return new ConstantExpression(new PyString("expr"));
@@ -2676,13 +2772,17 @@ namespace SharpPy.Generated
         {
             if (defaultValue == null) return "None";
 
+            #if DEBUG
             Console.WriteLine($"[DEBUG] ConvertDefaultToString: {defaultValue} (Type: {defaultValue.GetType().Name})");
+            #endif
 
             // Handle GeneratedConstant directly
             if (defaultValue is GeneratedConstant constantExpr)
             {
                 var value = constantExpr.Value;
+                #if DEBUG
                 Console.WriteLine($"[DEBUG] GeneratedConstant value: {value} (Type: {value?.GetType().Name})");
+                #endif
 
                 // CPython 3.12: Value is now GeneratedPyConstant (AST layer)
                 return value switch
@@ -2701,7 +2801,9 @@ namespace SharpPy.Generated
             // Handle other GeneratedExpr types (recurse through conversion)
             if (defaultValue is GeneratedExpr genExpr)
             {
+                #if DEBUG
                 Console.WriteLine($"[DEBUG] GeneratedExpr type: {genExpr.GetType().Name}");
+                #endif
 
                 // Try to convert to Expression and extract value
                 try
@@ -2732,7 +2834,9 @@ namespace SharpPy.Generated
                 }
                 catch (Exception ex)
                 {
+                    #if DEBUG
                     Console.WriteLine($"[DEBUG] Error converting GeneratedExpr: {ex.Message}");
+                    #endif
                 }
 
                 return genExpr.ToString() ?? "None";

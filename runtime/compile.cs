@@ -7108,7 +7108,9 @@ namespace SharpPy
             _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, exceptLabel, _currentLineNumber);
             // Push exception handler to compiler stack (CPython: compiler->u->u_except_stack)
             _exceptionHandlerStack.Push(exceptLabel);
+            #if DEBUG
             Console.WriteLine($"[TEMP] CompileTryStatementCFG: Pushed outer handler {exceptLabel} to stack. Stack count = {_exceptionHandlerStack.Count}");
+            #endif
 
             // 2. Try body (immediately follows SETUP_FINALLY, no label needed)
             foreach (var stmt in tryStmt.Body)
@@ -7120,7 +7122,9 @@ namespace SharpPy
             _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
             // Pop exception handler from compiler stack
             _exceptionHandlerStack.Pop();
+            #if DEBUG
             Console.WriteLine($"[TEMP] CompileTryStatementCFG: Popped outer handler from stack. Stack count = {_exceptionHandlerStack.Count}");
+            #endif
 
             // 4. Else clause (only runs if no exception)
             if (hasElse)
@@ -7373,7 +7377,9 @@ namespace SharpPy
             _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, exceptLabel, _currentLineNumber);
             // Push exception handler to stack (CPython: compiler->u->u_except_stack)
             _exceptionHandlerStack.Push(exceptLabel);
+            #if DEBUG
             Console.WriteLine($"[TEMP] CompileTryStarExceptCFG: Pushed inner except* handler {exceptLabel} to stack. Stack count = {_exceptionHandlerStack.Count}");
+            #endif
 
             // USE_LABEL body (line 3565)
             _instructionSequence.UseLabel(bodyLabel);
@@ -7393,7 +7399,9 @@ namespace SharpPy
             if (_exceptionHandlerStack.Count > 0)
             {
                 _exceptionHandlerStack.Pop();
+                #if DEBUG
                 Console.WriteLine($"[TEMP] CompileTryStarExceptCFG: Popped inner except* handler from stack. Stack count = {_exceptionHandlerStack.Count}");
+                #endif
             }
             _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, orelseLabel, _currentLineNumber);
 

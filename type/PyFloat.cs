@@ -205,7 +205,7 @@ namespace SharpPy
             return new PyFloat(Math.Floor(Value / otherValue));
         }
 
-        public PyObject Modulo(PyObject other)
+        public override PyObject Modulo(PyObject other)
         {
             var otherValue = other switch
             {

@@ -180,31 +180,31 @@ namespace SharpPy
             throw PyTypeError.Create($"unsupported operand type(s) for //: 'bool' and '{other.GetTypeName()}'");
         }
 
-        public PyObject Modulo(PyObject other)
+        public override PyObject Modulo(PyObject other)
         {
             int boolAsInt = Value ? 1 : 0;
-            
+
             if (other is PyBool otherBool)
             {
                 if (!otherBool.Value)
                     throw PyZeroDivisionError.Create("integer division or modulo by zero");
                 return new PyInt(0); // 1 % 1 = 0, 0 % 1 = 0
             }
-            
+
             if (other is PyInt otherInt)
             {
                 if (otherInt.Value == 0)
                     throw PyZeroDivisionError.Create("integer division or modulo by zero");
                 return new PyInt(boolAsInt % otherInt.Value);
             }
-            
+
             if (other is PyFloat otherFloat)
             {
                 if (otherFloat.Value == 0.0)
                     throw PyZeroDivisionError.Create("float modulo");
                 return new PyFloat(boolAsInt % otherFloat.Value);
             }
-            
+
             throw PyTypeError.Create($"unsupported operand type(s) for %: 'bool' and '{other.GetTypeName()}'");
         }
 

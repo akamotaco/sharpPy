@@ -196,38 +196,60 @@ namespace SharpPy.Modules
             try
             {
                 bases = classInfo.GetAttribute("__bases__");
+                #if DEBUG
                 Console.WriteLine($"[isinstance check_class] bases type: {bases?.GetType().Name}");
+                #endif
+                #if DEBUG
                 Console.WriteLine($"[isinstance check_class] bases value: {bases}");
+                #endif
 
                 // If bases is a descriptor, we need to call it with classInfo
                 // to get the actual __bases__ value
                 if (bases is PyGetSetDescriptor getSetDescriptor)
                 {
+                    #if DEBUG
                     Console.WriteLine($"[isinstance check_class] Calling PyGetSetDescriptor.Get()");
+                    #endif
                     // Call the descriptor's getter with classInfo as the instance
                     bases = getSetDescriptor.Get(classInfo, classInfo.GetPyType());
+                    #if DEBUG
                     Console.WriteLine($"[isinstance check_class] After descriptor.Get(), bases type: {bases?.GetType().Name}");
+                    #endif
+                    #if DEBUG
                     Console.WriteLine($"[isinstance check_class] After descriptor.Get(), bases value: {bases}");
+                    #endif
                 }
                 else if (bases is PyBasesDescriptor basesDescriptor)
                 {
+                    #if DEBUG
                     Console.WriteLine($"[isinstance check_class] Calling PyBasesDescriptor.Get()");
+                    #endif
                     // Call the descriptor's getter with classInfo as the instance
                     bases = basesDescriptor.Get(classInfo, classInfo.GetPyType());
+                    #if DEBUG
                     Console.WriteLine($"[isinstance check_class] After descriptor.Get(), bases type: {bases?.GetType().Name}");
+                    #endif
+                    #if DEBUG
                     Console.WriteLine($"[isinstance check_class] After descriptor.Get(), bases value: {bases}");
+                    #endif
                 }
 
                 if (bases == null || !(bases is PyTuple))
                 {
+                    #if DEBUG
                     Console.WriteLine($"[isinstance check_class] ERROR: bases is not a PyTuple");
+                    #endif
                     throw PyTypeError.Create("isinstance() arg 2 must be a type or tuple of types");
                 }
+                #if DEBUG
                 Console.WriteLine($"[isinstance check_class] SUCCESS: bases is a PyTuple");
+                #endif
             }
             catch (Exception ex)
             {
+                #if DEBUG
                 Console.WriteLine($"[isinstance check_class] EXCEPTION: {ex.Message}");
+                #endif
                 throw PyTypeError.Create("isinstance() arg 2 must be a type or tuple of types");
             }
 
