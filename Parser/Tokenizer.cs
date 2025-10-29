@@ -928,7 +928,7 @@ namespace SharpPy.Generated
             // Before ')': level=1 → decrement to level=0 → token.level=0
 
             // Decrement BEFORE creating token for closing parens/brackets/braces
-            if (lit.name == ")" || lit.name == "]" || lit.name == "}")
+            if (lit.type == PyToken.Type.RPAR || lit.type == PyToken.Type.RSQB || lit.type == PyToken.Type.RBRACE)
             {
                 if (_level > 0)
                     _level--;
@@ -939,7 +939,7 @@ namespace SharpPy.Generated
             _currentLineHasRealTokens = true; // Mark line as having real tokens
 
             // Increment AFTER creating token for opening parens/brackets/braces
-            if (lit.name == "(" || lit.name == "[" || lit.name == "{")
+            if (lit.type == PyToken.Type.LPAR || lit.type == PyToken.Type.LSQB || lit.type == PyToken.Type.LBRACE)
             {
                 _level++;
             }
