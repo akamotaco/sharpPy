@@ -9115,7 +9115,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? conv = null;
 
                 if (
-                    (conv_token = ExpectSoftKeyword("!")) != null &&
+                    (conv_token = ExpectOp("!")) != null &&
                     (conv = ExpectName()) != null
                 )
                 {
@@ -12193,7 +12193,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
 
                 if (
-                    (a = ExpectSoftKeyword("/")) != null &&
+                    (a = ExpectOp("/")) != null &&
                     ExpectOp(",") != null
                 )
                 {
@@ -12559,7 +12559,7 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? a = null;
 
                 if (
-                    (a = ExpectSoftKeyword("/")) != null &&
+                    (a = ExpectOp("/")) != null &&
                     ExpectOp(",") != null
                 )
                 {

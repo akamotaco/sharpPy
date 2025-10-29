@@ -1,6 +1,7 @@
 using System.Text;
 using SharpPy.PegGenerator.DataStructures;
 using SharpPy.PegGenerator.Analysis;
+using RegexUtils = System.Text.RegularExpressions.Regex;
 
 namespace SharpPy.PegGenerator.Generators;
 
@@ -808,7 +809,12 @@ public class ParserGenerator
 
     private string GenerateKeywordCode(Keyword kw)
     {
-        if (kw.IsSoft)
+        // CPython 로직 (Tools/peg_generator/pegen/c_generator.py line 186-203):
+        // Soft keyword는 영숫자 패턴 [a-zA-Z_]\w* 일 때만 적용됨
+        // 예: "match", "case", "type"
+        //
+        // Operator ("!", ":", ",")는 영숫자가 아니므로 exact_tokens에서 찾아야 함
+        if (kw.IsSoft && RegexUtils.IsMatch(kw.Value, @"^[a-zA-Z_]\w*$"))
         {
             // Soft keyword: check as NAME token with specific value
             return $"ExpectSoftKeyword(\"{kw.Value}\")";
@@ -824,7 +830,7 @@ public class ParserGenerator
             }
             else
             {
-                // Operator like ',', ';', '(', etc.
+                // Operator like ',', ';', '(', '!', etc.
                 return $"ExpectOp(\"{EscapeString(kw.Value)}\")";
             }
         }

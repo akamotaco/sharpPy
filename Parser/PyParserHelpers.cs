@@ -1811,14 +1811,29 @@ namespace SharpPy.Generated
             int lineno, int col_offset, int end_lineno, int end_col_offset)
         {
             // Conversion: 's' = str(), 'r' = repr(), 'a' = ascii(), -1 = no conversion
+            // CPython: Parser/action_helpers.c:1357-1367
+            // conversion.Metadata contains the NAME node (e.g., NAME(Id="r"))
+            // We extract the first character and store its character code in AST
             int conv = -1;
             if (conversion != null)
             {
-                var conversionToken = conversion.Token;
-                var convStr = conversionToken.GetStringValue();
-                if (convStr == "s") conv = (int)'s';
-                else if (convStr == "r") conv = (int)'r';
-                else if (convStr == "a") conv = (int)'a';
+                // CPython: expr_ty conversion_expr = (expr_ty)conversion->result;
+                // CPython: Py_UCS4 first = PyUnicode_READ_CHAR(conversion_expr->v.Name.id, 0);
+                if (conversion.Metadata is GeneratedName name)
+                {
+                    // Extract first character: 's' → 115, 'r' → 114, 'a' → 97
+                    string convStr = name.Id.Value;
+                    if (convStr.Length > 0)
+                    {
+                        conv = (int)convStr[0];  // Store character code, not FVC constant
+                    }
+                }
+            }
+            else if (debug_expr != null && format_spec == null)
+            {
+                // CPython: If no conversion is specified, use !r for debug expressions
+                // CPython: Parser/action_helpers.c:1368-1370
+                conv = (int)'r';
             }
 
             return PyAst.FormattedValue(expr, conv, format_spec, lineno, col_offset, end_lineno, end_col_offset);
