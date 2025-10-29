@@ -40,6 +40,7 @@ namespace SharpPy.Modules
             module.ModuleDict["getenv"] = new PyBuiltinFunction("getenv", Getenv);
             module.ModuleDict["putenv"] = new PyBuiltinFunction("putenv", Putenv);
             module.ModuleDict["fspath"] = new PyBuiltinFunction("fspath", Fspath);
+            module.ModuleDict["urandom"] = new PyBuiltinFunction("urandom", Urandom);
 
             // CPython 3.12: environ is a mapping
             module.ModuleDict["environ"] = CreateEnvironDict();
@@ -363,6 +364,32 @@ namespace SharpPy.Modules
                 environ.SetItem(new PyString((string)entry.Key), new PyString((string)entry.Value));
             }
             return environ;
+        }
+
+        // urandom(n) -> bytes
+        // CPython: posixmodule.c os_urandom_impl
+        // Generate n random bytes using cryptographically strong random number generator
+        private static PyObject Urandom(PyObject[] args)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"urandom() takes exactly 1 argument ({args.Length} given)");
+
+            int n = (int)args[0].ToInt();
+
+            if (n < 0)
+                throw PyValueError.Create("negative argument not allowed");
+
+            if (n == 0)
+                return new PyBytes(new byte[0]);
+
+            // Use .NET's cryptographically strong random number generator
+            byte[] buffer = new byte[n];
+            using (var rng = System.Security.Cryptography.RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(buffer);
+            }
+
+            return new PyBytes(buffer);
         }
 
         #endregion

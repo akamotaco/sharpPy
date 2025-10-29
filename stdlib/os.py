@@ -40,6 +40,7 @@ if 'nt' in _names:
     putenv = nt.putenv
     environ = nt.environ
     fspath = nt.fspath
+    urandom = nt.urandom
 elif 'posix' in _names:
     name = 'posix'
     linesep = '\n'
@@ -59,6 +60,7 @@ elif 'posix' in _names:
     putenv = posix.putenv
     environ = posix.environ
     fspath = posix.fspath
+    urandom = posix.urandom
 else:
     raise ImportError('no os specific module found')
 

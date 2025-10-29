@@ -56,6 +56,7 @@ namespace SharpPy.Modules
             module.ModuleDict["copysign"] = new PyMathFunction("copysign");
             module.ModuleDict["fabs"] = new PyMathFunction("fabs");
             module.ModuleDict["factorial"] = new PyMathFunction("factorial");
+            module.ModuleDict["lgamma"] = new PyMathFunction("lgamma");
             module.ModuleDict["gcd"] = new PyMathFunction("gcd");
             module.ModuleDict["lcm"] = new PyMathFunction("lcm");
 
@@ -133,6 +134,7 @@ namespace SharpPy.Modules
                 "copysign" => CallCopysign(args),
                 "fabs" => CallFabs(args),
                 "factorial" => CallFactorial(args),
+                "lgamma" => CallLGamma(args),
                 "gcd" => CallGcd(args),
                 "lcm" => CallLcm(args),
 
@@ -471,6 +473,73 @@ namespace SharpPy.Modules
             {
                 throw PyTypeError.Create("'int' object cannot be interpreted as an integer");
             }
+        }
+
+        private PyObject CallLGamma(PyObject[] args)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"lgamma() takes exactly one argument ({args.Length} given)");
+
+            double x = args[0].ToFloat();
+
+            // lgamma(x) = log(abs(gamma(x)))
+            // Using Stirling's approximation for large values
+            // For small values, use the actual gamma function
+
+            if (double.IsNaN(x))
+                return new PyFloat(double.NaN);
+
+            if (double.IsPositiveInfinity(x))
+                return new PyFloat(double.PositiveInfinity);
+
+            if (double.IsNegativeInfinity(x) || x == 0)
+                return new PyFloat(double.PositiveInfinity);
+
+            if (x < 0 && x == Math.Floor(x))
+                throw PyValueError.Create("lgamma() not defined for negative integers");
+
+            // Use built-in .NET approximation
+            // This is a simplified implementation - for production use, consider a more accurate algorithm
+            double result = LogGammaApproximation(x);
+            return new PyFloat(result);
+        }
+
+        // Log-gamma approximation using Stirling's formula
+        private double LogGammaApproximation(double x)
+        {
+            // For x > 0, use Stirling's approximation
+            // ln(Gamma(x)) ≈ (x - 0.5) * ln(x) - x + 0.5 * ln(2π) + correction terms
+
+            if (x <= 0)
+            {
+                // Use reflection formula for negative values
+                // Gamma(x) * Gamma(1-x) = pi / sin(pi*x)
+                double sinPiX = Math.Sin(Math.PI * x);
+                if (Math.Abs(sinPiX) < 1e-10)
+                    return double.PositiveInfinity;
+                return Math.Log(Math.PI / Math.Abs(sinPiX)) - LogGammaApproximation(1 - x);
+            }
+
+            // Lanczos approximation coefficients
+            double[] coef = {
+                76.18009172947146,
+                -86.50532032941677,
+                24.01409824083091,
+                -1.231739572450155,
+                0.001208650973866179,
+                -0.000005395239384953
+            };
+
+            double temp = x + 5.5;
+            temp = (x + 0.5) * Math.Log(temp) - temp;
+            double ser = 1.000000000190015;
+
+            for (int i = 0; i < 6; i++)
+            {
+                ser += coef[i] / (x + i + 1);
+            }
+
+            return temp + Math.Log(2.5066282746310005 * ser / x);
         }
 
         private PyObject CallGcd(PyObject[] args)

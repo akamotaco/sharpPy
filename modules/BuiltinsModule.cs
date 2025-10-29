@@ -37,6 +37,8 @@ namespace SharpPy.Modules
             module.ModuleDict["dict"] = PyType.DictType;
             module.ModuleDict["set"] = PyType.SetType;
             module.ModuleDict["frozenset"] = PyType.FrozenSetType;
+            module.ModuleDict["bytes"] = PyType.BytesType;
+            module.ModuleDict["bytearray"] = PyType.BytearrayType;
             module.ModuleDict["NoneType"] = PyType.NoneType;
             module.ModuleDict["function"] = PyType.FunctionType;
 
@@ -68,10 +70,24 @@ namespace SharpPy.Modules
             module.ModuleDict["OverflowError"] = PyType.OverflowErrorType;
             module.ModuleDict["RecursionError"] = PyType.RecursionErrorType;
             module.ModuleDict["UnboundLocalError"] = PyType.UnboundLocalErrorType;
+            module.ModuleDict["BufferError"] = PyType.BufferErrorType;
 
             // Exception Groups (PEP 654 - Python 3.11+)
             module.ModuleDict["BaseExceptionGroup"] = PyType.BaseExceptionGroupType;
             module.ModuleDict["ExceptionGroup"] = PyType.ExceptionGroupType;
+
+            // Warning types (Python 3.12)
+            module.ModuleDict["Warning"] = PyType.WarningType;
+            module.ModuleDict["UserWarning"] = PyType.UserWarningType;
+            module.ModuleDict["DeprecationWarning"] = PyType.DeprecationWarningType;
+            module.ModuleDict["PendingDeprecationWarning"] = PyType.PendingDeprecationWarningType;
+            module.ModuleDict["SyntaxWarning"] = PyType.SyntaxWarningType;
+            module.ModuleDict["RuntimeWarning"] = PyType.RuntimeWarningType;
+            module.ModuleDict["FutureWarning"] = PyType.FutureWarningType;
+            module.ModuleDict["ImportWarning"] = PyType.ImportWarningType;
+            module.ModuleDict["UnicodeWarning"] = PyType.UnicodeWarningType;
+            module.ModuleDict["BytesWarning"] = PyType.BytesWarningType;
+            module.ModuleDict["ResourceWarning"] = PyType.ResourceWarningType;
 
             // Built-in functions (commonly used in standard library)
             module.ModuleDict["abs"] = new PyBuiltinFunction("abs", Abs);

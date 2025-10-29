@@ -496,36 +496,40 @@ namespace SharpPy.Generated
             // CPython 3.12: Parse number value (decimal, hex, octal, binary, float)
             string value = token.Value;
 
+            // PEP 515: Remove underscores from numeric literals (Python 3.6+)
+            // Underscores are allowed in all numeric literals for readability
+            string cleanValue = value.Replace("_", "");
+
             // Check for complex numbers (j suffix) - TODO: implement PyComplex
-            if (value.EndsWith("j", StringComparison.OrdinalIgnoreCase) || value.EndsWith("J"))
+            if (cleanValue.EndsWith("j", StringComparison.OrdinalIgnoreCase) || cleanValue.EndsWith("J"))
             {
                 // For now, treat as comment/unsupported
                 throw new System.NotImplementedException("Complex numbers not yet supported");
             }
             // Check for floating point
-            else if (value.Contains(".") || value.Contains("e", StringComparison.OrdinalIgnoreCase))
+            else if (cleanValue.Contains(".") || cleanValue.Contains("e", StringComparison.OrdinalIgnoreCase))
             {
-                constant.Value = new GeneratedPyConstantFloat(double.Parse(value));
+                constant.Value = new GeneratedPyConstantFloat(double.Parse(cleanValue));
             }
             // Check for hexadecimal (0x or 0X)
-            else if (value.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            else if (cleanValue.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
             {
-                constant.Value = new GeneratedPyConstantInt(Convert.ToInt64(value, 16));
+                constant.Value = new GeneratedPyConstantInt(Convert.ToInt64(cleanValue, 16));
             }
             // Check for octal (0o or 0O)
-            else if (value.StartsWith("0o", StringComparison.OrdinalIgnoreCase))
+            else if (cleanValue.StartsWith("0o", StringComparison.OrdinalIgnoreCase))
             {
-                constant.Value = new GeneratedPyConstantInt(Convert.ToInt64(value.Substring(2), 8));
+                constant.Value = new GeneratedPyConstantInt(Convert.ToInt64(cleanValue.Substring(2), 8));
             }
             // Check for binary (0b or 0B)
-            else if (value.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
+            else if (cleanValue.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
             {
-                constant.Value = new GeneratedPyConstantInt(Convert.ToInt64(value.Substring(2), 2));
+                constant.Value = new GeneratedPyConstantInt(Convert.ToInt64(cleanValue.Substring(2), 2));
             }
             // Decimal integer
             else
             {
-                constant.Value = new GeneratedPyConstantInt(long.Parse(value));
+                constant.Value = new GeneratedPyConstantInt(long.Parse(cleanValue));
             }
 
             constant.LineNo = token.Line;
