@@ -10,7 +10,7 @@ namespace SharpPy
         public PyCodeObject Code { get; }
         public Stack<PyObject> ValueStack { get; }
         public PyScopeChain ScopeChain { get; }       // 기존 LEGB 시스템 활용!
-        public Dictionary<string, PyObject> FastLocals { get; } // 빠른 지역변수 접근
+        public PyObject[] LocalsPlus { get; }  // CPython 3.12 style: Direct array for local variables
         public int InstructionPointer { get; set; }
 
         // CPython 3.12: Frame chain for proper call stack tracking
@@ -70,7 +70,16 @@ namespace SharpPy
             ValueStack = new Stack<PyObject>();
             // 부모 스코프 체인이 있으면 상속, 없으면 새로 생성
             ScopeChain = parentScope ?? new PyScopeChain();
-            FastLocals = new Dictionary<string, PyObject>();
+
+            // CPython 3.12: Initialize LocalsPlus array for fast local variable access
+            int nlocals = code.VarNames.Count;
+            LocalsPlus = new PyObject[nlocals];
+            // Initialize all to PyNull (uninitialized marker)
+            for (int i = 0; i < nlocals; i++)
+            {
+                LocalsPlus[i] = PyNull.Instance;
+            }
+
             InstructionPointer = 0;
 
             // CPython 3.12: Set parent frame for call stack tracking
@@ -212,7 +221,7 @@ namespace SharpPy
                 if (posArgIndex < positionalArgs.Length)
                 {
                     // Bind positional argument
-                    FastLocals[paramName] = positionalArgs[posArgIndex];
+                    LocalsPlus[paramIndex] = positionalArgs[posArgIndex];
                     ScopeChain.AssignVariable(paramName, positionalArgs[posArgIndex]);
                     posArgIndex++;
 
@@ -246,7 +255,7 @@ namespace SharpPy
 
                     // Bind keyword argument to parameter
                     var keywordValue = keywordArgs[paramName];
-                    FastLocals[paramName] = keywordValue;
+                    LocalsPlus[paramIndex] = keywordValue;
                     ScopeChain.AssignVariable(paramName, keywordValue);
                     keywordArgs.Remove(paramName); // Remove so it doesn't go into **kwargs
 
@@ -264,7 +273,7 @@ namespace SharpPy
                     if (effectiveDefaults != null && paramIndex >= numRequiredParams && paramIndex - numRequiredParams < effectiveDefaults.Items.Length)
                     {
                         var defaultValue = effectiveDefaults.Items[paramIndex - numRequiredParams];
-                        FastLocals[paramName] = defaultValue;
+                        LocalsPlus[paramIndex] = defaultValue;
                         ScopeChain.AssignVariable(paramName, defaultValue);
 
 #if DEBUG_LOG
@@ -290,7 +299,7 @@ namespace SharpPy
                 if (keywordArgs != null && keywordArgs.ContainsKey(paramName))
                 {
                     var keywordValue = keywordArgs[paramName];
-                    FastLocals[paramName] = keywordValue;
+                    LocalsPlus[paramIndex] = keywordValue;
                     ScopeChain.AssignVariable(paramName, keywordValue);
                     keywordArgs.Remove(paramName); // Remove so it doesn't go into **kwargs
 
@@ -305,7 +314,7 @@ namespace SharpPy
                     if (kwOnlyIndex < code.KwDefaults.Count)
                     {
                         var defaultValue = code.KwDefaults[kwOnlyIndex];
-                        FastLocals[paramName] = defaultValue;
+                        LocalsPlus[paramIndex] = defaultValue;
                         ScopeChain.AssignVariable(paramName, defaultValue);
 
 #if DEBUG_LOG
@@ -323,7 +332,8 @@ namespace SharpPy
             // Phase 2: Handle *args (if function has varargs) - CPython 3.12 compatible
             if (hasVarArgs)
             {
-                var varargsName = code.VarNames[code.ArgCount]; // *args parameter
+                int varargsIndex = code.ArgCount; // *args parameter index
+                var varargsName = code.VarNames[varargsIndex];
 
                 // Collect remaining positional arguments into *args tuple
                 var extraArgs = new PyObject[Math.Max(0, positionalArgs.Length - posArgIndex)];
@@ -333,7 +343,7 @@ namespace SharpPy
                 }
                 var argsTuple = new PyTuple(extraArgs);
 
-                FastLocals[varargsName] = argsTuple;
+                LocalsPlus[varargsIndex] = argsTuple;
                 ScopeChain.AssignVariable(varargsName, argsTuple);
 
 #if DEBUG_LOG
@@ -344,7 +354,8 @@ namespace SharpPy
             // Phase 3: Handle **kwargs (if function has varkeywords)
             if (hasVarKeywords)
             {
-                var varkwargsName = code.VarNames[code.ArgCount + (hasVarArgs ? 1 : 0)]; // **kwargs parameter
+                int varkwargsIndex = code.ArgCount + (hasVarArgs ? 1 : 0); // **kwargs parameter index
+                var varkwargsName = code.VarNames[varkwargsIndex];
                 var kwargsDict = new PyDict();
 
                 // Add keyword arguments to **kwargs dict if they exist
@@ -356,7 +367,7 @@ namespace SharpPy
                     }
                 }
 
-                FastLocals[varkwargsName] = kwargsDict;
+                LocalsPlus[varkwargsIndex] = kwargsDict;
                 ScopeChain.AssignVariable(varkwargsName, kwargsDict);
 
 #if DEBUG_LOG
@@ -694,10 +705,16 @@ namespace SharpPy
                 }
             }
 
-            // Method 1: FastLocals (for STORE_FAST operations)
-            foreach (var kvp in frame.FastLocals)
+            // Method 1: LocalsPlus array (for STORE_FAST operations)
+            for (int i = 0; i < frame.LocalsPlus.Length; i++)
             {
-                classNamespace[kvp.Key] = kvp.Value;
+                var value = frame.LocalsPlus[i];
+                // Skip uninitialized variables (PyNull)
+                if (!PyNull.IsNull(value))
+                {
+                    var varName = frame.Code.VarNames[i];
+                    classNamespace[varName] = value;
+                }
             }
 
             // Method 2: Saved class body variables (FIXED: use saved variables from before scope cleanup)
@@ -1126,24 +1143,18 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.LOAD_FAST:
-                    // CPython 3.12 style: Direct array access optimization for first few locals
+                    // CPython 3.12: Direct array access for local variables
                     var argIndex = instruction.Argument;
-                    if (argIndex < frame.Code.VarNames.Count)
+                    if (argIndex < frame.LocalsPlus.Length)
                     {
-                        var varName = frame.Code.VarNames[argIndex];
-                        if (frame.FastLocals.TryGetValue(varName, out var fastValue))
+                        var fastValue = frame.LocalsPlus[argIndex];
+                        // CPython 3.12: PyNull indicates uninitialized variable
+                        if (PyNull.IsNull(fastValue))
                         {
-                            // CPython 3.12 호환: PyNull인 경우 UnboundLocalError 발생
-                            if (PyNull.IsNull(fastValue))
-                            {
-                                throw PyNameError.Create($"local variable '{varName}' referenced before assignment");
-                            }
-                            frame.ValueStack.Push(fastValue);
-                        }
-                        else
-                        {
+                            var varName = frame.Code.VarNames[argIndex];
                             throw PyNameError.Create($"local variable '{varName}' referenced before assignment");
                         }
+                        frame.ValueStack.Push(fastValue);
                     }
                     else
                     {
@@ -1152,93 +1163,33 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.LOAD_FAST_AND_CLEAR:
-                    // CPython 3.12 PEP 709: Load variable and clear it from locals (for comprehensions)
+                    // CPython 3.12 PEP 709: Load variable and clear it (set to PyNull)
                     var clearArgIndex = instruction.Argument;
-
-                    // 🔍 DEBUG: Track execution in no-optimize mode
-                    #if DEBUG_VM_LOG
-                    Console.WriteLine($"🔍 LOAD_FAST_AND_CLEAR: arg={clearArgIndex}, VarNames.Count={frame.Code.VarNames.Count}, Stack.Count={frame.ValueStack.Count}");
-                    #endif
-                    if (frame.Code.VarNames.Count > 0)
+                    if (clearArgIndex < frame.LocalsPlus.Length)
                     {
-                        #if DEBUG_VM_LOG
-                        Console.WriteLine($"    VarNames: [{string.Join(", ", frame.Code.VarNames)}]");
-                        #endif
-                    }
-
-                    if (clearArgIndex < frame.Code.VarNames.Count)
-                    {
-                        var clearVarName = frame.Code.VarNames[clearArgIndex];
-                        #if DEBUG_VM_LOG
-                        Console.WriteLine($"    Looking for variable: '{clearVarName}'");
-                        #endif
-
-                        // Try fast locals first
-                        if (frame.FastLocals.TryGetValue(clearVarName, out var clearValue))
-                        {
-                            frame.ValueStack.Push(clearValue);
-                            // Clear the variable from locals (PEP 709 requirement)
-                            frame.FastLocals.Remove(clearVarName);
-                            #if DEBUG_VM_LOG
-                            Console.WriteLine($"    ✅ PATH 1: Loaded '{clearVarName}'={clearValue} from fast locals, cleared. Stack.Count={frame.ValueStack.Count}");
-                            #endif
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🧹 LOAD_FAST_AND_CLEAR: loaded {clearVarName}={clearValue} from fast locals, cleared");
-                            #endif
-                        }
-                        // If not in fast locals, try global scope (for module-level variables)
-                        else
-                        {
-                            try
-                            {
-                                var globalVal = frame.ScopeChain.LookupVariable(clearVarName);
-                                frame.ValueStack.Push(globalVal);
-                                // Store original value in fast locals for proper restoration
-                                frame.FastLocals[clearVarName] = globalVal;
-                                #if DEBUG_VM_LOG
-                                Console.WriteLine($"    ✅ PATH 2: Loaded '{clearVarName}'={globalVal} from global scope. Stack.Count={frame.ValueStack.Count}");
-                                #endif
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🧹 LOAD_FAST_AND_CLEAR: loaded {clearVarName}={globalVal} from global scope, saved to fast locals");
-                                #endif
-                            }
-                            catch (System.Exception ex) when (ex.Message.Contains("is not defined"))
-                            {
-                                // CPython 3.12: Load NULL if variable doesn't exist (for comprehensions)
-                                frame.ValueStack.Push(PyNull.Instance);
-                                #if DEBUG_VM_LOG
-                                Console.WriteLine($"    ✅ PATH 3: Variable '{clearVarName}' not found, loaded NULL. Stack.Count={frame.ValueStack.Count}");
-                                #endif
-                                #if DEBUG_LOG
-                                Console.WriteLine($"🧹 LOAD_FAST_AND_CLEAR: {clearVarName} not found in fast locals or globals, loaded NULL");
-                                #endif
-                            }
-                        }
+                        var clearValue = frame.LocalsPlus[clearArgIndex];
+                        frame.ValueStack.Push(clearValue);  // Push even if PyNull
+                        // Clear the variable (set to PyNull)
+                        frame.LocalsPlus[clearArgIndex] = PyNull.Instance;
                     }
                     else
                     {
-                        #if DEBUG_VM_LOG
-                        Console.WriteLine($"    ❌ ERROR: Argument index out of range!");
-                        #endif
                         throw PyRuntimeError.Create($"LOAD_FAST_AND_CLEAR: index {clearArgIndex} out of range");
                     }
                     break;
 
                 case ByteCodeOp.LOAD_FAST_CHECK:
-                    // CPython 3.12: LOAD_FAST_CHECK - Load fast local with NULL check
+                    // CPython 3.12: LOAD_FAST_CHECK - Load fast local with NULL check (same as LOAD_FAST)
                     var checkIndex = instruction.Argument;
-                    if (checkIndex < frame.Code.VarNames.Count)
+                    if (checkIndex < frame.LocalsPlus.Length)
                     {
-                        var checkVarName = frame.Code.VarNames[checkIndex];
-                        if (frame.FastLocals.TryGetValue(checkVarName, out var checkValue) && checkValue != null)
+                        var checkValue = frame.LocalsPlus[checkIndex];
+                        if (PyNull.IsNull(checkValue))
                         {
-                            frame.ValueStack.Push(checkValue);
-                        }
-                        else
-                        {
-                            // More specific error than LOAD_FAST
+                            var checkVarName = frame.Code.VarNames[checkIndex];
                             throw PyNameError.Create($"local variable '{checkVarName}' referenced before assignment");
                         }
+                        frame.ValueStack.Push(checkValue);
                     }
                     else
                     {
@@ -1256,16 +1207,12 @@ namespace SharpPy
                 // CPython 3.12: STORE_FAST_STORE_FAST super-instruction removed
 
                 case ByteCodeOp.STORE_FAST:
-                    // CPython 3.12 style: Direct array access for fast locals
-                    // STORE_FAST는 frame의 fast locals에만 저장하고, 전역 스코프에는 저장하지 않음
+                    // CPython 3.12: Direct array access for fast locals
                     var storeIndex = instruction.Argument;
-                    if (storeIndex < frame.Code.VarNames.Count)
+                    if (storeIndex < frame.LocalsPlus.Length)
                     {
-                        var varName = frame.Code.VarNames[storeIndex];
                         var storeVal = frame.ValueStack.Pop();
-                        frame.FastLocals[varName] = storeVal;
-                        // CPython 3.12: STORE_FAST는 FastLocals에만 저장 (ScopeChain에 저장하지 않음)
-                        // frame.ScopeChain.AssignVariable(varName, storeVal); // ❌ 제거: 전역 스코프 오염 방지
+                        frame.LocalsPlus[storeIndex] = storeVal;
                     }
                     else
                     {
@@ -1274,17 +1221,12 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.DELETE_FAST:
-                    // CPython 3.12: Delete fast local variable - NULL 상태로 설정
+                    // CPython 3.12: Delete fast local variable - set to PyNull
                     var deleteFastIndex = instruction.Argument;
-                    if (deleteFastIndex < frame.Code.VarNames.Count)
+                    if (deleteFastIndex < frame.LocalsPlus.Length)
                     {
-                        var deleteFastName = frame.Code.VarNames[deleteFastIndex];
-                        // CPython 3.12 호환: 변수를 제거하는 대신 PyNull로 설정
-                        // 이렇게 하면 LOAD_FAST에서 PyNull을 반환할 수 있음
-                        frame.FastLocals[deleteFastName] = PyNull.Instance;
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔧 DELETE_FAST: set variable '{deleteFastName}' to NULL");
-                        #endif
+                        // Set to PyNull to mark as deleted/uninitialized
+                        frame.LocalsPlus[deleteFastIndex] = PyNull.Instance;
                     }
                     else
                     {
@@ -1546,31 +1488,31 @@ namespace SharpPy
                 case ByteCodeOp.BINARY_ADD_INT:
                     var rightInt = ((PyInt)frame.ValueStack.Pop()).Value;
                     var leftInt = ((PyInt)frame.ValueStack.Pop()).Value;
-                    frame.ValueStack.Push(new PyInt(leftInt + rightInt));
+                    frame.ValueStack.Push(SmallIntCache.GetOrCreate(leftInt + rightInt));
                     break;
 
                 case ByteCodeOp.BINARY_ADD_FLOAT:
                     var rightFloat = ((PyFloat)frame.ValueStack.Pop()).Value;
                     var leftFloat = ((PyFloat)frame.ValueStack.Pop()).Value;
-                    frame.ValueStack.Push(new PyFloat(leftFloat + rightFloat));
+                    frame.ValueStack.Push(FloatCache.GetOrCreate(leftFloat + rightFloat));
                     break;
 
                 case ByteCodeOp.BINARY_ADD_UNICODE:
                     var rightStr = ((PyString)frame.ValueStack.Pop()).Value;
                     var leftStr = ((PyString)frame.ValueStack.Pop()).Value;
-                    frame.ValueStack.Push(new PyString(leftStr + rightStr));
+                    frame.ValueStack.Push(StringCache.GetOrCreate(leftStr + rightStr));
                     break;
 
                 case ByteCodeOp.BINARY_MULTIPLY_INT:
                     var rightMulInt = ((PyInt)frame.ValueStack.Pop()).Value;
                     var leftMulInt = ((PyInt)frame.ValueStack.Pop()).Value;
-                    frame.ValueStack.Push(new PyInt(leftMulInt * rightMulInt));
+                    frame.ValueStack.Push(SmallIntCache.GetOrCreate(leftMulInt * rightMulInt));
                     break;
 
                 case ByteCodeOp.BINARY_MULTIPLY_FLOAT:
                     var rightMulFloat = ((PyFloat)frame.ValueStack.Pop()).Value;
                     var leftMulFloat = ((PyFloat)frame.ValueStack.Pop()).Value;
-                    frame.ValueStack.Push(new PyFloat(leftMulFloat * rightMulFloat));
+                    frame.ValueStack.Push(FloatCache.GetOrCreate(leftMulFloat * rightMulFloat));
                     break;
 
                 // ===============================================
@@ -5098,25 +5040,35 @@ namespace SharpPy
                     #if DEBUG_LOG
                     Console.WriteLine($"   FreeVars: [{string.Join(", ", frame.Code.FreeVars)}] (offset: {frame.Code.FreeVars.Count})");
                     #endif
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   FastLocals contains '{cellVarName}': {frame.FastLocals.ContainsKey(cellVarName)}");
-                    #endif
-
                     // CPython 3.12: Create cell variable (initially None for type parameters)
                     PyObject? cellValue = null;
-                    if (frame.FastLocals.TryGetValue(cellVarName, out var localValue))
+                    // Find the variable in LocalsPlus by name
+                    int localIndex = frame.Code.VarNames.IndexOf(cellVarName);
+                    if (localIndex >= 0 && localIndex < frame.LocalsPlus.Length)
                     {
-                        cellValue = localValue;
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   Found value for '{cellVarName}': {cellValue}");
-                        #endif
+                        var localValue = frame.LocalsPlus[localIndex];
+                        if (!PyNull.IsNull(localValue))
+                        {
+                            cellValue = localValue;
+                            #if DEBUG_LOG
+                            Console.WriteLine($"   Found value for '{cellVarName}': {cellValue}");
+                            #endif
+                        }
+                        else
+                        {
+                            // Variable is PyNull (uninitialized), use None for cell
+                            cellValue = PyNone.Instance;
+                            #if DEBUG_LOG
+                            Console.WriteLine($"   Initializing '{cellVarName}' cell with None (uninitialized local)");
+                            #endif
+                        }
                     }
                     else
                     {
                         // For Generic Parameters function, cells start as None
                         cellValue = PyNone.Instance;
                         #if DEBUG_LOG
-                        Console.WriteLine($"   Initializing '{cellVarName}' cell with None (Generic Parameters standard)");
+                        Console.WriteLine($"   Initializing '{cellVarName}' cell with None (not in locals)");
                         #endif
                     }
 
@@ -6805,7 +6757,7 @@ namespace SharpPy
                 if (posArgIndex < positionalArgs.Length)
                 {
                     // Bind positional argument
-                    frame.FastLocals[paramName] = positionalArgs[posArgIndex];
+                    frame.LocalsPlus[paramIndex] = positionalArgs[posArgIndex];
                     frame.ScopeChain.AssignVariable(paramName, positionalArgs[posArgIndex]);
                     posArgIndex++;
 
@@ -6817,7 +6769,7 @@ namespace SharpPy
                 {
                     // Bind keyword argument to parameter
                     var keywordValue = keywordArgs[paramName];
-                    frame.FastLocals[paramName] = keywordValue;
+                    frame.LocalsPlus[paramIndex] = keywordValue;
                     frame.ScopeChain.AssignVariable(paramName, keywordValue);
                     keywordArgs.Remove(paramName); // Remove so it doesn't go into **kwargs
 
@@ -6832,7 +6784,7 @@ namespace SharpPy
                     if (paramIndex >= numRequiredParams && paramIndex - numRequiredParams < code.DefaultValues.Count)
                     {
                         var defaultValue = code.DefaultValues[paramIndex - numRequiredParams];
-                        frame.FastLocals[paramName] = defaultValue;
+                        frame.LocalsPlus[paramIndex] = defaultValue;
                         frame.ScopeChain.AssignVariable(paramName, defaultValue);
 
 #if DEBUG_LOG
@@ -6849,7 +6801,8 @@ namespace SharpPy
             // Phase 2: Handle *args parameter
             if (hasVarArgs)
             {
-                string argsParamName = code.ArgCount < code.VarNames.Count ? code.VarNames[code.ArgCount] : "args";
+                int argsParamIndex = code.ArgCount;
+                string argsParamName = code.ArgCount < code.VarNames.Count ? code.VarNames[argsParamIndex] : "args";
                 var remainingPositionalArgs = new List<PyObject>();
 
                 // Collect remaining positional arguments
@@ -6859,7 +6812,7 @@ namespace SharpPy
                 }
 
                 var argsTuple = new PyTuple(remainingPositionalArgs.ToArray());
-                frame.FastLocals[argsParamName] = argsTuple;
+                frame.LocalsPlus[argsParamIndex] = argsTuple;
                 frame.ScopeChain.AssignVariable(argsParamName, argsTuple);
 
 #if DEBUG_LOG
@@ -6889,7 +6842,7 @@ namespace SharpPy
                     kwargsDict.SetItem(new PyString(kvp.Key), kvp.Value);
                 }
 
-                frame.FastLocals[kwargsParamName] = kwargsDict;
+                frame.LocalsPlus[kwargsIndex] = kwargsDict;
                 frame.ScopeChain.AssignVariable(kwargsParamName, kwargsDict);
 
 #if DEBUG_LOG

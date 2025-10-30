@@ -2720,14 +2720,15 @@ namespace SharpPy
                                 // CPython uses LOAD_FAST 0 - always the first parameter, regardless of name
                                 // (could be 'self', 'cls', 'metacls', or any other name)
                                 PyObject instance = null;
-                                if (currentFrame.Code.VarNames.Count > 0)
+                                if (currentFrame.LocalsPlus.Length > 0)
                                 {
-                                    var firstParam = currentFrame.Code.VarNames[0];
-                                    // CPython bytecode: LOAD_FAST 0 - get first parameter by index, not by name
-                                    if (currentFrame.FastLocals.TryGetValue(firstParam, out var firstValue))
+                                    // CPython bytecode: LOAD_FAST 0 - get first parameter by index
+                                    var firstValue = currentFrame.LocalsPlus[0];
+                                    if (!PyNull.IsNull(firstValue))
                                     {
                                         instance = firstValue;
                                         #if DEBUG_LOG
+                                        var firstParam = currentFrame.Code.VarNames[0];
                                         Console.WriteLine($"🔍 Found first parameter '{firstParam}': {instance}");
                                         #endif
                                     }
