@@ -2243,7 +2243,7 @@ namespace SharpPy
                             else if (attr is PyFunction || attr is PyBuiltinFunction)
                             {
                                 // CPython 3.12: staticmethod or class/instance method
-                                bool isClassAccess = (obj is PyClass) || (obj is PyType);
+                                bool isClassAccess = (obj is PyClass) || (obj is PyType) || (obj is PyModule);
 
                                 // CPython: Check if attribute is from instance __dict__ (not a method!)
                                 // Instance attributes that are functions are NOT bound as methods
