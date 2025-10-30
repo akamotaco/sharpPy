@@ -430,10 +430,21 @@ public class ParserGenerator
             ruleName == "bitwise_and" || ruleName == "shift_expr" ||
             ruleName == "sum" || ruleName == "term" ||
             ruleName == "factor" || ruleName == "power" ||
-            ruleName == "primary" || ruleName == "atom";
+            ruleName == "primary" || ruleName == "atom" ||
+            // Additional rules for traceback.py debugging
+            ruleName == "class_def" || ruleName == "class_def_raw" ||
+            ruleName == "function_def" || ruleName == "function_def_raw" ||
+            ruleName == "decorators" || ruleName == "decorated" ||
+            ruleName == "parameters" || ruleName == "param" ||
+            ruleName == "type_params" || ruleName == "type_param";
 
         // Generate variable declarations
         WriteLine("CaptureStart();");
+
+        // Add debug logging for position/token tracking
+        WriteLine("#if DEBUG_PARSE_LOG");
+        WriteLine($"Console.WriteLine($\"[{ruleName.ToUpper()}] Alt start at pos={{_position}}, token={{(_position < _tokens.Count ? $\"{{_tokens[_position].Type}}('{{_tokens[_position].Value}}') @ {{_tokens[_position].Line}}:{{_tokens[_position].Column}}\" : \"EOF\")}}\");");
+        WriteLine("#endif");
         WriteLine();
 
         foreach (var item in namedItems)

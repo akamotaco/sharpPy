@@ -1927,7 +1927,7 @@ namespace SharpPy
         /// CPython 3.12: compiler_default_arguments
         /// Compiles default argument values and returns function flags
         /// </summary>
-        private int CompilerDefaultArguments(List<Expression> defaultExprs, List<Expression> kwDefaultExprs)
+        private int CompilerDefaultArguments(List<Expression> defaultExprs, List<Expression> kwDefaultExprs, List<string> kwOnlyArgNames)
         {
             int funcflags = 0;
 
@@ -1945,8 +1945,40 @@ namespace SharpPy
                 #endif
             }
 
-            // Keyword-only defaults (not implemented yet in SharpPy, but prepared for future)
-            // CPython: if kwonlyargs has defaults, create dict and set flag 0x02
+            // CPython 3.12: Keyword-only defaults
+            // compiler_visit_kwonlydefaults in Python/compile.c:1878-1933
+            if (kwDefaultExprs.Count > 0 && kwOnlyArgNames.Count > 0)
+            {
+                var keys = new List<string>();
+
+                // Build dict of keyword-only defaults
+                for (int i = 0; i < kwOnlyArgNames.Count; i++)
+                {
+                    if (i < kwDefaultExprs.Count && kwDefaultExprs[i] != null)
+                    {
+                        // Add parameter name to keys
+                        keys.Add(kwOnlyArgNames[i]);
+
+                        // Compile default value expression
+                        CompileExpression(kwDefaultExprs[i]);
+                    }
+                }
+
+                if (keys.Count > 0)
+                {
+                    // Load keys tuple as constant
+                    var keysTuple = new PyTuple(keys.Select(k => (PyObject)new PyString(k)).ToArray());
+                    EmitLoadConst(keysTuple);
+
+                    // BUILD_CONST_KEY_MAP with number of items
+                    EmitInstruction(ByteCodeOp.BUILD_CONST_KEY_MAP, keys.Count);
+                    funcflags |= MakeFunctionFlags.KWDEFAULTS;
+
+                    #if DEBUG_COMPILER_LOG
+                    Console.WriteLine($"  → Built kwdefaults dict: {keys.Count} kwdefaults, keys=[{string.Join(", ", keys)}]");
+                    #endif
+                }
+            }
 
             return funcflags;
         }
@@ -3834,7 +3866,9 @@ namespace SharpPy
             CompilerDecorators(func.Decorators);
 
             // Step 2: Compile default arguments and get funcflags
-            int makeFunctionFlags = CompilerDefaultArguments(defaultExprs, kwDefaultExprs);
+            // Extract kwonly argument names for BUILD_CONST_KEY_MAP
+            var kwOnlyArgNames = func.Arguments.KwOnlyArgs.Select(arg => arg.Name).ToList();
+            int makeFunctionFlags = CompilerDefaultArguments(defaultExprs, kwDefaultExprs, kwOnlyArgNames);
 
             // Step 3: Compile annotations and update funcflags
             if (CompilerVisitAnnotations(annotations) > 0)

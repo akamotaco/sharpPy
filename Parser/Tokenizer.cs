@@ -1394,16 +1394,17 @@ namespace SharpPy.Generated
                 }
                 else if (c == '\"' || c == '\'')
                 {
-                    // Check if this quote is the f-string closing quote
-                    // If so, it's a syntax error (expression not closed)
-                    if (c == _fstringQuoteChar && IsAtFStringEnd())
-                    {
-                        throw new InvalidOperationException($"F-string expression: unterminated expression at line {_line}, column {_column}");
-                    }
-
-                    // PEP 701: Nested f-strings are handled naturally
-                    // HandleName() detects 'f' prefix and calls HandleString()
-                    // which then calls HandleFString(), creating proper nesting
+                    // PEP 701: In f-string expressions, strings are parsed normally
+                    // The key insight: we should NOT check for f-string end quote here
+                    // because we might be inside a function call like: f'{func("arg")}'
+                    //
+                    // CPython 3.12 behavior: HandleString() will consume the entire string,
+                    // including nested quotes. Only after the string is fully parsed do we
+                    // check if we're at the f-string end.
+                    //
+                    // The f-string end check happens at:
+                    // 1. Line 1345: when we see '}' and _fstringBraceDepth drops to 0
+                    // 2. HandleFStringContent: when we're OUTSIDE expression braces
                     HandleString();
                 }
                 else if (HandleLiteral())

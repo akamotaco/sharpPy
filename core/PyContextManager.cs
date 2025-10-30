@@ -165,25 +165,65 @@ namespace SharpPy
             }
         }
 
+        public PyObject ReadLines()
+        {
+            if (_closed || _reader == null)
+                throw PyValueError.Create("I/O operation on closed file.");
+
+            try
+            {
+                var lines = new List<PyObject>();
+                string? line;
+                while ((line = _reader.ReadLine()) != null)
+                {
+                    lines.Add(new PyString(line + "\n"));
+                }
+                return new PyList(lines.ToArray());
+            }
+            catch (Exception ex)
+            {
+                throw PyOSError.Create($"Error reading file: {ex.Message}");
+            }
+        }
+
         public override PyObject GetAttribute(string name)
         {
-            return name switch
+            switch (name)
             {
-                "read" => new PyBuiltinFunction("read", args => Read()),
-                "write" => new PyBuiltinFunction("write", args =>
-                {
-                    if (args.Length != 1)
-                        throw PyTypeError.Create("write() takes exactly 1 argument");
-                    return Write(args[0]);
-                }),
-                "close" => new PyBuiltinFunction("close", args =>
-                {
-                    Close();
-                    return PyNone.Instance;
-                }),
-                "closed" => PyBool.FromBool(_closed),
-                _ => base.GetAttribute(name)
-            };
+                case "read":
+                    {
+                        var method = new PyMethodDescriptor("read", PyType.ObjectType, (self, args, kwargs) => Read());
+                        return new PyBoundMethodDescriptor(this, method);
+                    }
+                case "readlines":
+                    {
+                        var method = new PyMethodDescriptor("readlines", PyType.ObjectType, (self, args, kwargs) => ReadLines());
+                        return new PyBoundMethodDescriptor(this, method);
+                    }
+                case "write":
+                    {
+                        var method = new PyMethodDescriptor("write", PyType.ObjectType, (self, args, kwargs) =>
+                        {
+                            if (args.Length != 1)
+                                throw PyTypeError.Create("write() takes exactly 1 argument");
+                            return Write(args[0]);
+                        });
+                        return new PyBoundMethodDescriptor(this, method);
+                    }
+                case "close":
+                    {
+                        var method = new PyMethodDescriptor("close", PyType.ObjectType, (self, args, kwargs) =>
+                        {
+                            Close();
+                            return PyNone.Instance;
+                        });
+                        return new PyBoundMethodDescriptor(this, method);
+                    }
+                case "closed":
+                    return PyBool.FromBool(_closed);
+                default:
+                    return base.GetAttribute(name);
+            }
         }
     }
 

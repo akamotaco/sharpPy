@@ -115,6 +115,10 @@ namespace SharpPy
         public static readonly PyType OSErrorType = new PyType("OSError", new[] { ExceptionType });
         public static readonly PyType FileNotFoundErrorType = new PyType("FileNotFoundError", new[] { OSErrorType });
         public static readonly PyType EOFErrorType = new PyType("EOFError", new[] { ExceptionType });
+        public static readonly PyType MemoryErrorType = new PyType("MemoryError", new[] { ExceptionType });
+        public static readonly PyType UnicodeErrorType = new PyType("UnicodeError", new[] { ValueErrorType });
+        public static readonly PyType UnicodeDecodeErrorType = new PyType("UnicodeDecodeError", new[] { UnicodeErrorType });
+        public static readonly PyType UnicodeEncodeErrorType = new PyType("UnicodeEncodeError", new[] { UnicodeErrorType });
         public static readonly PyType BufferErrorType = new PyType("BufferError", new[] { ExceptionType });
 
         // Exception Groups (PEP 654)

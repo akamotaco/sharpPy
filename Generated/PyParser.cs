@@ -75,6 +75,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FILE] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmtSeq? a = null;
 
@@ -111,6 +114,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INTERACTIVE] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmtSeq? a = null;
 
@@ -141,6 +147,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[EVAL] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -175,6 +184,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNC_TYPE] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExprSeq? a = null;
                 GeneratedExpr? b = null;
@@ -214,6 +226,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STATEMENTS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? a = null;
 
@@ -247,6 +262,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STATEMENT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? a = null;
 
@@ -261,6 +279,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STATEMENT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmtSeq? a = null;
 
@@ -291,6 +312,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STATEMENT_NEWLINE] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? a = null;
 
@@ -308,6 +332,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STATEMENT_NEWLINE] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmtSeq? _alt_var = null;
 
@@ -322,6 +349,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STATEMENT_NEWLINE] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -336,6 +366,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STATEMENT_NEWLINE] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -366,6 +399,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SIMPLE_STMTS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? a = null;
 
@@ -387,6 +423,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SIMPLE_STMTS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? a = null;
 
@@ -434,6 +473,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SIMPLE_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _alt_var = null;
 
@@ -448,6 +490,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SIMPLE_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _item1 = null;
 
@@ -465,6 +510,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SIMPLE_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? e = null;
 
@@ -482,6 +530,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SIMPLE_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _item1 = null;
 
@@ -499,6 +550,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SIMPLE_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _item1 = null;
 
@@ -516,6 +570,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SIMPLE_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _item1 = null;
 
@@ -533,6 +590,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SIMPLE_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -547,6 +607,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SIMPLE_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _item1 = null;
 
@@ -564,6 +627,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SIMPLE_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _item1 = null;
 
@@ -581,6 +647,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SIMPLE_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _item1 = null;
 
@@ -598,6 +667,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SIMPLE_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -612,6 +684,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SIMPLE_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -626,6 +701,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SIMPLE_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _item1 = null;
 
@@ -643,6 +721,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SIMPLE_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _item1 = null;
 
@@ -676,6 +757,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPOUND_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? a = null;
 
@@ -693,6 +777,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPOUND_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? a = null;
 
@@ -710,6 +797,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPOUND_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? a = null;
 
@@ -727,6 +817,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPOUND_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? a = null;
 
@@ -744,6 +837,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPOUND_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? a = null;
 
@@ -761,6 +857,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPOUND_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? a = null;
 
@@ -778,6 +877,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPOUND_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? a = null;
 
@@ -795,6 +897,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPOUND_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? a = null;
 
@@ -825,6 +930,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ASSIGNMENT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? b = null;
@@ -846,6 +954,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ASSIGNMENT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? a = null;
                 GeneratedExpr? b = null;
@@ -867,6 +978,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ASSIGNMENT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExprSeq? a = null;
                 GeneratedPtr? b = null;
@@ -888,6 +1002,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ASSIGNMENT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedOperator? b = null;
@@ -908,6 +1025,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ASSIGNMENT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _alt_var = null;
 
@@ -938,6 +1058,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ANNOTATED_RHS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -952,6 +1075,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ANNOTATED_RHS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -982,6 +1108,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[AUGASSIGN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -996,6 +1125,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[AUGASSIGN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -1010,6 +1142,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[AUGASSIGN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -1024,6 +1159,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[AUGASSIGN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -1038,6 +1176,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[AUGASSIGN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -1052,6 +1193,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[AUGASSIGN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -1066,6 +1210,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[AUGASSIGN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -1080,6 +1227,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[AUGASSIGN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -1094,6 +1244,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[AUGASSIGN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -1108,6 +1261,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[AUGASSIGN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -1122,6 +1278,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[AUGASSIGN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -1136,6 +1295,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[AUGASSIGN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -1150,6 +1312,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[AUGASSIGN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -1180,6 +1345,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[RETURN_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -1213,6 +1381,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[RAISE_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedPtr? b = null;
@@ -1232,6 +1403,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[RAISE_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -1262,6 +1436,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GLOBAL_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExprSeq? a = null;
 
@@ -1295,6 +1472,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[NONLOCAL_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExprSeq? a = null;
 
@@ -1328,6 +1508,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DEL_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExprSeq? a = null;
 
@@ -1346,6 +1529,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DEL_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _alt_var = null;
 
@@ -1376,6 +1562,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[YIELD_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? y = null;
 
@@ -1406,6 +1595,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ASSERT_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedPtr? b = null;
@@ -1441,6 +1633,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[IMPORT_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _alt_var = null;
 
@@ -1455,6 +1650,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[IMPORT_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _alt_var = null;
 
@@ -1469,6 +1667,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[IMPORT_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _alt_var = null;
 
@@ -1499,6 +1700,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[IMPORT_NAME] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedAliasSeq? a = null;
 
@@ -1532,6 +1736,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[IMPORT_FROM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? a = null;
                 GeneratedExpr? b = null;
@@ -1554,6 +1761,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[IMPORT_FROM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? a = null;
                 GeneratedAliasSeq? b = null;
@@ -1590,6 +1800,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[IMPORT_FROM_TARGETS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedAliasSeq? a = null;
 
@@ -1609,6 +1822,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[IMPORT_FROM_TARGETS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedAliasSeq? _item0 = null;
 
@@ -1626,6 +1842,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[IMPORT_FROM_TARGETS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -1640,6 +1859,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[IMPORT_FROM_TARGETS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedAliasSeq? _alt_var = null;
 
@@ -1670,6 +1892,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[IMPORT_FROM_AS_NAMES] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedAliasSeq? a = null;
 
@@ -1700,6 +1925,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[IMPORT_FROM_AS_NAME] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedPtr? b = null;
@@ -1734,6 +1962,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DOTTED_AS_NAMES] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedAliasSeq? a = null;
 
@@ -1764,6 +1995,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DOTTED_AS_NAME] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedPtr? b = null;
@@ -1808,6 +2042,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DOTTED_NAME] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedTokenInfo? b = null;
@@ -1827,6 +2064,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DOTTED_NAME] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -1867,6 +2107,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[BLOCK] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmtSeq? a = null;
 
@@ -1886,6 +2129,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[BLOCK] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmtSeq? _alt_var = null;
 
@@ -1900,6 +2146,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[BLOCK] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmtSeq? _alt_var = null;
 
@@ -1930,9 +2179,15 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DECORATORS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExprSeq? a = null;
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DECORATORS] Calling a=Group+ at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
                 if ((a = ParseOneOrMore(() => Parse_Tmp19())?.Cast<GeneratedExprSeq>()) != null)
                 {
                     // Action code from grammar
@@ -1960,10 +2215,19 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLASS_DEF] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExprSeq? a = null;
                 GeneratedStmt? b = null;
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLASS_DEF] Calling a=Parse_Decorators() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLASS_DEF] Calling b=Parse_ClassDefRaw() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
                 if (
                     (a = Parse_Decorators()) != null &&
                     (b = Parse_ClassDefRaw()) != null
@@ -1978,6 +2242,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLASS_DEF] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _alt_var = null;
 
@@ -2008,6 +2275,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLASS_DEF_RAW] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _alt_var = null;
 
@@ -2022,12 +2292,27 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLASS_DEF_RAW] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedTypeParamSeq? t = null;
                 GeneratedPtr? b = null;
                 GeneratedStmtSeq? c = null;
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLASS_DEF_RAW] Calling a=ExpectToken(NAME) at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLASS_DEF_RAW] Calling t=[Parse_TypeParams()] at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLASS_DEF_RAW] Calling b=[Group] at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLASS_DEF_RAW] Calling c=Parse_Block() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
                 if (
                     ExpectToken((PyToken.Type)515) != null &&
                     (a = ExpectName()) != null &&
@@ -2062,10 +2347,19 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNCTION_DEF] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExprSeq? d = null;
                 GeneratedStmt? f = null;
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNCTION_DEF] Calling d=Parse_Decorators() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNCTION_DEF] Calling f=Parse_FunctionDefRaw() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
                 if (
                     (d = Parse_Decorators()) != null &&
                     (f = Parse_FunctionDefRaw()) != null
@@ -2080,6 +2374,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNCTION_DEF] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _alt_var = null;
 
@@ -2110,6 +2407,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNCTION_DEF_RAW] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _alt_var = null;
 
@@ -2124,6 +2424,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNCTION_DEF_RAW] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? n = null;
                 GeneratedTypeParamSeq? t = null;
@@ -2132,6 +2435,24 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? tc = null;
                 GeneratedStmtSeq? b = null;
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNCTION_DEF_RAW] Calling n=ExpectToken(NAME) at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNCTION_DEF_RAW] Calling t=[Parse_TypeParams()] at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNCTION_DEF_RAW] Calling params_=[Parse_Params()] at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNCTION_DEF_RAW] Calling a=[Group] at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNCTION_DEF_RAW] Calling tc=[Parse_FuncTypeComment()] at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNCTION_DEF_RAW] Calling b=Parse_Block() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
                 if (
                     ExpectToken((PyToken.Type)512) != null &&
                     (n = ExpectName()) != null &&
@@ -2154,6 +2475,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNCTION_DEF_RAW] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? n = null;
                 GeneratedTypeParamSeq? t = null;
@@ -2162,6 +2486,24 @@ namespace SharpPy.Generated
                 GeneratedTokenInfo? tc = null;
                 GeneratedStmtSeq? b = null;
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNCTION_DEF_RAW] Calling n=ExpectToken(NAME) at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNCTION_DEF_RAW] Calling t=[Parse_TypeParams()] at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNCTION_DEF_RAW] Calling params_=[Parse_Params()] at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNCTION_DEF_RAW] Calling a=[Group] at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNCTION_DEF_RAW] Calling tc=[Parse_FuncTypeComment()] at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNCTION_DEF_RAW] Calling b=Parse_Block() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
                 if (
                     ExpectToken(PyToken.Type.ASYNC) != null &&
                     ExpectToken((PyToken.Type)512) != null &&
@@ -2201,6 +2543,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAMS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? a = null;
 
@@ -2215,6 +2560,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAMS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArguments? a = null;
 
@@ -2245,12 +2593,27 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArgSeq? a = null;
                 GeneratedArgSeq? b = null;
                 GeneratedSeq? c = null;
                 GeneratedStarEtc? d = null;
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAMETERS] Calling a=Parse_SlashNoDefault() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAMETERS] Calling b=Parse_ParamNoDefault()* at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAMETERS] Calling c=Parse_ParamWithDefault()* at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAMETERS] Calling d=[Parse_StarEtc()] at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
                 if (
                     (a = Parse_SlashNoDefault()) != null &&
                     (b = ParseZeroOrMore(() => Parse_ParamNoDefault())?.Cast<GeneratedArgSeq>()) != null &&
@@ -2267,11 +2630,23 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSlashWithDefault? a = null;
                 GeneratedSeq? b = null;
                 GeneratedStarEtc? c = null;
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAMETERS] Calling a=Parse_SlashWithDefault() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAMETERS] Calling b=Parse_ParamWithDefault()* at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAMETERS] Calling c=[Parse_StarEtc()] at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
                 if (
                     (a = Parse_SlashWithDefault()) != null &&
                     (b = ParseZeroOrMore(() => Parse_ParamWithDefault())) != null &&
@@ -2287,11 +2662,23 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArgSeq? a = null;
                 GeneratedSeq? b = null;
                 GeneratedStarEtc? c = null;
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAMETERS] Calling a=Parse_ParamNoDefault()+ at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAMETERS] Calling b=Parse_ParamWithDefault()* at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAMETERS] Calling c=[Parse_StarEtc()] at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
                 if (
                     (a = ParseOneOrMore(() => Parse_ParamNoDefault())?.Cast<GeneratedArgSeq>()) != null &&
                     (b = ParseZeroOrMore(() => Parse_ParamWithDefault())) != null &&
@@ -2307,10 +2694,19 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? a = null;
                 GeneratedStarEtc? b = null;
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAMETERS] Calling a=Parse_ParamWithDefault()+ at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAMETERS] Calling b=[Parse_StarEtc()] at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
                 if (
                     (a = ParseOneOrMore(() => Parse_ParamWithDefault())) != null &&
                     ((b = (GeneratedStarEtc)ParseOptional(() => Parse_StarEtc())) == null || true)
@@ -2325,9 +2721,15 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStarEtc? a = null;
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAMETERS] Calling a=Parse_StarEtc() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
                 if ((a = Parse_StarEtc()) != null)
                 {
                     // Action code from grammar
@@ -2355,6 +2757,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SLASH_NO_DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArgSeq? a = null;
 
@@ -2373,6 +2778,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SLASH_NO_DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArgSeq? a = null;
 
@@ -2407,6 +2815,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SLASH_WITH_DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? a = null;
                 GeneratedSeq? b = null;
@@ -2427,6 +2838,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SLASH_WITH_DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? a = null;
                 GeneratedSeq? b = null;
@@ -2463,6 +2877,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_ETC] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStarEtc? _alt_var = null;
 
@@ -2477,6 +2894,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_ETC] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
                 GeneratedSeq? b = null;
@@ -2498,6 +2918,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_ETC] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
                 GeneratedSeq? b = null;
@@ -2519,6 +2942,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_ETC] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? b = null;
                 GeneratedArg? c = null;
@@ -2539,6 +2965,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_ETC] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
 
@@ -2569,6 +2998,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[KWDS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? _alt_var = null;
 
@@ -2583,6 +3015,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[KWDS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
 
@@ -2616,6 +3051,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAM_NO_DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
                 GeneratedTokenInfo? tc = null;
@@ -2635,6 +3073,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAM_NO_DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
                 GeneratedTokenInfo? tc = null;
@@ -2670,6 +3111,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAM_NO_DEFAULT_STAR_ANNOTATION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
                 GeneratedTokenInfo? tc = null;
@@ -2689,6 +3133,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAM_NO_DEFAULT_STAR_ANNOTATION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
                 GeneratedTokenInfo? tc = null;
@@ -2724,6 +3171,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAM_WITH_DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
                 GeneratedExpr? c = null;
@@ -2745,6 +3195,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAM_WITH_DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
                 GeneratedExpr? c = null;
@@ -2782,6 +3235,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAM_MAYBE_DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
                 GeneratedExpr? c = null;
@@ -2803,6 +3259,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAM_MAYBE_DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
                 GeneratedExpr? c = null;
@@ -2840,10 +3299,19 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? b = null;
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAM] Calling a=ExpectToken(NAME) at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAM] Calling b=[Parse_Annotation()] at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
                 if (
                     (a = ExpectName()) != null &&
                     ((b = (GeneratedExpr)ParseOptional(() => Parse_Annotation())) == null || true)
@@ -2874,6 +3342,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PARAM_STAR_ANNOTATION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? b = null;
@@ -2908,6 +3379,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ANNOTATION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -2941,6 +3415,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_ANNOTATION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -2974,6 +3451,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -2991,6 +3471,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -3021,6 +3504,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[IF_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _alt_var = null;
 
@@ -3035,6 +3521,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[IF_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedStmtSeq? b = null;
@@ -3057,6 +3546,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[IF_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedStmtSeq? b = null;
@@ -3095,6 +3587,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ELIF_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _alt_var = null;
 
@@ -3109,6 +3604,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ELIF_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedStmtSeq? b = null;
@@ -3131,6 +3629,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ELIF_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedStmtSeq? b = null;
@@ -3169,6 +3670,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ELSE_BLOCK] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmtSeq? _alt_var = null;
 
@@ -3183,6 +3687,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ELSE_BLOCK] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmtSeq? b = null;
 
@@ -3217,6 +3724,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[WHILE_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _alt_var = null;
 
@@ -3231,6 +3741,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[WHILE_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedStmtSeq? b = null;
@@ -3269,6 +3782,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FOR_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _alt_var = null;
 
@@ -3283,6 +3799,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FOR_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? t = null;
                 GeneratedExpr? ex = null;
@@ -3310,6 +3829,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FOR_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? t = null;
                 GeneratedExpr? ex = null;
@@ -3338,6 +3860,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FOR_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _alt_var = null;
 
@@ -3368,6 +3893,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[WITH_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _alt_var = null;
 
@@ -3382,6 +3910,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[WITH_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedWithitemSeq? a = null;
                 GeneratedStmtSeq? b = null;
@@ -3405,6 +3936,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[WITH_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedWithitemSeq? a = null;
                 GeneratedTokenInfo? tc = null;
@@ -3427,6 +3961,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[WITH_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedWithitemSeq? a = null;
                 GeneratedStmtSeq? b = null;
@@ -3451,6 +3988,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[WITH_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedWithitemSeq? a = null;
                 GeneratedTokenInfo? tc = null;
@@ -3474,6 +4014,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[WITH_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _alt_var = null;
 
@@ -3504,6 +4047,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[WITH_ITEM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? e = null;
                 GeneratedExpr? t = null;
@@ -3524,6 +4070,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[WITH_ITEM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedWithitem? _alt_var = null;
 
@@ -3538,6 +4087,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[WITH_ITEM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? e = null;
 
@@ -3568,6 +4120,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TRY_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _alt_var = null;
 
@@ -3582,6 +4137,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TRY_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmtSeq? b = null;
                 GeneratedStmtSeq? f = null;
@@ -3602,6 +4160,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TRY_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmtSeq? b = null;
                 GeneratedExcepthandlerSeq? ex = null;
@@ -3626,6 +4187,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TRY_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmtSeq? b = null;
                 GeneratedExcepthandlerSeq? ex = null;
@@ -3666,6 +4230,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[EXCEPT_BLOCK] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExcepthandler? _alt_var = null;
 
@@ -3680,6 +4247,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[EXCEPT_BLOCK] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? e = null;
                 GeneratedPtr? t = null;
@@ -3702,6 +4272,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[EXCEPT_BLOCK] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmtSeq? b = null;
 
@@ -3720,6 +4293,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[EXCEPT_BLOCK] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExcepthandler? _alt_var = null;
 
@@ -3750,6 +4326,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[EXCEPT_STAR_BLOCK] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExcepthandler? _alt_var = null;
 
@@ -3764,6 +4343,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[EXCEPT_STAR_BLOCK] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? e = null;
                 GeneratedPtr? t = null;
@@ -3787,6 +4369,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[EXCEPT_STAR_BLOCK] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExcepthandler? _alt_var = null;
 
@@ -3817,6 +4402,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FINALLY_BLOCK] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmtSeq? _alt_var = null;
 
@@ -3831,6 +4419,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FINALLY_BLOCK] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmtSeq? a = null;
 
@@ -3865,6 +4456,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[MATCH_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? subject = null;
                 GeneratedMatchCaseSeq? cases = null;
@@ -3888,6 +4482,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[MATCH_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStmt? _alt_var = null;
 
@@ -3918,6 +4515,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SUBJECT_EXPR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? value = null;
                 GeneratedExprSeq? values = null;
@@ -3937,6 +4537,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SUBJECT_EXPR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -3967,6 +4570,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CASE_BLOCK] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedMatchCase? _alt_var = null;
 
@@ -3981,6 +4587,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CASE_BLOCK] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPattern? pattern = null;
                 GeneratedExpr? guard = null;
@@ -4019,6 +4628,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GUARD] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? guard = null;
 
@@ -4052,6 +4664,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PATTERNS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPatternSeq? patterns = null;
 
@@ -4066,6 +4681,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PATTERNS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPattern? _alt_var = null;
 
@@ -4096,6 +4714,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPattern? _alt_var = null;
 
@@ -4110,6 +4731,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPattern? _alt_var = null;
 
@@ -4140,6 +4764,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[AS_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPattern? pattern = null;
                 GeneratedExpr? target = null;
@@ -4159,6 +4786,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[AS_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPattern? _alt_var = null;
 
@@ -4189,6 +4819,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[OR_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPatternSeq? patterns = null;
 
@@ -4229,6 +4862,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLOSED_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPattern? a = null;
 
@@ -4243,6 +4879,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLOSED_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPattern? a = null;
 
@@ -4257,6 +4896,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLOSED_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPattern? a = null;
 
@@ -4271,6 +4913,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLOSED_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPattern? a = null;
 
@@ -4285,6 +4930,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLOSED_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPattern? a = null;
 
@@ -4299,6 +4947,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLOSED_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPattern? a = null;
 
@@ -4313,6 +4964,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLOSED_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPattern? a = null;
 
@@ -4327,6 +4981,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLOSED_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPattern? a = null;
 
@@ -4357,6 +5014,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LITERAL_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? value = null;
 
@@ -4374,6 +5034,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LITERAL_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? value = null;
 
@@ -4388,6 +5051,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LITERAL_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? value = null;
 
@@ -4402,6 +5068,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LITERAL_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -4416,6 +5085,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LITERAL_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -4430,6 +5102,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LITERAL_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -4460,6 +5135,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LITERAL_EXPR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _item0 = null;
 
@@ -4477,6 +5155,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LITERAL_EXPR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -4491,6 +5172,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LITERAL_EXPR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -4505,6 +5189,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LITERAL_EXPR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -4519,6 +5206,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LITERAL_EXPR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -4533,6 +5223,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LITERAL_EXPR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -4563,6 +5256,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPLEX_NUMBER] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? real = null;
                 GeneratedExpr? imag = null;
@@ -4582,6 +5278,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPLEX_NUMBER] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? real = null;
                 GeneratedExpr? imag = null;
@@ -4617,6 +5316,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SIGNED_NUMBER] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? number = null;
 
@@ -4631,6 +5333,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SIGNED_NUMBER] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? number = null;
 
@@ -4664,6 +5369,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SIGNED_REAL_NUMBER] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -4678,6 +5386,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SIGNED_REAL_NUMBER] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? real = null;
 
@@ -4711,6 +5422,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[REAL_NUMBER] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? real = null;
 
@@ -4741,6 +5455,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[IMAGINARY_NUMBER] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? imag = null;
 
@@ -4771,6 +5488,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CAPTURE_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? target = null;
 
@@ -4801,6 +5521,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PATTERN_CAPTURE_TARGET] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? name = null;
 
@@ -4835,6 +5558,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[WILDCARD_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -4865,6 +5591,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[VALUE_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? attr = null;
 
@@ -4908,6 +5637,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ATTR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? value = null;
                 GeneratedTokenInfo? attr = null;
@@ -4953,6 +5685,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[NAME_OR_ATTR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -4967,6 +5702,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[NAME_OR_ATTR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -4997,6 +5735,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROUP_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPattern? pattern = null;
 
@@ -5031,6 +5772,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SEQUENCE_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? patterns = null;
 
@@ -5049,6 +5793,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SEQUENCE_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? patterns = null;
 
@@ -5083,6 +5830,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[OPEN_SEQUENCE_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPattern? pattern = null;
                 GeneratedSeq? patterns = null;
@@ -5118,6 +5868,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[MAYBE_SEQUENCE_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? patterns = null;
 
@@ -5151,6 +5904,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[MAYBE_STAR_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPattern? _alt_var = null;
 
@@ -5165,6 +5921,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[MAYBE_STAR_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPattern? _alt_var = null;
 
@@ -5205,6 +5964,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? target = null;
 
@@ -5222,6 +5984,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPattern? _item1 = null;
@@ -5256,6 +6021,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[MAPPING_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -5274,6 +6042,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[MAPPING_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? rest = null;
 
@@ -5293,6 +6064,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[MAPPING_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? items = null;
                 GeneratedExpr? rest = null;
@@ -5315,6 +6089,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[MAPPING_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? items = null;
 
@@ -5350,6 +6127,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ITEMS_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? _alt_var = null;
 
@@ -5380,6 +6160,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[KEY_VALUE_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? key = null;
                 GeneratedPattern? pattern = null;
@@ -5415,6 +6198,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DOUBLE_STAR_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? target = null;
 
@@ -5448,6 +6234,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLASS_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? cls = null;
 
@@ -5466,6 +6255,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLASS_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? cls = null;
                 GeneratedPatternSeq? patterns = null;
@@ -5487,6 +6279,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLASS_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? cls = null;
                 GeneratedSeq? keywords = null;
@@ -5508,6 +6303,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLASS_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? cls = null;
                 GeneratedPatternSeq? patterns = null;
@@ -5532,6 +6330,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CLASS_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPattern? _alt_var = null;
 
@@ -5562,6 +6363,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[POSITIONAL_PATTERNS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPatternSeq? args = null;
 
@@ -5592,6 +6396,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[KEYWORD_PATTERNS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? _alt_var = null;
 
@@ -5622,6 +6429,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[KEYWORD_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? arg = null;
                 GeneratedPattern? value = null;
@@ -5657,6 +6467,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_ALIAS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? n = null;
                 GeneratedTypeParamSeq? t = null;
@@ -5695,9 +6508,15 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_PARAMS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTypeParamSeq? t = null;
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_PARAMS] Calling t=Parse_TypeParamSeq() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
                 if (
                     ExpectOp("[") != null &&
                     (t = Parse_TypeParamSeq()) != null &&
@@ -5729,6 +6548,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_PARAM_SEQ] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTypeParamSeq? a = null;
 
@@ -5772,10 +6594,19 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_PARAM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? b = null;
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_PARAM] Calling a=ExpectToken(NAME) at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_PARAM] Calling b=[Parse_TypeParamBound()] at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
                 if (
                     (a = ExpectName()) != null &&
                     ((b = (GeneratedExpr)ParseOptional(() => Parse_TypeParamBound())) == null || true)
@@ -5790,11 +6621,23 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_PARAM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedTokenInfo? colon = null;
                 GeneratedExpr? e = null;
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_PARAM] Calling a=ExpectToken(NAME) at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_PARAM] Calling colon=Expect(':') at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_PARAM] Calling e=Parse_Expression() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
                 if (
                     ExpectOp("*") != null &&
                     (a = ExpectName()) != null &&
@@ -5811,9 +6654,15 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_PARAM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_PARAM] Calling a=ExpectToken(NAME) at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
                 if (
                     ExpectOp("*") != null &&
                     (a = ExpectName()) != null
@@ -5828,11 +6677,23 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_PARAM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedTokenInfo? colon = null;
                 GeneratedExpr? e = null;
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_PARAM] Calling a=ExpectToken(NAME) at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_PARAM] Calling colon=Expect(':') at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_PARAM] Calling e=Parse_Expression() at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
                 if (
                     ExpectOp("**") != null &&
                     (a = ExpectName()) != null &&
@@ -5849,9 +6710,15 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_PARAM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_PARAM] Calling a=ExpectToken(NAME) at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}')" : "EOF")}");
+                #endif
                 if (
                     ExpectOp("**") != null &&
                     (a = ExpectName()) != null
@@ -5882,6 +6749,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_PARAM_BOUND] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? e = null;
 
@@ -5915,6 +6785,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[EXPRESSIONS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedSeq? b = null;
@@ -5934,6 +6807,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[EXPRESSIONS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -5951,6 +6827,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[EXPRESSIONS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -5991,6 +6870,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -6005,6 +6887,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -6019,6 +6904,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -6050,6 +6938,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -6064,6 +6955,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -6094,6 +6988,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[YIELD_EXPR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -6112,6 +7009,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[YIELD_EXPR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -6145,6 +7045,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_EXPRESSIONS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedSeq? b = null;
@@ -6170,6 +7073,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_EXPRESSIONS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -6190,6 +7096,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_EXPRESSIONS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -6230,6 +7139,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -6250,6 +7162,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -6280,6 +7195,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_NAMED_EXPRESSIONS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExprSeq? a = null;
 
@@ -6313,6 +7231,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_NAMED_EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -6330,6 +7251,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_NAMED_EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -6360,6 +7284,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ASSIGNMENT_EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? b = null;
@@ -6395,6 +7322,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[NAMED_EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -6409,6 +7339,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[NAMED_EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -6423,6 +7356,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[NAMED_EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _item0 = null;
 
@@ -6466,6 +7402,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DISJUNCTION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedSeq? b = null;
@@ -6490,6 +7429,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DISJUNCTION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -6530,6 +7472,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CONJUNCTION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedSeq? b = null;
@@ -6554,6 +7499,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[CONJUNCTION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -6594,6 +7542,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVERSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -6611,6 +7562,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVERSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -6641,6 +7595,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPARISON] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedSeq? b = null;
@@ -6659,6 +7616,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPARISON] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -6689,6 +7649,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPARE_OP_BITWISE_OR_PAIR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedCmpopExprPair? _alt_var = null;
 
@@ -6703,6 +7666,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPARE_OP_BITWISE_OR_PAIR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedCmpopExprPair? _alt_var = null;
 
@@ -6717,6 +7683,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPARE_OP_BITWISE_OR_PAIR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedCmpopExprPair? _alt_var = null;
 
@@ -6731,6 +7700,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPARE_OP_BITWISE_OR_PAIR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedCmpopExprPair? _alt_var = null;
 
@@ -6745,6 +7717,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPARE_OP_BITWISE_OR_PAIR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedCmpopExprPair? _alt_var = null;
 
@@ -6759,6 +7734,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPARE_OP_BITWISE_OR_PAIR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedCmpopExprPair? _alt_var = null;
 
@@ -6773,6 +7751,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPARE_OP_BITWISE_OR_PAIR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedCmpopExprPair? _alt_var = null;
 
@@ -6787,6 +7768,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPARE_OP_BITWISE_OR_PAIR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedCmpopExprPair? _alt_var = null;
 
@@ -6801,6 +7785,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPARE_OP_BITWISE_OR_PAIR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedCmpopExprPair? _alt_var = null;
 
@@ -6815,6 +7802,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[COMPARE_OP_BITWISE_OR_PAIR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedCmpopExprPair? _alt_var = null;
 
@@ -6845,6 +7835,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[EQ_BITWISE_OR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -6878,6 +7871,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[NOTEQ_BITWISE_OR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -6911,6 +7907,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LTE_BITWISE_OR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -6944,6 +7943,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LT_BITWISE_OR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -6977,6 +7979,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GTE_BITWISE_OR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -7010,6 +8015,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GT_BITWISE_OR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -7043,6 +8051,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[NOTIN_BITWISE_OR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -7077,6 +8088,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[IN_BITWISE_OR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -7110,6 +8124,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ISNOT_BITWISE_OR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -7144,6 +8161,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[IS_BITWISE_OR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -7187,6 +8207,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[BITWISE_OR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -7212,6 +8235,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[BITWISE_OR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -7252,6 +8278,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[BITWISE_XOR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -7277,6 +8306,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[BITWISE_XOR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -7317,6 +8349,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[BITWISE_AND] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -7342,6 +8377,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[BITWISE_AND] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -7382,6 +8420,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SHIFT_EXPR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -7407,6 +8448,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SHIFT_EXPR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -7432,6 +8476,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SHIFT_EXPR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -7472,6 +8519,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SUM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -7497,6 +8547,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SUM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -7522,6 +8575,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SUM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -7562,6 +8618,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TERM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -7587,6 +8646,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TERM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -7612,6 +8674,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TERM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -7637,6 +8702,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TERM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -7662,6 +8730,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TERM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -7687,6 +8758,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TERM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -7727,6 +8801,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FACTOR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -7747,6 +8824,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FACTOR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -7767,6 +8847,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FACTOR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -7787,6 +8870,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FACTOR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -7817,6 +8903,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[POWER] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -7842,6 +8931,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[POWER] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -7882,6 +8974,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[AWAIT_PRIMARY] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -7899,6 +8994,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[AWAIT_PRIMARY] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -7939,6 +9037,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PRIMARY] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedTokenInfo? b = null;
@@ -7964,6 +9065,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PRIMARY] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -7988,6 +9092,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PRIMARY] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -8014,6 +9121,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PRIMARY] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -8040,6 +9150,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[PRIMARY] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -8070,6 +9183,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SLICES] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -8087,6 +9203,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SLICES] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExprSeq? a = null;
 
@@ -8120,6 +9239,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SLICE] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -8141,6 +9263,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SLICE] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -8171,6 +9296,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ATOM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? name = null;
 
@@ -8188,6 +9316,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ATOM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -8202,6 +9333,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ATOM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -8216,6 +9350,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ATOM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -8230,6 +9367,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ATOM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _item1 = null;
 
@@ -8247,6 +9387,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ATOM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? number = null;
 
@@ -8264,6 +9407,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ATOM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _item1 = null;
 
@@ -8281,6 +9427,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ATOM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _item1 = null;
 
@@ -8298,6 +9447,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ATOM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _item1 = null;
 
@@ -8315,6 +9467,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ATOM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -8345,6 +9500,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROUP] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? a = null;
 
@@ -8363,6 +9521,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GROUP] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -8393,6 +9554,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDEF] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArguments? a = null;
                 GeneratedExpr? b = null;
@@ -8429,6 +9593,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_PARAMS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? a = null;
 
@@ -8443,6 +9610,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_PARAMS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArguments? a = null;
 
@@ -8473,6 +9643,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArgSeq? a = null;
                 GeneratedArgSeq? b = null;
@@ -8495,6 +9668,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSlashWithDefault? a = null;
                 GeneratedSeq? b = null;
@@ -8515,6 +9691,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArgSeq? a = null;
                 GeneratedSeq? b = null;
@@ -8535,6 +9714,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? a = null;
                 GeneratedStarEtc? b = null;
@@ -8553,6 +9735,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStarEtc? a = null;
 
@@ -8583,6 +9768,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_SLASH_NO_DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArgSeq? a = null;
 
@@ -8601,6 +9789,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_SLASH_NO_DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArgSeq? a = null;
 
@@ -8635,6 +9826,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_SLASH_WITH_DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? a = null;
                 GeneratedSeq? b = null;
@@ -8655,6 +9849,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_SLASH_WITH_DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? a = null;
                 GeneratedSeq? b = null;
@@ -8691,6 +9888,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_STAR_ETC] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedStarEtc? _alt_var = null;
 
@@ -8705,6 +9905,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_STAR_ETC] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
                 GeneratedSeq? b = null;
@@ -8726,6 +9929,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_STAR_ETC] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? b = null;
                 GeneratedArg? c = null;
@@ -8746,6 +9952,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_STAR_ETC] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
 
@@ -8776,6 +9985,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_KWDS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? _alt_var = null;
 
@@ -8790,6 +10002,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_KWDS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
 
@@ -8823,6 +10038,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_PARAM_NO_DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
 
@@ -8840,6 +10058,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_PARAM_NO_DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
 
@@ -8873,6 +10094,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_PARAM_WITH_DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
                 GeneratedExpr? c = null;
@@ -8892,6 +10116,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_PARAM_WITH_DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
                 GeneratedExpr? c = null;
@@ -8927,6 +10154,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_PARAM_MAYBE_DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
                 GeneratedExpr? c = null;
@@ -8946,6 +10176,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_PARAM_MAYBE_DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
                 GeneratedExpr? c = null;
@@ -8981,6 +10214,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LAMBDA_PARAM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -9011,6 +10247,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FSTRING_MIDDLE] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -9025,6 +10264,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FSTRING_MIDDLE] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? t = null;
 
@@ -9055,6 +10297,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FSTRING_REPLACEMENT_FIELD] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? a = null;
                 GeneratedTokenInfo? debug_expr = null;
@@ -9080,6 +10325,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FSTRING_REPLACEMENT_FIELD] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -9110,6 +10358,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FSTRING_CONVERSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? conv_token = null;
                 GeneratedTokenInfo? conv = null;
@@ -9144,6 +10395,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FSTRING_FULL_FORMAT_SPEC] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? colon = null;
                 GeneratedSeq? spec = null;
@@ -9178,6 +10432,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FSTRING_FORMAT_SPEC] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? t = null;
 
@@ -9192,6 +10449,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FSTRING_FORMAT_SPEC] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -9222,6 +10482,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FSTRING] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedSeq? b = null;
@@ -9258,6 +10521,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STRING] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? s = null;
 
@@ -9298,6 +10564,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STRINGS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExprSeq? a = null;
 
@@ -9328,6 +10597,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LIST] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExprSeq? a = null;
 
@@ -9362,6 +10634,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TUPLE] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? a = null;
 
@@ -9396,6 +10671,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SET] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExprSeq? a = null;
 
@@ -9430,6 +10708,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DICT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? a = null;
 
@@ -9448,6 +10729,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DICT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedExpr? _item1 = null;
@@ -9484,6 +10768,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DOUBLE_STARRED_KVPAIRS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? a = null;
 
@@ -9517,6 +10804,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DOUBLE_STARRED_KVPAIR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -9534,6 +10824,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DOUBLE_STARRED_KVPAIR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedKeyValuePair? _alt_var = null;
 
@@ -9564,6 +10857,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[KVPAIR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -9599,6 +10895,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FOR_IF_CLAUSES] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedComprehensionSeq? a = null;
 
@@ -9629,6 +10928,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FOR_IF_CLAUSE] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -9652,6 +10954,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FOR_IF_CLAUSE] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -9674,6 +10979,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FOR_IF_CLAUSE] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedComprehension? _alt_var = null;
 
@@ -9704,6 +11012,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LISTCOMP] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedComprehensionSeq? b = null;
@@ -9724,6 +11035,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[LISTCOMP] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -9754,6 +11068,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SETCOMP] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedComprehensionSeq? b = null;
@@ -9774,6 +11091,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SETCOMP] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -9804,6 +11124,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GENEXP] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? a = null;
                 GeneratedComprehensionSeq? b = null;
@@ -9824,6 +11147,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[GENEXP] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -9854,6 +11180,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DICTCOMP] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedKeyValuePair? a = null;
                 GeneratedComprehensionSeq? b = null;
@@ -9874,6 +11203,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DICTCOMP] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -9914,6 +11246,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ARGUMENTS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -9932,6 +11267,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ARGUMENTS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -9962,6 +11300,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ARGS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExprSeq? a = null;
                 GeneratedPtr? b = null;
@@ -9980,6 +11321,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[ARGS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? a = null;
 
@@ -10010,6 +11354,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[KWARGS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? a = null;
                 GeneratedSeq? b = null;
@@ -10029,6 +11376,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[KWARGS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? _alt_var = null;
 
@@ -10043,6 +11393,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[KWARGS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? _alt_var = null;
 
@@ -10073,6 +11426,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STARRED_EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -10087,6 +11443,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STARRED_EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -10104,6 +11463,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STARRED_EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -10134,6 +11496,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[KWARG_OR_STARRED] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedKeywordOrStarred? _alt_var = null;
 
@@ -10148,6 +11513,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[KWARG_OR_STARRED] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? b = null;
@@ -10167,6 +11535,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[KWARG_OR_STARRED] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -10197,6 +11568,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[KWARG_OR_DOUBLE_STARRED] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedKeywordOrStarred? _alt_var = null;
 
@@ -10211,6 +11585,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[KWARG_OR_DOUBLE_STARRED] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? b = null;
@@ -10230,6 +11607,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[KWARG_OR_DOUBLE_STARRED] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -10263,6 +11643,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_TARGETS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -10280,6 +11663,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_TARGETS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedSeq? b = null;
@@ -10315,6 +11701,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_TARGETS_LIST_SEQ] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExprSeq? a = null;
 
@@ -10348,6 +11737,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_TARGETS_TUPLE_SEQ] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedSeq? b = null;
@@ -10367,6 +11759,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_TARGETS_TUPLE_SEQ] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -10410,6 +11805,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_TARGET] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? a = null;
 
@@ -10427,6 +11825,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_TARGET] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -10467,6 +11868,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TARGET_WITH_STAR_ATOM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedTokenInfo? b = null;
@@ -10487,6 +11891,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TARGET_WITH_STAR_ATOM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -10508,6 +11915,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TARGET_WITH_STAR_ATOM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -10538,6 +11948,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_ATOM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -10552,6 +11965,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_ATOM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -10570,6 +11986,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_ATOM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExprSeq? a = null;
 
@@ -10588,6 +12007,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[STAR_ATOM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExprSeq? a = null;
 
@@ -10622,6 +12044,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SINGLE_TARGET] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -10636,6 +12061,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SINGLE_TARGET] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -10650,6 +12078,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SINGLE_TARGET] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -10684,6 +12115,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SINGLE_SUBSCRIPT_ATTRIBUTE_TARGET] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedTokenInfo? b = null;
@@ -10704,6 +12138,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[SINGLE_SUBSCRIPT_ATTRIBUTE_TARGET] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -10751,6 +12188,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[T_PRIMARY] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedTokenInfo? b = null;
@@ -10771,6 +12211,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[T_PRIMARY] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -10792,6 +12235,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[T_PRIMARY] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -10811,6 +12257,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[T_PRIMARY] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -10832,6 +12281,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[T_PRIMARY] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -10864,6 +12316,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[T_LOOKAHEAD] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -10878,6 +12333,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[T_LOOKAHEAD] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -10892,6 +12350,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[T_LOOKAHEAD] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -10922,6 +12383,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DEL_TARGETS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExprSeq? a = null;
 
@@ -10965,6 +12429,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DEL_TARGET] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedTokenInfo? b = null;
@@ -10985,6 +12452,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DEL_TARGET] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -11006,6 +12476,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DEL_TARGET] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -11036,6 +12509,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DEL_T_ATOM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -11050,6 +12526,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DEL_T_ATOM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -11068,6 +12547,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DEL_T_ATOM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExprSeq? a = null;
 
@@ -11086,6 +12568,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[DEL_T_ATOM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExprSeq? a = null;
 
@@ -11120,6 +12605,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_EXPRESSIONS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? a = null;
                 GeneratedExpr? b = null;
@@ -11144,6 +12632,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_EXPRESSIONS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? a = null;
                 GeneratedExpr? b = null;
@@ -11164,6 +12655,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_EXPRESSIONS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? a = null;
                 GeneratedExpr? b = null;
@@ -11184,6 +12678,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_EXPRESSIONS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -11205,6 +12702,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_EXPRESSIONS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -11222,6 +12722,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_EXPRESSIONS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -11239,6 +12742,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[TYPE_EXPRESSIONS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExprSeq? a = null;
 
@@ -11269,6 +12775,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNC_TYPE_COMMENT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? t = null;
 
@@ -11287,6 +12796,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNC_TYPE_COMMENT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _alt_var = null;
 
@@ -11301,6 +12813,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[FUNC_TYPE_COMMENT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _alt_var = null;
 
@@ -11330,6 +12845,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_ARGUMENTS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -11348,6 +12866,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_ARGUMENTS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedComprehensionSeq? b = null;
@@ -11368,6 +12889,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_ARGUMENTS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedTokenInfo? b = null;
@@ -11388,6 +12912,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_ARGUMENTS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedTokenInfo? b = null;
@@ -11408,6 +12935,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_ARGUMENTS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedComprehensionSeq? b = null;
@@ -11426,6 +12956,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_ARGUMENTS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedComprehensionSeq? b = null;
@@ -11446,6 +12979,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_ARGUMENTS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -11479,6 +13015,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_KWARG] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedTokenInfo? b = null;
@@ -11497,6 +13036,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_KWARG] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedTokenInfo? b = null;
@@ -11517,6 +13059,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_KWARG] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedTokenInfo? b = null;
@@ -11536,6 +13081,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_KWARG] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? b = null;
@@ -11572,6 +13120,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[EXPRESSION_WITHOUT_INVALID] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -11594,6 +13145,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[EXPRESSION_WITHOUT_INVALID] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -11608,6 +13162,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[EXPRESSION_WITHOUT_INVALID] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -11637,6 +13194,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_LEGACY_EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? b = null;
@@ -11671,6 +13231,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -11690,6 +13253,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExpr? b = null;
@@ -11710,6 +13276,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedTokenInfo? b = null;
@@ -11755,6 +13324,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_NAMED_EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -11773,6 +13345,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_NAMED_EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? b = null;
@@ -11793,6 +13368,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_NAMED_EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedTokenInfo? b = null;
@@ -11829,6 +13407,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_ASSIGNMENT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -11847,6 +13428,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_ASSIGNMENT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -11867,6 +13451,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_ASSIGNMENT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -11885,6 +13472,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_ASSIGNMENT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -11903,6 +13493,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_ASSIGNMENT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -11921,6 +13514,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_ASSIGNMENT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -11955,6 +13551,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_ANN_ASSIGN_TARGET] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -11969,6 +13568,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_ANN_ASSIGN_TARGET] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? _alt_var = null;
 
@@ -11983,6 +13585,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_ANN_ASSIGN_TARGET] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -12016,6 +13621,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_DEL_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -12048,6 +13656,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_BLOCK] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -12080,6 +13691,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_COMPREHENSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -12098,6 +13712,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_COMPREHENSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedExprSeq? b = null;
@@ -12119,6 +13736,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_COMPREHENSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
                 GeneratedTokenInfo? b = null;
@@ -12154,6 +13774,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_DICT_COMPREHENSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -12189,6 +13812,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -12206,6 +13832,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -12224,6 +13853,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
 
@@ -12243,6 +13875,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedTokenInfo? b = null;
@@ -12264,6 +13899,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -12285,6 +13923,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -12318,6 +13959,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_DEFAULT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -12350,6 +13994,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_STAR_ETC] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -12367,6 +14014,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_STAR_ETC] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -12387,6 +14037,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_STAR_ETC] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -12405,6 +14058,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_STAR_ETC] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -12440,6 +14096,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_KWDS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -12458,6 +14117,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_KWDS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
 
@@ -12477,6 +14139,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_KWDS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -12512,6 +14177,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_PARAMETERS_HELPER] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSlashWithDefault? a = null;
 
@@ -12526,6 +14194,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_PARAMETERS_HELPER] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? a = null;
 
@@ -12555,6 +14226,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_LAMBDA_PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -12572,6 +14246,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_LAMBDA_PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -12590,6 +14267,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_LAMBDA_PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
 
@@ -12609,6 +14289,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_LAMBDA_PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedTokenInfo? b = null;
@@ -12630,6 +14313,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_LAMBDA_PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -12651,6 +14337,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_LAMBDA_PARAMETERS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -12684,6 +14373,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_LAMBDA_PARAMETERS_HELPER] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSlashWithDefault? a = null;
 
@@ -12698,6 +14390,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_LAMBDA_PARAMETERS_HELPER] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -12727,6 +14422,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_LAMBDA_STAR_ETC] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -12745,6 +14443,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_LAMBDA_STAR_ETC] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -12763,6 +14464,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_LAMBDA_STAR_ETC] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -12798,6 +14502,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_LAMBDA_KWDS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -12816,6 +14523,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_LAMBDA_KWDS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedArg? a = null;
 
@@ -12835,6 +14545,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_LAMBDA_KWDS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -12869,6 +14582,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_DOUBLE_TYPE_COMMENTS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -12908,6 +14624,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_WITH_ITEM] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -12942,6 +14661,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_FOR_TARGET] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -12975,6 +14697,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_GROUP] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -12993,6 +14718,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_GROUP] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -13027,6 +14755,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_IMPORT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -13061,6 +14792,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_IMPORT_FROM_TARGETS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -13096,6 +14830,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_WITH_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -13118,6 +14855,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_WITH_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -13161,6 +14901,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_WITH_STMT_INDENT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -13182,6 +14925,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_WITH_STMT_INDENT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -13221,6 +14967,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_TRY_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -13240,6 +14989,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_TRY_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -13261,6 +15013,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_TRY_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedTokenInfo? b = null;
@@ -13286,6 +15041,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_TRY_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -13323,6 +15081,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_EXCEPT_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -13345,6 +15106,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_EXCEPT_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -13365,6 +15129,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_EXCEPT_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -13382,6 +15149,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_EXCEPT_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -13415,6 +15185,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_FINALLY_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -13449,6 +15222,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_EXCEPT_STMT_INDENT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -13470,6 +15246,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_EXCEPT_STMT_INDENT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -13504,6 +15283,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_EXCEPT_STAR_STMT_INDENT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -13541,6 +15323,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_MATCH_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -13561,6 +15346,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_MATCH_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? subject = null;
@@ -13597,6 +15385,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_CASE_BLOCK] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -13619,6 +15410,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_CASE_BLOCK] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -13655,6 +15449,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_AS_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -13673,6 +15470,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_AS_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -13707,6 +15507,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_CLASS_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPatternSeq? a = null;
 
@@ -13741,6 +15544,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_CLASS_ARGUMENT_PATTERN] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPatternSeq? a = null;
 
@@ -13775,6 +15581,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_IF_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -13795,6 +15604,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_IF_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -13830,6 +15642,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_ELIF_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -13850,6 +15665,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_ELIF_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -13885,6 +15703,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_ELSE_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -13919,6 +15740,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_WHILE_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -13939,6 +15763,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_WHILE_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -13974,6 +15801,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_FOR_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -14000,6 +15830,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_FOR_STMT] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -14038,6 +15871,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_DEF_RAW] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -14079,6 +15915,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_CLASS_DEF_RAW] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -14103,6 +15942,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_CLASS_DEF_RAW] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -14140,6 +15982,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_DOUBLE_STARRED_KVPAIRS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -14160,6 +16005,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_DOUBLE_STARRED_KVPAIRS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -14179,6 +16027,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_DOUBLE_STARRED_KVPAIRS] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -14212,6 +16063,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_KVPAIR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? a = null;
 
@@ -14229,6 +16083,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_KVPAIR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -14248,6 +16105,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_KVPAIR] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -14281,6 +16141,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_STARRED_EXPRESSION] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
                 GeneratedExpr? b = null;
@@ -14316,6 +16179,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_REPLACEMENT_FIELD] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -14333,6 +16199,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_REPLACEMENT_FIELD] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -14350,6 +16219,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_REPLACEMENT_FIELD] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -14367,6 +16239,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_REPLACEMENT_FIELD] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? a = null;
 
@@ -14384,6 +16259,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_REPLACEMENT_FIELD] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -14401,6 +16279,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_REPLACEMENT_FIELD] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -14420,6 +16301,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_REPLACEMENT_FIELD] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -14441,6 +16325,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_REPLACEMENT_FIELD] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -14463,6 +16350,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_REPLACEMENT_FIELD] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -14486,6 +16376,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_REPLACEMENT_FIELD] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -14513,6 +16406,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_REPLACEMENT_FIELD] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -14551,6 +16447,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_CONVERSION_CHARACTER] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -14568,6 +16467,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[INVALID_CONVERSION_CHARACTER] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
 
@@ -14601,6 +16503,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_1] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -14615,6 +16520,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_1] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -14645,6 +16553,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_2] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -14659,6 +16570,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_2] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -14673,6 +16587,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_2] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -14703,6 +16620,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_3] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -14717,6 +16637,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_3] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -14747,6 +16670,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_4] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -14761,6 +16687,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_4] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -14791,6 +16720,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_5] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -14805,6 +16737,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_5] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -14835,6 +16770,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_6] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? d = null;
 
@@ -14868,6 +16806,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_7] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? b = null;
 
@@ -14886,6 +16827,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_7] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -14916,6 +16860,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_8] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? d = null;
 
@@ -14949,6 +16896,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_9] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? z = null;
 
@@ -14982,6 +16932,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_10] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -14996,6 +16949,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_10] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15026,6 +16982,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_11] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15040,6 +16999,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_11] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15070,6 +17032,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_12] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? z = null;
 
@@ -15103,6 +17068,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_13] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15117,6 +17085,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_13] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15147,6 +17118,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_14] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? z = null;
 
@@ -15180,6 +17154,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_15] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15194,6 +17171,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_15] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15224,6 +17204,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_16] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15238,6 +17221,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_16] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15268,6 +17254,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_17] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? z = null;
 
@@ -15301,6 +17290,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_18] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? z = null;
 
@@ -15334,6 +17326,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_19] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? f = null;
 
@@ -15368,6 +17363,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_20] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? z = null;
 
@@ -15402,6 +17400,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_21] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? z = null;
 
@@ -15435,6 +17436,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_22] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? z = null;
 
@@ -15468,6 +17472,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_23] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15482,6 +17489,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_23] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15496,6 +17506,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_23] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15526,6 +17539,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_24] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? z = null;
 
@@ -15559,6 +17575,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_25] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? z = null;
 
@@ -15592,6 +17611,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_26] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15606,6 +17628,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_26] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15636,6 +17661,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_27] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15650,6 +17678,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_27] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15680,6 +17711,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_28] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15694,6 +17728,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_28] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15708,6 +17745,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_28] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15738,6 +17778,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_29] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15752,6 +17795,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_29] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15766,6 +17812,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_29] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15796,6 +17845,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_30] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15810,6 +17862,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_30] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -15840,6 +17895,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_31] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? c = null;
 
@@ -15873,6 +17931,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_32] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? c = null;
 
@@ -15906,6 +17967,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_33] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? c = null;
 
@@ -15939,6 +18003,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_34] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? c = null;
 
@@ -15972,6 +18039,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_35] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? tok = null;
 
@@ -16002,6 +18072,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_36] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16016,6 +18089,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_36] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16046,6 +18122,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_37] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? d = null;
 
@@ -16079,6 +18158,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_38] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16093,6 +18175,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_38] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16123,6 +18208,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_39] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16137,6 +18225,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_39] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16151,6 +18242,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_39] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16181,6 +18275,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_40] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16195,6 +18292,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_40] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16225,6 +18325,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_41] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16239,6 +18342,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_41] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16253,6 +18359,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_41] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16267,6 +18376,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_41] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16297,6 +18409,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_42] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16311,6 +18426,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_42] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16341,6 +18459,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_43] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16355,6 +18476,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_43] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16385,6 +18509,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_44] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16399,6 +18526,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_44] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16429,6 +18559,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_45] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? y = null;
                 GeneratedExprSeq? z = null;
@@ -16464,6 +18597,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_46] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? z = null;
 
@@ -16497,6 +18633,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_47] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? z = null;
 
@@ -16530,6 +18669,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_48] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16544,6 +18686,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_48] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
 
@@ -16577,6 +18722,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_49] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16591,6 +18739,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_49] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
 
@@ -16624,6 +18775,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_50] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedSeq? k = null;
 
@@ -16657,6 +18811,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_51] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? c = null;
 
@@ -16690,6 +18847,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_52] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedExpr? c = null;
 
@@ -16723,6 +18883,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_53] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item1 = null;
 
@@ -16756,6 +18919,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_54] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -16790,6 +18956,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_55] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16804,6 +18973,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_55] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16834,6 +19006,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_56] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
 
@@ -16867,6 +19042,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_57] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16881,6 +19059,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_57] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -16915,6 +19096,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_58] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -16949,6 +19133,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_59] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16963,6 +19150,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_59] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -16993,6 +19183,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_60] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17007,6 +19200,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_60] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17021,6 +19217,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_60] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17051,6 +19250,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_61] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -17085,6 +19287,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_62] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -17103,6 +19308,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_62] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17133,6 +19341,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_63] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17147,6 +19358,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_63] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17177,6 +19391,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_64] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17191,6 +19408,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_64] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17221,6 +19441,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_65] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17235,6 +19458,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_65] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17249,6 +19475,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_65] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17263,6 +19492,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_65] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17277,6 +19509,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_65] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17291,6 +19526,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_65] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17321,6 +19559,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_66] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17335,6 +19576,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_66] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17365,6 +19609,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_67] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -17399,6 +19646,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_68] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -17433,6 +19683,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_69] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17447,6 +19700,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_69] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17477,6 +19733,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_70] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17491,6 +19750,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_70] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17505,6 +19767,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_70] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17535,6 +19800,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_71] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17549,6 +19817,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_71] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17579,6 +19850,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_72] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17593,6 +19867,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_72] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17623,6 +19900,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_73] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17637,6 +19917,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_73] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17667,6 +19950,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_74] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17681,6 +19967,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_74] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17711,6 +20000,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_75] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17725,6 +20017,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_75] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17755,6 +20050,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_76] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17769,6 +20067,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_76] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17799,6 +20100,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_77] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17813,6 +20117,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_77] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -17847,6 +20154,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_78] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17861,6 +20171,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_78] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17891,6 +20204,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_79] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17905,6 +20221,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_79] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17935,6 +20254,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_80] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17949,6 +20271,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_80] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17963,6 +20288,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_80] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -17993,6 +20321,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_81] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18007,6 +20338,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_81] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18037,6 +20371,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_82] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18051,6 +20388,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_82] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18081,6 +20421,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_83] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18095,6 +20438,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_83] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18125,6 +20471,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_84] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18139,6 +20488,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_84] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -18173,6 +20525,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_85] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18187,6 +20542,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_85] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18217,6 +20575,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_86] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18231,6 +20592,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_86] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18261,6 +20625,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_87] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18275,6 +20642,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_87] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18289,6 +20659,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_87] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18319,6 +20692,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_88] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18333,6 +20709,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_88] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18347,6 +20726,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_88] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18377,6 +20759,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_89] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -18411,6 +20796,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_90] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -18445,6 +20833,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_91] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -18479,6 +20870,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_92] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -18513,6 +20907,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_93] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18527,6 +20924,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_93] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18557,6 +20957,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_94] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -18591,6 +20994,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_95] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -18625,6 +21031,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_96] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -18659,6 +21068,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_97] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -18693,6 +21105,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_98] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18707,6 +21122,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_98] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18737,6 +21155,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_99] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -18771,6 +21192,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_100] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -18805,6 +21229,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_101] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -18839,6 +21266,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_102] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -18873,6 +21303,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_103] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -18909,6 +21342,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_104] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -18945,6 +21381,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_105] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18959,6 +21398,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_105] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -18989,6 +21431,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_106] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19019,6 +21464,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_107] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19033,6 +21481,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_107] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19063,6 +21514,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_108] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19077,6 +21531,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_108] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19107,6 +21564,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_109] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19121,6 +21581,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_109] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19151,6 +21614,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_110] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19165,6 +21631,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_110] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19179,6 +21648,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_110] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19193,6 +21665,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_110] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19223,6 +21698,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_111] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19237,6 +21715,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_111] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19267,6 +21748,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_112] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19281,6 +21765,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_112] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19295,6 +21782,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_112] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19325,6 +21815,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_113] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19339,6 +21832,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_113] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19369,6 +21865,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_114] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19383,6 +21882,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_114] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19413,6 +21915,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_115] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -19447,6 +21952,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_116] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19461,6 +21969,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_116] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19491,6 +22002,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_117] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19505,6 +22019,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_117] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19535,6 +22052,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_118] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -19569,6 +22089,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_119] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19583,6 +22106,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_119] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19613,6 +22139,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_120] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -19647,6 +22176,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_121] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19661,6 +22193,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_121] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19691,6 +22226,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_122] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19705,6 +22243,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_122] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
 
@@ -19738,6 +22279,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_123] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -19774,6 +22318,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_124] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19788,6 +22335,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_124] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19818,6 +22368,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_125] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19832,6 +22385,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_125] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -19862,6 +22418,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_126] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -19896,6 +22455,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_127] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -19930,6 +22492,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_128] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -19964,6 +22529,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_129] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedPtr? _item1 = null;
@@ -19998,6 +22566,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_130] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedTokenInfo? _item0 = null;
                 GeneratedTokenInfo? _item1 = null;
@@ -20032,6 +22603,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_131] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -20046,6 +22620,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_131] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
 
@@ -20079,6 +22656,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_132] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _alt_var = null;
 
@@ -20093,6 +22673,9 @@ namespace SharpPy.Generated
             Reset(_mark);
             {
                 CaptureStart();
+                #if DEBUG_PARSE_LOG
+                Console.WriteLine($"[_TMP_132] Alt start at pos={_position}, token={(_position < _tokens.Count ? $"{_tokens[_position].Type}('{_tokens[_position].Value}') @ {_tokens[_position].Line}:{_tokens[_position].Column}" : "EOF")}");
+                #endif
 
                 GeneratedPtr? _item0 = null;
 

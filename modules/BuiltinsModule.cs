@@ -71,6 +71,13 @@ namespace SharpPy.Modules
             module.ModuleDict["RecursionError"] = PyType.RecursionErrorType;
             module.ModuleDict["UnboundLocalError"] = PyType.UnboundLocalErrorType;
             module.ModuleDict["BufferError"] = PyType.BufferErrorType;
+            module.ModuleDict["OSError"] = PyType.OSErrorType;
+            module.ModuleDict["FileNotFoundError"] = PyType.FileNotFoundErrorType;
+            module.ModuleDict["EOFError"] = PyType.EOFErrorType;
+            module.ModuleDict["MemoryError"] = PyType.MemoryErrorType;
+            module.ModuleDict["UnicodeError"] = PyType.UnicodeErrorType;
+            module.ModuleDict["UnicodeDecodeError"] = PyType.UnicodeDecodeErrorType;
+            module.ModuleDict["UnicodeEncodeError"] = PyType.UnicodeEncodeErrorType;
 
             // Exception Groups (PEP 654 - Python 3.11+)
             module.ModuleDict["BaseExceptionGroup"] = PyType.BaseExceptionGroupType;

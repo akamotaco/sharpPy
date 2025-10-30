@@ -60,7 +60,7 @@ namespace SharpPy
         public bool IsGenerator { get; set; } = false;
         public bool IsCoroutine { get; set; } = false;
 
-        public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null, PyFrame parentFrame = null, PyTuple defaults = null)
+        public PyFrame(PyCodeObject code, PyObject[] args, PyScopeChain parentScope = null, PyCell[] closure = null, PyFrame parentFrame = null, PyTuple defaults = null, PyDict kwdefaults = null)
         {
 #if DEBUG_LOG
             Console.WriteLine($"🆕 PyFrame 생성: {code.Name}, args={args.Length}개");
@@ -131,7 +131,7 @@ namespace SharpPy
             }
 
             // CPython 3.12 호환: 매개변수 바인딩 (키워드 인수 지원)
-            BindArgumentsToParametersCPython312(args, code, parentFrame, defaults);
+            BindArgumentsToParametersCPython312(args, code, parentFrame, defaults, kwdefaults);
         }
 
         /// <summary>
@@ -147,7 +147,7 @@ namespace SharpPy
         /// <summary>
         /// CPython 3.12 호환: 키워드 인수를 지원하는 매개변수 바인딩
         /// </summary>
-        private void BindArgumentsToParametersCPython312(PyObject[] args, PyCodeObject code, PyFrame parentFrame, PyTuple runtimeDefaults = null)
+        private void BindArgumentsToParametersCPython312(PyObject[] args, PyCodeObject code, PyFrame parentFrame, PyTuple runtimeDefaults = null, PyDict kwdefaults = null)
         {
             #if DEBUG_VM_LOG
             Console.WriteLine($"[BIND ARGS] BindArgumentsToParametersCPython312 for {code.Name}:");
@@ -309,17 +309,45 @@ namespace SharpPy
                 }
                 else
                 {
-                    // Check for keyword-only default value
-                    // In CPython, KwDefaults can contain None as a default value, so we check list bounds not value
-                    if (kwOnlyIndex < code.KwDefaults.Count)
+                    // CPython 3.12: Check runtime kwdefaults (from func.__kwdefaults__) first, then compile-time
+                    // Priority: kwdefaults (runtime) > code.KwDefaults (compile-time)
+                    // Note: CPython uses PyDict_GetItemWithError(func->func_kwdefaults, varname)
+                    PyObject defaultValue = null;
+                    bool hasDefault = false;
+
+                    // First check runtime kwdefaults dict (CPython 3.12 Python/ceval.c)
+                    if (kwdefaults != null)
                     {
-                        var defaultValue = code.KwDefaults[kwOnlyIndex];
+                        // CPython: PyDict_GetItemWithError(func->func_kwdefaults, varname)
+                        // We iterate because PyString instances may not match in Dictionary lookup
+                        foreach (var kv in kwdefaults.InternalDict)
+                        {
+                            if (kv.Key is PyString keyStr && keyStr.Value == paramName)
+                            {
+                                defaultValue = kv.Value;
+                                hasDefault = true;
+#if DEBUG_LOG
+                                Console.WriteLine($"  → {paramName} = {defaultValue} (runtime __kwdefaults__)");
+#endif
+                                break;
+                            }
+                        }
+                    }
+
+                    // Fallback to compile-time KwDefaults
+                    if (!hasDefault && kwOnlyIndex < code.KwDefaults.Count)
+                    {
+                        defaultValue = code.KwDefaults[kwOnlyIndex];
+                        hasDefault = true;
+#if DEBUG_LOG
+                        Console.WriteLine($"  → {paramName} = {defaultValue} (compile-time keyword-only 기본값)");
+#endif
+                    }
+
+                    if (hasDefault)
+                    {
                         LocalsPlus[paramIndex] = defaultValue;
                         ScopeChain.AssignVariable(paramName, defaultValue);
-
-#if DEBUG_LOG
-                        Console.WriteLine($"  → {paramName} = {defaultValue} (keyword-only 기본값)");
-#endif
                     }
                     else
                     {
@@ -511,6 +539,97 @@ namespace SharpPy
         // PyObject required overrides
         public override PyType GetPyType() => PyType.ObjectType;
         public override string GetTypeName() => "frame";
+
+        /// <summary>
+        /// CPython 3.12: Frame attribute access for traceback.py compatibility
+        /// Exposes frame introspection attributes
+        /// </summary>
+        public override PyObject GetAttribute(string name)
+        {
+            return name switch
+            {
+                // f_code: code object being executed
+                "f_code" => Code,
+
+                // f_back: previous stack frame (toward the caller)
+                "f_back" => ParentFrame != null ? ParentFrame : PyNone.Instance,
+
+                // f_lineno: current line number in Python source code
+                "f_lineno" => new PyInt(CurrentLineNumber >= 0 ? CurrentLineNumber : Code.GetFirstLineNo()),
+
+                // f_locals: local namespace dictionary
+                "f_locals" => BuildLocalsDict(),
+
+                // f_globals: global namespace dictionary
+                "f_globals" => new PyDict(Globals),
+
+                // f_builtins: built-in namespace dictionary
+                "f_builtins" => ScopeChain.BuiltinModule != null
+                    ? ScopeChain.BuiltinModule
+                    : PyNone.Instance,
+
+                // f_lasti: instruction index (for traceback)
+                "f_lasti" => new PyInt(Math.Max(0, InstructionPointer - 1)),
+
+                // CPython 3.12: f_trace, f_trace_lines, f_trace_opcodes (not implemented yet)
+                "f_trace" => PyNone.Instance,
+                "f_trace_lines" => PyBool.True,  // Default to True
+                "f_trace_opcodes" => PyBool.False,  // Default to False
+
+                _ => throw PyAttributeError.Create($"'frame' object has no attribute '{name}'")
+            };
+        }
+
+        /// <summary>
+        /// Build f_locals dict from LocalsPlus array and scope
+        /// </summary>
+        private PyDict BuildLocalsDict()
+        {
+            var localsDict = new Dictionary<string, PyObject>();
+
+            // Add variables from LocalsPlus array
+            for (int i = 0; i < LocalsPlus.Length && i < Code.VarNames.Count; i++)
+            {
+                var value = LocalsPlus[i];
+                if (value != null && value != PyNull.Instance)
+                {
+                    localsDict[Code.VarNames[i]] = value;
+                }
+            }
+
+            // Add variables from LocalScope if exists
+            if (LocalScope != null)
+            {
+                foreach (var kvp in LocalScope.Variables)
+                {
+                    localsDict[kvp.Key] = kvp.Value;
+                }
+            }
+
+            return new PyDict(localsDict);
+        }
+
+        /// <summary>
+        /// CPython 3.12: Clear frame locals to break reference cycles
+        /// Called when frame is no longer needed
+        /// </summary>
+        public void Clear()
+        {
+            // Clear LocalsPlus array
+            for (int i = 0; i < LocalsPlus.Length; i++)
+            {
+                LocalsPlus[i] = PyNull.Instance;
+            }
+
+            // Clear cells
+            foreach (var cell in Cells)
+            {
+                cell.Value = PyNull.Instance;
+            }
+
+            // Clear local scope
+            LocalScope?.Variables.Clear();
+        }
     }
 
     // Python 가상 머신 (기존 객체 시스템과 완전 통합)
@@ -1944,22 +2063,28 @@ namespace SharpPy
                     }
 
                     // Check for keyword-only defaults flag (2 = HAS_KW_DEFAULTS)
+                    // CPython 3.12: kwdefaults is a dict (not a tuple)
+                    PyDict kwDefaultsDict = null;
                     if ((flags & 2) != 0)
                     {
-                        var kwDefaultsTuple = frame.ValueStack.Pop();
-                        if (kwDefaultsTuple is PyTuple kwDefTuple)
+                        var kwDefaultsObj = frame.ValueStack.Pop();
+                        if (kwDefaultsObj is PyDict kwDefDict)
                         {
-                            kwDefaults = kwDefTuple;
+                            kwDefaultsDict = kwDefDict;
                             #if DEBUG_LOG
-                            Console.WriteLine($"  → Function has keyword-only defaults: {kwDefTuple.Items.Length} items");
+                            Console.WriteLine($"  → Function has keyword-only defaults: {kwDefDict.InternalDict.Count} items");
+                            foreach (var kvp in kwDefDict.InternalDict)
+                            {
+                                Console.WriteLine($"     {kvp.Key}: {kvp.Value}");
+                            }
                             #endif
                         }
                         else
                         {
                             #if DEBUG_LOG
-                            Console.WriteLine($"  ⚠️ Warning: Expected tuple for kw-defaults, got {kwDefaultsTuple?.GetType()}");
+                            Console.WriteLine($"  ⚠️ Warning: Expected dict for kw-defaults, got {kwDefaultsObj?.GetType()}");
                             #endif
-                            kwDefaults = new PyTuple(new PyObject[0]);
+                            kwDefaultsDict = new PyDict();
                         }
                     }
 
@@ -2007,9 +2132,9 @@ namespace SharpPy
                             {
                                 asyncGenFunction.SetAttribute("__defaults__", defaults);
                             }
-                            if (kwDefaults != null)
+                            if (kwDefaultsDict != null)
                             {
-                                asyncGenFunction.SetAttribute("__kwdefaults__", kwDefaults);
+                                asyncGenFunction.SetAttribute("__kwdefaults__", kwDefaultsDict);
                             }
                             if (annotationsDict != null)
                             {
@@ -2046,9 +2171,9 @@ namespace SharpPy
                             {
                                 asyncFunction.SetAttribute("__defaults__", defaults);
                             }
-                            if (kwDefaults != null)
+                            if (kwDefaultsDict != null)
                             {
-                                asyncFunction.SetAttribute("__kwdefaults__", kwDefaults);
+                                asyncFunction.SetAttribute("__kwdefaults__", kwDefaultsDict);
                             }
                             if (annotationsDict != null)
                             {
@@ -2162,9 +2287,9 @@ namespace SharpPy
                             {
                                 functionObject.SetAttribute("__defaults__", defaults);
                             }
-                            if (kwDefaults != null)
+                            if (kwDefaultsDict != null)
                             {
-                                functionObject.SetAttribute("__kwdefaults__", kwDefaults);
+                                functionObject.SetAttribute("__kwdefaults__", kwDefaultsDict);
                             }
                             if (annotationsDict != null)
                             {
@@ -3170,6 +3295,33 @@ namespace SharpPy
                         pyDict.SetItem(pairs[i].key, pairs[i].value);
                     }
                     frame.ValueStack.Push(pyDict);
+                    break;
+
+                case ByteCodeOp.BUILD_CONST_KEY_MAP:
+                    // CPython 3.12: Build dict from keys tuple and values on stack
+                    // Stack: value1, value2, ..., valueN, keys_tuple
+                    // TOS is keys tuple, TOS1...TOSN are values
+                    var constKeyCount = instruction.Argument;
+                    var constKeysTuple = frame.ValueStack.Pop() as PyTuple;
+                    if (constKeysTuple == null)
+                        throw new InvalidOperationException("BUILD_CONST_KEY_MAP: keys must be a tuple");
+
+                    var constKeyDict = new PyDict();
+                    var constKeyValues = new PyObject[constKeyCount];
+
+                    // Pop values in reverse order (stack is LIFO)
+                    for (int i = constKeyCount - 1; i >= 0; i--)
+                    {
+                        constKeyValues[i] = frame.ValueStack.Pop();
+                    }
+
+                    // Build dict with keys from tuple and values from stack
+                    for (int i = 0; i < constKeyCount; i++)
+                    {
+                        constKeyDict.SetItem(constKeysTuple.Items[i], constKeyValues[i]);
+                    }
+
+                    frame.ValueStack.Push(constKeyDict);
                     break;
 
                 // CPython-style Iterator Opcodes
@@ -6321,7 +6473,13 @@ namespace SharpPy
                     {
                         defaults = defaultsTuple;
                     }
-                    var frame = new PyFrame(code, argsWithSelf, functionScope, pyFunc.Closure, CurrentFrame, defaults);
+                    // CPython 3.12: Get kwdefaults from func.__kwdefaults__ attribute
+                    PyDict kwdefaults = null;
+                    if (pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict)
+                    {
+                        kwdefaults = kwdefaultsDict;
+                    }
+                    var frame = new PyFrame(code, argsWithSelf, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
                     return ExecuteFrame(frame);
                 }
                 catch (PyReturnException retEx)
@@ -6380,7 +6538,13 @@ namespace SharpPy
                     {
                         defaults = defaultsTuple;
                     }
-                    var frame = new PyFrame(code, args, functionScope, pyFunc.Closure, CurrentFrame, defaults);
+                    // CPython 3.12: Get kwdefaults from func.__kwdefaults__ attribute
+                    PyDict kwdefaults = null;
+                    if (pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict)
+                    {
+                        kwdefaults = kwdefaultsDict;
+                    }
+                    var frame = new PyFrame(code, args, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
                     return ExecuteFrame(frame);
                 }
                 catch (PyReturnException retEx)
@@ -6711,6 +6875,30 @@ namespace SharpPy
 
             try
             {
+                // CPython 3.12: Use function's captured globals
+                PyScopeChain functionScope;
+                if (pyFunc.GlobalsDict != null)
+                {
+                    functionScope = new PyScopeChain(pyFunc.GlobalsDict, "<function>");
+                }
+                else
+                {
+                    functionScope = pyFunc.ParentScope ?? parentScope;
+                }
+
+                // CPython 3.12: Get defaults and kwdefaults from function attributes
+                PyTuple defaults = null;
+                if (pyFunc.Attributes.TryGetValue("__defaults__", out var defaultsAttr) && defaultsAttr is PyTuple defaultsTuple)
+                {
+                    defaults = defaultsTuple;
+                }
+
+                PyDict kwdefaults = null;
+                if (pyFunc.Attributes.TryGetValue("__kwdefaults__", out var kwdefaultsAttr) && kwdefaultsAttr is PyDict kwdefaultsDict)
+                {
+                    kwdefaults = kwdefaultsDict;
+                }
+
                 // CPython 3.12: Combine positional and keyword arguments into single array for frame
                 var allArgs = new PyObject[positionalArgs.Length + keywordArgs.Count];
                 Array.Copy(positionalArgs, 0, allArgs, 0, positionalArgs.Length);
@@ -6721,11 +6909,9 @@ namespace SharpPy
                     allArgs[keywordIndex++] = kvp.Value;
                 }
 
-                // Create frame with all arguments
-                var frame = new PyFrame(code, allArgs, parentScope, pyFunc.Closure, CurrentFrame);
-
-                // CPython 3.12: Bind keyword arguments to parameters
-                BindArgumentsToParametersWithKeywords(frame, positionalArgs, keywordArgs, code);
+                // Create frame with all arguments, defaults, and kwdefaults (CPython 3.12 compatible)
+                // Note: PyFrame constructor calls BindArgumentsToParametersCPython312, which handles kwdefaults
+                var frame = new PyFrame(code, allArgs, functionScope, pyFunc.Closure, CurrentFrame, defaults, kwdefaults);
 
                 return ExecuteFrame(frame);
             }

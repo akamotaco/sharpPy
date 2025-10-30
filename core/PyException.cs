@@ -699,6 +699,78 @@ namespace SharpPy
         }
     }
 
+    /// <summary>
+    /// Python MemoryError - 메모리 부족 에러
+    /// CPython 3.12: Raised when an operation runs out of memory
+    /// </summary>
+    public class PyMemoryError : PyException
+    {
+        public PyMemoryError(string message = "") : base(message) { }
+
+        public override string GetTypeName() => "MemoryError";
+        public override PyType GetPyType() => PyType.MemoryErrorType;
+
+        public new static PythonException Create(string message = "")
+        {
+            var pyException = new PyMemoryError(message);
+            return new PythonException(pyException);
+        }
+    }
+
+    /// <summary>
+    /// Python UnicodeError - 유니코드 관련 에러의 기본 클래스
+    /// CPython 3.12: Base class for Unicode-related errors
+    /// </summary>
+    public class PyUnicodeError : PyValueError
+    {
+        public PyUnicodeError(string message = "") : base(message) { }
+
+        public override string GetTypeName() => "UnicodeError";
+        public override PyType GetPyType() => PyType.UnicodeErrorType;
+
+        public new static PythonException Create(string message = "")
+        {
+            var pyException = new PyUnicodeError(message);
+            return new PythonException(pyException);
+        }
+    }
+
+    /// <summary>
+    /// Python UnicodeDecodeError - 유니코드 디코딩 에러
+    /// CPython 3.12: Raised when a Unicode-related error occurs during decoding
+    /// </summary>
+    public class PyUnicodeDecodeError : PyUnicodeError
+    {
+        public PyUnicodeDecodeError(string message = "") : base(message) { }
+
+        public override string GetTypeName() => "UnicodeDecodeError";
+        public override PyType GetPyType() => PyType.UnicodeDecodeErrorType;
+
+        public new static PythonException Create(string message = "")
+        {
+            var pyException = new PyUnicodeDecodeError(message);
+            return new PythonException(pyException);
+        }
+    }
+
+    /// <summary>
+    /// Python UnicodeEncodeError - 유니코드 인코딩 에러
+    /// CPython 3.12: Raised when a Unicode-related error occurs during encoding
+    /// </summary>
+    public class PyUnicodeEncodeError : PyUnicodeError
+    {
+        public PyUnicodeEncodeError(string message = "") : base(message) { }
+
+        public override string GetTypeName() => "UnicodeEncodeError";
+        public override PyType GetPyType() => PyType.UnicodeEncodeErrorType;
+
+        public new static PythonException Create(string message = "")
+        {
+            var pyException = new PyUnicodeEncodeError(message);
+            return new PythonException(pyException);
+        }
+    }
+
     #region Warning Hierarchy (CPython 3.12)
 
     /// <summary>

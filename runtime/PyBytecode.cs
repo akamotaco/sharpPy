@@ -464,8 +464,56 @@ namespace SharpPy
                 "co_freevars" => new PyTuple(FreeVars.Select(n => new PyString(n) as PyObject).ToArray()),
                 "co_cellvars" => new PyTuple(CellVars.Select(n => new PyString(n) as PyObject).ToArray()),
                 "co_filename" => new PyString(FileName ?? "<unknown>"),
+                "co_firstlineno" => new PyInt(GetFirstLineNo()),
+                "co_nlocals" => new PyInt(VarNames.Count),
+                "co_stacksize" => new PyInt(64), // Placeholder - actual stack size calculation needed
+                "co_code" => PyNone.Instance, // Raw bytecode - not implemented yet
+                "co_lnotab" => PyNone.Instance, // Line number table - deprecated in 3.12
+                "co_positions" => new PyBuiltinFunction("co_positions", CoPositionsMethod),
                 _ => base.GetAttribute(name)
             };
+        }
+
+        /// <summary>
+        /// Get first line number from LineNumberTable
+        /// </summary>
+        public int GetFirstLineNo()
+        {
+            if (LineNumberTable.Count > 0)
+            {
+                return LineNumberTable.Values.Min();
+            }
+            return 1; // Default to line 1
+        }
+
+        /// <summary>
+        /// CPython 3.12: co_positions() method
+        /// Returns iterator of (lineno, end_lineno, col_offset, end_col_offset) for each instruction
+        /// </summary>
+        private PyObject CoPositionsMethod(PyObject[] args)
+        {
+            // Return a generator-like object that yields position tuples
+            var positions = new List<PyObject>();
+
+            for (int i = 0; i < Instructions.Count; i++)
+            {
+                // Try to get line number for this instruction
+                int lineno = LineNumberTable.TryGetValue(i, out int line) ? line : -1;
+
+                // For now, we don't have column information, so return None for columns
+                // Format: (lineno, end_lineno, col_offset, end_col_offset)
+                var posTuple = new PyTuple(new PyObject[]
+                {
+                    lineno > 0 ? new PyInt(lineno) : PyNone.Instance,  // lineno
+                    lineno > 0 ? new PyInt(lineno) : PyNone.Instance,  // end_lineno (same as lineno)
+                    PyNone.Instance,  // col_offset (not tracked yet)
+                    PyNone.Instance   // end_col_offset (not tracked yet)
+                });
+                positions.Add(posTuple);
+            }
+
+            // Return a list that can be iterated (simpler than true generator for now)
+            return new PyList(positions.ToArray());
         }
         
         public void Disassemble()

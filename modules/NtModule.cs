@@ -238,16 +238,8 @@ namespace SharpPy.Modules
                 else
                     throw new FileNotFoundException();
 
-                // CPython stat_result has: st_mode, st_ino, st_dev, st_nlink, st_uid, st_gid,
-                // st_size, st_atime, st_mtime, st_ctime
-                var result = new PyDict();
-                result.SetItem(new PyString("st_size"), new PyInt(info is FileInfo fi ? fi.Length : 0));
-                result.SetItem(new PyString("st_mtime"), new PyFloat(ToUnixTime(info.LastWriteTime)));
-                result.SetItem(new PyString("st_atime"), new PyFloat(ToUnixTime(info.LastAccessTime)));
-                result.SetItem(new PyString("st_ctime"), new PyFloat(ToUnixTime(info.CreationTime)));
-                result.SetItem(new PyString("st_mode"), new PyInt(GetFileMode(info)));
-
-                return result;
+                // CPython 3.12: Return stat_result object with attributes (not dict)
+                return new PyStatResult(info);
             }
             catch (FileNotFoundException)
             {
@@ -342,20 +334,6 @@ namespace SharpPy.Modules
 
         #region Helper Functions
 
-        private static double ToUnixTime(DateTime dt)
-        {
-            return (dt.ToUniversalTime() - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds;
-        }
-
-        private static int GetFileMode(FileSystemInfo info)
-        {
-            // Simplified mode (Unix: 0o100644 for files, 0o040755 for dirs)
-            if (info is DirectoryInfo)
-                return 0x4000 | 0x1ED; // S_IFDIR | 0755
-            else
-                return 0x8000 | 0x1A4; // S_IFREG | 0644
-        }
-
         private static PyDict CreateEnvironDict()
         {
             var environ = new PyDict();
@@ -393,5 +371,67 @@ namespace SharpPy.Modules
         }
 
         #endregion
+    }
+
+    /// <summary>
+    /// CPython 3.12 stat_result object (os.stat_result)
+    /// CPython: Objects/structseq.c + Modules/posixmodule.c
+    /// </summary>
+    public class PyStatResult : PyObject
+    {
+        private readonly FileSystemInfo _info;
+
+        public PyStatResult(FileSystemInfo info)
+        {
+            _info = info;
+        }
+
+        public override PyType GetPyType() => PyType.ObjectType;
+        public override string GetTypeName() => "stat_result";
+
+        public override PyObject GetAttribute(string name)
+        {
+            switch (name)
+            {
+                case "st_mode":
+                    // CPython: posixmodule.c - file mode bits
+                    // S_IFDIR (0o40000) for directory, S_IFREG (0o100000) for regular file
+                    return new PyInt((_info is DirectoryInfo) ? 0x4000 | 0x1ED : 0x8000 | 0x1A4);
+                case "st_size":
+                    return new PyInt(_info is FileInfo fi ? fi.Length : 0);
+                case "st_mtime":
+                    return new PyFloat(ToUnixTime(_info.LastWriteTime));
+                case "st_ctime":
+                    return new PyFloat(ToUnixTime(_info.CreationTime));
+                case "st_atime":
+                    return new PyFloat(ToUnixTime(_info.LastAccessTime));
+                case "st_ino":
+                    return new PyInt(0); // inode (not available on Windows)
+                case "st_dev":
+                    return new PyInt(0); // device (not available in .NET)
+                case "st_nlink":
+                    return new PyInt(1); // number of hard links
+                case "st_uid":
+                    return new PyInt(0); // user id (not available on Windows)
+                case "st_gid":
+                    return new PyInt(0); // group id (not available on Windows)
+                default:
+                    throw PyAttributeError.Create($"'stat_result' object has no attribute '{name}'");
+            }
+        }
+
+        private static double ToUnixTime(DateTime dt)
+        {
+            return (dt.ToUniversalTime() - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds;
+        }
+
+        public override PyString ToRepr()
+        {
+            var mode = (_info is DirectoryInfo) ? 0x4000 | 0x1ED : 0x8000 | 0x1A4;
+            var size = _info is FileInfo fi ? fi.Length : 0;
+            return new PyString($"os.stat_result(st_mode={mode}, st_ino=0, st_dev=0, st_nlink=1, st_uid=0, st_gid=0, st_size={size}, st_atime={ToUnixTime(_info.LastAccessTime)}, st_mtime={ToUnixTime(_info.LastWriteTime)}, st_ctime={ToUnixTime(_info.CreationTime)})");
+        }
+
+        public override string ToString() => ToRepr().Value;
     }
 }

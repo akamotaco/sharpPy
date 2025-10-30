@@ -65,6 +65,10 @@ namespace SharpPy.Modules
             module.ModuleDict["getrefcount"] = new PySysFunction("getrefcount");
             module.ModuleDict["exc_info"] = new PySysFunction("exc_info");
 
+            // CPython 3.12: Frame and exception introspection
+            module.ModuleDict["_getframe"] = new PySysFunction("_getframe");
+            module.ModuleDict["exception"] = new PySysFunction("exception");
+
             return module;
         }
 
@@ -196,6 +200,8 @@ namespace SharpPy.Modules
                 "getsizeof" => CallGetSizeOf(args),
                 "getrefcount" => CallGetRefCount(args),
                 "exc_info" => CallExcInfo(args),
+                "_getframe" => CallGetFrame(args),
+                "exception" => CallException(args),
                 _ => throw PyAttributeError.Create($"sys module has no function '{Name}'")
             };
         }
@@ -287,6 +293,91 @@ namespace SharpPy.Modules
             var excTraceback = PyNone.Instance;    // TODO: Implement traceback objects
 
             return new PyTuple(excType, excValue, excTraceback);
+        }
+
+        /// <summary>
+        /// CPython 3.12: sys._getframe(depth=0)
+        /// Return a frame object from the call stack.
+        /// </summary>
+        private PyObject CallGetFrame(PyObject[] args)
+        {
+            // Parse optional depth argument (default 0)
+            int depth = 0;
+            if (args.Length > 0)
+            {
+                if (args[0] is PyInt depthInt)
+                {
+                    depth = (int)depthInt.Value;
+                }
+                else
+                {
+                    throw PyTypeError.Create("_getframe() argument must be an integer");
+                }
+            }
+
+            if (args.Length > 1)
+            {
+                throw PyTypeError.Create($"_getframe() takes at most 1 argument ({args.Length} given)");
+            }
+
+            if (depth < 0)
+            {
+                throw PyValueError.Create("_getframe() argument must be >= 0");
+            }
+
+            // Get current frame from VM
+            var currentFrame = PyVM.GetCurrentFrame();
+
+            if (currentFrame == null)
+            {
+                throw PyRuntimeError.Create("no current frame");
+            }
+
+            // Walk back 'depth' frames
+            var targetFrame = currentFrame;
+            for (int i = 0; i < depth; i++)
+            {
+                if (targetFrame.ParentFrame == null)
+                {
+                    throw PyValueError.Create($"call stack is not deep enough (depth {depth})");
+                }
+                targetFrame = targetFrame.ParentFrame;
+            }
+
+            return targetFrame;
+        }
+
+        /// <summary>
+        /// CPython 3.12: sys.exception()
+        /// Return the current exception being handled (CPython 3.12 new function).
+        /// This is preferred over sys.exc_info() in Python 3.12+
+        /// </summary>
+        private PyObject CallException(PyObject[] args)
+        {
+            if (args.Length != 0)
+            {
+                throw PyTypeError.Create($"exception() takes no arguments ({args.Length} given)");
+            }
+
+            // Get current frame from VM
+            var currentFrame = PyVM.GetCurrentFrame();
+
+            if (currentFrame == null)
+            {
+                // No frame context: raise RuntimeError
+                throw PyRuntimeError.Create("no active exception to reraise");
+            }
+
+            // Check for current exception in frame
+            var exception = currentFrame.CurrentException ?? currentFrame.LastException;
+
+            if (exception == null)
+            {
+                // No exception being handled
+                throw PyRuntimeError.Create("no active exception to reraise");
+            }
+
+            return exception;
         }
     }
 
