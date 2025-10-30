@@ -390,20 +390,20 @@ namespace SharpPy
     /// </summary>
     public class PyMemoryViewObject : PyObject, IEnumerable<byte>
     {
-        private readonly object _obj;
+        private readonly PyObject _sourceObject;  // PyBytesObject or PyBytearrayObject
         private readonly byte[] _buffer;
         private readonly bool _readonly;
 
         public PyMemoryViewObject(PyBytesObject bytes_obj)
         {
-            _obj = bytes_obj;
+            _sourceObject = bytes_obj;
             _buffer = bytes_obj.Data;
             _readonly = true; // bytes are immutable
         }
 
         public PyMemoryViewObject(PyBytearrayObject bytearray_obj)
         {
-            _obj = bytearray_obj;
+            _sourceObject = bytearray_obj;
             _buffer = bytearray_obj.Data;
             _readonly = false; // bytearray is mutable
         }
@@ -413,7 +413,7 @@ namespace SharpPy
 
         public int Length => _buffer.Length;
         public bool ReadOnly => _readonly;
-        public object Object => _obj;
+        public PyObject SourceObject => _sourceObject;
 
         // Indexing
         public byte this[int index]
@@ -435,7 +435,7 @@ namespace SharpPy
                     throw PyIndexError.Create("memoryview assignment index out of range");
 
                 // Update the underlying object if it's bytearray
-                if (_obj is PyBytearrayObject bytearray_obj)
+                if (_sourceObject is PyBytearrayObject bytearray_obj)
                 {
                     bytearray_obj[index] = value;
                 }
