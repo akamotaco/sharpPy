@@ -912,6 +912,7 @@ namespace SharpPy
                 "find" => new PyStringMethod(this, "find", Find),
                 "count" => new PyStringMethod(this, "count", Count),
                 "encode" => new PyStringMethod(this, "encode", EncodeMethod),
+                "isidentifier" => new PyStringMethod(this, "isidentifier", IsIdentifier),
                 _ => base.GetAttribute(name)
             };
         }
@@ -1261,7 +1262,7 @@ namespace SharpPy
         {
             if (args.Length > 2)
                 throw PyTypeError.Create($"encode() takes at most 2 arguments ({args.Length} given)");
-            
+
             string encoding = "utf-8";
             if (args.Length >= 1)
             {
@@ -1270,9 +1271,39 @@ namespace SharpPy
                 else
                     throw PyTypeError.Create("encode() encoding must be str");
             }
-            
+
             // Second argument (errors) is ignored for now
             return Encode(encoding);
+        }
+
+        private PyObject IsIdentifier(PyObject[] args)
+        {
+            // CPython 3.12: str.isidentifier()
+            // Returns True if the string is a valid identifier according to Python language definition
+            // Note: This returns True for keywords too (e.g., "if", "class")
+            if (args.Length != 0)
+                throw PyTypeError.Create($"isidentifier() takes no arguments ({args.Length} given)");
+
+            if (string.IsNullOrEmpty(Value))
+                return PyBool.False;
+
+            // Python identifier rules:
+            // 1. First character must be letter (a-z, A-Z) or underscore (_)
+            // 2. Subsequent characters can be letters, digits, or underscores
+            // 3. Cannot be empty
+
+            char first = Value[0];
+            if (!char.IsLetter(first) && first != '_')
+                return PyBool.False;
+
+            for (int i = 1; i < Value.Length; i++)
+            {
+                char c = Value[i];
+                if (!char.IsLetterOrDigit(c) && c != '_')
+                    return PyBool.False;
+            }
+
+            return PyBool.True;
         }
 
         #endregion
