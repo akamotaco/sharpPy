@@ -38,18 +38,29 @@ public partial class PyFunction : PyObject, IDescriptor
         // __type_params__ 속성 설정
         if (TypeParams != null && TypeParams.Count > 0)
         {
-            var typeParamsTuple = new PyTuple(TypeParams.ToArray());
-            Attributes["__type_params__"] = typeParamsTuple;
+            // Performance: Eliminated LINQ (ToArray) - direct copy + TupleCache
+            var typeParamsArray = new PyObject[TypeParams.Count];
+            for (int i = 0; i < TypeParams.Count; i++)
+            {
+                typeParamsArray[i] = TypeParams[i];
+            }
+            Attributes["__type_params__"] = TupleCache.GetOrCreate(typeParamsArray);
         }
         else
         {
-            Attributes["__type_params__"] = new PyTuple(new PyObject[0]);
+            Attributes["__type_params__"] = TupleCache.Empty;
         }
 
         // Closure 정보를 속성으로 노출
         if (Closure.Length > 0)
         {
-            Attributes["__closure__"] = new PyTuple(Closure.Cast<PyObject>().ToArray());
+            // Performance: Eliminated LINQ (Cast + ToArray) - direct copy + TupleCache
+            var closureObjects = new PyObject[Closure.Length];
+            for (int i = 0; i < Closure.Length; i++)
+            {
+                closureObjects[i] = Closure[i];
+            }
+            Attributes["__closure__"] = TupleCache.GetOrCreate(closureObjects);
         }
         else
         {

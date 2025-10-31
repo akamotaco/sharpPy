@@ -73,8 +73,19 @@ namespace SharpPy
             if (_dict.Count == 0) return new PyString("{}");
 
             // Python 3.7+: 삽입 순서대로 출력
-            var pairs = _keys.Select(k => $"{k.ToRepr().Value}: {_dict[k].ToRepr().Value}");
-            return new PyString($"{{{string.Join(", ", pairs)}}}");
+            // Performance: Eliminated LINQ (Select + Join) - use StringBuilder directly
+            var sb = new System.Text.StringBuilder("{");
+            bool first = true;
+            foreach (var key in _keys)
+            {
+                if (!first) sb.Append(", ");
+                sb.Append(key.ToRepr().Value);
+                sb.Append(": ");
+                sb.Append(_dict[key].ToRepr().Value);
+                first = false;
+            }
+            sb.Append("}");
+            return new PyString(sb.ToString());
         }
 
         #endregion
@@ -280,7 +291,12 @@ namespace SharpPy
         public PyList Values()
         {
             // _keys 순서대로 값을 가져옴
-            var values = _keys.Select(k => _dict[k]).ToArray();
+            // Performance: Eliminated LINQ (Select + ToArray) - direct array copy
+            var values = new PyObject[_keys.Count];
+            for (int i = 0; i < _keys.Count; i++)
+            {
+                values[i] = _dict[_keys[i]];
+            }
             return new PyList(values);
         }
 
@@ -291,7 +307,12 @@ namespace SharpPy
         public PyList Items()
         {
             // _keys 순서대로 키-값 쌍을 생성
-            var items = _keys.Select(k => new PyTuple(k, _dict[k])).Cast<PyObject>().ToArray();
+            // Performance: Eliminated LINQ (Select + Cast + ToArray) - direct tuple creation
+            var items = new PyObject[_keys.Count];
+            for (int i = 0; i < _keys.Count; i++)
+            {
+                items[i] = new PyTuple(_keys[i], _dict[_keys[i]]);
+            }
             return new PyList(items);
         }
 

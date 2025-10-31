@@ -115,7 +115,7 @@ namespace SharpPy
         /// <summary>
         /// Global method cache (CPython: type_cache global variable)
         /// </summary>
-        private static readonly TypeMethodCache _globalMethodCache = new TypeMethodCache();
+        internal static readonly TypeMethodCache GlobalMethodCache = new TypeMethodCache();
 
         /// <summary>
         /// Next available version tag (CPython: next_version_tag)
@@ -399,7 +399,14 @@ namespace SharpPy
             while (true)
             {
                 // 빈 시퀀스들 제거
-                sequences = sequences.Where(seq => seq.Count > 0).ToList();
+                // Performance: Eliminated LINQ (Where + ToList) - manual removal
+                for (int i = sequences.Count - 1; i >= 0; i--)
+                {
+                    if (sequences[i].Count == 0)
+                    {
+                        sequences.RemoveAt(i);
+                    }
+                }
 
                 if (sequences.Count == 0)
                     break;
@@ -410,7 +417,22 @@ namespace SharpPy
                 foreach (var seq in sequences)
                 {
                     var head = seq[0];
-                    var isTail = sequences.Any(s => s.Skip(1).Contains(head));
+
+                    // Performance: Eliminated LINQ (Any + Skip + Contains) - nested loops
+                    bool isTail = false;
+                    for (int si = 0; si < sequences.Count; si++)
+                    {
+                        var s = sequences[si];
+                        for (int i = 1; i < s.Count; i++)
+                        {
+                            if (s[i] == head)
+                            {
+                                isTail = true;
+                                break;
+                            }
+                        }
+                        if (isTail) break;
+                    }
 
                     if (!isTail)
                     {
@@ -734,7 +756,7 @@ namespace SharpPy
         public PyObject LookupSpecial(string name)
         {
             // Use global method cache for fast lookup
-            return _globalMethodCache.Lookup(this, name, out _);
+            return GlobalMethodCache.Lookup(this, name, out _);
         }
 
         #endregion

@@ -204,8 +204,33 @@ namespace SharpPy
 
         public override string GetTypeName() => "list";
         public override PyType GetPyType() => PyType.ListType;
-        public override string ToString() => $"[{string.Join(", ", _items.Select(i => i.ToRepr().Value))}]";
-        public override PyString ToRepr() => new PyString($"[{string.Join(", ", _items.Select(i => i.ToRepr().Value))}]");
+        public override string ToString()
+        {
+            // Performance: Eliminated LINQ (Select + Join) - use StringBuilder directly
+            if (_items.Count == 0) return "[]";
+            var sb = new System.Text.StringBuilder("[");
+            for (int i = 0; i < _items.Count; i++)
+            {
+                if (i > 0) sb.Append(", ");
+                sb.Append(_items[i].ToRepr().Value);
+            }
+            sb.Append("]");
+            return sb.ToString();
+        }
+
+        public override PyString ToRepr()
+        {
+            // Performance: Eliminated LINQ (Select + Join) - use StringBuilder directly
+            if (_items.Count == 0) return new PyString("[]");
+            var sb = new System.Text.StringBuilder("[");
+            for (int i = 0; i < _items.Count; i++)
+            {
+                if (i > 0) sb.Append(", ");
+                sb.Append(_items[i].ToRepr().Value);
+            }
+            sb.Append("]");
+            return new PyString(sb.ToString());
+        }
         public override int Length() => _items.Count;
         public override bool PyBoolValue() => _items.Count > 0;
 
