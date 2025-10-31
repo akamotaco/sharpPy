@@ -217,30 +217,78 @@ namespace SharpPy
         public override PyType GetPyType() => PyType.ListType;
         public override string ToString()
         {
-            // Performance: Eliminated LINQ (Select + Join) - use StringBuilder directly
+            // Performance: CPython-style - pre-calculate size, allocate once, direct copy
             if (_items.Count == 0) return "[]";
-            var sb = new System.Text.StringBuilder("[");
+
+            // Step 1: Calculate total length
+            int totalLength = 2; // "[]"
             for (int i = 0; i < _items.Count; i++)
             {
-                if (i > 0) sb.Append(", ");
-                sb.Append(_items[i].ToRepr().Value);
+                if (i > 0) totalLength += 2; // ", "
+                totalLength += _items[i].ToRepr().Value.Length;
             }
-            sb.Append("]");
-            return sb.ToString();
+
+            // Step 2: Allocate exact size
+            var chars = new char[totalLength];
+            int pos = 0;
+            chars[pos++] = '[';
+
+            // Step 3: Direct copy
+            for (int i = 0; i < _items.Count; i++)
+            {
+                if (i > 0)
+                {
+                    chars[pos++] = ',';
+                    chars[pos++] = ' ';
+                }
+
+                string itemRepr = _items[i].ToRepr().Value;
+                itemRepr.CopyTo(0, chars, pos, itemRepr.Length);
+                pos += itemRepr.Length;
+            }
+
+            chars[pos] = ']';
+            return new string(chars);
         }
 
         public override PyString ToRepr()
         {
-            // Performance: Eliminated LINQ (Select + Join) - use StringBuilder directly + Cache
             if (_items.Count == 0) return StringCache.GetOrCreate("[]");
-            var sb = new System.Text.StringBuilder("[");
+
+            // Performance: string.Create() - CPython-style single allocation
+
+            // Step 1: Calculate total length and cache reprs
+            var reprs = new string[_items.Count];
+            int totalLength = 2; // "[]"
             for (int i = 0; i < _items.Count; i++)
             {
-                if (i > 0) sb.Append(", ");
-                sb.Append(_items[i].ToRepr().Value);
+                reprs[i] = _items[i].ToRepr().Value;
+                if (i > 0) totalLength += 2; // ", "
+                totalLength += reprs[i].Length;
             }
-            sb.Append("]");
-            return StringCache.GetOrCreate(sb.ToString());
+
+            // Step 2: string.Create with single allocation
+            var result = string.Create(totalLength, reprs, (span, items) =>
+            {
+                int pos = 0;
+                span[pos++] = '[';
+
+                for (int i = 0; i < items.Length; i++)
+                {
+                    if (i > 0)
+                    {
+                        span[pos++] = ',';
+                        span[pos++] = ' ';
+                    }
+
+                    items[i].AsSpan().CopyTo(span.Slice(pos));
+                    pos += items[i].Length;
+                }
+
+                span[pos] = ']';
+            });
+
+            return StringCache.GetOrCreate(result);
         }
         public override int Length() => _items.Count;
         public override bool PyBoolValue() => _items.Count > 0;

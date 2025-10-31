@@ -25,17 +25,58 @@ namespace SharpPy
         public override PyString ToRepr()
         {
             if (Items.Length == 0) return StringCache.GetOrCreate("()");
-            if (Items.Length == 1) return StringCache.GetOrCreate($"({Items[0].ToRepr().Value},)");
 
-            // Performance: Eliminated LINQ (.Select + string.Join) - manual StringBuilder
-            var sb = new System.Text.StringBuilder("(");
+            // Single element tuple needs trailing comma
+            if (Items.Length == 1)
+            {
+                string itemRepr = Items[0].ToRepr().Value;
+                int singleLength = 3 + itemRepr.Length; // "(,)"
+
+                // Performance: string.Create() - single allocation
+                var singleResult = string.Create(singleLength, itemRepr, (span, repr) =>
+                {
+                    span[0] = '(';
+                    repr.AsSpan().CopyTo(span.Slice(1));
+                    span[singleLength - 2] = ',';
+                    span[singleLength - 1] = ')';
+                });
+                return StringCache.GetOrCreate(singleResult);
+            }
+
+            // Performance: string.Create() - CPython-style single allocation
+
+            // Step 1: Calculate total length and cache reprs
+            var reprs = new string[Items.Length];
+            int totalLength = 2; // "()"
             for (int i = 0; i < Items.Length; i++)
             {
-                if (i > 0) sb.Append(", ");
-                sb.Append(Items[i].ToRepr().Value);
+                reprs[i] = Items[i].ToRepr().Value;
+                if (i > 0) totalLength += 2; // ", "
+                totalLength += reprs[i].Length;
             }
-            sb.Append(")");
-            return StringCache.GetOrCreate(sb.ToString());
+
+            // Step 2: string.Create with single allocation
+            var result = string.Create(totalLength, reprs, (span, items) =>
+            {
+                int pos = 0;
+                span[pos++] = '(';
+
+                for (int i = 0; i < items.Length; i++)
+                {
+                    if (i > 0)
+                    {
+                        span[pos++] = ',';
+                        span[pos++] = ' ';
+                    }
+
+                    items[i].AsSpan().CopyTo(span.Slice(pos));
+                    pos += items[i].Length;
+                }
+
+                span[pos] = ')';
+            });
+
+            return StringCache.GetOrCreate(result);
         }
 
         public override string ToString() => ToRepr().Value;

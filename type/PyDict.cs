@@ -69,22 +69,54 @@ namespace SharpPy
 
         public override PyString ToRepr()
         {
-            if (_dict.Count == 0) return new PyString("{}");
+            if (_dict.Count == 0) return StringCache.GetOrCreate("{}");
 
             // Python 3.7+: 삽입 순서대로 출력
-            // Performance: Eliminated LINQ (Select + Join) - use StringBuilder directly
-            var sb = new System.Text.StringBuilder("{");
-            bool first = true;
-            foreach (var key in _keys)
+            // Performance: string.Create() - CPython-style single allocation
+
+            // Step 1: Calculate total length and cache reprs
+            var keyReprs = new string[_keys.Count];
+            var valueReprs = new string[_keys.Count];
+            int totalLength = 2; // "{}"
+            for (int i = 0; i < _keys.Count; i++)
             {
-                if (!first) sb.Append(", ");
-                sb.Append(key.ToRepr().Value);
-                sb.Append(": ");
-                sb.Append(_dict[key].ToRepr().Value);
-                first = false;
+                keyReprs[i] = _keys[i].ToRepr().Value;
+                valueReprs[i] = _dict[_keys[i]].ToRepr().Value;
+
+                if (i > 0) totalLength += 2; // ", "
+                totalLength += keyReprs[i].Length;
+                totalLength += 2; // ": "
+                totalLength += valueReprs[i].Length;
             }
-            sb.Append("}");
-            return new PyString(sb.ToString());
+
+            // Step 2: string.Create with single allocation
+            var result = string.Create(totalLength, (keyReprs, valueReprs), (span, state) =>
+            {
+                int pos = 0;
+                span[pos++] = '{';
+
+                for (int i = 0; i < state.keyReprs.Length; i++)
+                {
+                    if (i > 0)
+                    {
+                        span[pos++] = ',';
+                        span[pos++] = ' ';
+                    }
+
+                    state.keyReprs[i].AsSpan().CopyTo(span.Slice(pos));
+                    pos += state.keyReprs[i].Length;
+
+                    span[pos++] = ':';
+                    span[pos++] = ' ';
+
+                    state.valueReprs[i].AsSpan().CopyTo(span.Slice(pos));
+                    pos += state.valueReprs[i].Length;
+                }
+
+                span[pos] = '}';
+            });
+
+            return StringCache.GetOrCreate(result);
         }
 
         #endregion
