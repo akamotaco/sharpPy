@@ -1187,6 +1187,22 @@ namespace SharpPy.Generated
 
                 char c = CurrentChar;
 
+                // CPython 3.12: Handle backslash escape sequences
+                // When backslash is encountered, consume it AND the next character together
+                // This prevents escaped quotes (like \") from ending the f-string
+                if (c == '\\')
+                {
+                    Advance(); // Move past backslash
+                    if (_position < _source.Length)
+                    {
+                        // Consume the escaped character
+                        // CPython handles { and } specially, but for quotes and other chars,
+                        // they are simply consumed and included in FSTRING_MIDDLE
+                        Advance(); // Move past the escaped character
+                    }
+                    continue; // Back to loop start, will check IsAtFStringEnd again
+                }
+
                 // Handle opening brace (expression start)
                 if (c == '{')
                 {
