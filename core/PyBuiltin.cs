@@ -340,9 +340,7 @@ namespace SharpPy
             if (args.Length == 1)
             {
                 var prompt = args[0].ToStr().Value;
-                #if DEBUG_LOG
                 Console.Write(prompt);
-                #endif
             }
 
             // stdin에서 한 줄 읽기
