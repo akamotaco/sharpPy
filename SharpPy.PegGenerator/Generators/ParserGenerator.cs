@@ -1,6 +1,7 @@
 using System.Text;
 using SharpPy.PegGenerator.DataStructures;
 using SharpPy.PegGenerator.Analysis;
+using SharpPy.Generated;
 using RegexUtils = System.Text.RegularExpressions.Regex;
 
 namespace SharpPy.PegGenerator.Generators;
@@ -855,7 +856,9 @@ public class ParserGenerator
             else
             {
                 // Operator like ',', ';', '(', '!', etc.
-                return $"ExpectOp(\"{EscapeString(kw.Value)}\")";
+                // Generate ExpectToken with exact type instead of ExpectOp for performance
+                var tokenType = PyToken.GetOpType(kw.Value, exactType: true);
+                return $"ExpectToken(PyToken.Type.{tokenType})";
             }
         }
     }

@@ -803,13 +803,17 @@ namespace SharpPy.Generated
         /// <summary>
         /// Expect an operator token
         /// CPython 3.12: Use exact token type (PLUS, LPAR, etc.) for efficient matching
+        /// NOTE: This method is no longer used. ParserGenerator now generates ExpectToken calls directly.
+        /// Kept for backward compatibility or manual parser code if needed.
         /// </summary>
+        /*
         protected GeneratedTokenInfo ExpectOp(string op)
         {
             // Use exact token type for efficient type-only matching
             var tokenType = PyToken.GetOpType(op, exactType: true);
             return ExpectToken(tokenType);  // Type-only check, no value comparison needed
         }
+        */
 
         /// <summary>
         /// Expect a keyword token

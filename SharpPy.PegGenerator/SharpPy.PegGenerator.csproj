@@ -7,4 +7,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Reference PyTokens.cs for token type resolution at generation time -->
+    <Compile Include="..\Generated\PyTokens.cs" Link="PyTokens.cs" />
+  </ItemGroup>
+
 </Project>
