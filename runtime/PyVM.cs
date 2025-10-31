@@ -8,7 +8,7 @@ namespace SharpPy
     public class PyFrame : PyObject
     {
         public PyCodeObject Code { get; }
-        public Stack<PyObject> ValueStack { get; }
+        public PyStack ValueStack { get; }
         public PyScopeChain ScopeChain { get; }       // 기존 LEGB 시스템 활용!
         public PyObject[] LocalsPlus { get; }  // CPython 3.12 style: Direct array for local variables
         public int InstructionPointer { get; set; }
@@ -67,7 +67,7 @@ namespace SharpPy
 #endif
 
             Code = code;
-            ValueStack = new Stack<PyObject>();
+            ValueStack = new PyStack();
             // 부모 스코프 체인이 있으면 상속, 없으면 새로 생성
             ScopeChain = parentScope ?? new PyScopeChain();
 
@@ -1195,9 +1195,9 @@ namespace SharpPy
                     }
 
                     // CPython 3.12: COPY 1 copies TOS, COPY 2 copies TOS-1 (second from top), etc.
-                    // .NET Stack: ElementAt(0) is TOS, ElementAt(1) is TOS-1
-                    // So COPY 1 should use ElementAt(copyIndex - 1)
-                    var valueToCopy = frame.ValueStack.ElementAt(copyIndex - 1);
+                    // PyStack: PeekAt(0) is TOS, PeekAt(1) is TOS-1
+                    // So COPY 1 should use PeekAt(copyIndex - 1)
+                    var valueToCopy = frame.ValueStack.PeekAt(copyIndex - 1);
                     #if DEBUG_LOG
                     // Debug: Console.WriteLine($"🔄 COPY {copyIndex}: copying TOS-{copyIndex-1} = {valueToCopy}");
                     #endif
@@ -1208,31 +1208,15 @@ namespace SharpPy
                     var oparg = instruction.Argument;
                     #if DEBUG_VM_LOG
                     Console.WriteLine($"🔍 SWAP({oparg}): Stack.Count = {frame.ValueStack.Count}");
-                    #endif
                     if (frame.ValueStack.Count > 0)
                     {
                         var stackPreview = string.Join(", ", frame.ValueStack.Take(Math.Min(5, frame.ValueStack.Count)).Select(x => x.GetType().Name));
-                        #if DEBUG_VM_LOG
                         Console.WriteLine($"    Stack top items: [{stackPreview}]");
-                        #endif
                     }
+                    #endif
 
-                    if (frame.ValueStack.Count < oparg)
-                    {
-                        throw PyRuntimeError.Create($"SWAP({oparg}): Not enough items on stack (need {oparg}, got {frame.ValueStack.Count})");
-                    }
-
-                    var stackArray = frame.ValueStack.ToArray(); // Stack을 임시 배열로 변환
-
-                    var temp = stackArray[0];
-                    stackArray[0] = stackArray[oparg - 1];
-                    stackArray[oparg - 1] = temp;
-
-                    frame.ValueStack.Clear();
-                    for (int i = stackArray.Length - 1; i >= 0; i--)
-                    {
-                        frame.ValueStack.Push(stackArray[i]);
-                    }
+                    // O(1) Swap operation using PyStack's indexed access
+                    frame.ValueStack.Swap(oparg);
 
                     #if DEBUG_VM_LOG
                     Console.WriteLine($"    ✅ SWAP completed, Stack.Count = {frame.ValueStack.Count}");
@@ -3795,12 +3779,13 @@ namespace SharpPy
                     #endif
 
                     // Debug: Print current stack contents from top to bottom
-                    var debugStack = new List<PyObject>(frame.ValueStack);
-                    debugStack.Reverse(); // Now from top to bottom
-                    for (int i = 0; i < debugStack.Count; i++)
+                    // Use PyStack.Reverse() for efficient iteration
+                    int debugIdx = 0;
+                    foreach (var item in frame.ValueStack.Reverse())
                     {
                         #if DEBUG_LOG
-                        Console.WriteLine($"🔍 Stack[{i}]: {debugStack[i]}");
+                        Console.WriteLine($"🔍 Stack[{debugIdx}]: {item}");
+                        debugIdx++;
                         #endif
                     }
 
@@ -4807,10 +4792,10 @@ namespace SharpPy
                         throw new Exception($"LIST_APPEND: not enough items on stack (need {targetDepth + 1}, got {frame.ValueStack.Count})");
                     }
 
-                    // 스택 위치에서 리스트 찾기 - PyNull 건너뛰기
-                    var targetList = frame.ValueStack.ElementAt(targetDepth);
+                    // 스택 위치에서 리스트 찾기 - PyNull 건너뛰기 (O(1) indexed access)
+                    var targetList = frame.ValueStack.PeekAt(targetDepth);
                     #if DEBUG_VM_LOG
-                    Console.WriteLine($"    Found at ElementAt({targetDepth}): {targetList.GetType().Name}");
+                    Console.WriteLine($"    Found at PeekAt({targetDepth}): {targetList.GetType().Name}");
                     #endif
 
                     // PyNull인 경우 실제 리스트를 찾기 위해 스택을 탐색
@@ -4819,7 +4804,7 @@ namespace SharpPy
                         // PyNull들을 건너뛰고 실제 리스트 찾기
                         for (int i = targetDepth; i < frame.ValueStack.Count; i++)
                         {
-                            var candidate = frame.ValueStack.ElementAt(i);
+                            var candidate = frame.ValueStack.PeekAt(i);
                             if (!PyNull.IsNull(candidate))
                             {
                                 targetList = candidate;
@@ -4863,8 +4848,8 @@ namespace SharpPy
                         throw new Exception($"SET_ADD: not enough items on stack (need {setTargetDepth + 1}, got {frame.ValueStack.Count})");
                     }
 
-                    // 스택 위치에서 set 찾기 - PyNull 건너뛰기
-                    var targetSet = frame.ValueStack.ElementAt(setTargetDepth);
+                    // 스택 위치에서 set 찾기 - PyNull 건너뛰기 (O(1) indexed access)
+                    var targetSet = frame.ValueStack.PeekAt(setTargetDepth);
 
                     // PyNull인 경우 실제 set을 찾기 위해 스택을 탐색
                     if (PyNull.IsNull(targetSet))
@@ -4872,7 +4857,7 @@ namespace SharpPy
                         // PyNull들을 건너뛰고 실제 set 찾기
                         for (int i = setTargetDepth; i < frame.ValueStack.Count; i++)
                         {
-                            var candidate = frame.ValueStack.ElementAt(i);
+                            var candidate = frame.ValueStack.PeekAt(i);
                             if (!PyNull.IsNull(candidate))
                             {
                                 targetSet = candidate;
@@ -4910,17 +4895,16 @@ namespace SharpPy
                         #if DEBUG_LOG
                         Console.WriteLine($"🔍 MAP_ADD Debug: depth={dictDepth}, stackSize={frame.ValueStack.Count}");
                         var debugStackArray = frame.ValueStack.ToArray();
-                        Array.Reverse(debugStackArray);
                         for (int i = 0; i < Math.Min(5, debugStackArray.Length); i++)
                         {
                             Console.WriteLine($"    Stack[{i}]: {debugStackArray[i]?.GetType().Name ?? "null"} = {debugStackArray[i]?.ToString() ?? "null"}");
                         }
-                        Console.WriteLine($"🔍 MAP_ADD Debug: targetDict at ElementAt({dictDepth - 1})");
+                        Console.WriteLine($"🔍 MAP_ADD Debug: targetDict at PeekAt({dictDepth - 1})");
                         #endif
 
-                        // CPython PEEK 방식: ElementAt(dictDepth-1)
-                        // dictDepth=2 → ElementAt(1), dictDepth=3 → ElementAt(2), etc.
-                        var mapAddTarget = frame.ValueStack.ElementAt(dictDepth - 1);
+                        // CPython PEEK 방식: PeekAt(dictDepth-1) - O(1) indexed access
+                        // dictDepth=2 → PeekAt(1), dictDepth=3 → PeekAt(2), etc.
+                        var mapAddTarget = frame.ValueStack.PeekAt(dictDepth - 1);
 
                         if (mapAddTarget is PyDict mapAddDict)
                         {

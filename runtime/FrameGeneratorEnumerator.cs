@@ -15,7 +15,7 @@ namespace SharpPy
         private bool _finished;
         private bool _started = false;
         private int _lastInstructionPointer = 0;
-        private Stack<PyObject> _savedStack = null;
+        private PyStack _savedStack = null;
 
         public FrameGeneratorEnumerator(PyFrame frame, PyVM vm)
         {
@@ -83,12 +83,9 @@ namespace SharpPy
                 _lastInstructionPointer = _frame.InstructionPointer;
                 
                 // Save current stack state for restoration on resume
-                _savedStack = new Stack<PyObject>();
-                foreach (var item in _frame.ValueStack)
-                {
-                    _savedStack.Push(item);
-                }
-                
+                // O(n) optimized clone using List.AddRange
+                _savedStack = _frame.ValueStack.Clone();
+
                 Console.WriteLine($"🔄 Generator: Yielded {yieldEx.Value} at instruction {_lastInstructionPointer}, saved stack size {_savedStack.Count}");
                 _current = yieldEx.Value ?? PyNone.Instance;
                 return true;
