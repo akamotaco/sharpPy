@@ -1914,13 +1914,13 @@ namespace SharpPy
                     // Handle keyword arguments with KW_NAMES (CPython 3.12 pattern)
                     if (keywordArgs.Count > 0)
                     {
-                        // Performance: Eliminated LINQ
+                        // Performance: Eliminated LINQ + Cache
                         var kwNames = new PyObject[keywordArgs.Count];
                         for (int j = 0; j < keywordArgs.Count; j++)
                         {
-                            kwNames[j] = new PyString(keywordArgs[j].Arg ?? "");
+                            kwNames[j] = StringCache.GetOrCreate(keywordArgs[j].Arg ?? "");
                         }
-                        var kwNamesTuple = new PyTuple(kwNames);
+                        var kwNamesTuple = TupleCache.GetOrCreate(kwNames);
                         var kwNamesIndex = GetOrAddConstant(kwNamesTuple);
 
                         EmitInstruction(ByteCodeOp.KW_NAMES, kwNamesIndex);
@@ -2005,13 +2005,13 @@ namespace SharpPy
                 if (keys.Count > 0)
                 {
                     // Load keys tuple as constant
-                    // Performance: Eliminated LINQ
+                    // Performance: Eliminated LINQ + Cache
                     var keysArray = new PyObject[keys.Count];
                     for (int i = 0; i < keys.Count; i++)
                     {
-                        keysArray[i] = new PyString(keys[i]);
+                        keysArray[i] = StringCache.GetOrCreate(keys[i]);
                     }
-                    var keysTuple = new PyTuple(keysArray);
+                    var keysTuple = TupleCache.GetOrCreate(keysArray);
                     EmitLoadConst(keysTuple);
 
                     // BUILD_CONST_KEY_MAP with number of items
@@ -3054,13 +3054,13 @@ namespace SharpPy
                             }
 
                             // CPython 3.12: Create keyword names tuple and add to constants
-                            // Performance: Eliminated LINQ
+                            // Performance: Eliminated LINQ + Cache
                             var kwNames = new PyObject[call.Keywords.Count];
                             for (int i = 0; i < call.Keywords.Count; i++)
                             {
-                                kwNames[i] = new PyString(call.Keywords[i].Arg ?? "");
+                                kwNames[i] = StringCache.GetOrCreate(call.Keywords[i].Arg ?? "");
                             }
-                            var kwNamesTuple = new PyTuple(kwNames);
+                            var kwNamesTuple = TupleCache.GetOrCreate(kwNames);
                             var kwNamesIndex = GetOrAddConstant(kwNamesTuple);
 
                             // CPython 3.12: KW_NAMES + CALL pattern
@@ -3220,7 +3220,7 @@ namespace SharpPy
                             Console.WriteLine($"  constantElements[{i}] = {constantElements[i]} (타입: {constantElements[i]?.GetType().Name})");
                         }
 #endif
-                        var tupleConstant = new PyTuple(constantElements);
+                        var tupleConstant = TupleCache.GetOrCreate(constantElements);
 #if DEBUG_LOG
                         Console.WriteLine($"🔍 tupleConstant 생성: {tupleConstant.Items.Length}개 아이템");
                         for (int i = 0; i < tupleConstant.Items.Length; i++)

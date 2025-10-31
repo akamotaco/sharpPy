@@ -210,7 +210,7 @@ namespace SharpPy
             var value = _dict[lastKey];
             _dict.Remove(lastKey);
             _keys.RemoveAt(_keys.Count - 1);
-            return new PyTuple(lastKey, value);
+            return TupleCache.CreatePair(lastKey, value);
         }
 
         /// <summary>
@@ -294,13 +294,13 @@ namespace SharpPy
         public PyList Keys()
         {
             // _keys를 사용하여 삽입 순서 보장
-            // Performance: Eliminated LINQ (.ToArray) - direct array copy
+            // Performance: Eliminated LINQ (.ToArray) - direct array copy + Cache
             var keysArray = new PyObject[_keys.Count];
             for (int i = 0; i < _keys.Count; i++)
             {
                 keysArray[i] = _keys[i];
             }
-            return new PyList(keysArray);
+            return ListCache.Create(keysArray);
         }
 
         /// <summary>
@@ -310,13 +310,13 @@ namespace SharpPy
         public PyList Values()
         {
             // _keys 순서대로 값을 가져옴
-            // Performance: Eliminated LINQ (Select + ToArray) - direct array copy
+            // Performance: Eliminated LINQ (Select + ToArray) - direct array copy + Cache
             var values = new PyObject[_keys.Count];
             for (int i = 0; i < _keys.Count; i++)
             {
                 values[i] = _dict[_keys[i]];
             }
-            return new PyList(values);
+            return ListCache.Create(values);
         }
 
         /// <summary>
@@ -326,13 +326,13 @@ namespace SharpPy
         public PyList Items()
         {
             // _keys 순서대로 키-값 쌍을 생성
-            // Performance: Eliminated LINQ (Select + Cast + ToArray) - direct tuple creation
+            // Performance: Eliminated LINQ (Select + Cast + ToArray) - direct tuple creation + Cache
             var items = new PyObject[_keys.Count];
             for (int i = 0; i < _keys.Count; i++)
             {
-                items[i] = new PyTuple(_keys[i], _dict[_keys[i]]);
+                items[i] = TupleCache.CreatePair(_keys[i], _dict[_keys[i]]);
             }
-            return new PyList(items);
+            return ListCache.Create(items);
         }
 
         #endregion
@@ -483,13 +483,13 @@ namespace SharpPy
         public override PyTuple AsTuple()
         {
             // CPython tuple(dict) 동작: 딕셔너리의 키들을 튜플로 변환 (삽입 순서 보장)
-            // Performance: Eliminated LINQ (.ToArray) - direct array copy
+            // Performance: Eliminated LINQ (.ToArray) - direct array copy + Cache
             var keysArray = new PyObject[_keys.Count];
             for (int i = 0; i < _keys.Count; i++)
             {
                 keysArray[i] = _keys[i];
             }
-            return new PyTuple(keysArray);
+            return TupleCache.GetOrCreate(keysArray);
         }
         
         /// <summary>

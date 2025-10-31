@@ -24,8 +24,8 @@ namespace SharpPy
 
         public override PyString ToRepr()
         {
-            if (Items.Length == 0) return new PyString("()");
-            if (Items.Length == 1) return new PyString($"({Items[0].ToRepr().Value},)");
+            if (Items.Length == 0) return StringCache.GetOrCreate("()");
+            if (Items.Length == 1) return StringCache.GetOrCreate($"({Items[0].ToRepr().Value},)");
 
             // Performance: Eliminated LINQ (.Select + string.Join) - manual StringBuilder
             var sb = new System.Text.StringBuilder("(");
@@ -35,7 +35,7 @@ namespace SharpPy
                 sb.Append(Items[i].ToRepr().Value);
             }
             sb.Append(")");
-            return new PyString(sb.ToString());
+            return StringCache.GetOrCreate(sb.ToString());
         }
 
         public override string ToString() => ToRepr().Value;
@@ -142,11 +142,11 @@ namespace SharpPy
         {
             if (other is PyTuple otherTuple)
             {
-                // Performance: Eliminated LINQ (.Concat + .ToArray) - manual array concatenation
+                // Performance: Eliminated LINQ (.Concat + .ToArray) - manual array concatenation + Cache
                 var result = new PyObject[Items.Length + otherTuple.Items.Length];
                 Array.Copy(Items, 0, result, 0, Items.Length);
                 Array.Copy(otherTuple.Items, 0, result, Items.Length, otherTuple.Items.Length);
-                return new PyTuple(result);
+                return TupleCache.GetOrCreate(result);
             }
 
             throw PyTypeError.Create($"can only concatenate tuple (not \"{other.GetTypeName()}\") to tuple");
@@ -160,15 +160,15 @@ namespace SharpPy
             if (other is PyInt count)
             {
                 if (count.Value <= 0)
-                    return new PyTuple();
+                    return TupleCache.Empty;
 
-                // Performance: Eliminated LINQ (Enumerable.Range + .SelectMany + .ToArray) - manual repetition
+                // Performance: Eliminated LINQ (Enumerable.Range + .SelectMany + .ToArray) - manual repetition + Cache
                 var result = new PyObject[Items.Length * (int)count.Value];
                 for (int i = 0; i < count.Value; i++)
                 {
                     Array.Copy(Items, 0, result, i * Items.Length, Items.Length);
                 }
-                return new PyTuple(result);
+                return TupleCache.GetOrCreate(result);
             }
 
             throw PyTypeError.Create($"can't multiply sequence by non-int of type '{other.GetTypeName()}'");
@@ -234,10 +234,10 @@ namespace SharpPy
                 }
             }
 
-            // Performance: Eliminated LINQ (.ToArray) - direct array copy
+            // Performance: Eliminated LINQ (.ToArray) - direct array copy + Cache
             var resultArray = new PyObject[result.Count];
             result.CopyTo(resultArray, 0);
-            return new PyTuple(resultArray);
+            return TupleCache.GetOrCreate(resultArray);
         }
 
         /// <summary>
@@ -352,10 +352,10 @@ namespace SharpPy
         public override PyTuple AsTuple()
         {
             // CPython tuple() 생성자 동작: 새로운 복사본 생성
-            // Performance: Eliminated LINQ (.ToArray) - direct array copy
+            // Performance: Eliminated LINQ (.ToArray) - direct array copy + Cache
             var copy = new PyObject[Items.Length];
             Array.Copy(Items, copy, Items.Length);
-            return new PyTuple(copy);
+            return TupleCache.GetOrCreate(copy);
         }
         
         /// <summary>
@@ -364,7 +364,7 @@ namespace SharpPy
         public override PyList AsList()
         {
             // CPython list(tuple) 동작: 튜플 요소들을 리스트로 변환
-            return new PyList(Items);
+            return ListCache.Create(Items);
         }
         
         /// <summary>

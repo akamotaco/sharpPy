@@ -182,10 +182,10 @@ namespace SharpPy
                         throw PyTypeError.Create($"copy() takes no arguments ({args.Length} given)");
                     if (self is not PyList list)
                         throw PyTypeError.Create($"descriptor 'copy' requires a 'list' object but received a '{self.GetTypeName()}'");
-                    // Performance: Eliminated LINQ (.ToArray) - direct array copy
+                    // Performance: Eliminated LINQ (.ToArray) - direct array copy + Cache
                     var copy = new PyObject[list._items.Count];
                     list._items.CopyTo(copy, 0);
-                    return new PyList(copy);
+                    return ListCache.Create(copy);
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -231,8 +231,8 @@ namespace SharpPy
 
         public override PyString ToRepr()
         {
-            // Performance: Eliminated LINQ (Select + Join) - use StringBuilder directly
-            if (_items.Count == 0) return new PyString("[]");
+            // Performance: Eliminated LINQ (Select + Join) - use StringBuilder directly + Cache
+            if (_items.Count == 0) return StringCache.GetOrCreate("[]");
             var sb = new System.Text.StringBuilder("[");
             for (int i = 0; i < _items.Count; i++)
             {
@@ -240,7 +240,7 @@ namespace SharpPy
                 sb.Append(_items[i].ToRepr().Value);
             }
             sb.Append("]");
-            return new PyString(sb.ToString());
+            return StringCache.GetOrCreate(sb.ToString());
         }
         public override int Length() => _items.Count;
         public override bool PyBoolValue() => _items.Count > 0;
@@ -555,10 +555,10 @@ namespace SharpPy
         public override PyList AsList()
         {
             // CPython list() 생성자 동작: 새로운 복사본 생성
-            // Performance: Eliminated LINQ (.ToArray) - direct array copy
+            // Performance: Eliminated LINQ (.ToArray) - direct array copy + Cache
             var copy = new PyObject[_items.Count];
             _items.CopyTo(copy, 0);
-            return new PyList(copy);
+            return ListCache.Create(copy);
         }
         
         /// <summary>
@@ -567,10 +567,10 @@ namespace SharpPy
         public override PyTuple AsTuple()
         {
             // CPython tuple() 생성자 동작: 리스트 요소들로 튜플 생성
-            // Performance: Eliminated LINQ (.ToArray) - direct array copy
+            // Performance: Eliminated LINQ (.ToArray) - direct array copy + Cache
             var items = new PyObject[_items.Count];
             _items.CopyTo(items, 0);
-            return new PyTuple(items);
+            return TupleCache.GetOrCreate(items);
         }
         
         /// <summary>

@@ -2895,10 +2895,10 @@ namespace SharpPy
                                     #endif
                                 }
 
-                                // Performance: Eliminated LINQ - manual List to array
+                                // Performance: Eliminated LINQ - manual List to array + Cache
                                 var attrsArray = new PyObject[attrs.Count];
                                 attrs.CopyTo(attrsArray, 0);
-                                frame.ValueStack.Push(new PyTuple(attrsArray));
+                                frame.ValueStack.Push(TupleCache.GetOrCreate(attrsArray));
                             }
                             else if (classToMatch is PyClass cls && positionalCount > 0 &&
                                      cls.GetAttribute("__match_args__") is PyTuple matchArgs)
@@ -2917,10 +2917,10 @@ namespace SharpPy
                                     }
                                 }
 
-                                // Performance: Eliminated LINQ - manual List to array
+                                // Performance: Eliminated LINQ - manual List to array + Cache
                                 var attrsArray = new PyObject[attrs.Count];
                                 attrs.CopyTo(attrsArray, 0);
-                                frame.ValueStack.Push(new PyTuple(attrsArray));
+                                frame.ValueStack.Push(TupleCache.GetOrCreate(attrsArray));
                             }
                             else
                             {

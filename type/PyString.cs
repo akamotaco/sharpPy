@@ -714,20 +714,20 @@ namespace SharpPy
                     : Value.Split(new[] { sep }, maxsplit + 1, StringSplitOptions.None);
             }
 
-            // Performance: Eliminated LINQ (.Select + .Cast + .ToArray) - direct array creation
+            // Performance: Eliminated LINQ (.Select + .Cast + .ToArray) - direct array creation + Cache
             var pyStrings = new PyObject[parts.Length];
             for (int i = 0; i < parts.Length; i++)
             {
-                pyStrings[i] = new PyString(parts[i]);
+                pyStrings[i] = StringCache.GetOrCreate(parts[i]);
             }
-            return new PyList(pyStrings);
+            return ListCache.Create(pyStrings);
         }
 
         public PyString Join(PyObject iterable)
         {
             if (iterable is PyList list)
             {
-                // Performance: Eliminated LINQ (.Select) - manual string extraction
+                // Performance: Eliminated LINQ (.Select) - manual string extraction + Cache
                 var items = new string[list.Items.Length];
                 for (int i = 0; i < list.Items.Length; i++)
                 {
@@ -736,7 +736,7 @@ namespace SharpPy
                     else
                         throw PyTypeError.Create($"sequence item: expected str instance, {list.Items[i].GetTypeName()} found");
                 }
-                return new PyString(string.Join(Value, items));
+                return StringCache.GetOrCreate(string.Join(Value, items));
             }
 
             throw PyTypeError.Create($"can only join an iterable");
@@ -913,13 +913,13 @@ namespace SharpPy
         /// </summary>
         public override PyList AsList()
         {
-            // Performance: Eliminated LINQ (.Select + .ToList) - manual character conversion
+            // Performance: Eliminated LINQ (.Select + .ToList) - manual character conversion + Cache
             var items = new PyObject[Value.Length];
             for (int i = 0; i < Value.Length; i++)
             {
-                items[i] = new PyString(Value[i].ToString());
+                items[i] = StringCache.GetOrCreate(Value[i].ToString());
             }
-            return new PyList(items);
+            return ListCache.Create(items);
         }
 
         #endregion
