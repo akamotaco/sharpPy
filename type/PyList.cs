@@ -659,19 +659,35 @@ namespace SharpPy
         {
             if (other is not PyList otherList)
                 return PyBool.False;
-            
+
             // 길이가 다르면 False
             if (_items.Count != otherList._items.Count)
                 return PyBool.False;
-            
+
             // 각 요소를 비교
             for (int i = 0; i < _items.Count; i++)
             {
                 if (!AreEqual(_items[i], otherList._items[i]))
                     return PyBool.False;
             }
-            
+
             return PyBool.True;
+        }
+
+        /// <summary>
+        /// CPython __add__ 구현 - 리스트 연결
+        /// </summary>
+        public override PyObject Add(PyObject other)
+        {
+            if (other is not PyList otherList)
+                throw PyTypeError.Create($"can only concatenate list (not \"{other.GetTypeName()}\") to list");
+
+            // 새로운 리스트 생성 (원본 리스트는 변경하지 않음)
+            var newItems = new PyObject[_items.Count + otherList._items.Count];
+            _items.CopyTo(newItems, 0);
+            otherList._items.CopyTo(newItems, _items.Count);
+
+            return ListCache.Create(newItems);
         }
     }
 }

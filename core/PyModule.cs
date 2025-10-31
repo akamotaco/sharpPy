@@ -163,7 +163,9 @@ public class PyModule : PyObject
     // 모듈 실행 (소스 코드 실행) - 전체 Python 인터프리터 파이프라인 사용
     public void Execute(string sourceCode)
     {
+#if DEBUG_MODULE_LOG
         Console.WriteLine($"📄 모듈 '{Name}' 실행 중...");
+#endif
 
         try
         {
@@ -187,7 +189,9 @@ public class PyModule : PyObject
             // CPython 3.12 호환: 모듈 딕셔너리가 직접 사용되므로 별도 업데이트 불필요
 
             IsInitialized = true;
+#if DEBUG_MODULE_LOG
             Console.WriteLine($"✅ 모듈 '{Name}' 초기화 완료");
+#endif
         }
         catch (PySyntaxErrorException)
         {
@@ -196,7 +200,9 @@ public class PyModule : PyObject
         }
         catch (System.Exception ex)
         {
+#if DEBUG_MODULE_LOG
             Console.WriteLine($"❌ 모듈 '{Name}' 실행 실패: {ex.Message}");
+#endif
             throw PyImportError.Create($"Failed to execute module '{Name}': {ex.Message}");
         }
     }
@@ -217,22 +223,26 @@ public class PyModule : PyObject
             var funcName = line.Substring(4).Split('(')[0].Trim();
             var func = new PyFunction(funcName, null, this);
             SetAttribute(funcName, func);
+#if DEBUG_MODULE_LOG
             Console.WriteLine($"  정의됨: 함수 {funcName}");
+#endif
         }
         else if (line.Contains(" = "))
         {
             var parts = line.Split('=', 2);
             var varName = parts[0].Trim();
             var valueStr = parts[1].Trim().TrimQuotes();
-            
+
             PyObject value;
             if (int.TryParse(valueStr, out int intVal))
                 value = new PyInt(intVal);
             else
                 value = new PyString(valueStr);
-            
+
             SetAttribute(varName, value);
+#if DEBUG_MODULE_LOG
             Console.WriteLine($"  정의됨: 변수 {varName} = {value}");
+#endif
         }
         else if (line.StartsWith("__all__ = "))
         {
@@ -250,7 +260,9 @@ public class PyModule : PyObject
                         All.Add(trimmed);
                     }
                 }
+#if DEBUG_MODULE_LOG
                 Console.WriteLine($"  정의됨: __all__ = [{string.Join(", ", All)}]");
+#endif
             }
         }
     }
@@ -604,7 +616,9 @@ public class PyModule : PyObject
                 // 모듈 실행 (초기화)
                 module.Execute(sourceCode);
 
+#if DEBUG_MODULE_LOG
                 Console.WriteLine($"📦 모듈 '{moduleName}' 파일에서 로드됨: {filePath}");
+#endif
                 return module;
             }
             catch (PySyntaxErrorException)
@@ -627,11 +641,13 @@ public class PyModule : PyObject
         public static PyModule CreateNamespacePackage(string moduleName, List<string> namespaceDirs)
         {
             var namespaceModule = new PyNamespaceModule(moduleName, namespaceDirs);
-            
+
             // sys.modules에 등록
             SysModules[moduleName] = namespaceModule;
-            
+
+#if DEBUG_MODULE_LOG
             Console.WriteLine($"📂 네임스페이스 패키지 '{moduleName}' 생성됨: [{string.Join(", ", namespaceDirs)}]");
+#endif
             return namespaceModule;
         }
 
