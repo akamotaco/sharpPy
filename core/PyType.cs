@@ -1,7 +1,88 @@
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SharpPy
 {
+    /// <summary>
+    /// Global method cache for fast attribute lookup (CPython Objects/typeobject.c:_PyType_Lookup)
+    /// </summary>
+    internal class TypeMethodCache
+    {
+        /// <summary>
+        /// Cache entry structure (version tag + name -> value)
+        /// </summary>
+        private struct CacheEntry
+        {
+            public ulong VersionTag;
+            public string Name;
+            public PyObject Value;
+        }
+
+        // CPython uses 2^12 = 4096 entries
+        private const int CACHE_SIZE = 4096;
+        private readonly CacheEntry[] _cache = new CacheEntry[CACHE_SIZE];
+
+        /// <summary>
+        /// Lookup method in cache with version tag validation
+        /// CPython reference: Objects/typeobject.c:4650-4774 (_PyType_Lookup)
+        /// </summary>
+        public PyObject Lookup(PyType type, string name, out bool hit)
+        {
+            // CPython: MCACHE_HASH_METHOD(type, name)
+            // Simple hash: type's version tag XOR name's hash code
+            uint hash = (uint)((type.TypeVersionTag ^ (ulong)name.GetHashCode()) % CACHE_SIZE);
+            int index = (int)hash;
+
+            ref var entry = ref _cache[index];
+
+            // Cache hit check: version tag + name match
+            if (entry.VersionTag == type.TypeVersionTag && entry.Name == name)
+            {
+                hit = true;
+                return entry.Value;
+            }
+
+            // Cache miss - need to search MRO
+            hit = false;
+            PyObject result = SearchMRO(type, name);
+
+            // Update cache with new result
+            // CPython: Only cache if MCACHE_CACHEABLE_NAME and version tag is valid
+            if (type.TypeVersionTag != 0)
+            {
+                entry.VersionTag = type.TypeVersionTag;
+                entry.Name = name;
+                entry.Value = result;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Search through MRO for attribute (cache miss fallback)
+        /// CPython reference: Objects/typeobject.c:4696-4733 (find_name_in_mro)
+        /// </summary>
+        private PyObject SearchMRO(PyType type, string name)
+        {
+            foreach (var mroType in type.MRO)
+            {
+                // Check PyClass.ClassDict first (user-defined classes)
+                if (mroType is PyClass customType && customType.ClassDict.TryGetValue(name, out var value))
+                {
+                    return value;
+                }
+
+                // Check PyType.TypeDict (built-in types)
+                if (mroType.TypeDict != null && mroType.TypeDict.TryGetValue(name, out var typeValue))
+                {
+                    return typeValue;
+                }
+            }
+
+            return null;
+        }
+    }
+
     /// <summary>
     /// Python type 시스템 - C3 선형화 MRO 구현
     /// </summary>
@@ -26,6 +107,45 @@ namespace SharpPy
         /// This type's kind (readonly for safety, set only in constructor)
         /// </summary>
         private readonly TypeKind _kind;
+
+        #endregion
+
+        #region Type Version Tag System (CPython tp_version_tag)
+
+        /// <summary>
+        /// Global method cache (CPython: type_cache global variable)
+        /// </summary>
+        private static readonly TypeMethodCache _globalMethodCache = new TypeMethodCache();
+
+        /// <summary>
+        /// Next available version tag (CPython: next_version_tag)
+        /// </summary>
+        private static ulong _nextVersionTag = 1;
+
+        /// <summary>
+        /// This type's version tag for cache invalidation (CPython: tp_version_tag)
+        /// Version tag of 0 means type is not cacheable
+        /// </summary>
+        private ulong _typeVersionTag;
+
+        /// <summary>
+        /// Public accessor for version tag
+        /// </summary>
+        public ulong TypeVersionTag => _typeVersionTag;
+
+        /// <summary>
+        /// Invalidate type cache when ClassDict changes (CPython: type_modified)
+        /// CPython reference: Objects/typeobject.c:420-522 (type_modified)
+        /// </summary>
+        public void InvalidateTypeCache()
+        {
+            // Assign new version tag to invalidate cache
+            _typeVersionTag = _nextVersionTag++;
+
+            // TODO: Invalidate subclasses recursively
+            // CPython iterates through type_list and invalidates all subclasses
+            // For now, we'll just invalidate this type
+        }
 
         #endregion
 
@@ -194,6 +314,9 @@ namespace SharpPy
             Module = module;
             _kind = kind;  // readonly 필드는 생성자에서만 설정 가능
             MRO = CalculateC3MRO();
+
+            // CPython 3.12: Assign version tag for method cache
+            _typeVersionTag = _nextVersionTag++;
 
             // CPython 3.12: Initialize tp_dict (unified type dictionary)
             TypeDict = new Dictionary<string, PyObject>();
@@ -606,17 +729,12 @@ namespace SharpPy
             return builtinFunc.Call(args, null);
         }
 
-        // Special method lookup (MRO 기반)
+        // Special method lookup (MRO 기반) with method cache
+        // CPython reference: Objects/typeobject.c:_PyType_Lookup
         public PyObject LookupSpecial(string name)
         {
-            foreach (var mroType in MRO)
-            {
-                if (mroType is PyClass customType && customType.ClassDict.ContainsKey(name))
-                {
-                    return customType.ClassDict[name];
-                }
-            }
-            return null;
+            // Use global method cache for fast lookup
+            return _globalMethodCache.Lookup(this, name, out _);
         }
 
         #endregion

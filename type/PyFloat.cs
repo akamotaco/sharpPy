@@ -232,15 +232,17 @@ namespace SharpPy
                 _ => throw PyTypeError.Create($"unsupported operand type(s) for ** or pow(): 'float' and '{other.GetTypeName()}'")
             };
 
-            var result = Math.Pow(Value, otherValue);
-            
-            // 특수 케이스 처리
-            if (double.IsNaN(result))
+            // 특수 케이스 처리: negative base with non-integer exponent
+            // CPython: Returns complex number (Objects/floatobject.c:float_pow)
+            if (Value < 0 && !IsIntegral(otherValue))
             {
-                if (Value < 0 && !IsIntegral(otherValue))
-                    throw PyValueError.Create("negative number cannot be raised to a fractional power");
+                // Return complex number: (-2.0) ** 0.5 → (8.66e-17+1.414j)
+                var complexBase = new PyComplex(Value, 0);
+                var complexExponent = new PyComplex(otherValue, 0);
+                return complexBase.Power(complexExponent);
             }
 
+            var result = Math.Pow(Value, otherValue);
             return new PyFloat(result);
         }
 

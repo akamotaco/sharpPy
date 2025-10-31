@@ -336,23 +336,81 @@ namespace SharpPy
 
         /// <summary>
         /// 문자열에서 복소수 파싱
+        /// CPython 3.12: Objects/complexobject.c:complex_subtype_from_string
         /// </summary>
         public static PyComplex FromString(string value)
         {
             if (string.IsNullOrWhiteSpace(value))
                 throw PyValueError.Create("complex() arg is an empty string");
 
+            // Remove all spaces
             value = value.Trim().Replace(" ", "");
-            
-            // 단순한 경우들 처리
-            if (value == "j" || value == "+j") return new PyComplex(0, 1);
-            if (value == "-j") return new PyComplex(0, -1);
-            
-            // 복잡한 파싱은 생략하고 기본적인 경우만 처리
-            if (double.TryParse(value, out double real))
-                return new PyComplex(real, 0);
-            
-            throw PyValueError.Create($"complex() arg is a malformed string: '{value}'");
+
+            // Special cases: pure imaginary
+            if (value == "j" || value == "+j")
+                return new PyComplex(0, 1);
+            if (value == "-j")
+                return new PyComplex(0, -1);
+
+            // Check if it ends with 'j' (imaginary component)
+            bool hasImaginary = value.EndsWith("j");
+            if (hasImaginary)
+                value = value.Substring(0, value.Length - 1);  // Remove 'j'
+
+            // Try parsing as real number only
+            if (!hasImaginary)
+            {
+                if (double.TryParse(value, out double real))
+                    return new PyComplex(real, 0);
+
+                throw PyValueError.Create($"complex() arg is a malformed string");
+            }
+
+            // Has imaginary component - check for real+imaginary format
+            // Find the last + or - that's not at the beginning
+            int opIndex = -1;
+            for (int i = value.Length - 1; i > 0; i--)
+            {
+                if (value[i] == '+' || value[i] == '-')
+                {
+                    opIndex = i;
+                    break;
+                }
+            }
+
+            if (opIndex > 0)
+            {
+                // Format: "real+imagj" or "real-imagj"
+                string realPart = value.Substring(0, opIndex);
+                string imagPart = value.Substring(opIndex);
+
+                if (!double.TryParse(realPart, out double real))
+                    throw PyValueError.Create($"complex() arg is a malformed string");
+
+                // Handle cases like "+2j" or "-2j" where imagPart is "+2" or "-2"
+                if (imagPart == "+" || imagPart == "")
+                    return new PyComplex(real, 1);
+                if (imagPart == "-")
+                    return new PyComplex(real, -1);
+
+                if (!double.TryParse(imagPart, out double imag))
+                    throw PyValueError.Create($"complex() arg is a malformed string");
+
+                return new PyComplex(real, imag);
+            }
+            else
+            {
+                // Format: "imagj" (pure imaginary)
+                if (string.IsNullOrEmpty(value) || value == "+")
+                    return new PyComplex(0, 1);
+                if (value == "-")
+                    return new PyComplex(0, -1);
+
+                if (!double.TryParse(value, out double imag))
+                    throw PyValueError.Create($"complex() arg is a malformed string");
+
+                return new PyComplex(0, imag);
+            }
         }
 
         /// <summary>

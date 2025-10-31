@@ -194,22 +194,60 @@ namespace SharpPy
 
         public override PyObject Power(PyObject other)
         {
-            Py_int_t otherValue;
+            // CPython 3.12: Objects/longobject.c:long_pow
+            // int ** int → int (if exponent >= 0) or float (if exponent < 0)
+            // int ** float → float
+            // Negative base with non-integer exponent → complex (not implemented yet)
+
             if (other is PyInt otherInt)
-                otherValue = otherInt.Value;
-            else if (other is PyBool otherBool)
-                otherValue = otherBool.Value ? 1 : 0;
-            else
-                throw PyTypeError.Create($"unsupported operand type(s) for ** or pow(): 'int' and '{other.GetTypeName()}'");
-
-            if (otherValue < 0)
             {
-                // 음수 거듭제곱은 float 결과
-                return new PyFloat(Math.Pow(Value, otherValue));
-            }
+                Py_int_t exponent = otherInt.Value;
 
-            var result = (Py_int_t)Math.Pow(Value, otherValue);
-            return new PyInt(result);
+                if (exponent < 0)
+                {
+                    // int ** negative_int → float
+                    // CPython: Objects/longobject.c:2985 (returns float for negative exponent)
+                    return new PyFloat(Math.Pow(Value, exponent));
+                }
+
+                // int ** positive_int → int
+                var result = (Py_int_t)Math.Pow(Value, exponent);
+                return new PyInt(result);
+            }
+            else if (other is PyBool otherBool)
+            {
+                Py_int_t exponent = otherBool.Value ? 1 : 0;
+
+                // 0 ** 0 = 1 (CPython behavior)
+                if (exponent == 0)
+                    return new PyInt(1);
+
+                return new PyInt(Value);
+            }
+            else if (other is PyFloat otherFloat)
+            {
+                // int ** float → float
+                // CPython: Objects/floatobject.c:float_pow
+                double baseValue = (double)Value;
+                double exponent = otherFloat.Value;
+
+                // Edge case: negative base with non-integer exponent
+                // CPython: Returns complex number (Objects/floatobject.c:float_pow)
+                if (baseValue < 0 && Math.Floor(exponent) != exponent)
+                {
+                    // Return complex number: (-2) ** 0.5 → (8.66e-17+1.414j)
+                    var complexBase = new PyComplex(baseValue, 0);
+                    var complexExponent = new PyComplex(exponent, 0);
+                    return complexBase.Power(complexExponent);
+                }
+
+                double result = Math.Pow(baseValue, exponent);
+                return new PyFloat(result);
+            }
+            else
+            {
+                throw PyTypeError.Create($"unsupported operand type(s) for ** or pow(): 'int' and '{other.GetTypeName()}'");
+            }
         }
 
         #endregion

@@ -67,6 +67,49 @@ namespace SharpPy.Generated
             return ConvertToSharpPyAST(parseResult, filename);
         }
 
+        /// <summary>
+        /// Parse a single expression (for eval())
+        /// CPython 3.12: Python/pythonrun.c:PyRun_StringFlags with Py_eval_input mode
+        /// </summary>
+        public static Expression ParseExpression(List<GeneratedTokenInfo> generatedTokens, string source, string filename = "<string>")
+        {
+#if DEBUG_AST_LOG
+            Console.WriteLine("[DEBUG] ParseExpression: Creating parser for eval mode...");
+#endif
+            var parser = new PyParser(generatedTokens, filename, source);
+
+#if DEBUG_AST_LOG
+            Console.WriteLine("[DEBUG] ParseExpression: Calling parser.ParseEval()...");
+#endif
+            GeneratedMod parseResult = parser.ParseEval();
+
+#if DEBUG_AST_LOG
+            Console.WriteLine($"[DEBUG] ParseEval returned: {parseResult?.GetType()?.Name ?? "null"}");
+#endif
+
+            // Convert to SharpPy Expression
+            return ConvertEvalToExpression(parseResult, filename);
+        }
+
+        /// <summary>
+        /// Convert eval parse result to a single Expression
+        /// CPython: Eval mode returns a single expression
+        /// </summary>
+        private static Expression ConvertEvalToExpression(GeneratedMod? parseResult, string filename)
+        {
+            if (parseResult == null)
+                throw PySyntaxError.Create("invalid syntax", filename, 0);
+
+            // ParseEval returns a GeneratedExpression wrapped in GeneratedMod
+            if (parseResult is GeneratedExpression genExpr)
+            {
+                // Convert the expression using the proper conversion method
+                return ConvertAnyExpression(genExpr.Body);
+            }
+
+            throw PySyntaxError.Create("eval() requires an expression", filename, 0);
+        }
+
 
         /// <summary>
         /// Convert generated parser result to SharpPy AST

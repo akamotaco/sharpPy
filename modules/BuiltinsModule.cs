@@ -26,6 +26,7 @@ namespace SharpPy.Modules
             module.ModuleDict["type"] = typeMetaclass;
             module.ModuleDict["int"] = PyType.IntType;
             module.ModuleDict["float"] = PyType.FloatType;
+            module.ModuleDict["complex"] = PyType.ComplexType;
             module.ModuleDict["str"] = PyType.StrType;
 
             // Initialize str type descriptors (join, split, etc.)
@@ -114,6 +115,7 @@ namespace SharpPy.Modules
             module.ModuleDict["print"] = new PyBuiltinFunction("print");
             module.ModuleDict["input"] = new PyBuiltinFunction("input");
             module.ModuleDict["repr"] = new PyBuiltinFunction("repr");
+            module.ModuleDict["eval"] = new PyBuiltinFunction("eval");
             module.ModuleDict["id"] = new PyBuiltinFunction("id");
             module.ModuleDict["hash"] = new PyBuiltinFunction("hash");
             module.ModuleDict["callable"] = new PyBuiltinFunction("callable");
@@ -164,6 +166,7 @@ namespace SharpPy.Modules
             {
                 PyInt pyInt => new PyInt(Math.Abs(pyInt.Value)),
                 PyFloat pyFloat => new PyFloat(Math.Abs(pyFloat.Value)),
+                PyComplex pyComplex => pyComplex.Absolute(),
                 _ => throw PyTypeError.Create($"bad operand type for abs(): '{obj.GetTypeName()}'")
             };
         }

@@ -1,3 +1,8 @@
+using System;
+using System.Collections.Generic;
+using SharpPy.Modules;
+using SharpPy.Generated;
+
 namespace SharpPy
 {
     /// <summary>
@@ -194,7 +199,9 @@ namespace SharpPy
             _builtinImplementations["repr"] = (args, kwargs) => CallRepr(args, kwargs);
             _builtinImplementations["int"] = (args, kwargs) => CallInt(args, kwargs);
             _builtinImplementations["float"] = (args, kwargs) => CallFloat(args, kwargs);
+            _builtinImplementations["complex"] = (args, kwargs) => CallComplex(args, kwargs);
             _builtinImplementations["bool"] = (args, kwargs) => CallBool(args, kwargs);
+            _builtinImplementations["eval"] = (args, kwargs) => CallEval(args, kwargs);
             _builtinImplementations["list"] = (args, kwargs) => CallList(args, kwargs);
             _builtinImplementations["tuple"] = (args, kwargs) => CallTuple(args, kwargs);
             _builtinImplementations["dict"] = (args, kwargs) => CallDict(args, kwargs);
@@ -382,10 +389,13 @@ namespace SharpPy
             if (args.Length != 1)
                 throw PyTypeError.Create($"abs() takes exactly one argument ({args.Length} given)");
 
-            if (args[0] is PyInt intVal)
-                return new PyInt(Math.Abs(intVal.Value));
-            else
-                throw PyTypeError.Create($"bad operand type for abs(): '{args[0].GetTypeName()}'");
+            return args[0] switch
+            {
+                PyInt intVal => new PyInt(Math.Abs(intVal.Value)),
+                PyFloat floatVal => new PyFloat(Math.Abs(floatVal.Value)),
+                PyComplex complexVal => complexVal.Absolute(),
+                _ => throw PyTypeError.Create($"bad operand type for abs(): '{args[0].GetTypeName()}'")
+            };
         }
 
         private static PyObject CallCallable(PyObject[] args, PyDict kwargs = null)
@@ -1027,6 +1037,187 @@ namespace SharpPy
                 throw PyTypeError.Create($"float expected at most 1 argument ({args.Length} given)");
 
             return args[0].AsFloat();
+        }
+
+        private static PyObject CallComplex(PyObject[] args, PyDict kwargs = null)
+        {
+            // CPython 3.12: Objects/complexobject.c:complex_new
+            // complex() → 0+0j
+            // complex(real) → real+0j
+            // complex(real, imag) → real+imag*j
+            // complex("1+2j") → parse string
+
+            if (args.Length == 0)
+                return new PyComplex(0, 0);
+
+            if (args.Length > 2)
+                throw PyTypeError.Create($"complex() takes at most 2 arguments ({args.Length} given)");
+
+            var firstArg = args[0];
+
+            // complex("1+2j") - string parsing
+            if (firstArg is PyString pyStr)
+            {
+                if (args.Length > 1)
+                    throw PyTypeError.Create("complex() can't take second arg if first is a string");
+
+                return PyComplex.FromString(pyStr.Value);
+            }
+
+            // Get real part
+            double real = 0;
+            if (firstArg is PyInt pyInt)
+                real = pyInt.Value;
+            else if (firstArg is PyFloat pyFloat)
+                real = pyFloat.Value;
+            else if (firstArg is PyComplex pyComplex)
+            {
+                if (args.Length > 1)
+                    throw PyTypeError.Create("complex() second arg can't be used when first arg is complex");
+                return pyComplex;  // Return as-is
+            }
+            else if (firstArg is PyBool pyBool)
+                real = pyBool.Value ? 1 : 0;
+            else
+                throw PyTypeError.Create($"complex() argument must be a string or a number, not '{firstArg.GetTypeName()}'");
+
+            // Get imaginary part if provided
+            double imag = 0;
+            if (args.Length == 2)
+            {
+                var secondArg = args[1];
+                if (secondArg is PyInt pyInt2)
+                    imag = pyInt2.Value;
+                else if (secondArg is PyFloat pyFloat2)
+                    imag = pyFloat2.Value;
+                else if (secondArg is PyBool pyBool2)
+                    imag = pyBool2.Value ? 1 : 0;
+                else if (secondArg is PyComplex)
+                    throw PyTypeError.Create("complex() second arg can't be complex");
+                else
+                    throw PyTypeError.Create($"complex() second argument must be a number, not '{secondArg.GetTypeName()}'");
+            }
+
+            return new PyComplex(real, imag);
+        }
+
+        private static PyObject CallEval(PyObject[] args, PyDict kwargs = null)
+        {
+            // CPython 3.12: Python/bltinmodule.c:builtin_eval_impl
+            // eval(source, globals=None, locals=None)
+
+            if (args.Length == 0)
+                throw PyTypeError.Create("eval expected at least 1 argument, got 0");
+
+            if (args.Length > 3)
+                throw PyTypeError.Create($"eval expected at most 3 arguments, got {args.Length}");
+
+            var source = args[0];
+            PyDict globals = args.Length > 1 && args[1] != PyNone.Instance ? args[1] as PyDict : null;
+            PyDict locals = args.Length > 2 && args[2] != PyNone.Instance ? args[2] as PyDict : null;
+
+            // Validate arguments
+            if (args.Length > 1 && args[1] != PyNone.Instance && !(args[1] is PyDict))
+                throw PyTypeError.Create("globals must be a dict");
+            if (args.Length > 2 && args[2] != PyNone.Instance && !(args[2] is PyDict))
+                throw PyTypeError.Create("locals must be a mapping");
+
+            // CPython 3.12: If globals is not provided, use current frame's globals/locals
+            if (globals == null)
+            {
+                // Get current executing frame
+                var currentFrame = PyVM.CurrentFrame;
+                if (currentFrame != null)
+                {
+                    // Convert frame's globals to PyDict
+                    globals = new PyDict();
+                    foreach (var kvp in currentFrame.Globals)
+                    {
+                        globals.InternalDict[new PyString(kvp.Key)] = kvp.Value;
+                    }
+
+                    // Convert frame's local scope to PyDict
+                    if (locals == null)
+                    {
+                        locals = new PyDict();
+                        if (currentFrame.LocalScope != null)
+                        {
+                            foreach (var kvp in currentFrame.LocalScope.Variables)
+                            {
+                                locals.InternalDict[new PyString(kvp.Key)] = kvp.Value;
+                            }
+                        }
+
+                        // If no local variables, use globals for locals (like CPython)
+                        if (locals.InternalDict.Count == 0)
+                            locals = globals;
+                    }
+                }
+                else
+                {
+                    // No current frame - create empty dicts
+                    globals = new PyDict();
+                    if (locals == null)
+                        locals = globals;
+                }
+            }
+            else if (locals == null)
+            {
+                // If globals is provided but locals is not, locals = globals
+                locals = globals;
+            }
+
+            // CPython 3.12: Add __builtins__ to globals if not present
+            var builtinsKey = new PyString("__builtins__");
+            if (!globals.InternalDict.ContainsKey(builtinsKey))
+            {
+                // Get builtins module
+                var builtinsModule = BuiltinsModule.CreateBuiltinsModule();
+                globals.InternalDict[builtinsKey] = builtinsModule;
+            }
+
+            PyCodeObject codeObject;
+
+            // If source is already a code object, use it directly
+            if (source is PyCodeObject pyCode)
+            {
+                codeObject = pyCode;
+            }
+            // If source is a string, parse and compile it
+            else if (source is PyString pyString)
+            {
+                string sourceCode = pyString.Value;
+                string filename = "<string>";
+
+                try
+                {
+                    // 1. Tokenize
+                    var tokens = PyParserRuntime.LexerSource(sourceCode);
+
+                    // 2. Parse as expression (eval mode)
+                    var expression = PyParserRuntime.ParseExpression(tokens, sourceCode, filename);
+
+                    // 3. Compile to bytecode
+                    // For eval(), we need to wrap the expression in a Return statement
+                    var returnStmt = new ReturnStatement(expression);
+                    var statements = new List<Statement> { returnStmt };
+
+                    var compiler = new PythonCompiler();
+                    codeObject = compiler.Compile(statements, filename, new List<string>(), null);
+                }
+                catch (Exception ex)
+                {
+                    throw PySyntaxError.Create($"invalid syntax: {ex.Message}", filename, 0);
+                }
+            }
+            else
+            {
+                throw PyTypeError.Create($"eval() arg 1 must be a string, bytes or code object, not '{source.GetTypeName()}'");
+            }
+
+            // 4. Execute with provided globals/locals
+            var vm = PyVM.Instance;
+            return vm.ExecuteExpression(codeObject, globals, locals);
         }
 
         private static PyObject CallBool(PyObject[] args, PyDict kwargs = null)

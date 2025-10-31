@@ -441,6 +441,10 @@ namespace SharpPy
         public override void SetAttribute(string name, PyObject value)
         {
             ClassDict[name] = value;
+
+            // CPython 3.12: Invalidate method cache when class dict changes
+            // Reference: Objects/typeobject.c:420-522 (type_modified)
+            InvalidateTypeCache();
         }
 
         // CPython 3.12: Override DelAttribute for type objects
@@ -449,6 +453,9 @@ namespace SharpPy
             if (ClassDict.ContainsKey(name))
             {
                 ClassDict.Remove(name);
+
+                // CPython 3.12: Invalidate method cache when class dict changes
+                InvalidateTypeCache();
                 return;
             }
             throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
