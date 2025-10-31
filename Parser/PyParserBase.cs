@@ -273,9 +273,6 @@ namespace SharpPy.Generated
             var key = (_position, ruleName);
             if (_lrCache.TryGetValue(key, out var lrEntry))
             {
-                #if DEBUG_PARSE_LOG
-                Console.WriteLine($"[LR] {ruleName}: Memo HIT at pos={_position}, IsGrowing={lrEntry.IsGrowing}, returning cached result, newPos={lrEntry.EndPos}");
-                #endif
                 // CRITICAL: During growth, return the SEED immediately to prevent infinite recursion
                 // This allows recursive alternatives to fail and base case to succeed
                 _position = lrEntry.EndPos;
@@ -297,10 +294,6 @@ namespace SharpPy.Generated
                     // Use _resmark (previous iteration's end position), not _position
                     _lrCache[key] = new LREntry { Result = _res, EndPos = _resmark, IsGrowing = true };
 
-                    #if DEBUG_PARSE_LOG
-                    Console.WriteLine($"[LR] {ruleName}: Loop iteration, _mark={_mark}, _resmark={_resmark}, seeding cache with result={((_res == null) ? "null" : "non-null")}");
-                    #endif
-
                     // Reset position and try to parse (like primary_raw)
                     _position = _mark;
                     var _raw = ruleFunc();
@@ -308,16 +301,10 @@ namespace SharpPy.Generated
                     // Check for progress
                     if (_raw == null || _position <= _resmark)
                     {
-                        #if DEBUG_PARSE_LOG
-                        Console.WriteLine($"[LR] {ruleName}: No progress, terminating. _raw={((_raw == null) ? "null" : "non-null")}, pos={_position}, _resmark={_resmark}");
-                        #endif
                         break;
                     }
 
                     // Made progress - update and continue
-                    #if DEBUG_PARSE_LOG
-                    Console.WriteLine($"[LR] {ruleName}: Progress made, _resmark {_resmark} -> {_position}");
-                    #endif
                     _resmark = _position;
                     _res = _raw;
                 }
@@ -326,9 +313,6 @@ namespace SharpPy.Generated
                 _position = _resmark;
                 _lrCache[key] = new LREntry { Result = _res, EndPos = _resmark, IsGrowing = false };
 
-                #if DEBUG_PARSE_LOG
-                Console.WriteLine($"[LR] {ruleName}: Returning _res at pos={_position}, final cache updated");
-                #endif
                 return _res;
             }
             finally

@@ -439,7 +439,7 @@ namespace SharpPy.Generated
                 )
                 {
                     // Action code from grammar
-                    return ( GeneratedStmtSeq ) a;
+                    return a . Cast < GeneratedStmtSeq >();
                 }
             }
 
@@ -2020,7 +2020,7 @@ namespace SharpPy.Generated
         /// Rule: dotted_name
         /// Alternatives: 2
         /// Return Type: GeneratedExpr
-        /// Left-recursive rule - uses TryLeftRecursive wrapper
+        /// Left-recursive rule (leader) - uses TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_DottedName()
         {
@@ -2028,7 +2028,7 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// Raw parsing method for left-recursive rule: dotted_name
+        /// Raw parsing method for left-recursive leader rule: dotted_name
         /// Called by TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_DottedName_Raw()
@@ -5615,7 +5615,7 @@ namespace SharpPy.Generated
         /// Rule: attr
         /// Alternatives: 1
         /// Return Type: GeneratedExpr
-        /// Left-recursive rule - uses TryLeftRecursive wrapper
+        /// Left-recursive rule (leader) - uses TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_Attr()
         {
@@ -5623,7 +5623,7 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// Raw parsing method for left-recursive rule: attr
+        /// Raw parsing method for left-recursive leader rule: attr
         /// Called by TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_Attr_Raw()
@@ -5663,23 +5663,14 @@ namespace SharpPy.Generated
         /// Rule: name_or_attr
         /// Alternatives: 2
         /// Return Type: GeneratedExpr
-        /// Left-recursive rule - uses TryLeftRecursive wrapper
+        /// Left-recursive rule (non-leader) - simple alternative
         /// </summary>
         private GeneratedExpr? Parse_NameOrAttr()
-        {
-            return (GeneratedExpr?)TryLeftRecursive("name_or_attr", Parse_NameOrAttr_Raw);
-        }
-
-        /// <summary>
-        /// Raw parsing method for left-recursive rule: name_or_attr
-        /// Called by TryLeftRecursive wrapper
-        /// </summary>
-        private GeneratedExpr? Parse_NameOrAttr_Raw()
         {
             int _mark = Mark();
 
             #if DEBUG_PARSE_LOG
-            Console.WriteLine($"[RULE-RAW] name_or_attr at pos={_position}");
+            Console.WriteLine($"[RULE] name_or_attr at pos={_position}");
             #endif
 
             Reset(_mark);
@@ -8185,7 +8176,7 @@ namespace SharpPy.Generated
         /// Rule: bitwise_or
         /// Alternatives: 2
         /// Return Type: GeneratedExpr
-        /// Left-recursive rule - uses TryLeftRecursive wrapper
+        /// Left-recursive rule (leader) - uses TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_BitwiseOr()
         {
@@ -8193,7 +8184,7 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// Raw parsing method for left-recursive rule: bitwise_or
+        /// Raw parsing method for left-recursive leader rule: bitwise_or
         /// Called by TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_BitwiseOr_Raw()
@@ -8256,7 +8247,7 @@ namespace SharpPy.Generated
         /// Rule: bitwise_xor
         /// Alternatives: 2
         /// Return Type: GeneratedExpr
-        /// Left-recursive rule - uses TryLeftRecursive wrapper
+        /// Left-recursive rule (leader) - uses TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_BitwiseXor()
         {
@@ -8264,7 +8255,7 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// Raw parsing method for left-recursive rule: bitwise_xor
+        /// Raw parsing method for left-recursive leader rule: bitwise_xor
         /// Called by TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_BitwiseXor_Raw()
@@ -8327,7 +8318,7 @@ namespace SharpPy.Generated
         /// Rule: bitwise_and
         /// Alternatives: 2
         /// Return Type: GeneratedExpr
-        /// Left-recursive rule - uses TryLeftRecursive wrapper
+        /// Left-recursive rule (leader) - uses TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_BitwiseAnd()
         {
@@ -8335,7 +8326,7 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// Raw parsing method for left-recursive rule: bitwise_and
+        /// Raw parsing method for left-recursive leader rule: bitwise_and
         /// Called by TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_BitwiseAnd_Raw()
@@ -8398,7 +8389,7 @@ namespace SharpPy.Generated
         /// Rule: shift_expr
         /// Alternatives: 3
         /// Return Type: GeneratedExpr
-        /// Left-recursive rule - uses TryLeftRecursive wrapper
+        /// Left-recursive rule (leader) - uses TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_ShiftExpr()
         {
@@ -8406,7 +8397,7 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// Raw parsing method for left-recursive rule: shift_expr
+        /// Raw parsing method for left-recursive leader rule: shift_expr
         /// Called by TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_ShiftExpr_Raw()
@@ -8497,7 +8488,7 @@ namespace SharpPy.Generated
         /// Rule: sum
         /// Alternatives: 3
         /// Return Type: GeneratedExpr
-        /// Left-recursive rule - uses TryLeftRecursive wrapper
+        /// Left-recursive rule (leader) - uses TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_Sum()
         {
@@ -8505,7 +8496,7 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// Raw parsing method for left-recursive rule: sum
+        /// Raw parsing method for left-recursive leader rule: sum
         /// Called by TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_Sum_Raw()
@@ -8596,7 +8587,7 @@ namespace SharpPy.Generated
         /// Rule: term
         /// Alternatives: 6
         /// Return Type: GeneratedExpr
-        /// Left-recursive rule - uses TryLeftRecursive wrapper
+        /// Left-recursive rule (leader) - uses TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_Term()
         {
@@ -8604,7 +8595,7 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// Raw parsing method for left-recursive rule: term
+        /// Raw parsing method for left-recursive leader rule: term
         /// Called by TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_Term_Raw()
@@ -9015,7 +9006,7 @@ namespace SharpPy.Generated
         /// Rule: primary
         /// Alternatives: 5
         /// Return Type: GeneratedExpr
-        /// Left-recursive rule - uses TryLeftRecursive wrapper
+        /// Left-recursive rule (leader) - uses TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_Primary()
         {
@@ -9023,7 +9014,7 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// Raw parsing method for left-recursive rule: primary
+        /// Raw parsing method for left-recursive leader rule: primary
         /// Called by TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_Primary_Raw()
@@ -12166,7 +12157,7 @@ namespace SharpPy.Generated
         /// Rule: t_primary
         /// Alternatives: 5
         /// Return Type: GeneratedExpr
-        /// Left-recursive rule - uses TryLeftRecursive wrapper
+        /// Left-recursive rule (leader) - uses TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_TPrimary()
         {
@@ -12174,7 +12165,7 @@ namespace SharpPy.Generated
         }
 
         /// <summary>
-        /// Raw parsing method for left-recursive rule: t_primary
+        /// Raw parsing method for left-recursive leader rule: t_primary
         /// Called by TryLeftRecursive wrapper
         /// </summary>
         private GeneratedExpr? Parse_TPrimary_Raw()

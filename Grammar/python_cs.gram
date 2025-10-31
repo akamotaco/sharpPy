@@ -247,7 +247,7 @@ statement_newline[GeneratedStmtSeq]:
 # C#: 단일 simple_stmt 또는 ';'로 구분된 여러 simple_stmt를 sequence로 반환
 simple_stmts[GeneratedStmtSeq]:
     | a=simple_stmt !';' NEWLINE { PyParserHelpers.SingletonSequence((GeneratedStmt)a).Cast<GeneratedStmtSeq>() } # Not needed, there for speedup
-    | a=';'.simple_stmt+ [';'] NEWLINE { (GeneratedStmtSeq)a }
+    | a=';'.simple_stmt+ [';'] NEWLINE { a.Cast<GeneratedStmtSeq>() }
 
 # NOTE: assignment MUST precede expression, else parsing a simple assignment
 # will throw a SyntaxError.

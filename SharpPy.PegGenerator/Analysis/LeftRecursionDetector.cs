@@ -21,10 +21,10 @@ public class LeftRecursionDetector
     }
 
     /// <summary>
-    /// Detect all left-recursive rules
+    /// Detect all left-recursive rules and their leaders
     /// CPython: compute_left_recursives()
     /// </summary>
-    public HashSet<string> DetectLeftRecursiveRules()
+    public (HashSet<string> LeftRecursiveRules, HashSet<string> Leaders) DetectLeftRecursiveRules()
     {
         // 1. Build first-invocation graph
         var graph = MakeFirstGraph();
@@ -32,18 +32,43 @@ public class LeftRecursionDetector
         // 2. Find strongly connected components
         var sccs = FindStronglyConnectedComponents(graph);
 
-        // 3. Mark left-recursive rules
+        // 3. Mark left-recursive rules and find leaders
         var leftRecursiveRules = new HashSet<string>();
+        var leaders = new HashSet<string>();
 
         foreach (var scc in sccs)
         {
             if (scc.Count > 1)
             {
-                // Multiple rules that call each other
+                // Multiple rules that call each other - all are left-recursive
                 foreach (var name in scc)
                 {
                     leftRecursiveRules.Add(name);
                 }
+
+                // Find leader: a rule that appears in all cycles in the SCC
+                // CPython: Try to find a leader such that all cycles go through it
+                var leaderCandidates = new HashSet<string>(scc);
+
+                foreach (var start in scc)
+                {
+                    var cycles = FindCyclesInSCC(graph, scc, start);
+                    foreach (var cycle in cycles)
+                    {
+                        var cycleSet = new HashSet<string>(cycle);
+                        // Remove nodes not in this cycle from candidates
+                        leaderCandidates.ExceptWith(scc.Except(cycleSet));
+
+                        if (leaderCandidates.Count == 0)
+                        {
+                            throw new Exception($"SCC {{{string.Join(", ", scc)}}} has no leadership candidate");
+                        }
+                    }
+                }
+
+                // Pick the alphabetically first leader (matches CPython's min())
+                var leader = leaderCandidates.OrderBy(x => x).First();
+                leaders.Add(leader);
             }
             else
             {
@@ -52,11 +77,12 @@ public class LeftRecursionDetector
                 if (graph[name].Contains(name))
                 {
                     leftRecursiveRules.Add(name);
+                    leaders.Add(name);  // Single self-recursive rule is its own leader
                 }
             }
         }
 
-        return leftRecursiveRules;
+        return (leftRecursiveRules, leaders);
     }
 
     /// <summary>
@@ -308,5 +334,53 @@ public class LeftRecursionDetector
         }
 
         return sccs;
+    }
+
+    /// <summary>
+    /// Find all cycles in an SCC starting from a given node
+    /// CPython: sccutils.find_cycles_in_scc()
+    /// </summary>
+    private List<List<string>> FindCyclesInSCC(Dictionary<string, HashSet<string>> graph, HashSet<string> scc, string start)
+    {
+        var cycles = new List<List<string>>();
+        var path = new List<string>();
+        var visited = new HashSet<string>();
+
+        void DFS(string node)
+        {
+            if (path.Contains(node))
+            {
+                // Found a cycle
+                var cycleStart = path.IndexOf(node);
+                var cycle = path.Skip(cycleStart).ToList();
+                cycles.Add(cycle);
+                return;
+            }
+
+            if (visited.Contains(node))
+            {
+                return;
+            }
+
+            path.Add(node);
+
+            if (graph.TryGetValue(node, out var successors))
+            {
+                foreach (var successor in successors)
+                {
+                    // Only follow edges within the SCC
+                    if (scc.Contains(successor))
+                    {
+                        DFS(successor);
+                    }
+                }
+            }
+
+            path.RemoveAt(path.Count - 1);
+            visited.Add(node);
+        }
+
+        DFS(start);
+        return cycles;
     }
 }

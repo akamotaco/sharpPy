@@ -180,6 +180,11 @@ public class PyModule : PyObject
             IsInitialized = true;
             Console.WriteLine($"✅ 모듈 '{Name}' 초기화 완료");
         }
+        catch (PySyntaxErrorException)
+        {
+            // SyntaxError는 그대로 throw (line number 정보 보존)
+            throw;
+        }
         catch (System.Exception ex)
         {
             Console.WriteLine($"❌ 모듈 '{Name}' 실행 실패: {ex.Message}");
@@ -575,6 +580,12 @@ public class PyModule : PyObject
 
                 Console.WriteLine($"📦 모듈 '{moduleName}' 파일에서 로드됨: {filePath}");
                 return module;
+            }
+            catch (PySyntaxErrorException)
+            {
+                // SyntaxError는 그대로 throw (line number 정보 보존)
+                SysModules.Remove(moduleName);
+                throw;
             }
             catch (System.Exception ex)
             {

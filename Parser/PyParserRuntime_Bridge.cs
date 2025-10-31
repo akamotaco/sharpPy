@@ -1853,16 +1853,13 @@ namespace SharpPy.Generated
                     map.Rest?.ToString()
                 ),
 
-                // MatchClass: matches class patterns like Point(x=1, y=2)
-                GeneratedMatchClass cls => new CallExpression(
+                // MatchClass: matches class patterns like Point(x=1, y=2) or Expr(value)
+                // CPython 3.12: Must use MatchClass (pattern node), not CallExpression
+                GeneratedMatchClass cls => new MatchClass(
                     ConvertAnyExpression(cls.Cls),
                     cls.Patterns?.ToEnumerable<GeneratedPattern>().Select(p => ConvertPattern(p)).ToList() ?? new List<Expression>(),
-                    cls.KwdAttrs != null && cls.KwdPatterns != null
-                        ? cls.KwdAttrs.ToEnumerable<GeneratedIdentifier>()
-                            .Zip(cls.KwdPatterns.ToEnumerable<GeneratedPattern>(),
-                                 (k, p) => new KeywordExpression(k.ToString()!, ConvertPattern(p)))
-                            .ToList()
-                        : new List<KeywordExpression>()
+                    cls.KwdAttrs?.ToEnumerable<GeneratedIdentifier>().Select(k => k.ToString()!).ToList() ?? new List<string>(),
+                    cls.KwdPatterns?.ToEnumerable<GeneratedPattern>().Select(p => ConvertPattern(p)).ToList() ?? new List<Expression>()
                 ),
 
                 // MatchStar: matches *rest pattern

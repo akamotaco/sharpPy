@@ -84,6 +84,7 @@ public class ParserGenerator
     private List<PegRule> _artificialRules = new();  // CPython: self.all_rules (additional entries)
     private Dictionary<Group, string> _groupToRuleMap = new();  // Group → artificial rule name cache
     private HashSet<string> _leftRecursiveRules = new();  // Rules detected as left-recursive
+    private HashSet<string> _leaderRules = new();  // Rules that are leaders (only these get LR wrapper)
 
     public string Generate(PegRule[] rules, Dictionary<string, int> hardKeywords, HashSet<string> softKeywords, TrailerCode? trailer = null)
     {
@@ -96,6 +97,7 @@ public class ParserGenerator
         _artificialRules.Clear();
         _groupToRuleMap.Clear();
         _leftRecursiveRules.Clear();
+        _leaderRules.Clear();
 
         // Build rule return type mapping (rule_name → return_type)
         foreach (var rule in rules)
@@ -110,15 +112,17 @@ public class ParserGenerator
             _ruleReturnTypes[rule.Name] = returnType;
         }
 
-        // CPython 3.12: Detect left-recursive rules using SCC algorithm
+        // CPython 3.12: Detect left-recursive rules and their leaders using SCC algorithm
         // Tools/peg_generator/pegen/parser_generator.py - compute_left_recursives()
         var detector = new LeftRecursionDetector(rules);
-        _leftRecursiveRules = detector.DetectLeftRecursiveRules();
+        (_leftRecursiveRules, _leaderRules) = detector.DetectLeftRecursiveRules();
 
         Console.WriteLine($"[LEFT-RECURSION] Detected {_leftRecursiveRules.Count} left-recursive rules:");
         foreach (var ruleName in _leftRecursiveRules.OrderBy(r => r))
         {
-            Console.WriteLine($"  - {ruleName}");
+            var isLeader = _leaderRules.Contains(ruleName);
+            var leaderTag = isLeader ? " (leader)" : "";
+            Console.WriteLine($"  - {ruleName}{leaderTag}");
         }
 
         // File header
@@ -276,9 +280,11 @@ public class ParserGenerator
         // Use rule's return type from grammar mapping
         var returnType = _ruleReturnTypes.GetValueOrDefault(rule.Name, "GeneratedPtr");
 
-        // Check if this rule is left-recursive
-        // CPython 3.12: Automatically detected using SCC algorithm
+        // Check if this rule is left-recursive AND a leader
+        // CPython 3.12: Only leaders get the growth loop wrapper
+        // Non-leader rules in mutual recursion are generated as simple alternatives
         bool isLeftRecursive = _leftRecursiveRules.Contains(rule.Name);
+        bool isLeader = _leaderRules.Contains(rule.Name);
 
         // Check if this rule has (memo) annotation
         // CPython 3.12: Memoization prevents infinite loops in mutual recursion
@@ -291,9 +297,13 @@ public class ParserGenerator
         {
             WriteLine($"/// Return Type: {rule.ReturnType}");
         }
-        if (isLeftRecursive)
+        if (isLeftRecursive && isLeader)
         {
-            WriteLine($"/// Left-recursive rule - uses TryLeftRecursive wrapper");
+            WriteLine($"/// Left-recursive rule (leader) - uses TryLeftRecursive wrapper");
+        }
+        else if (isLeftRecursive && !isLeader)
+        {
+            WriteLine($"/// Left-recursive rule (non-leader) - simple alternative");
         }
         if (isMemoized)
         {
@@ -304,9 +314,10 @@ public class ParserGenerator
         WriteLine("{");
         _indentLevel++;
 
-        if (isLeftRecursive)
+        if (isLeftRecursive && isLeader)
         {
-            // Wrap with TryLeftRecursive to handle left recursion
+            // Only leaders get the TryLeftRecursive wrapper with growth loop
+            // CPython: if node.left_recursive and node.leader
             WriteLine($"return ({returnType}?)TryLeftRecursive(\"{rule.Name}\", Parse_{methodName}_Raw);");
         }
         else if (isMemoized)
@@ -355,12 +366,14 @@ public class ParserGenerator
         WriteLine("}");
         WriteLine();
 
-        // For left-recursive or memoized rules, generate the _Raw method that contains the actual parsing logic
-        if (isLeftRecursive || isMemoized)
+        // For leader (left-recursive) or memoized rules, generate the _Raw method that contains the actual parsing logic
+        // CPython: Only leaders get the _raw() function with growth loop
+        if ((isLeftRecursive && isLeader) || isMemoized)
         {
-            var wrapperType = isLeftRecursive ? "TryLeftRecursive" : "TryMemoized";
+            var wrapperType = (isLeftRecursive && isLeader) ? "TryLeftRecursive" : "TryMemoized";
+            var ruleType = (isLeftRecursive && isLeader) ? "left-recursive leader" : "memoized";
             WriteLine($"/// <summary>");
-            WriteLine($"/// Raw parsing method for {(isLeftRecursive ? "left-recursive" : "memoized")} rule: {rule.Name}");
+            WriteLine($"/// Raw parsing method for {ruleType} rule: {rule.Name}");
             WriteLine($"/// Called by {wrapperType} wrapper");
             WriteLine($"/// </summary>");
             WriteLine($"private {returnType}? Parse_{methodName}_Raw()");
