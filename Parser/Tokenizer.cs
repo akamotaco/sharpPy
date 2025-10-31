@@ -934,8 +934,10 @@ namespace SharpPy.Generated
                     _level--;
             }
 
-            // CPython 3.12: All literals are tokenized as OP type
-            AddToken(PyToken.Type.OP, lit.name, _line, _column);
+            // CPython 3.12: In visualization mode (generateExtraTokens), use generic OP for display
+            // In parsing mode (!generateExtraTokens), use exact token type for parser matching
+            var tokenType = PyToken.GetOpType(lit.name, exactType: !_generateExtraTokens);
+            AddToken(tokenType, lit.name, _line, _column);
             _currentLineHasRealTokens = true; // Mark line as having real tokens
 
             // Increment AFTER creating token for opening parens/brackets/braces
@@ -1227,7 +1229,8 @@ namespace SharpPy.Generated
                         }
 
                         // Emit { as OP token (track level for CPython 3.12 compatibility)
-                        AddToken(PyToken.Type.OP, "{", _line, braceColumn);
+                        var lbraceType = PyToken.GetOpType("{", exactType: !_generateExtraTokens);
+                        AddToken(lbraceType, "{", _line, braceColumn);
                         _currentLineHasRealTokens = true;
                         _level++; // Increment level after creating LBRACE token
                         _fstringBraceDepth++;
@@ -1342,7 +1345,8 @@ namespace SharpPy.Generated
                 if (c == ':' && _fstringBraceDepth == exprStartDepth && _level == exprStartLevel)
                 {
                     // Emit ':' as OP token
-                    AddToken(PyToken.Type.OP, ":", _line, _column);
+                    var colonType = PyToken.GetOpType(":", exactType: !_generateExtraTokens);
+                    AddToken(colonType, ":", _line, _column);
                     _currentLineHasRealTokens = true;
                     Advance();
 
@@ -1364,7 +1368,8 @@ namespace SharpPy.Generated
                     if (_level > 0)
                         _level--;
                     // Emit } as OP token
-                    AddToken(PyToken.Type.OP, "}", _line, _column);
+                    var rbraceType = PyToken.GetOpType("}", exactType: !_generateExtraTokens);
+                    AddToken(rbraceType, "}", _line, _column);
                     _currentLineHasRealTokens = true;
                     _fstringBraceDepth--;
                     Advance();
@@ -1374,7 +1379,8 @@ namespace SharpPy.Generated
                 // Handle nested braces (like in dict literals inside f-string)
                 if (c == '{')
                 {
-                    AddToken(PyToken.Type.OP, "{", _line, _column);
+                    var nestedLbraceType = PyToken.GetOpType("{", exactType: !_generateExtraTokens);
+                    AddToken(nestedLbraceType, "{", _line, _column);
                     _currentLineHasRealTokens = true;
                     _level++; // Increment level AFTER creating LBRACE token (CPython 3.12 compatibility)
                     _fstringBraceDepth++;
@@ -1392,7 +1398,7 @@ namespace SharpPy.Generated
                     // Newlines inside f-string expressions are not allowed (for single-quoted f-strings)
                     if (_fstringQuoteSize == 1)
                     {
-                        throw new InvalidOperationException($"F-string expression: unterminated string at line {_line}, column {_column}");
+                        throw new InvalidOperationException($"f-string expression part cannot include a backslash at line {_line}, column {_column}");
                     }
                     Advance();
                 }

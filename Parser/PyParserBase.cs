@@ -802,13 +802,13 @@ namespace SharpPy.Generated
 
         /// <summary>
         /// Expect an operator token
-        /// CPython 3.12: Operators use OP token type with specific values
+        /// CPython 3.12: Use exact token type (PLUS, LPAR, etc.) for efficient matching
         /// </summary>
         protected GeneratedTokenInfo ExpectOp(string op)
         {
-            // Map operator string to token type
-            var tokenType = MapOperatorToTokenType(op);
-            return Expect(tokenType, op);  // Expect already tracks _lastToken
+            // Use exact token type for efficient type-only matching
+            var tokenType = PyToken.GetOpType(op, exactType: true);
+            return ExpectToken(tokenType);  // Type-only check, no value comparison needed
         }
 
         /// <summary>
@@ -827,15 +827,6 @@ namespace SharpPy.Generated
             return token;
         }
 
-        /// <summary>
-        /// Map operator string to token type
-        /// </summary>
-        private PyToken.Type MapOperatorToTokenType(string op)
-        {
-            // CPython 3.12: Tokenizer outputs OP for all operators
-            // Parser just needs to know it's an OP type token
-            return PyToken.Type.OP;
-        }
 
         /// <summary>
         /// Parse optional element [item]
