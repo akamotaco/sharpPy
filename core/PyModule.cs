@@ -334,8 +334,20 @@ public class PyModule : PyObject
             }
 
             // CPython 3.12: fromlist parameter affects what is returned
-            // If fromlist is empty/null, return top-level package
+            // If fromlist is empty/null AND module name has dots, return top-level package
             // If fromlist has items, return the actual module with those attributes
+            bool hasFrom = fromlist != null && fromlist.Length > 0;
+
+            if (!hasFrom && moduleName.Contains('.'))
+            {
+                // CPython behavior: import collections.abc → return collections (not collections.abc)
+                // First, load the full module path (ensures all submodules are loaded)
+                var fullModule = Import(moduleName);
+
+                // Then return only the top-level package
+                var firstPart = moduleName.Split('.')[0];
+                return SysModules[firstPart];
+            }
 
             return Import(moduleName);
         }

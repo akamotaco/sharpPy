@@ -6209,9 +6209,12 @@ namespace SharpPy
                 else
                 {
                     actualModule = moduleName;
-                    alias = moduleName;
+                    // CPython 3.12: For dotted imports without 'as', store only the first part
+                    // Example: import collections.abc → STORE_NAME collections (not collections.abc)
+                    var dotIndex = actualModule.IndexOf('.');
+                    alias = (dotIndex != -1) ? actualModule.Substring(0, dotIndex) : actualModule;
                 }
-                
+
                 // CPython 3.12 pattern: LOAD_CONST(0), LOAD_CONST(None), IMPORT_NAME
                 var levelIndex = GetOrAddConstant(new PyInt(0));  // fromlist level
                 var fromlistIndex = GetOrAddConstant(PyNone.Instance);  // fromlist
@@ -6220,7 +6223,7 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.LOAD_CONST, levelIndex);
                 EmitInstruction(ByteCodeOp.LOAD_CONST, fromlistIndex);
                 EmitInstruction(ByteCodeOp.IMPORT_NAME, moduleIndex);
-                
+
                 // Store the imported module in the correct variable name
                 // CPython 3.12: Use STORE_FAST in functions, STORE_NAME at module level
                 EmitStoreVariable(alias);
