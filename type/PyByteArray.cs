@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 
 namespace SharpPy
@@ -147,7 +146,8 @@ namespace SharpPy
                     if (self is not PyByteArray ba)
                         throw PyTypeError.Create($"descriptor 'copy' requires a 'bytearray' object but received a '{self.GetTypeName()}'");
 
-                    return new PyByteArray(ba._bytes.ToArray());
+                    // Performance: Direct list copy instead of ToArray
+                    return new PyByteArray(ba._bytes);
                 },
                 minArgs: 0, maxArgs: 0
             );
@@ -175,7 +175,8 @@ namespace SharpPy
 
         public PyByteArray(IEnumerable<byte> bytes)
         {
-            _bytes = new List<byte>(bytes ?? Enumerable.Empty<byte>());
+            // Performance: Eliminated LINQ - Direct list construction
+            _bytes = bytes != null ? new List<byte>(bytes) : new List<byte>();
         }
 
         /// <summary>
@@ -191,7 +192,8 @@ namespace SharpPy
             }
             else if (iterable is PyByteArray pyByteArray)
             {
-                return new PyByteArray(pyByteArray._bytes.ToArray());
+                // Performance: Direct list copy instead of ToArray
+                return new PyByteArray(pyByteArray._bytes);
             }
             else if (iterable is PyList list)
             {
@@ -211,7 +213,8 @@ namespace SharpPy
                 }
             }
 
-            return new PyByteArray(bytes.ToArray());
+            // Performance: Direct list usage instead of ToArray
+            return new PyByteArray(bytes);
         }
 
         #endregion
@@ -315,7 +318,8 @@ namespace SharpPy
                                 result.Add(_bytes[i]);
                         }
                     }
-                    return new PyByteArray(result.ToArray());
+                    // Performance: Direct list usage instead of ToArray
+                    return new PyByteArray(result);
                 }
             }
 
@@ -482,7 +486,8 @@ namespace SharpPy
             }
             else if (item is PyByteArray pyByteArray)
             {
-                return ContainsSubsequence(pyByteArray._bytes.ToArray()) ? PyBool.True : PyBool.False;
+                // Performance: Direct list access instead of ToArray
+                return ContainsSubsequenceList(pyByteArray._bytes) ? PyBool.True : PyBool.False;
             }
 
             return PyBool.False;
@@ -538,7 +543,8 @@ namespace SharpPy
                 {
                     result.AddRange(_bytes);
                 }
-                return new PyByteArray(result.ToArray());
+                // Performance: Direct list usage instead of ToArray
+                return new PyByteArray(result);
             }
 
             throw PyTypeError.Create($"can't multiply sequence by non-int of type '{other.GetTypeName()}'");
@@ -555,11 +561,13 @@ namespace SharpPy
         {
             if (other is PyByteArray otherBa)
             {
-                return _bytes.SequenceEqual(otherBa._bytes) ? PyBool.True : PyBool.False;
+                // Performance: Eliminated LINQ - Manual sequence comparison
+                return BytesEqualList(_bytes, otherBa._bytes) ? PyBool.True : PyBool.False;
             }
             else if (other is PyBytes otherBytes)
             {
-                return _bytes.SequenceEqual(otherBytes.Value) ? PyBool.True : PyBool.False;
+                // Performance: Eliminated LINQ - Manual sequence comparison
+                return BytesEqualArray(_bytes, otherBytes.Value) ? PyBool.True : PyBool.False;
             }
 
             return PyNotImplemented.Instance;
@@ -577,11 +585,13 @@ namespace SharpPy
         {
             if (other is PyByteArray otherBa)
             {
-                return CompareBytes(_bytes.ToArray(), otherBa._bytes.ToArray()) < 0 ? PyBool.True : PyBool.False;
+                // Performance: Eliminated LINQ - Direct list comparison
+                return CompareBytesList(_bytes, otherBa._bytes) < 0 ? PyBool.True : PyBool.False;
             }
             else if (other is PyBytes otherBytes)
             {
-                return CompareBytes(_bytes.ToArray(), otherBytes.Value) < 0 ? PyBool.True : PyBool.False;
+                // Performance: Eliminated LINQ - Direct list vs array comparison
+                return CompareBytesListArray(_bytes, otherBytes.Value) < 0 ? PyBool.True : PyBool.False;
             }
 
             return PyNotImplemented.Instance;
@@ -591,11 +601,13 @@ namespace SharpPy
         {
             if (other is PyByteArray otherBa)
             {
-                return CompareBytes(_bytes.ToArray(), otherBa._bytes.ToArray()) <= 0 ? PyBool.True : PyBool.False;
+                // Performance: Eliminated LINQ - Direct list comparison
+                return CompareBytesList(_bytes, otherBa._bytes) <= 0 ? PyBool.True : PyBool.False;
             }
             else if (other is PyBytes otherBytes)
             {
-                return CompareBytes(_bytes.ToArray(), otherBytes.Value) <= 0 ? PyBool.True : PyBool.False;
+                // Performance: Eliminated LINQ - Direct list vs array comparison
+                return CompareBytesListArray(_bytes, otherBytes.Value) <= 0 ? PyBool.True : PyBool.False;
             }
 
             return PyNotImplemented.Instance;
@@ -605,11 +617,13 @@ namespace SharpPy
         {
             if (other is PyByteArray otherBa)
             {
-                return CompareBytes(_bytes.ToArray(), otherBa._bytes.ToArray()) > 0 ? PyBool.True : PyBool.False;
+                // Performance: Eliminated LINQ - Direct list comparison
+                return CompareBytesList(_bytes, otherBa._bytes) > 0 ? PyBool.True : PyBool.False;
             }
             else if (other is PyBytes otherBytes)
             {
-                return CompareBytes(_bytes.ToArray(), otherBytes.Value) > 0 ? PyBool.True : PyBool.False;
+                // Performance: Eliminated LINQ - Direct list vs array comparison
+                return CompareBytesListArray(_bytes, otherBytes.Value) > 0 ? PyBool.True : PyBool.False;
             }
 
             return PyNotImplemented.Instance;
@@ -619,11 +633,13 @@ namespace SharpPy
         {
             if (other is PyByteArray otherBa)
             {
-                return CompareBytes(_bytes.ToArray(), otherBa._bytes.ToArray()) >= 0 ? PyBool.True : PyBool.False;
+                // Performance: Eliminated LINQ - Direct list comparison
+                return CompareBytesList(_bytes, otherBa._bytes) >= 0 ? PyBool.True : PyBool.False;
             }
             else if (other is PyBytes otherBytes)
             {
-                return CompareBytes(_bytes.ToArray(), otherBytes.Value) >= 0 ? PyBool.True : PyBool.False;
+                // Performance: Eliminated LINQ - Direct list vs array comparison
+                return CompareBytesListArray(_bytes, otherBytes.Value) >= 0 ? PyBool.True : PyBool.False;
             }
 
             return PyNotImplemented.Instance;
@@ -716,6 +732,7 @@ namespace SharpPy
         public override PyMemoryView GetBuffer(int flags)
         {
             _exports++;
+            // Performance: ToArray needed here for buffer export (creates snapshot)
             // bytearray provides writable buffer
             return new PyMemoryView(_bytes.ToArray(), false);  // writable=true
         }
@@ -816,6 +833,90 @@ namespace SharpPy
                     return a[i].CompareTo(b[i]);
             }
             return a.Length.CompareTo(b.Length);
+        }
+
+        // Performance: Eliminated LINQ - Helper methods for List<byte> operations
+
+        /// <summary>
+        /// Check if two byte lists are equal
+        /// </summary>
+        private static bool BytesEqualList(List<byte> a, List<byte> b)
+        {
+            if (a.Count != b.Count) return false;
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (a[i] != b[i]) return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Check if byte list equals byte array
+        /// </summary>
+        private static bool BytesEqualArray(List<byte> list, byte[] array)
+        {
+            if (list.Count != array.Length) return false;
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (list[i] != array[i]) return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Compare two byte lists lexicographically
+        /// </summary>
+        private static int CompareBytesList(List<byte> a, List<byte> b)
+        {
+            int minLen = Math.Min(a.Count, b.Count);
+            for (int i = 0; i < minLen; i++)
+            {
+                if (a[i] != b[i])
+                    return a[i].CompareTo(b[i]);
+            }
+            return a.Count.CompareTo(b.Count);
+        }
+
+        /// <summary>
+        /// Compare byte list with byte array lexicographically
+        /// </summary>
+        private static int CompareBytesListArray(List<byte> list, byte[] array)
+        {
+            int minLen = Math.Min(list.Count, array.Length);
+            for (int i = 0; i < minLen; i++)
+            {
+                if (list[i] != array[i])
+                    return list[i].CompareTo(array[i]);
+            }
+            return list.Count.CompareTo(array.Length);
+        }
+
+        /// <summary>
+        /// Check if subsequence exists in bytearray using List
+        /// </summary>
+        private bool ContainsSubsequenceList(List<byte> sub)
+        {
+            if (sub.Count == 0)
+                return true;
+            if (sub.Count > _bytes.Count)
+                return false;
+
+            for (int i = 0; i <= _bytes.Count - sub.Count; i++)
+            {
+                bool found = true;
+                for (int j = 0; j < sub.Count; j++)
+                {
+                    if (_bytes[i + j] != sub[j])
+                    {
+                        found = false;
+                        break;
+                    }
+                }
+                if (found)
+                    return true;
+            }
+
+            return false;
         }
 
         #endregion

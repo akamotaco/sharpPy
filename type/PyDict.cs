@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SharpPy
 {
@@ -96,11 +95,25 @@ namespace SharpPy
         {
             return other switch
             {
-                PyDict otherDict => PyBool.FromBool(_dict.Count == otherDict._dict.Count &&
-                    _dict.All(kv => otherDict._dict.ContainsKey(kv.Key) &&
-                        ((PyBool)otherDict._dict[kv.Key].RichCompare(kv.Value, CompareOp.EQ)).Value)),
+                PyDict otherDict => PyBool.FromBool(CheckDictEquality(otherDict)),
                 _ => PyBool.False
             };
+        }
+
+        // Performance: Eliminated LINQ (.All) - manual iteration
+        private bool CheckDictEquality(PyDict otherDict)
+        {
+            if (_dict.Count != otherDict._dict.Count)
+                return false;
+
+            foreach (var kv in _dict)
+            {
+                if (!otherDict._dict.ContainsKey(kv.Key))
+                    return false;
+                if (!((PyBool)otherDict._dict[kv.Key].RichCompare(kv.Value, CompareOp.EQ)).Value)
+                    return false;
+            }
+            return true;
         }
 
         #endregion
@@ -281,7 +294,13 @@ namespace SharpPy
         public PyList Keys()
         {
             // _keys를 사용하여 삽입 순서 보장
-            return new PyList(_keys.ToArray());
+            // Performance: Eliminated LINQ (.ToArray) - direct array copy
+            var keysArray = new PyObject[_keys.Count];
+            for (int i = 0; i < _keys.Count; i++)
+            {
+                keysArray[i] = _keys[i];
+            }
+            return new PyList(keysArray);
         }
 
         /// <summary>
@@ -464,7 +483,13 @@ namespace SharpPy
         public override PyTuple AsTuple()
         {
             // CPython tuple(dict) 동작: 딕셔너리의 키들을 튜플로 변환 (삽입 순서 보장)
-            return new PyTuple(_keys.ToArray());
+            // Performance: Eliminated LINQ (.ToArray) - direct array copy
+            var keysArray = new PyObject[_keys.Count];
+            for (int i = 0; i < _keys.Count; i++)
+            {
+                keysArray[i] = _keys[i];
+            }
+            return new PyTuple(keysArray);
         }
         
         /// <summary>

@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SharpPy
 {
@@ -30,7 +29,13 @@ namespace SharpPy
 
         public override string ToString()
         {
-            var exceptionsText = string.Join(", ", Exceptions.Select(e => e.GetType().Name));
+            // Performance: Eliminated LINQ - manual loop instead of Select
+            var exceptionNames = new string[Exceptions.Count];
+            for (int i = 0; i < Exceptions.Count; i++)
+            {
+                exceptionNames[i] = Exceptions[i].GetType().Name;
+            }
+            var exceptionsText = string.Join(", ", exceptionNames);
             return $"{Message} ({Exceptions.Count} sub-exception{(Exceptions.Count != 1 ? "s" : "")}): {exceptionsText}";
         }
 
@@ -47,7 +52,15 @@ namespace SharpPy
         /// </summary>
         public PyBaseExceptionGroup Subgroup(System.Type exceptionType)
         {
-            var filtered = Exceptions.Where(e => exceptionType.IsAssignableFrom(e.GetType())).ToList();
+            // Performance: Eliminated LINQ - manual filtering instead of Where + ToList
+            var filtered = new List<PyException>();
+            for (int i = 0; i < Exceptions.Count; i++)
+            {
+                if (exceptionType.IsAssignableFrom(Exceptions[i].GetType()))
+                {
+                    filtered.Add(Exceptions[i]);
+                }
+            }
             if (filtered.Count == 0) return null;
             return new PyBaseExceptionGroup(Message, filtered);
         }
@@ -61,7 +74,13 @@ namespace SharpPy
             if (name == "exceptions")
             {
                 // Return the exceptions list as a PyTuple (read-only like CPython)
-                return new PyTuple(Exceptions.Cast<PyObject>().ToArray());
+                // Performance: Eliminated LINQ - manual cast instead of Cast + ToArray
+                var exceptionsArray = new PyObject[Exceptions.Count];
+                for (int i = 0; i < Exceptions.Count; i++)
+                {
+                    exceptionsArray[i] = Exceptions[i];
+                }
+                return new PyTuple(exceptionsArray);
             }
             else if (name == "subgroup")
             {

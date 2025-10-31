@@ -1,4 +1,3 @@
-using System.Linq;
 using SharpPy.Utils;
 
 namespace SharpPy
@@ -46,7 +45,15 @@ namespace SharpPy
             AnalyzeExpression(body);
             
             // Free variables: used but not defined locally
-            var freeVars = _usedVars.Except(_definedVars).ToList();
+            // Performance: Eliminated LINQ
+            var freeVars = new List<string>();
+            foreach (var varName in _usedVars)
+            {
+                if (!_definedVars.Contains(varName))
+                {
+                    freeVars.Add(varName);
+                }
+            }
             
             // Cell variables: defined locally but referenced by nested functions
             var cellVars = new List<string>();
@@ -113,10 +120,15 @@ namespace SharpPy
             // Free variables: used but not defined locally AND exist in outer scope (CPython 3.12 방식)
             // Only variables that exist in the outer scope can be free variables
             // Exclude global variables - they should use LOAD_GLOBAL, not LOAD_DEREF
-            var freeVars = _usedVars.Except(_definedVars)
-                                   .Except(_globalVars)  // CPython 3.12: global 변수는 자유 변수가 아님
-                                   .Where(var => outerVarNames.Contains(var))
-                                   .ToList();
+            // Performance: Eliminated LINQ
+            var freeVars = new List<string>();
+            foreach (var varName in _usedVars)
+            {
+                if (!_definedVars.Contains(varName) && !_globalVars.Contains(varName) && outerVarNames.Contains(varName))
+                {
+                    freeVars.Add(varName);
+                }
+            }
             
             // CPython 3.12: __class__ is always available in class body scope
             if (hasSuperCalls && !freeVars.Contains("__class__"))
@@ -170,9 +182,15 @@ namespace SharpPy
             }
             
             // Free variables: variables used but not defined locally, and exist in outer scope
-            var freeVars = _usedVars.Where(var => !_definedVars.Contains(var))
-                                   .Where(var => outerVarNames.Contains(var)) // 외부 스코프의 모든 변수
-                                   .ToList();
+            // Performance: Eliminated LINQ
+            var freeVars = new List<string>();
+            foreach (var varName in _usedVars)
+            {
+                if (!_definedVars.Contains(varName) && outerVarNames.Contains(varName))
+                {
+                    freeVars.Add(varName);
+                }
+            }
             
             // Cell variables: analyze nested functions to see what they reference
             var cellVars = new List<string>();
@@ -889,7 +907,8 @@ namespace SharpPy
             {
                 try
                 {
-                    _sourceLines = File.ReadAllLines(fileName).ToList();
+                    // Performance: Eliminated LINQ
+                    _sourceLines = new List<string>(File.ReadAllLines(fileName));
                 }
                 catch (Exception ex)
                 {
@@ -918,7 +937,16 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.RESUME, 0);
 
             // CPython 3.12: SETUP_ANNOTATIONS once if module has any annotations
-            bool hasAnnotations = optimizedStatements.Any(stmt => stmt is AnnAssignStatement);
+            // Performance: Eliminated LINQ
+            bool hasAnnotations = false;
+            foreach (var stmt in optimizedStatements)
+            {
+                if (stmt is AnnAssignStatement)
+                {
+                    hasAnnotations = true;
+                    break;
+                }
+            }
             if (hasAnnotations)
             {
                 EmitInstruction(ByteCodeOp.SETUP_ANNOTATIONS);
@@ -1122,7 +1150,12 @@ namespace SharpPy
 
                 case TupleExpression tupleExpr:
                     // Multiple types in subscript: Dict[str, int], Tuple[int, str, float]
-                    var elementNames = tupleExpr.Elements.Select(e => ExtractAnnotationName(e));
+                    // Performance: Eliminated LINQ
+                    var elementNames = new List<string>(tupleExpr.Elements.Count);
+                    foreach (var element in tupleExpr.Elements)
+                    {
+                        elementNames.Add(ExtractAnnotationName(element));
+                    }
                     return string.Join(", ", elementNames);
 
                 default:
@@ -1881,7 +1914,12 @@ namespace SharpPy
                     // Handle keyword arguments with KW_NAMES (CPython 3.12 pattern)
                     if (keywordArgs.Count > 0)
                     {
-                        var kwNames = keywordArgs.Select(kw => new PyString(kw.Arg ?? "")).ToArray();
+                        // Performance: Eliminated LINQ
+                        var kwNames = new PyObject[keywordArgs.Count];
+                        for (int j = 0; j < keywordArgs.Count; j++)
+                        {
+                            kwNames[j] = new PyString(keywordArgs[j].Arg ?? "");
+                        }
                         var kwNamesTuple = new PyTuple(kwNames);
                         var kwNamesIndex = GetOrAddConstant(kwNamesTuple);
 
@@ -1967,7 +2005,13 @@ namespace SharpPy
                 if (keys.Count > 0)
                 {
                     // Load keys tuple as constant
-                    var keysTuple = new PyTuple(keys.Select(k => (PyObject)new PyString(k)).ToArray());
+                    // Performance: Eliminated LINQ
+                    var keysArray = new PyObject[keys.Count];
+                    for (int i = 0; i < keys.Count; i++)
+                    {
+                        keysArray[i] = new PyString(keys[i]);
+                    }
+                    var keysTuple = new PyTuple(keysArray);
                     EmitLoadConst(keysTuple);
 
                     // BUILD_CONST_KEY_MAP with number of items
@@ -2218,7 +2262,16 @@ namespace SharpPy
                                                 finalArgCount, posonlyArgCount, 0, null, null, defaults, null, flags, _currentFileName, _sourceLines);
 
             #if DEBUG_COMPILER_LOG
-            var hasYield = finalInstructions.Any(inst => inst.OpCode == ByteCodeOp.YIELD_VALUE);
+            // Performance: Eliminated LINQ
+            var hasYield = false;
+            foreach (var inst in finalInstructions)
+            {
+                if (inst.OpCode == ByteCodeOp.YIELD_VALUE)
+                {
+                    hasYield = true;
+                    break;
+                }
+            }
             Console.WriteLine($"🔍 Generator 체크: {name}, YIELD_VALUE 있음={hasYield}, IsGenerator()={tempCodeObject.IsGenerator()}");
             #endif
 
@@ -2729,8 +2782,25 @@ namespace SharpPy
                     
                 case CallExpression call:
                     // CPython 3.12: Check for *args/**kwargs unpacking
-                    bool hasStarArgs = call.Arguments.Any(arg => arg is StarredExpression);
-                    bool hasKwargUnpacking = call.Keywords.Any(kw => kw.Arg == null); // **kwargs has null Arg
+                    // Performance: Eliminated LINQ
+                    bool hasStarArgs = false;
+                    foreach (var arg in call.Arguments)
+                    {
+                        if (arg is StarredExpression)
+                        {
+                            hasStarArgs = true;
+                            break;
+                        }
+                    }
+                    bool hasKwargUnpacking = false;
+                    foreach (var kw in call.Keywords)
+                    {
+                        if (kw.Arg == null) // **kwargs has null Arg
+                        {
+                            hasKwargUnpacking = true;
+                            break;
+                        }
+                    }
 
                     if (hasStarArgs || hasKwargUnpacking)
                     {
@@ -2739,8 +2809,23 @@ namespace SharpPy
                         CompileExpression(call.Function);
 
                         // Handle args: combine regular args with *args
-                        var regularArgs = call.Arguments.Where(arg => !(arg is StarredExpression)).ToList();
-                        var starredArg = call.Arguments.FirstOrDefault(arg => arg is StarredExpression) as StarredExpression;
+                        // Performance: Eliminated LINQ
+                        var regularArgs = new List<Expression>();
+                        StarredExpression? starredArg = null;
+                        foreach (var arg in call.Arguments)
+                        {
+                            if (arg is StarredExpression starred)
+                            {
+                                if (starredArg == null)
+                                {
+                                    starredArg = starred;
+                                }
+                            }
+                            else
+                            {
+                                regularArgs.Add(arg);
+                            }
+                        }
 
                         if (regularArgs.Count > 0 || starredArg != null)
                         {
@@ -2783,20 +2868,26 @@ namespace SharpPy
                             EmitInstruction(ByteCodeOp.BUILD_MAP, 0);
 
                             // Add each kwargs dict
-                            var kwargsKeywords = call.Keywords.Where(kw => kw.Arg == null);
-                            foreach (var kwarg in kwargsKeywords)
+                            // Performance: Eliminated LINQ
+                            foreach (var kwarg in call.Keywords)
                             {
-                                CompileExpression(kwarg.Value); // This should be a dict
-                                EmitInstruction(ByteCodeOp.DICT_MERGE, 1);
+                                if (kwarg.Arg == null)
+                                {
+                                    CompileExpression(kwarg.Value); // This should be a dict
+                                    EmitInstruction(ByteCodeOp.DICT_MERGE, 1);
+                                }
                             }
 
                             // Regular keyword arguments
-                            var regularKeywords = call.Keywords.Where(kw => kw.Arg != null);
-                            foreach (var kw in regularKeywords)
+                            // Performance: Eliminated LINQ
+                            foreach (var kw in call.Keywords)
                             {
-                                EmitLoadConst(new PyString(kw.Arg));
-                                CompileExpression(kw.Value);
-                                EmitInstruction(ByteCodeOp.DICT_MERGE, 1);
+                                if (kw.Arg != null)
+                                {
+                                    EmitLoadConst(new PyString(kw.Arg));
+                                    CompileExpression(kw.Value);
+                                    EmitInstruction(ByteCodeOp.DICT_MERGE, 1);
+                                }
                             }
 
                             EmitInstruction(ByteCodeOp.CALL_FUNCTION_EX, 1); // 1 = has kwargs
@@ -2963,7 +3054,12 @@ namespace SharpPy
                             }
 
                             // CPython 3.12: Create keyword names tuple and add to constants
-                            var kwNames = call.Keywords.Select(kw => new PyString(kw.Arg ?? "")).ToArray();
+                            // Performance: Eliminated LINQ
+                            var kwNames = new PyObject[call.Keywords.Count];
+                            for (int i = 0; i < call.Keywords.Count; i++)
+                            {
+                                kwNames[i] = new PyString(call.Keywords[i].Arg ?? "");
+                            }
                             var kwNamesTuple = new PyTuple(kwNames);
                             var kwNamesIndex = GetOrAddConstant(kwNamesTuple);
 
@@ -3095,15 +3191,28 @@ namespace SharpPy
                 case ListExpression list:
                     // CPython 3.12 LIST_EXTEND optimization: when all elements are constants,
                     // use BUILD_LIST 0 + LOAD_CONST (tuple) + LIST_EXTEND 1
-                    if (list.Elements.Count > 0 && list.Elements.All(e => e is ConstantExpression))
+                    // Performance: Eliminated LINQ
+                    bool allListElementsConstant = list.Elements.Count > 0;
+                    foreach (var e in list.Elements)
+                    {
+                        if (!(e is ConstantExpression))
+                        {
+                            allListElementsConstant = false;
+                            break;
+                        }
+                    }
+                    if (allListElementsConstant)
                     {
                         // All elements are constants, use LIST_EXTEND optimization
                         EmitInstruction(ByteCodeOp.BUILD_LIST, 0); // Empty list
-                        
+
                         // Create tuple constant from all elements
-                        var constantElements = list.Elements.Cast<ConstantExpression>()
-                                                           .Select(c => c.Value)
-                                                           .ToArray();
+                        // Performance: Eliminated LINQ
+                        var constantElements = new PyObject[list.Elements.Count];
+                        for (int i = 0; i < list.Elements.Count; i++)
+                        {
+                            constantElements[i] = ((ConstantExpression)list.Elements[i]).Value;
+                        }
 #if DEBUG_LOG
                         Console.WriteLine($"🔍 LIST_EXTEND 최적화: {constantElements.Length}개 상수 요소");
                         for (int i = 0; i < constantElements.Length; i++)
@@ -3139,10 +3248,25 @@ namespace SharpPy
                     // CPython 3.12: Constant folding for tuples with all constant elements
                     // Reference: CPython ast_opt.c fold_tuple() and make_const_tuple()
                     // No size restriction - fold any tuple where all elements are constants
-                    if (tuple.Elements.Count > 0 && tuple.Elements.All(e => e is ConstantExpression))
+                    // Performance: Eliminated LINQ
+                    bool allTupleElementsConstant = tuple.Elements.Count > 0;
+                    foreach (var e in tuple.Elements)
+                    {
+                        if (!(e is ConstantExpression))
+                        {
+                            allTupleElementsConstant = false;
+                            break;
+                        }
+                    }
+                    if (allTupleElementsConstant)
                     {
                         // All elements are constants, create tuple constant at compile time
-                        var constantValues = tuple.Elements.Cast<ConstantExpression>().Select(c => c.Value).ToArray();
+                        // Performance: Eliminated LINQ
+                        var constantValues = new PyObject[tuple.Elements.Count];
+                        for (int i = 0; i < tuple.Elements.Count; i++)
+                        {
+                            constantValues[i] = ((ConstantExpression)tuple.Elements[i]).Value;
+                        }
                         var tupleConstant = new PyTuple(constantValues);
                         EmitInstruction(ByteCodeOp.LOAD_CONST, GetOrAddConstant(tupleConstant));
                     }
@@ -3867,7 +3991,12 @@ namespace SharpPy
 
             // Step 2: Compile default arguments and get funcflags
             // Extract kwonly argument names for BUILD_CONST_KEY_MAP
-            var kwOnlyArgNames = func.Arguments.KwOnlyArgs.Select(arg => arg.Name).ToList();
+            // Performance: Eliminated LINQ
+            var kwOnlyArgNames = new List<string>();
+            foreach (var arg in func.Arguments.KwOnlyArgs)
+            {
+                kwOnlyArgNames.Add(arg.Name);
+            }
             int makeFunctionFlags = CompilerDefaultArguments(defaultExprs, kwDefaultExprs, kwOnlyArgNames);
 
             // Step 3: Compile annotations and update funcflags
@@ -5026,7 +5155,8 @@ namespace SharpPy
             // 5. MAKE_FUNCTION을 위한 스택 준비 (CPython 순서: defaults, annotations, code)
 
             // 6. 기본값들을 tuple로 만들어 스택에 로드 (CPython 3.12 호환)
-            if (defaultExprs.Any())
+            // Performance: Eliminated LINQ
+            if (defaultExprs.Count > 0)
             {
                 foreach (var defaultExpr in defaultExprs)
                 {
@@ -5037,7 +5167,8 @@ namespace SharpPy
             }
 
             // 7. annotations 튜플을 스택에 로드 (CPython 3.12 호환성)
-            if (annotations.Any())
+            // Performance: Eliminated LINQ
+            if (annotations.Count > 0)
             {
                 foreach (var annotation in annotations)
                 {
@@ -5048,7 +5179,8 @@ namespace SharpPy
             }
 
             // 8. 클로저가 있으면 셀 변수들을 스택에 로드
-            if (freeVars.Any())
+            // Performance: Eliminated LINQ
+            if (freeVars.Count > 0)
             {
                 foreach (var freeVar in freeVars)
                 {
@@ -5070,10 +5202,11 @@ namespace SharpPy
             EmitLoadConst(codeObject);
 
             // 10. MAKE_FUNCTION 명령어 생성 (CPython 3.12와 동일한 플래그)
+            // Performance: Eliminated LINQ
             var makeFlags = 0;
-            if (defaults.Any()) makeFlags |= 0x01;  // CO_HAS_DEFAULTS
-            if (annotations.Any()) makeFlags |= 0x04; // HAS_ANNOTATIONS (CPython 3.12)
-            if (freeVars.Any()) makeFlags |= 0x08;  // CO_HAS_CLOSURE
+            if (defaults.Count > 0) makeFlags |= 0x01;  // CO_HAS_DEFAULTS
+            if (annotations.Count > 0) makeFlags |= 0x04; // HAS_ANNOTATIONS (CPython 3.12)
+            if (freeVars.Count > 0) makeFlags |= 0x08;  // CO_HAS_CLOSURE
             // async 함수도 일반 MAKE_FUNCTION 사용, 코드 객체의 CO_COROUTINE 플래그로 구분
             
             EmitInstruction(ByteCodeOp.MAKE_FUNCTION, makeFlags);
@@ -5444,7 +5577,8 @@ namespace SharpPy
                     // 2. Not parameters
                     var referencedVars = CollectReferencedVariables(funcDef.Body);
                     var localVars = CollectLocallyDefinedVariables(funcDef.Body);
-                    var parameters = funcDef.Parameters.ToHashSet();
+                    // Performance: Eliminated LINQ
+                    var parameters = new HashSet<string>(funcDef.Parameters);
 
                     foreach (var varName in referencedVars)
                     {
@@ -5465,7 +5599,8 @@ namespace SharpPy
                 }
             }
 
-            var result = freeVariables.ToList();
+            // Performance: Eliminated LINQ
+            var result = new List<string>(freeVariables);
             #if DEBUG_LOG
             Console.WriteLine($"🔍 GetClassFreeVariablesFromBody result: [{string.Join(", ", result)}]");
             #endif
@@ -5729,7 +5864,8 @@ namespace SharpPy
             var savedVarNames = _varNames;
             var savedCellVars = _cellVars;
             var savedFreeVars = _freeVars;
-            var savedExceptionTable = _exceptionTable.ToList(); // Preserve Exception Table entries
+            // Performance: Eliminated LINQ
+            var savedExceptionTable = new List<ExceptionTableEntry>(_exceptionTable); // Preserve Exception Table entries
             var savedCurrentSymbolTable = _currentSymbolTable;
 
             // CPython 3.12: Find class symbol table for this class
@@ -5836,7 +5972,16 @@ namespace SharpPy
 
                 // CPython 3.12: Check if class body has annotations
                 // If any statement is an AnnAssignStatement, emit SETUP_ANNOTATIONS
-                bool hasAnnotations = body.Any(stmt => stmt is AnnAssignStatement);
+                // Performance: Eliminated LINQ
+                bool hasAnnotations = false;
+                foreach (var stmt in body)
+                {
+                    if (stmt is AnnAssignStatement)
+                    {
+                        hasAnnotations = true;
+                        break;
+                    }
+                }
                 if (hasAnnotations)
                 {
                     #if DEBUG_LOG
@@ -5882,17 +6027,18 @@ namespace SharpPy
                 var finalInstructions = GetFinalInstructions(0);
 
                 // Create code object for class body with free variables
+                // Performance: Eliminated LINQ
                 var codeObject = new PyCodeObject(
                     className,
                     finalInstructions,
-                    _constants.ToList(),
-                    _names.ToList(),
-                    _varNames.ToList(),
+                    new List<PyObject>(_constants),
+                    new List<string>(_names),
+                    new List<string>(_varNames),
                     argCount: 0,  // Class body has no arguments
                     posonlyArgCount: 0,
                     kwonlyArgCount: 0,
-                    freeVars: _freeVars.ToList(),  // Include free variables
-                    cellVars: _cellVars.ToList(),
+                    freeVars: new List<string>(_freeVars),  // Include free variables
+                    cellVars: new List<string>(_cellVars),
                     defaultValues: null,
                     kwDefaults: null,
                     flags: 0,
@@ -6237,7 +6383,12 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.LOAD_CONST, levelIndex);
 
             // 2. LOAD_CONST - fromlist (tuple of imported names)
-            var fromlistItems = importFrom.Names.Select(alias => (PyObject)new PyString(alias.Name)).ToArray();
+            // Performance: Eliminated LINQ
+            var fromlistItems = new PyObject[importFrom.Names.Count];
+            for (int i = 0; i < importFrom.Names.Count; i++)
+            {
+                fromlistItems[i] = new PyString(importFrom.Names[i].Name);
+            }
             var fromlist = new PyTuple(fromlistItems);
             var fromlistIndex = GetOrAddConstant(fromlist);
             EmitInstruction(ByteCodeOp.LOAD_CONST, fromlistIndex);
@@ -7110,13 +7261,31 @@ namespace SharpPy
         private void CompileTryStatementCFG(TryStatement tryStmt)
         {
             // Check if any handler is an except* handler (IsStar = true)
-            bool hasExceptStar = tryStmt.Handlers != null && tryStmt.Handlers.Any(h => h.IsStar);
+            // Performance: Eliminated LINQ
+            bool hasExceptStar = false;
+            if (tryStmt.Handlers != null)
+            {
+                foreach (var h in tryStmt.Handlers)
+                {
+                    if (h.IsStar)
+                    {
+                        hasExceptStar = true;
+                        break;
+                    }
+                }
+            }
             if (hasExceptStar)
             {
                 // Convert TryStatement to TryStarStatement and use except* compilation
+                // Performance: Eliminated LINQ
+                var exceptStarHandlers = new List<ExceptStarHandler>();
+                foreach (var h in tryStmt.Handlers!)
+                {
+                    exceptStarHandlers.Add(new ExceptStarHandler(h.Type, h.Name, h.Body));
+                }
                 var tryStarStmt = new TryStarStatement(
                     tryStmt.Body,
-                    tryStmt.Handlers.Select(h => new ExceptStarHandler(h.Type, h.Name, h.Body)).ToList(),
+                    exceptStarHandlers,
                     tryStmt.OrElse,
                     tryStmt.FinalBody
                 );
@@ -7819,7 +7988,12 @@ namespace SharpPy
             var outerItem = withStmt.Items[0];
 
             // Create inner with statement with remaining context managers
-            var remainingItems = withStmt.Items.Skip(1).ToList();
+            // Performance: Eliminated LINQ
+            var remainingItems = new List<WithItem>();
+            for (int i = 1; i < withStmt.Items.Count; i++)
+            {
+                remainingItems.Add(withStmt.Items[i]);
+            }
             WithStatement innerWith;
 
             if (remainingItems.Count == 1)
@@ -8376,7 +8550,16 @@ namespace SharpPy
             var patterns = pattern.Patterns;
 
             // Check if pattern has star expressions
-            bool hasStarPattern = patterns.Any(p => p is StarPattern);
+            // Performance: Eliminated LINQ
+            bool hasStarPattern = false;
+            foreach (var p in patterns)
+            {
+                if (p is StarPattern)
+                {
+                    hasStarPattern = true;
+                    break;
+                }
+            }
             int starIndex = -1;
             int countBefore = 0, countAfter = 0;
 
@@ -8696,10 +8879,16 @@ namespace SharpPy
             // Stack: [subject]
             
             // Step 3: Create tuple of required keys and match them
-            var keysList = pattern.Patterns.Keys.ToList();
+            // Performance: Eliminated LINQ
+            var keysList = new List<string>(pattern.Patterns.Keys);
 
             // CPython 3.12 방식: 컴파일 시점에 튜플 상수 직접 생성
-            var keysArray = keysList.Select(key => new PyString(key)).ToArray();
+            // Performance: Eliminated LINQ
+            var keysArray = new PyObject[keysList.Count];
+            for (int i = 0; i < keysList.Count; i++)
+            {
+                keysArray[i] = new PyString(keysList[i]);
+            }
             var keysTuple = new PyTuple(keysArray);
             EmitLoadConst(keysTuple);
             // Stack: [subject, keys_tuple]
@@ -9699,13 +9888,31 @@ namespace SharpPy
             if (!firstGeneratorOptimized)
             {
                 // 첫 번째 generator가 일반 루프인 경우: GET_ITER 생성
-                if (firstGenerator.Iter is ListExpression iterList &&
-                    iterList.Elements.All(e => e is ConstantExpression))
+                // Performance: Eliminated LINQ
+                bool allElementsConstant = false;
+                ListExpression firstIterList = null;
+                if (firstGenerator.Iter is ListExpression tmpList)
+                {
+                    firstIterList = tmpList;
+                    allElementsConstant = true;
+                    foreach (var e in tmpList.Elements)
+                    {
+                        if (!(e is ConstantExpression))
+                        {
+                            allElementsConstant = false;
+                            break;
+                        }
+                    }
+                }
+                if (allElementsConstant)
                 {
                     // 상수 리스트 → 상수 튜플로 변환 (CPython 3.12 패턴)
-                    var constantElements = iterList.Elements.Cast<ConstantExpression>()
-                                                          .Select(c => c.Value)
-                                                          .ToArray();
+                    // Performance: Eliminated LINQ
+                    var constantElements = new PyObject[firstIterList.Elements.Count];
+                    for (int i = 0; i < firstIterList.Elements.Count; i++)
+                    {
+                        constantElements[i] = ((ConstantExpression)firstIterList.Elements[i]).Value;
+                    }
                     var tupleConstant = new PyTuple(constantElements);
                     EmitLoadConst(tupleConstant);
                     #if DEBUG_LOG
@@ -10136,13 +10343,31 @@ namespace SharpPy
             if (!firstGeneratorOptimized)
             {
                 // 첫 번째 generator가 일반 루프인 경우: GET_ITER 생성
-                if (firstGenerator.Iter is ListExpression iterList &&
-                    iterList.Elements.All(e => e is ConstantExpression))
+                // Performance: Eliminated LINQ
+                bool allElementsConstant = false;
+                ListExpression dictIterList = null;
+                if (firstGenerator.Iter is ListExpression tmpList)
+                {
+                    dictIterList = tmpList;
+                    allElementsConstant = true;
+                    foreach (var e in tmpList.Elements)
+                    {
+                        if (!(e is ConstantExpression))
+                        {
+                            allElementsConstant = false;
+                            break;
+                        }
+                    }
+                }
+                if (allElementsConstant)
                 {
                     // 상수 리스트 → 상수 튜플로 변환
-                    var constantElements = iterList.Elements.Cast<ConstantExpression>()
-                                                          .Select(c => c.Value)
-                                                          .ToArray();
+                    // Performance: Eliminated LINQ
+                    var constantElements = new PyObject[dictIterList.Elements.Count];
+                    for (int i = 0; i < dictIterList.Elements.Count; i++)
+                    {
+                        constantElements[i] = ((ConstantExpression)dictIterList.Elements[i]).Value;
+                    }
                     var tupleConstant = new PyTuple(constantElements);
                     EmitLoadConst(tupleConstant);
                 }
@@ -10240,12 +10465,25 @@ namespace SharpPy
             {
                 case ListExpression list:
                     // 리스트 표현식을 튜플 상수로 변환 (BUILD_LIST 생성하지 않음)
-                    if (list.Elements.All(e => e is ConstantExpression))
+                    // Performance: Eliminated LINQ
+                    bool allConstant = true;
+                    foreach (var e in list.Elements)
+                    {
+                        if (!(e is ConstantExpression))
+                        {
+                            allConstant = false;
+                            break;
+                        }
+                    }
+                    if (allConstant)
                     {
                         // 모든 요소가 상수인 경우 - 튜플 상수로 직접 로드
-                        var constantElements = list.Elements.Cast<ConstantExpression>()
-                                                           .Select(c => c.Value)
-                                                           .ToArray();
+                        // Performance: Eliminated LINQ
+                        var constantElements = new PyObject[list.Elements.Count];
+                        for (int i = 0; i < list.Elements.Count; i++)
+                        {
+                            constantElements[i] = ((ConstantExpression)list.Elements[i]).Value;
+                        }
                         var tupleConstant = new PyTuple(constantElements);
                         EmitLoadConst(tupleConstant);
                     }
@@ -11570,7 +11808,12 @@ namespace SharpPy
             CompileExpression(matchCls.Cls);
 
             // CPython: Build tuple of keyword attribute names
-            var attrNames = matchCls.KwdAttrs.Select(attr => new PyString(attr)).ToArray();
+            // Performance: Eliminated LINQ
+            var attrNames = new PyObject[matchCls.KwdAttrs.Count];
+            for (int i = 0; i < matchCls.KwdAttrs.Count; i++)
+            {
+                attrNames[i] = new PyString(matchCls.KwdAttrs[i]);
+            }
             EmitLoadConst(new PyTuple(attrNames));
 
             // CPython: MATCH_CLASS with nargs (positional count)
@@ -11644,7 +11887,12 @@ namespace SharpPy
             CompileExpression(callExpr.Function);
 
             // CPython: Build tuple of keyword attribute names
-            var attrNames = callExpr.Keywords.Select(kw => new PyString(kw.Arg ?? "")).ToArray();
+            // Performance: Eliminated LINQ
+            var attrNames = new PyObject[callExpr.Keywords.Count];
+            for (int i = 0; i < callExpr.Keywords.Count; i++)
+            {
+                attrNames[i] = new PyString(callExpr.Keywords[i].Arg ?? "");
+            }
             EmitLoadConst(new PyTuple(attrNames));
 
             // CPython: MATCH_CLASS with nargs (positional count)
@@ -11907,7 +12155,9 @@ namespace SharpPy
 
             // CPython: Emit from highest index down to 1, each with POP_TOP
             // Then emit fail_pop[0] without POP_TOP (it's the final fail target)
-            var sortedPops = pc.FailPop.Keys.OrderByDescending(k => k).ToList();
+            // Performance: Eliminated LINQ
+            var sortedPops = new List<int>(pc.FailPop.Keys);
+            sortedPops.Sort((a, b) => b.CompareTo(a)); // Descending order
 
             foreach (int pops in sortedPops)
             {

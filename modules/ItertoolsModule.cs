@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SharpPy
 {
@@ -121,10 +120,20 @@ namespace SharpPy
                 throw PyTypeError.Create("product expected at least 1 argument");
 
             int repeat = 1;
-            var iterables = args.ToList();
+            // Performance: Eliminated LINQ
+            var iterables = new List<PyObject>();
+            for (int i = 0; i < args.Length; i++)
+            {
+                iterables.Add(args[i]);
+            }
 
             // repeat 키워드 인수는 단순화하여 생략
-            return new ProductIterator(iterables.ToArray(), repeat);
+            var iterablesArray = new PyObject[iterables.Count];
+            for (int i = 0; i < iterables.Count; i++)
+            {
+                iterablesArray[i] = iterables[i];
+            }
+            return new ProductIterator(iterablesArray, repeat);
         }
 
         /// <summary>
@@ -392,7 +401,7 @@ namespace SharpPy
                 }
             }
             catch (PythonException ex) when (ex.PyException is PyStopIteration) { }
-            
+
             _r = r;
             if (r < 0 || r > _pool.Count)
             {
@@ -400,7 +409,12 @@ namespace SharpPy
             }
             else
             {
-                _indices = Enumerable.Range(0, r).ToArray();
+                // Performance: Eliminated LINQ
+                _indices = new int[r];
+                for (int i = 0; i < r; i++)
+                {
+                    _indices[i] = i;
+                }
             }
         }
 
@@ -408,26 +422,38 @@ namespace SharpPy
         {
             if (_indices == null)
                 throw PyStopIteration.Create();
-            
+
             if (!_started)
             {
                 _started = true;
-                return new PyTuple(_indices.Select(i => _pool[i]).ToArray());
+                // Performance: Eliminated LINQ
+                var result = new PyObject[_indices.Length];
+                for (int idx = 0; idx < _indices.Length; idx++)
+                {
+                    result[idx] = _pool[_indices[idx]];
+                }
+                return new PyTuple(result);
             }
-            
+
             // Generate next combination
             int i = _r - 1;
             while (i >= 0 && _indices[i] == _pool.Count - _r + i)
                 i--;
-            
+
             if (i < 0)
                 throw PyStopIteration.Create();
-            
+
             _indices[i]++;
             for (int j = i + 1; j < _r; j++)
                 _indices[j] = _indices[j - 1] + 1;
-            
-            return new PyTuple(_indices.Select(i => _pool[i]).ToArray());
+
+            // Performance: Eliminated LINQ
+            var resultArray = new PyObject[_indices.Length];
+            for (int idx = 0; idx < _indices.Length; idx++)
+            {
+                resultArray[idx] = _pool[_indices[idx]];
+            }
+            return new PyTuple(resultArray);
         }
     }
 
@@ -454,17 +480,27 @@ namespace SharpPy
                 }
             }
             catch (PythonException ex) when (ex.PyException is PyStopIteration) { }
-            
+
             _r = r ?? _pool.Count;
-            
+
             if (_r > _pool.Count)
             {
                 _indices = null; // Empty iterator
             }
             else
             {
-                _indices = Enumerable.Range(0, _pool.Count).ToArray();
-                _cycles = Enumerable.Range(_pool.Count - _r + 1, _r).Reverse().ToArray();
+                // Performance: Eliminated LINQ
+                _indices = new int[_pool.Count];
+                for (int i = 0; i < _pool.Count; i++)
+                {
+                    _indices[i] = i;
+                }
+
+                _cycles = new int[_r];
+                for (int i = 0; i < _r; i++)
+                {
+                    _cycles[i] = _pool.Count - i;
+                }
             }
         }
 
@@ -472,13 +508,19 @@ namespace SharpPy
         {
             if (_indices == null)
                 throw PyStopIteration.Create();
-            
+
             if (!_started)
             {
                 _started = true;
-                return new PyTuple(_indices.Take(_r).Select(i => _pool[i]).ToArray());
+                // Performance: Eliminated LINQ
+                var result = new PyObject[_r];
+                for (int idx = 0; idx < _r; idx++)
+                {
+                    result[idx] = _pool[_indices[idx]];
+                }
+                return new PyTuple(result);
             }
-            
+
             for (int i = _r - 1; i >= 0; i--)
             {
                 _cycles[i]--;
@@ -495,10 +537,16 @@ namespace SharpPy
                     // Swap
                     int j = _pool.Count - _cycles[i];
                     (_indices[i], _indices[j]) = (_indices[j], _indices[i]);
-                    return new PyTuple(_indices.Take(_r).Select(idx => _pool[idx]).ToArray());
+                    // Performance: Eliminated LINQ
+                    var resultArray = new PyObject[_r];
+                    for (int idx = 0; idx < _r; idx++)
+                    {
+                        resultArray[idx] = _pool[_indices[idx]];
+                    }
+                    return new PyTuple(resultArray);
                 }
             }
-            
+
             throw PyStopIteration.Create();
         }
     }
@@ -549,24 +597,36 @@ namespace SharpPy
         {
             if (_indices == null)
                 throw PyStopIteration.Create();
-            
+
             if (!_started)
             {
                 _started = true;
-                return new PyTuple(_indices.Select((idx, i) => _pools[i][idx]).ToArray());
+                // Performance: Eliminated LINQ
+                var result = new PyObject[_indices.Length];
+                for (int i = 0; i < _indices.Length; i++)
+                {
+                    result[i] = _pools[i][_indices[i]];
+                }
+                return new PyTuple(result);
             }
-            
+
             // Increment indices (like odometer)
             for (int i = _pools.Length - 1; i >= 0; i--)
             {
                 _indices[i]++;
                 if (_indices[i] < _pools[i].Count)
                 {
-                    return new PyTuple(_indices.Select((idx, poolIdx) => _pools[poolIdx][idx]).ToArray());
+                    // Performance: Eliminated LINQ
+                    var resultArray = new PyObject[_indices.Length];
+                    for (int poolIdx = 0; poolIdx < _indices.Length; poolIdx++)
+                    {
+                        resultArray[poolIdx] = _pools[poolIdx][_indices[poolIdx]];
+                    }
+                    return new PyTuple(resultArray);
                 }
                 _indices[i] = 0;
             }
-            
+
             throw PyStopIteration.Create();
         }
     }

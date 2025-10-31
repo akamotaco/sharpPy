@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using SharpPy.Generated;
 // using SharpPy.Tokenizer.Generated; // Now using SharpPy.Generated
@@ -1299,7 +1298,15 @@ namespace SharpPy.Generated
                     {
                         if (globalStmt.Names != null && globalStmt.Names.Count > 0)
                         {
-                            var names = globalStmt.Names.ToEnumerable<GeneratedIdentifier>().Select(id => id.Value).ToList();
+                            // Performance: Eliminated LINQ - manual list conversion
+                            var names = new List<string>();
+                            foreach (var item in globalStmt.Names)
+                            {
+                                if (item is GeneratedIdentifier id)
+                                {
+                                    names.Add(id.Value);
+                                }
+                            }
                             var result = new GlobalStatement(names);
                             CopySourceLocation(globalStmt, result);
                             return result;
@@ -1312,7 +1319,15 @@ namespace SharpPy.Generated
                     {
                         if (nonlocalStmt.Names != null && nonlocalStmt.Names.Count > 0)
                         {
-                            var names = nonlocalStmt.Names.ToEnumerable<GeneratedIdentifier>().Select(id => id.Value).ToList();
+                            // Performance: Eliminated LINQ - manual list conversion
+                            var names = new List<string>();
+                            foreach (var item in nonlocalStmt.Names)
+                            {
+                                if (item is GeneratedIdentifier id)
+                                {
+                                    names.Add(id.Value);
+                                }
+                            }
                             var result = new NonlocalStatement(names);
                             CopySourceLocation(nonlocalStmt, result);
                             return result;
@@ -1885,14 +1900,14 @@ namespace SharpPy.Generated
                 // MatchSequence: matches sequence patterns like [x, y, z]
                 // CPython 3.12: Must use MatchSequence (pattern node), not List (expr node)
                 GeneratedMatchSequence seq => new MatchSequence(
-                    seq.Patterns?.ToEnumerable<GeneratedPattern>().Select(p => ConvertPattern(p)).ToList() ?? new List<Expression>()
+                    ConvertPatternList(seq.Patterns)
                 ),
 
                 // MatchMapping: matches dict patterns like {"key": value}
                 // CPython 3.12: Must use MatchMapping (pattern node), not Dict (expr node)
                 GeneratedMatchMapping map => new MatchMapping(
-                    map.Keys?.ToEnumerable<GeneratedExpr>().Select(k => ConvertAnyExpression(k)).ToList() ?? new List<Expression>(),
-                    map.Patterns?.ToEnumerable<GeneratedPattern>().Select(p => ConvertPattern(p)).ToList() ?? new List<Expression>(),
+                    ConvertExprList(map.Keys),
+                    ConvertPatternList(map.Patterns),
                     map.Rest?.ToString()
                 ),
 
@@ -1900,9 +1915,9 @@ namespace SharpPy.Generated
                 // CPython 3.12: Must use MatchClass (pattern node), not CallExpression
                 GeneratedMatchClass cls => new MatchClass(
                     ConvertAnyExpression(cls.Cls),
-                    cls.Patterns?.ToEnumerable<GeneratedPattern>().Select(p => ConvertPattern(p)).ToList() ?? new List<Expression>(),
-                    cls.KwdAttrs?.ToEnumerable<GeneratedIdentifier>().Select(k => k.ToString()!).ToList() ?? new List<string>(),
-                    cls.KwdPatterns?.ToEnumerable<GeneratedPattern>().Select(p => ConvertPattern(p)).ToList() ?? new List<Expression>()
+                    ConvertPatternList(cls.Patterns),
+                    ConvertIdentifierListToStrings(cls.KwdAttrs),
+                    ConvertPatternList(cls.KwdPatterns)
                 ),
 
                 // MatchStar: matches *rest pattern
@@ -1923,9 +1938,7 @@ namespace SharpPy.Generated
 
                 // MatchOr: matches pattern1 | pattern2 | ...
                 GeneratedMatchOr mor => new OrPattern(
-                    mor.Patterns.ToEnumerable<GeneratedPattern>()
-                        .Select(p => ConvertPattern(p))
-                        .ToList()
+                    ConvertPatternList(mor.Patterns)
                 ),
 
                 _ => throw new NotImplementedException($"Pattern type {pattern.GetType().Name} not implemented")
@@ -1994,7 +2007,7 @@ namespace SharpPy.Generated
                 // CPython 3.12: operators are types, not strings
                 GeneratedBoolOp boolOp => new BoolOpExpression(
                     ConvertGeneratedBoolop(boolOp.Op),
-                    boolOp.Values.ToEnumerable<GeneratedExpr>().Select(v => ConvertAnyExpression(v)).ToList()
+                    ConvertExprList(boolOp.Values)
                 ),
 
                 GeneratedUnaryOp unaryOp => new UnaryOpExpression(
@@ -2004,7 +2017,7 @@ namespace SharpPy.Generated
 
                 // F-strings
                 GeneratedJoinedStr joinedStr => new JoinedStrExpression(
-                    joinedStr.Values.ToEnumerable<GeneratedExpr>().Select(v => ConvertAnyExpression(v)).ToList()
+                    ConvertExprList(joinedStr.Values)
                 ),
 
                 GeneratedFormattedValue formattedValue => new FormattedValueExpression(
@@ -2029,8 +2042,8 @@ namespace SharpPy.Generated
 
                 GeneratedCompare compare => new CompareExpression(
                     ConvertAnyExpression(compare.Left),
-                    compare.Ops.ToEnumerable<GeneratedCmpop>().ToList(),  // CPython 3.12: All ops
-                    compare.Comparators.ToEnumerable<GeneratedExpr>().Select(ConvertAnyExpression).ToList()  // CPython 3.12: All comparators
+                    ConvertCmpopList(compare.Ops),  // CPython 3.12: All ops
+                    ConvertExprList(compare.Comparators)  // CPython 3.12: All comparators
                 ),
 
                 // Function calls and attribute access
@@ -2050,47 +2063,43 @@ namespace SharpPy.Generated
 
                 // Collections
                 GeneratedList list => new ListExpression(
-                    list.Elts?.ToEnumerable<GeneratedExpr>().Select(e => ConvertAnyExpression(e)).ToList() ?? new List<Expression>(),
+                    ConvertExprList(list.Elts),
                     ConvertContext(list.Ctx)
                 ),
 
                 GeneratedTuple tuple => new TupleExpression(
-                    tuple.Elts?.ToEnumerable<GeneratedExpr>().Select(e => ConvertAnyExpression(e)).ToList() ?? new List<Expression>(),
+                    ConvertExprList(tuple.Elts),
                     ConvertContext(tuple.Ctx)
                 ),
 
                 GeneratedDict dict => new DictExpression(
-                    (dict.Keys?.ToEnumerable<GeneratedExpr>() ?? Enumerable.Empty<GeneratedExpr>())
-                        .Zip(dict.Values?.ToEnumerable<GeneratedExpr>() ?? Enumerable.Empty<GeneratedExpr>(), (k, v) => (
-                            Key: ConvertAnyExpression(k),
-                            Value: ConvertAnyExpression(v))
-                        ).ToList()
+                    ConvertDictPairs(dict.Keys, dict.Values)
                 ),
 
                 GeneratedSet set => new SetExpression(
-                    set.Elts?.ToEnumerable<GeneratedExpr>().Select(e => ConvertAnyExpression(e)).ToList() ?? new List<Expression>()
+                    ConvertExprList(set.Elts)
                 ),
 
                 // Comprehensions
                 GeneratedListComp listComp => new ListComprehension(
                     ConvertAnyExpression(listComp.Elt),
-                    listComp.Generators.ToEnumerable<GeneratedComprehension>().Select(g => ConvertComprehension(g)).ToList()
+                    ConvertComprehensionList(listComp.Generators)
                 ),
 
                 GeneratedSetComp setComp => new SetComprehension(
                     ConvertAnyExpression(setComp.Elt),
-                    setComp.Generators.ToEnumerable<GeneratedComprehension>().Select(g => ConvertComprehension(g)).ToList()
+                    ConvertComprehensionList(setComp.Generators)
                 ),
 
                 GeneratedDictComp dictComp => new DictComprehension(
                     ConvertAnyExpression(dictComp.Key),
                     ConvertAnyExpression(dictComp.Value),
-                    dictComp.Generators.ToEnumerable<GeneratedComprehension>().Select(g => ConvertComprehension(g)).ToList()
+                    ConvertComprehensionList(dictComp.Generators)
                 ),
 
                 GeneratedGeneratorExp genExp => new GeneratorExpression(
                     ConvertAnyExpression(genExp.Elt),
-                    genExp.Generators.ToEnumerable<GeneratedComprehension>().Select(g => ConvertComprehension(g)).ToList()
+                    ConvertComprehensionList(genExp.Generators)
                 ),
 
                 // Lambda expressions
@@ -2352,7 +2361,7 @@ namespace SharpPy.Generated
 
             var target = ConvertAnyExpression(comp.Target);
             var iter = ConvertAnyExpression(comp.Iter);
-            var ifs = comp.Ifs?.ToEnumerable<GeneratedExpr>().Select(ifExpr => ConvertAnyExpression(ifExpr)).ToList() ?? new List<Expression>();
+            var ifs = ConvertExprList(comp.Ifs);
 
             // Note: isAsync is tracked in comp.IsAsync but not used in Comprehension constructor
             return new Comprehension(target, iter, ifs);
@@ -2368,15 +2377,80 @@ namespace SharpPy.Generated
                 throw new ArgumentNullException(nameof(argsObj));
             }
 
+            // Performance: Eliminated LINQ - manual list conversions
+            var posOnlyArgs = new List<Arg>();
+            if (argsObj.Posonlyargs != null)
+            {
+                for (int i = 0; i < argsObj.Posonlyargs.Count; i++)
+                {
+                    if (argsObj.Posonlyargs[i] is GeneratedArg a)
+                    {
+                        posOnlyArgs.Add(ConvertArg(a));
+                    }
+                }
+            }
+
+            var args = new List<Arg>();
+            if (argsObj.Args != null)
+            {
+                for (int i = 0; i < argsObj.Args.Count; i++)
+                {
+                    if (argsObj.Args[i] is GeneratedArg a)
+                    {
+                        args.Add(ConvertArg(a));
+                    }
+                }
+            }
+
+            var kwOnlyArgs = new List<Arg>();
+            if (argsObj.Kwonlyargs != null)
+            {
+                for (int i = 0; i < argsObj.Kwonlyargs.Count; i++)
+                {
+                    if (argsObj.Kwonlyargs[i] is GeneratedArg a)
+                    {
+                        kwOnlyArgs.Add(ConvertArg(a));
+                    }
+                }
+            }
+
+            var defaults = new List<Expression?>();
+            if (argsObj.Defaults != null)
+            {
+                for (int i = 0; i < argsObj.Defaults.Count; i++)
+                {
+                    if (argsObj.Defaults[i] is GeneratedExpr d)
+                    {
+                        defaults.Add(ConvertAnyExpression(d));
+                    }
+                }
+            }
+
+            var kwDefaults = new List<Expression?>();
+            if (argsObj.KwDefaults != null)
+            {
+                for (int i = 0; i < argsObj.KwDefaults.Count; i++)
+                {
+                    if (argsObj.KwDefaults[i] != null && argsObj.KwDefaults[i] is GeneratedExpr d)
+                    {
+                        kwDefaults.Add(ConvertAnyExpression(d));
+                    }
+                    else
+                    {
+                        kwDefaults.Add(null);
+                    }
+                }
+            }
+
             return new FunctionArguments
             {
-                PosOnlyArgs = argsObj.Posonlyargs?.ToEnumerable<GeneratedArg>().Select(a => ConvertArg(a)).ToList() ?? new List<Arg>(),
-                Args = argsObj.Args?.ToEnumerable<GeneratedArg>().Select(a => ConvertArg(a)).ToList() ?? new List<Arg>(),
+                PosOnlyArgs = posOnlyArgs,
+                Args = args,
                 VarArg = argsObj.Vararg != null ? ConvertArg(argsObj.Vararg) : null,
-                KwOnlyArgs = argsObj.Kwonlyargs?.ToEnumerable<GeneratedArg>().Select(a => ConvertArg(a)).ToList() ?? new List<Arg>(),
+                KwOnlyArgs = kwOnlyArgs,
                 KwArg = argsObj.Kwarg != null ? ConvertArg(argsObj.Kwarg) : null,
-                Defaults = argsObj.Defaults?.ToEnumerable<GeneratedExpr>().Select(d => ConvertAnyExpression(d)).ToList() ?? new List<Expression?>(),
-                KwDefaults = argsObj.KwDefaults?.ToEnumerable<GeneratedExpr>().Select(d => d != null ? ConvertAnyExpression(d) : null).ToList() ?? new List<Expression?>()
+                Defaults = defaults,
+                KwDefaults = kwDefaults
             };
         }
 
@@ -2900,11 +2974,21 @@ namespace SharpPy.Generated
             var names = new List<string>();
 
             // Collect all parameter names in order: posonly, regular, vararg, kwonly, kwarg
-            names.AddRange(funcArgs.PosOnlyArgs.Select(a => a.Name));
-            names.AddRange(funcArgs.Args.Select(a => a.Name));
+            // Performance: Eliminated LINQ - manual list iteration
+            for (int i = 0; i < funcArgs.PosOnlyArgs.Count; i++)
+            {
+                names.Add(funcArgs.PosOnlyArgs[i].Name);
+            }
+            for (int i = 0; i < funcArgs.Args.Count; i++)
+            {
+                names.Add(funcArgs.Args[i].Name);
+            }
             if (funcArgs.VarArg != null)
                 names.Add("*" + funcArgs.VarArg.Name);
-            names.AddRange(funcArgs.KwOnlyArgs.Select(a => a.Name));
+            for (int i = 0; i < funcArgs.KwOnlyArgs.Count; i++)
+            {
+                names.Add(funcArgs.KwOnlyArgs[i].Name);
+            }
             if (funcArgs.KwArg != null)
                 names.Add("**" + funcArgs.KwArg.Name);
 
@@ -3046,6 +3130,123 @@ namespace SharpPy.Generated
                 byte[] bytes => new PyBytesObject(bytes),
                 _ => new PyString(value.ToString() ?? "")
             };
+        }
+
+        // Performance: Eliminated LINQ - Helper methods for manual list conversions
+
+        /// <summary>
+        /// Convert GeneratedSeq of patterns to List<Expression>
+        /// Replaces: seq?.ToEnumerable<GeneratedPattern>().Select(p => ConvertPattern(p)).ToList()
+        /// </summary>
+        private static List<Expression> ConvertPatternList(GeneratedSeq seq)
+        {
+            var result = new List<Expression>();
+            if (seq != null)
+            {
+                for (int i = 0; i < seq.Count; i++)
+                {
+                    if (seq[i] is GeneratedPattern p)
+                    {
+                        result.Add(ConvertPattern(p));
+                    }
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Convert GeneratedSeq of expressions to List<Expression>
+        /// Replaces: seq?.ToEnumerable<GeneratedExpr>().Select(e => ConvertAnyExpression(e)).ToList()
+        /// </summary>
+        private static List<Expression> ConvertExprList(GeneratedSeq seq)
+        {
+            var result = new List<Expression>();
+            if (seq != null)
+            {
+                for (int i = 0; i < seq.Count; i++)
+                {
+                    if (seq[i] is GeneratedExpr e)
+                    {
+                        result.Add(ConvertAnyExpression(e));
+                    }
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Convert GeneratedSeq of identifiers to List<string>
+        /// Replaces: seq?.ToEnumerable<GeneratedIdentifier>().Select(k => k.ToString()!).ToList()
+        /// </summary>
+        private static List<string> ConvertIdentifierListToStrings(GeneratedSeq seq)
+        {
+            var result = new List<string>();
+            if (seq != null)
+            {
+                for (int i = 0; i < seq.Count; i++)
+                {
+                    if (seq[i] is GeneratedIdentifier id)
+                    {
+                        result.Add(id.ToString()!);
+                    }
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Convert GeneratedSeq of comprehensions to List<Comprehension>
+        /// Replaces: seq.ToEnumerable<GeneratedComprehension>().Select(g => ConvertComprehension(g)).ToList()
+        /// </summary>
+        private static List<Comprehension> ConvertComprehensionList(GeneratedSeq seq)
+        {
+            var result = new List<Comprehension>();
+            for (int i = 0; i < seq.Count; i++)
+            {
+                if (seq[i] is GeneratedComprehension c)
+                {
+                    result.Add(ConvertComprehension(c));
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Convert parallel GeneratedSeq keys and values to List of tuples
+        /// Replaces: Keys.Zip(Values, (k, v) => (Key: ..., Value: ...)).ToList()
+        /// </summary>
+        private static List<(Expression Key, Expression Value)> ConvertDictPairs(GeneratedSeq keys, GeneratedSeq values)
+        {
+            var result = new List<(Expression, Expression)>();
+            if (keys != null && values != null)
+            {
+                int count = Math.Min(keys.Count, values.Count);
+                for (int i = 0; i < count; i++)
+                {
+                    if (keys[i] is GeneratedExpr k && values[i] is GeneratedExpr v)
+                    {
+                        result.Add((ConvertAnyExpression(k), ConvertAnyExpression(v)));
+                    }
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Convert GeneratedSeq of cmpops to List<GeneratedCmpop>
+        /// Replaces: seq.ToEnumerable<GeneratedCmpop>().ToList()
+        /// </summary>
+        private static List<GeneratedCmpop> ConvertCmpopList(GeneratedSeq seq)
+        {
+            var result = new List<GeneratedCmpop>();
+            for (int i = 0; i < seq.Count; i++)
+            {
+                if (seq[i] is GeneratedCmpop c)
+                {
+                    result.Add(c);
+                }
+            }
+            return result;
         }
     }
 

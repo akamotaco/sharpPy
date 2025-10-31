@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 
 namespace SharpPy
 {
@@ -225,7 +224,15 @@ namespace SharpPy
             {
                 var indices1 = GetIndices(sequenceLength);
                 var indices2 = other.GetIndices(sequenceLength);
-                return indices1.SequenceEqual(indices2);
+                // Performance: Eliminated LINQ (.SequenceEqual) - manual comparison
+                if (indices1.Length != indices2.Length)
+                    return false;
+                for (int i = 0; i < indices1.Length; i++)
+                {
+                    if (indices1[i] != indices2[i])
+                        return false;
+                }
+                return true;
             }
             catch
             {

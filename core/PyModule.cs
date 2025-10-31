@@ -1,4 +1,3 @@
-using System.Linq;
 using SharpPy.Utils;
 
 namespace SharpPy
@@ -13,11 +12,16 @@ public class PyNamespaceModule : PyModule
     public PyNamespaceModule(string name, List<string> namespaceDirs) : base(name)
     {
         NamespaceDirs = new List<string>(namespaceDirs);
-        
+
         // __path__ 속성 설정 (PEP 420 요구사항)
-        var pathList = namespaceDirs.Select(dir => new PyString(dir)).ToArray();
+        // Performance: Eliminated LINQ - manual conversion instead of Select + ToArray
+        var pathList = new PyObject[namespaceDirs.Count];
+        for (int i = 0; i < namespaceDirs.Count; i++)
+        {
+            pathList[i] = new PyString(namespaceDirs[i]);
+        }
         ModuleDict["__path__"] = new PyList(pathList);
-        
+
         // 네임스페이스 패키지 표시
         ModuleDict["__file__"] = PyNone.Instance; // 네임스페이스 패키지는 __file__이 None
         ModuleDict["__doc__"] = new PyString($"Namespace package {Name}");
@@ -56,10 +60,15 @@ public class PyNamespaceModule : PyModule
                     var nestedNamespaceDirs = new List<string> { subpackageDir };
                     
                     // 다른 네임스페이스 디렉토리에서도 동일한 서브패키지 검색
-                    foreach (var otherDir in NamespaceDirs.Where(d => d != namespaceDir))
+                    // Performance: Eliminated LINQ - manual filtering instead of Where
+                    for (int i = 0; i < NamespaceDirs.Count; i++)
                     {
+                        var otherDir = NamespaceDirs[i];
+                        if (otherDir == namespaceDir)
+                            continue;
+
                         var otherSubpackageDir = System.IO.Path.Combine(otherDir, submoduleName);
-                        if (System.IO.Directory.Exists(otherSubpackageDir) && 
+                        if (System.IO.Directory.Exists(otherSubpackageDir) &&
                             !System.IO.File.Exists(System.IO.Path.Combine(otherSubpackageDir, "__init__.py")))
                         {
                             nestedNamespaceDirs.Add(otherSubpackageDir);
@@ -230,13 +239,17 @@ public class PyModule : PyObject
             var allStr = line.Substring(10).Trim();
             if (allStr.StartsWith("[") && allStr.EndsWith("]"))
             {
-                var items = allStr.Substring(1, allStr.Length - 2)
-                    .Split(',')
-                    .Select(s => s.Trim().TrimQuotes())
-                    .Where(s => !string.IsNullOrEmpty(s));
-                
+                // Performance: Eliminated LINQ - manual parsing instead of Select + Where
+                var parts = allStr.Substring(1, allStr.Length - 2).Split(',');
                 All.Clear();
-                All.AddRange(items);
+                for (int i = 0; i < parts.Length; i++)
+                {
+                    var trimmed = parts[i].Trim().TrimQuotes();
+                    if (!string.IsNullOrEmpty(trimmed))
+                    {
+                        All.Add(trimmed);
+                    }
+                }
                 Console.WriteLine($"  정의됨: __all__ = [{string.Join(", ", All)}]");
             }
         }
@@ -573,6 +586,7 @@ public class PyModule : PyObject
             // 3순위: 실행 파일 디렉토리
             pathList.Add(new PyString(exeDir));
 
+            // Performance: Eliminated LINQ - direct array conversion
             return new PyList(pathList.ToArray());
         }
 
@@ -695,7 +709,13 @@ public class PyModule : PyObject
                 throw PyImportError.Create("attempted relative import beyond top-level package");
             }
 
-            string[] targetParts = parts.Take(parts.Length - levelsUp).ToArray();
+            // Performance: Eliminated LINQ - manual array copy instead of Take + ToArray
+            int targetLength = parts.Length - levelsUp;
+            string[] targetParts = new string[targetLength];
+            for (int i = 0; i < targetLength; i++)
+            {
+                targetParts[i] = parts[i];
+            }
             string targetPackage = string.Join(".", targetParts);
 
             // 5. Combine with relative name

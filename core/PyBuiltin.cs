@@ -296,7 +296,13 @@ namespace SharpPy
             }
 
             // 출력 생성 - CPython 3.12: print는 str()을 사용, repr()이 아님
-            var output = string.Join(sep.Value, args.Select(arg => arg.ToStr().Value));
+            // Performance: Eliminated LINQ - manual iteration instead of Select
+            var outputParts = new string[args.Length];
+            for (int i = 0; i < args.Length; i++)
+            {
+                outputParts[i] = args[i].ToStr().Value;
+            }
+            var output = string.Join(sep.Value, outputParts);
 
             // file이 지정되지 않았으면 Console에 출력 (기본값)
             if (file == null)
@@ -448,7 +454,12 @@ namespace SharpPy
             if (args.Length == 0)
                 return new PyList(new PyObject[0]);
 
-            var iterators = args.Select(arg => arg.GetIterator()).ToArray();
+            // Performance: Eliminated LINQ - manual iteration instead of Select().ToArray()
+            var iterators = new PyObject[args.Length];
+            for (int i = 0; i < args.Length; i++)
+            {
+                iterators[i] = args[i].GetIterator();
+            }
             var result = new System.Collections.Generic.List<PyObject>();
 
             try
@@ -468,6 +479,7 @@ namespace SharpPy
                 // 하나라도 끝나면 종료
             }
 
+            // Performance: Eliminated LINQ - ToArray() replaced with direct conversion
             return new PyList(result.ToArray());
         }
 
@@ -495,6 +507,7 @@ namespace SharpPy
                 // 정상 종료
             }
 
+            // Performance: Eliminated LINQ - ToArray() is a List method, not LINQ
             return new PyList(result.ToArray());
         }
 
@@ -526,6 +539,7 @@ namespace SharpPy
                 // 정상 종료
             }
 
+            // Performance: Eliminated LINQ - ToArray() is a List method, not LINQ
             return new PyList(result.ToArray());
         }
 
@@ -587,7 +601,14 @@ namespace SharpPy
             // key 함수가 있으면 키 값과 함께 정렬
             if (keyFunc != null)
             {
-                var keysAndItems = items.Select(item => new { Item = item, Key = keyFunc.Call(new PyObject[] { item }, null) }).ToList();
+                // Performance: Eliminated LINQ - manual loop instead of Select().ToList()
+                var keysAndItems = new System.Collections.Generic.List<(PyObject Item, PyObject Key)>();
+                for (int i = 0; i < items.Count; i++)
+                {
+                    var item = items[i];
+                    var key = keyFunc.Call(new PyObject[] { item }, null);
+                    keysAndItems.Add((item, key));
+                }
 
                 try
                 {
@@ -604,7 +625,12 @@ namespace SharpPy
                     throw PyTypeError.Create("'<' not supported between instances");
                 }
 
-                items = keysAndItems.Select(x => x.Item).ToList();
+                // Performance: Eliminated LINQ - manual loop instead of Select().ToList()
+                items.Clear();
+                for (int i = 0; i < keysAndItems.Count; i++)
+                {
+                    items.Add(keysAndItems[i].Item);
+                }
             }
             else
             {
@@ -625,6 +651,7 @@ namespace SharpPy
                 }
             }
 
+            // Performance: Eliminated LINQ - ToArray() is a List method, not LINQ
             return new PyList(items.ToArray());
         }
 
@@ -650,6 +677,7 @@ namespace SharpPy
             }
 
             items.Reverse();
+            // Performance: Eliminated LINQ - ToArray() is a List method, not LINQ
             return new PyList(items.ToArray());
         }
 
@@ -1594,9 +1622,16 @@ namespace SharpPy
         private static bool IsMetaclassRecursive(PyClass pyClass)
         {
             if (pyClass.BaseTypes == null) return false;
-            
+
             // 직접 type을 상속하면 메타클래스
-            return pyClass.BaseTypes.Any(t => t == PyType.TypeType || t.Name == "type");
+            // Performance: Eliminated LINQ - manual loop instead of Any()
+            for (int i = 0; i < pyClass.BaseTypes.Length; i++)
+            {
+                var t = pyClass.BaseTypes[i];
+                if (t == PyType.TypeType || t.Name == "type")
+                    return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -1608,29 +1643,73 @@ namespace SharpPy
             if (pyClass.BaseTypes != null)
             {
                 // 메타클래스는 직접 type을 상속받거나, 다른 메타클래스를 상속받아야 함
-                bool directlyInheritsFromType = pyClass.BaseTypes.Any(t => t == PyType.TypeType || t.Name == "type");
+                // Performance: Eliminated LINQ - manual loop instead of Any()
+                bool directlyInheritsFromType = false;
+                for (int i = 0; i < pyClass.BaseTypes.Length; i++)
+                {
+                    var t = pyClass.BaseTypes[i];
+                    if (t == PyType.TypeType || t.Name == "type")
+                    {
+                        directlyInheritsFromType = true;
+                        break;
+                    }
+                }
                 if (directlyInheritsFromType)
                 {
                     #if DEBUG_LOG
-                    Console.WriteLine($"   ✅ BaseTypes에서 직접 'type' 상속 확인: [{string.Join(", ", pyClass.BaseTypes.Select(t => t.Name))}]");
+                    // Performance: Eliminated LINQ - manual loop instead of Select()
+                    var baseTypeNames = new string[pyClass.BaseTypes.Length];
+                    for (int i = 0; i < pyClass.BaseTypes.Length; i++)
+                    {
+                        baseTypeNames[i] = pyClass.BaseTypes[i].Name;
+                    }
+                    Console.WriteLine($"   ✅ BaseTypes에서 직접 'type' 상속 확인: [{string.Join(", ", baseTypeNames)}]");
                     #endif
                     return true;
                 }
-                
+
                 // 다른 메타클래스를 상속하는 경우 (재귀 검사)
-                bool inheritsFromMetaclass = pyClass.BaseTypes.Any(t => 
-                    t is PyClass baseClass && IsMetaclassRecursive(baseClass));
+                // Performance: Eliminated LINQ - manual loop instead of Any()
+                bool inheritsFromMetaclass = false;
+                for (int i = 0; i < pyClass.BaseTypes.Length; i++)
+                {
+                    var t = pyClass.BaseTypes[i];
+                    if (t is PyClass baseClass && IsMetaclassRecursive(baseClass))
+                    {
+                        inheritsFromMetaclass = true;
+                        break;
+                    }
+                }
                 if (inheritsFromMetaclass)
                 {
                     #if DEBUG_LOG
-                    Console.WriteLine($"   ✅ BaseTypes에서 메타클래스 상속 확인: [{string.Join(", ", pyClass.BaseTypes.Select(t => t.Name))}]");
+                    // Performance: Eliminated LINQ - manual loop instead of Select()
+                    var baseTypeNames = new string[pyClass.BaseTypes.Length];
+                    for (int i = 0; i < pyClass.BaseTypes.Length; i++)
+                    {
+                        baseTypeNames[i] = pyClass.BaseTypes[i].Name;
+                    }
+                    Console.WriteLine($"   ✅ BaseTypes에서 메타클래스 상속 확인: [{string.Join(", ", baseTypeNames)}]");
                     #endif
                     return true;
                 }
             }
 
             #if DEBUG_LOG
-            Console.WriteLine($"   ❌ 메타클래스가 아님: Name={pyClass.Name}, BaseTypes=[{string.Join(", ", pyClass.BaseTypes?.Select(t => t.Name) ?? new string[0])}]");
+            // Performance: Eliminated LINQ - manual loop instead of Select()
+            if (pyClass.BaseTypes != null)
+            {
+                var baseTypeNames = new string[pyClass.BaseTypes.Length];
+                for (int i = 0; i < pyClass.BaseTypes.Length; i++)
+                {
+                    baseTypeNames[i] = pyClass.BaseTypes[i].Name;
+                }
+                Console.WriteLine($"   ❌ 메타클래스가 아님: Name={pyClass.Name}, BaseTypes=[{string.Join(", ", baseTypeNames)}]");
+            }
+            else
+            {
+                Console.WriteLine($"   ❌ 메타클래스가 아님: Name={pyClass.Name}, BaseTypes=[]");
+            }
             #endif
             return false;
         }
@@ -1776,7 +1855,13 @@ namespace SharpPy
             // This ensures we pick the most derived metaclass among all bases
             if (hasMetaclass && metaclass != null && bases.Count > 0)
             {
-                metaclass = PyTypeMetaclass.CallCalculateMetaclass(metaclass, bases.ToArray());
+                // Performance: Eliminated LINQ - manual conversion instead of ToArray()
+                var basesArray = new PyType[bases.Count];
+                for (int i = 0; i < bases.Count; i++)
+                {
+                    basesArray[i] = bases[i];
+                }
+                metaclass = PyTypeMetaclass.CallCalculateMetaclass(metaclass, basesArray);
                 #if DEBUG_LOG
                 Console.WriteLine($"Winner metaclass after CalculateMetaclass: {metaclass}");
                 #endif
@@ -1818,9 +1903,15 @@ namespace SharpPy
                         if (prepareMethod is PyMethod)
                         {
                             // Bound method - don't pass metaclass
+                            // Performance: Eliminated LINQ - manual conversion instead of Cast().ToArray()
+                            var basesArray = new PyObject[bases.Count];
+                            for (int i = 0; i < bases.Count; i++)
+                            {
+                                basesArray[i] = bases[i];
+                            }
                             prepareArgs = new PyObject[] {
                                 new PyString(className),
-                                new PyTuple(bases.Cast<PyObject>().ToArray())
+                                new PyTuple(basesArray)
                             };
                             #if DEBUG_LOG
                             Console.WriteLine($"   Using bound method call with {prepareArgs.Length} args (cls, bases)");
@@ -1829,10 +1920,16 @@ namespace SharpPy
                         else
                         {
                             // Unbound method - pass metaclass
+                            // Performance: Eliminated LINQ - manual conversion instead of Cast().ToArray()
+                            var basesArray = new PyObject[bases.Count];
+                            for (int i = 0; i < bases.Count; i++)
+                            {
+                                basesArray[i] = bases[i];
+                            }
                             prepareArgs = new PyObject[] {
                                 metaclass,
                                 new PyString(className),
-                                new PyTuple(bases.Cast<PyObject>().ToArray())
+                                new PyTuple(basesArray)
                             };
                             #if DEBUG_LOG
                             Console.WriteLine($"   Using unbound method call with {prepareArgs.Length} args (metacls, cls, bases)");
@@ -1976,9 +2073,12 @@ namespace SharpPy
 
                         #if DEBUG_LOG
                         Console.WriteLine($"📦 Initial classNamespace before ExecuteClassBody: {classNamespace.Count} items");
-                        foreach (var kvp in classNamespace.Take(10))
+                        // Performance: Eliminated LINQ - manual iteration instead of Take()
+                        int count = 0;
+                        foreach (var kvp in classNamespace)
                         {
                             Console.WriteLine($"   - {kvp.Key}: {kvp.Value?.GetTypeName()}");
+                            if (++count >= 10) break;
                         }
                         #endif
 
@@ -1987,9 +2087,12 @@ namespace SharpPy
 
                         #if DEBUG_LOG
                         Console.WriteLine($"📦 classNamespace after ExecuteClassBody: {classNamespace.Count} items");
-                        foreach (var kvp in classNamespace.Take(10))
+                        // Performance: Eliminated LINQ - manual iteration instead of Take()
+                        count = 0;
+                        foreach (var kvp in classNamespace)
                         {
                             Console.WriteLine($"   - {kvp.Key}: {kvp.Value?.GetTypeName()}");
+                            if (++count >= 10) break;
                         }
                         Console.WriteLine($"Class body executed for {className}, captured {classNamespace.Count} variables");
                         #endif
@@ -2282,10 +2385,16 @@ namespace SharpPy
                         Console.WriteLine($"🔍 Before creating newArgs: namespaceObj type={namespaceObj?.GetType().Name}, PyType={namespaceObj?.GetTypeName()}");
                         #endif
 
+                        // Performance: Eliminated LINQ - manual conversion instead of Cast().ToArray()
+                        var basesArray = new PyObject[bases.Count];
+                        for (int i = 0; i < bases.Count; i++)
+                        {
+                            basesArray[i] = bases[i];
+                        }
                         var newArgs = new PyObject[] {
                             metaclass,                      // cls
                             new PyString(className),        // name
-                            new PyTuple(bases.Cast<PyObject>().ToArray()), // bases
+                            new PyTuple(basesArray),        // bases
                             namespaceObj                    // namespace - PyDict or dict-like object (e.g., _EnumDict)
                         };
 
@@ -2436,12 +2545,18 @@ namespace SharpPy
                                     #if DEBUG_LOG
                                     Console.WriteLine("Found metaclass.__init__ method, executing it");
                                     #endif
-                                try 
+                                try
                                 {
+                                    // Performance: Eliminated LINQ - manual conversion instead of Cast().ToArray()
+                                    var initBasesArray = new PyObject[bases.Count];
+                                    for (int i = 0; i < bases.Count; i++)
+                                    {
+                                        initBasesArray[i] = bases[i];
+                                    }
                                     var initArgs = new PyObject[] {
                                         pyClass,                    // cls (the created class)
                                         new PyString(className),    // name
-                                        new PyTuple(bases.Cast<PyObject>().ToArray()), // bases
+                                        new PyTuple(initBasesArray),// bases
                                         namespaceObj                // namespace (dict or dict-like object)
                                     };
                                     initMethod.Call(initArgs, null);
@@ -2470,7 +2585,13 @@ namespace SharpPy
                             #if DEBUG_LOG
                             Console.WriteLine("Metaclass.__new__ didn't return a class, falling back to type.__new__");
                             #endif
-                            var typeResult = CallTypeNew(new PyObject[] { metaclass, new PyString(className), new PyTuple(bases.Cast<PyObject>().ToArray()), namespaceObj });
+                            // Performance: Eliminated LINQ - manual conversion instead of Cast().ToArray()
+                            var fallbackBasesArray = new PyObject[bases.Count];
+                            for (int i = 0; i < bases.Count; i++)
+                            {
+                                fallbackBasesArray[i] = bases[i];
+                            }
+                            var typeResult = CallTypeNew(new PyObject[] { metaclass, new PyString(className), new PyTuple(fallbackBasesArray), namespaceObj });
                             // If type.__new__ didn't return a PyClass, create one with module info
                             if (typeResult is PyClass existingClass)
                             {
@@ -2483,7 +2604,13 @@ namespace SharpPy
                                 {
                                     moduleInfo = moduleStr.Value;
                                 }
-                                pyClass = new PyClass(className, bases.ToArray(), classNamespace, null, moduleInfo);
+                                // Performance: Eliminated LINQ - manual conversion instead of ToArray()
+                                var fallbackBasesArr = new PyType[bases.Count];
+                                for (int i = 0; i < bases.Count; i++)
+                                {
+                                    fallbackBasesArr[i] = bases[i];
+                                }
+                                pyClass = new PyClass(className, fallbackBasesArr, classNamespace, null, moduleInfo);
                             }
                             pyClass.Metaclass = metaclass as PyClass;
                             
@@ -2505,7 +2632,13 @@ namespace SharpPy
                         #if DEBUG_LOG
                         Console.WriteLine("No callable __new__ method found on metaclass, using type.__new__ directly");
                         #endif
-                        var typeResult = CallTypeNew(new PyObject[] { metaclass, new PyString(className), new PyTuple(bases.Cast<PyObject>().ToArray()), namespaceObj });
+                        // Performance: Eliminated LINQ - manual conversion instead of Cast().ToArray()
+                        var noCallableBasesArray = new PyObject[bases.Count];
+                        for (int i = 0; i < bases.Count; i++)
+                        {
+                            noCallableBasesArray[i] = bases[i];
+                        }
+                        var typeResult = CallTypeNew(new PyObject[] { metaclass, new PyString(className), new PyTuple(noCallableBasesArray), namespaceObj });
                         // If type.__new__ didn't return a PyClass, create one with module info
                         if (typeResult is PyClass existingClass)
                         {
@@ -2518,7 +2651,13 @@ namespace SharpPy
                             {
                                 moduleInfo = moduleStr.Value;
                             }
-                            pyClass = new PyClass(className, bases.ToArray(), classNamespace, null, moduleInfo);
+                            // Performance: Eliminated LINQ - manual conversion instead of ToArray()
+                            var noCallableBasesArr = new PyType[bases.Count];
+                            for (int i = 0; i < bases.Count; i++)
+                            {
+                                noCallableBasesArr[i] = bases[i];
+                            }
+                            pyClass = new PyClass(className, noCallableBasesArr, classNamespace, null, moduleInfo);
                         }
                         pyClass.Metaclass = metaclass as PyClass;
                         
@@ -2558,7 +2697,13 @@ namespace SharpPy
                     moduleInfo = moduleStr.Value;
                 }
 
-                pyClass = new PyClass(className, bases.ToArray(), classNamespace, null, moduleInfo);
+                // Performance: Eliminated LINQ - manual conversion instead of ToArray()
+                var basesArray = new PyType[bases.Count];
+                for (int i = 0; i < bases.Count; i++)
+                {
+                    basesArray[i] = bases[i];
+                }
+                pyClass = new PyClass(className, basesArray, classNamespace, null, moduleInfo);
 
                 // CPython 3.12: Even without explicit metaclass, all classes have 'type' as metaclass
                 pyClass.Metaclass = PyTypeMetaclass.Instance;
@@ -2964,6 +3109,7 @@ namespace SharpPy
                         Console.WriteLine($"🔍 No __class__ found in current frame");
                         #endif
                         #if DEBUG_LOG
+                        // Performance: Eliminated LINQ - direct string.Join works with collections
                         Console.WriteLine($"   FreeVars: [{string.Join(", ", currentFrame.Code.FreeVars)}]");
                         #endif
                         #if DEBUG_LOG
@@ -3175,7 +3321,13 @@ namespace SharpPy
             }
 
             // Create new class
-            var newClass = new PyClass(nameStr.Value, baseTypes.ToArray());
+            // Performance: Eliminated LINQ - manual conversion instead of ToArray()
+            var baseTypesArray = new PyType[baseTypes.Count];
+            for (int i = 0; i < baseTypes.Count; i++)
+            {
+                baseTypesArray[i] = baseTypes[i];
+            }
+            var newClass = new PyClass(nameStr.Value, baseTypesArray);
 
             // Set class attributes from the attrs dict or dict-like object
             var items = attrItems;
@@ -3305,7 +3457,13 @@ namespace SharpPy
                 // Create a temporary class that inherits from the same base as the cell class
                 var targetBaseTypes = basedOnClass.BaseTypes ?? new PyType[] { PyType.TypeType };
                 #if DEBUG_LOG
-                Console.WriteLine($"   Creating target class with base types: [{string.Join(", ", targetBaseTypes.Select(t => t.Name))}]");
+                // Performance: Eliminated LINQ - manual loop instead of Select()
+                var baseTypeNames = new string[targetBaseTypes.Length];
+                for (int i = 0; i < targetBaseTypes.Length; i++)
+                {
+                    baseTypeNames[i] = targetBaseTypes[i].Name;
+                }
+                Console.WriteLine($"   Creating target class with base types: [{string.Join(", ", baseTypeNames)}]");
                 #endif
                 
                 // Create the target class with the correct name and base types
@@ -3378,6 +3536,7 @@ namespace SharpPy
                             throw PyTypeError.Create("an integer is required");
                         }
                     }
+                    // Performance: Eliminated LINQ - ToArray() is a List method, not LINQ
                     return new PyBytes(byteList.ToArray());
                 }
                 // bytes(range) - create from range object
@@ -3394,6 +3553,7 @@ namespace SharpPy
                             byteList.Add((byte)pyInt.Value);
                         }
                     }
+                    // Performance: Eliminated LINQ - ToArray() is a List method, not LINQ
                     return new PyBytes(byteList.ToArray());
                 }
                 // bytes(int) - create bytes of specified size filled with zeros
@@ -3480,6 +3640,7 @@ namespace SharpPy
                             throw PyTypeError.Create($"'{item.GetTypeName()}' object cannot be interpreted as an integer");
                         }
                     }
+                    // Performance: Eliminated LINQ - ToArray() is a List method, not LINQ
                     return new PyBytes(bytes.ToArray());
                 }
             }

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using SharpPy.Core;
 
 namespace SharpPy
@@ -709,22 +708,39 @@ public class PyFunctionSignature
     public void ValidateKwargs(PyDict kwargs)
     {
         if (KwargsType == null) return; // 타입 검증 없음
-        
+
         if (!KwargsType.ValidateKwargs(kwargs))
         {
             var typedDict = KwargsType.TypedDict;
-            var missing = typedDict.RequiredKeys.Where(k => !kwargs.InternalDict.ContainsKey(new PyString(k))).ToList();
-            var extra = kwargs.InternalDict.Keys
-                .Select(k => ((PyString)k).Value)
-                .Where(k => !typedDict.RequiredKeys.Contains(k) && !typedDict.OptionalKeys.Contains(k))
-                .ToList();
-            
+            // Performance: Eliminated LINQ - manual loops instead of Where + Select + ToList
+            var missing = new List<string>();
+            foreach (var key in typedDict.RequiredKeys)
+            {
+                if (!kwargs.InternalDict.ContainsKey(new PyString(key)))
+                {
+                    missing.Add(key);
+                }
+            }
+
+            var extra = new List<string>();
+            foreach (var kvp in kwargs.InternalDict)
+            {
+                if (kvp.Key is PyString keyStr)
+                {
+                    string keyValue = keyStr.Value;
+                    if (!typedDict.RequiredKeys.Contains(keyValue) && !typedDict.OptionalKeys.Contains(keyValue))
+                    {
+                        extra.Add(keyValue);
+                    }
+                }
+            }
+
             var errors = new List<string>();
-            if (missing.Any())
+            if (missing.Count > 0)
                 errors.Add($"missing required keys: {string.Join(", ", missing)}");
-            if (extra.Any())
+            if (extra.Count > 0)
                 errors.Add($"unexpected keys: {string.Join(", ", extra)}");
-                
+
             throw PyTypeError.Create($"Invalid kwargs for {typedDict.Name}: {string.Join("; ", errors)}");
         }
     }
@@ -1098,7 +1114,16 @@ public class PyUnpackWrapper : PyObject
         if (TypedDict == null) return true; // 검증할 TypedDict가 없으면 통과
 
         var requiredKeys = TypedDict.RequiredKeys;
-        var allKeys = TypedDict.RequiredKeys.Concat(TypedDict.OptionalKeys).ToHashSet();
+        // Performance: Eliminated LINQ - manual HashSet construction instead of Concat + ToHashSet
+        var allKeys = new HashSet<string>();
+        foreach (var key in TypedDict.RequiredKeys)
+        {
+            allKeys.Add(key);
+        }
+        foreach (var key in TypedDict.OptionalKeys)
+        {
+            allKeys.Add(key);
+        }
 
         // 필수 키가 모두 있는지 확인
         foreach (var requiredKey in requiredKeys)

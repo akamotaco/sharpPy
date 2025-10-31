@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Text;
 
 namespace SharpPy
 {
@@ -71,18 +71,28 @@ namespace SharpPy
         {
             var names = new List<string>();
 
+            // Performance: Eliminated LINQ - Direct loop instead of Select
             // Positional-only
-            names.AddRange(PosOnlyArgs.Select(a => a.Name));
+            foreach (var arg in PosOnlyArgs)
+            {
+                names.Add(arg.Name);
+            }
 
             // Regular args
-            names.AddRange(Args.Select(a => a.Name));
+            foreach (var arg in Args)
+            {
+                names.Add(arg.Name);
+            }
 
             // *args
             if (VarArg != null)
                 names.Add("*" + VarArg.Name);
 
             // Keyword-only
-            names.AddRange(KwOnlyArgs.Select(a => a.Name));
+            foreach (var arg in KwOnlyArgs)
+            {
+                names.Add(arg.Name);
+            }
 
             // **kwargs
             if (KwArg != null)
@@ -153,25 +163,57 @@ namespace SharpPy
         {
             var parts = new List<string>();
 
-            if (PosOnlyArgs.Any())
-                parts.Add($"posonlyargs=[{string.Join(", ", PosOnlyArgs.Select(a => a.Name))}]");
+            // Performance: Eliminated LINQ - Manual loops with StringBuilder
+            if (PosOnlyArgs.Count > 0)
+            {
+                var sb = new StringBuilder();
+                for (int i = 0; i < PosOnlyArgs.Count; i++)
+                {
+                    if (i > 0) sb.Append(", ");
+                    sb.Append(PosOnlyArgs[i].Name);
+                }
+                parts.Add($"posonlyargs=[{sb}]");
+            }
 
-            if (Args.Any())
-                parts.Add($"args=[{string.Join(", ", Args.Select(a => a.Name))}]");
+            if (Args.Count > 0)
+            {
+                var sb = new StringBuilder();
+                for (int i = 0; i < Args.Count; i++)
+                {
+                    if (i > 0) sb.Append(", ");
+                    sb.Append(Args[i].Name);
+                }
+                parts.Add($"args=[{sb}]");
+            }
 
             if (VarArg != null)
                 parts.Add($"vararg={VarArg.Name}");
 
-            if (KwOnlyArgs.Any())
-                parts.Add($"kwonlyargs=[{string.Join(", ", KwOnlyArgs.Select(a => a.Name))}]");
+            if (KwOnlyArgs.Count > 0)
+            {
+                var sb = new StringBuilder();
+                for (int i = 0; i < KwOnlyArgs.Count; i++)
+                {
+                    if (i > 0) sb.Append(", ");
+                    sb.Append(KwOnlyArgs[i].Name);
+                }
+                parts.Add($"kwonlyargs=[{sb}]");
+            }
 
             if (KwArg != null)
                 parts.Add($"kwarg={KwArg.Name}");
 
-            if (Defaults.Any())
+            if (Defaults.Count > 0)
                 parts.Add($"defaults=[{Defaults.Count} items]");
 
-            return $"arguments({string.Join(", ", parts)})";
+            var result = new StringBuilder("arguments(");
+            for (int i = 0; i < parts.Count; i++)
+            {
+                if (i > 0) result.Append(", ");
+                result.Append(parts[i]);
+            }
+            result.Append(")");
+            return result.ToString();
         }
 
         /// <summary>
@@ -182,15 +224,32 @@ namespace SharpPy
         {
             var parts = new List<string>();
 
+            // Performance: Eliminated LINQ - Manual loops with StringBuilder
             // posonlyargs - always show even if empty
-            if (PosOnlyArgs.Any())
-                parts.Add($"posonlyargs=[{string.Join(", ", PosOnlyArgs.Select(a => a.ToString()))}]");
+            if (PosOnlyArgs.Count > 0)
+            {
+                var sb = new StringBuilder();
+                for (int i = 0; i < PosOnlyArgs.Count; i++)
+                {
+                    if (i > 0) sb.Append(", ");
+                    sb.Append(PosOnlyArgs[i].ToString());
+                }
+                parts.Add($"posonlyargs=[{sb}]");
+            }
             else
                 parts.Add("posonlyargs=[]");
 
             // args - always show even if empty
-            if (Args.Any())
-                parts.Add($"args=[{string.Join(", ", Args.Select(a => a.ToString()))}]");
+            if (Args.Count > 0)
+            {
+                var sb = new StringBuilder();
+                for (int i = 0; i < Args.Count; i++)
+                {
+                    if (i > 0) sb.Append(", ");
+                    sb.Append(Args[i].ToString());
+                }
+                parts.Add($"args=[{sb}]");
+            }
             else
                 parts.Add("args=[]");
 
@@ -199,14 +258,30 @@ namespace SharpPy
                 parts.Add($"vararg={VarArg.ToString()}");
 
             // kwonlyargs - always show even if empty
-            if (KwOnlyArgs.Any())
-                parts.Add($"kwonlyargs=[{string.Join(", ", KwOnlyArgs.Select(a => a.ToString()))}]");
+            if (KwOnlyArgs.Count > 0)
+            {
+                var sb = new StringBuilder();
+                for (int i = 0; i < KwOnlyArgs.Count; i++)
+                {
+                    if (i > 0) sb.Append(", ");
+                    sb.Append(KwOnlyArgs[i].ToString());
+                }
+                parts.Add($"kwonlyargs=[{sb}]");
+            }
             else
                 parts.Add("kwonlyargs=[]");
 
             // kw_defaults - always show even if empty
-            if (KwDefaults.Any())
-                parts.Add($"kw_defaults=[{string.Join(", ", KwDefaults.Select(d => d?.ToString() ?? "None"))}]");
+            if (KwDefaults.Count > 0)
+            {
+                var sb = new StringBuilder();
+                for (int i = 0; i < KwDefaults.Count; i++)
+                {
+                    if (i > 0) sb.Append(", ");
+                    sb.Append(KwDefaults[i]?.ToString() ?? "None");
+                }
+                parts.Add($"kw_defaults=[{sb}]");
+            }
             else
                 parts.Add("kw_defaults=[]");
 
@@ -215,7 +290,7 @@ namespace SharpPy
                 parts.Add($"kwarg={KwArg.ToString()}");
 
             // defaults - always show even if empty
-            if (Defaults.Any())
+            if (Defaults.Count > 0)
             {
                 var defaultStrs = new List<string>();
                 foreach (var def in Defaults)
@@ -240,12 +315,25 @@ namespace SharpPy
                         defaultStrs.Add(def.ToString());
                     }
                 }
-                parts.Add($"defaults=[{string.Join(", ", defaultStrs)}]");
+                var sb = new StringBuilder();
+                for (int i = 0; i < defaultStrs.Count; i++)
+                {
+                    if (i > 0) sb.Append(", ");
+                    sb.Append(defaultStrs[i]);
+                }
+                parts.Add($"defaults=[{sb}]");
             }
             else
                 parts.Add("defaults=[]");
 
-            return $"arguments({string.Join(", ", parts)})";
+            var result = new StringBuilder("arguments(");
+            for (int i = 0; i < parts.Count; i++)
+            {
+                if (i > 0) result.Append(", ");
+                result.Append(parts[i]);
+            }
+            result.Append(")");
+            return result.ToString();
         }
     }
 

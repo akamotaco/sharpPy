@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SharpPy.Modules
 {
@@ -128,7 +127,12 @@ namespace SharpPy.Modules
             if (_dict.Count == 0)
                 return new PyString($"defaultdict({factoryRepr}, {{}})");
 
-            var pairs = _dict.Select(kv => $"{kv.Key.ToRepr().Value}: {kv.Value.ToRepr().Value}");
+            // Performance: Eliminated LINQ
+            var pairs = new List<string>();
+            foreach (var kv in _dict)
+            {
+                pairs.Add($"{kv.Key.ToRepr().Value}: {kv.Value.ToRepr().Value}");
+            }
             return new PyString($"defaultdict({factoryRepr}, {{{string.Join(", ", pairs)}}})");
         }
     }
@@ -344,7 +348,13 @@ namespace SharpPy.Modules
 
         public override PyObject GetIterator()
         {
-            return new PyDequeIterator(_items.ToList());
+            // Performance: Eliminated LINQ
+            var itemsList = new List<PyObject>();
+            foreach (var item in _items)
+            {
+                itemsList.Add(item);
+            }
+            return new PyDequeIterator(itemsList);
         }
 
         public override PyString ToRepr()
@@ -356,7 +366,13 @@ namespace SharpPy.Modules
                 return new PyString("deque([])");
             }
 
-            var items = string.Join(", ", _items.Select(x => x.ToRepr().Value));
+            // Performance: Eliminated LINQ
+            var itemRepr = new List<string>();
+            foreach (var item in _items)
+            {
+                itemRepr.Add(item.ToRepr().Value);
+            }
+            var items = string.Join(", ", itemRepr);
             if (_maxlen.HasValue)
                 return new PyString($"deque([{items}], maxlen={_maxlen.Value})");
             return new PyString($"deque([{items}])");

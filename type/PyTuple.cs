@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 
 namespace SharpPy
 {
@@ -27,7 +26,16 @@ namespace SharpPy
         {
             if (Items.Length == 0) return new PyString("()");
             if (Items.Length == 1) return new PyString($"({Items[0].ToRepr().Value},)");
-            return new PyString($"({string.Join(", ", Items.Select(i => i.ToRepr().Value))})");
+
+            // Performance: Eliminated LINQ (.Select + string.Join) - manual StringBuilder
+            var sb = new System.Text.StringBuilder("(");
+            for (int i = 0; i < Items.Length; i++)
+            {
+                if (i > 0) sb.Append(", ");
+                sb.Append(Items[i].ToRepr().Value);
+            }
+            sb.Append(")");
+            return new PyString(sb.ToString());
         }
 
         public override string ToString() => ToRepr().Value;
@@ -50,10 +58,23 @@ namespace SharpPy
         {
             return other switch
             {
-                PyTuple otherTuple => PyBool.FromBool(Items.Length == otherTuple.Items.Length && 
-                    Items.Zip(otherTuple.Items, (a, b) => ((PyBool)a.RichCompare(b, CompareOp.EQ)).Value).All(x => x)),
+                PyTuple otherTuple => PyBool.FromBool(CheckTupleEquality(otherTuple)),
                 _ => PyBool.False
             };
+        }
+
+        // Performance: Eliminated LINQ (.Zip + .All) - manual comparison
+        private bool CheckTupleEquality(PyTuple otherTuple)
+        {
+            if (Items.Length != otherTuple.Items.Length)
+                return false;
+
+            for (int i = 0; i < Items.Length; i++)
+            {
+                if (!((PyBool)Items[i].RichCompare(otherTuple.Items[i], CompareOp.EQ)).Value)
+                    return false;
+            }
+            return true;
         }
 
         #endregion
@@ -119,11 +140,16 @@ namespace SharpPy
         /// </summary>
         public PyObject Add(PyObject other)
         {
-            return other switch
+            if (other is PyTuple otherTuple)
             {
-                PyTuple otherTuple => new PyTuple(Items.Concat(otherTuple.Items).ToArray()),
-                _ => throw PyTypeError.Create($"can only concatenate tuple (not \"{other.GetTypeName()}\") to tuple")
-            };
+                // Performance: Eliminated LINQ (.Concat + .ToArray) - manual array concatenation
+                var result = new PyObject[Items.Length + otherTuple.Items.Length];
+                Array.Copy(Items, 0, result, 0, Items.Length);
+                Array.Copy(otherTuple.Items, 0, result, Items.Length, otherTuple.Items.Length);
+                return new PyTuple(result);
+            }
+
+            throw PyTypeError.Create($"can only concatenate tuple (not \"{other.GetTypeName()}\") to tuple");
         }
 
         /// <summary>
@@ -131,13 +157,21 @@ namespace SharpPy
         /// </summary>
         public PyObject Multiply(PyObject other)
         {
-            return other switch
+            if (other is PyInt count)
             {
-                PyInt count => count.Value <= 0
-                    ? new PyTuple()
-                    : new PyTuple(Enumerable.Range(0, (int)count.Value).SelectMany(_ => Items).ToArray()),
-                _ => throw PyTypeError.Create($"can't multiply sequence by non-int of type '{other.GetTypeName()}'")
-            };
+                if (count.Value <= 0)
+                    return new PyTuple();
+
+                // Performance: Eliminated LINQ (Enumerable.Range + .SelectMany + .ToArray) - manual repetition
+                var result = new PyObject[Items.Length * (int)count.Value];
+                for (int i = 0; i < count.Value; i++)
+                {
+                    Array.Copy(Items, 0, result, i * Items.Length, Items.Length);
+                }
+                return new PyTuple(result);
+            }
+
+            throw PyTypeError.Create($"can't multiply sequence by non-int of type '{other.GetTypeName()}'");
         }
 
         /// <summary>
@@ -174,17 +208,17 @@ namespace SharpPy
         {
             if (step == 0)
                 throw PyValueError.Create("slice step cannot be zero");
-            
+
             var len = Items.Length;
             var actualStart = start ?? (step > 0 ? 0 : len - 1);
             var actualEnd = end ?? (step > 0 ? len : -1);
-            
+
             // 음수 인덱스 정규화
             if (actualStart < 0) actualStart += len;
             if (actualEnd < 0) actualEnd += len;
-            
+
             var result = new System.Collections.Generic.List<PyObject>();
-            
+
             if (step > 0)
             {
                 for (int i = Math.Max(0, actualStart); i < Math.Min(len, actualEnd); i += step)
@@ -199,8 +233,11 @@ namespace SharpPy
                     result.Add(Items[i]);
                 }
             }
-            
-            return new PyTuple(result.ToArray());
+
+            // Performance: Eliminated LINQ (.ToArray) - direct array copy
+            var resultArray = new PyObject[result.Count];
+            result.CopyTo(resultArray, 0);
+            return new PyTuple(resultArray);
         }
 
         /// <summary>
@@ -209,7 +246,13 @@ namespace SharpPy
         /// </summary>
         public override PyBool Contains(PyObject item)
         {
-            return PyBool.FromBool(Items.Any(x => ((PyBool)x.RichCompare(item, CompareOp.EQ)).Value));
+            // Performance: Eliminated LINQ (.Any) - manual search
+            for (int i = 0; i < Items.Length; i++)
+            {
+                if (((PyBool)Items[i].RichCompare(item, CompareOp.EQ)).Value)
+                    return PyBool.True;
+            }
+            return PyBool.False;
         }
 
         /// <summary>
@@ -233,7 +276,13 @@ namespace SharpPy
         /// </summary>
         public PyInt Count(PyObject value)
         {
-            int count = Items.Count(item => ((PyBool)item.RichCompare(value, CompareOp.EQ)).Value);
+            // Performance: Eliminated LINQ (.Count) - manual counting
+            int count = 0;
+            for (int i = 0; i < Items.Length; i++)
+            {
+                if (((PyBool)Items[i].RichCompare(value, CompareOp.EQ)).Value)
+                    count++;
+            }
             return new PyInt(count);
         }
 
@@ -303,7 +352,10 @@ namespace SharpPy
         public override PyTuple AsTuple()
         {
             // CPython tuple() 생성자 동작: 새로운 복사본 생성
-            return new PyTuple(Items.ToArray());
+            // Performance: Eliminated LINQ (.ToArray) - direct array copy
+            var copy = new PyObject[Items.Length];
+            Array.Copy(Items, copy, Items.Length);
+            return new PyTuple(copy);
         }
         
         /// <summary>

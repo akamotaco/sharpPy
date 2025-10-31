@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SharpPy
 {
@@ -183,14 +182,26 @@ namespace SharpPy
                         throw PyTypeError.Create($"copy() takes no arguments ({args.Length} given)");
                     if (self is not PyList list)
                         throw PyTypeError.Create($"descriptor 'copy' requires a 'list' object but received a '{self.GetTypeName()}'");
-                    return new PyList(list._items.ToArray());
+                    // Performance: Eliminated LINQ (.ToArray) - direct array copy
+                    var copy = new PyObject[list._items.Count];
+                    list._items.CopyTo(copy, 0);
+                    return new PyList(copy);
                 },
                 minArgs: 0, maxArgs: 0
             );
         }
 
         private List<PyObject> _items;
-        public PyObject[] Items => _items.ToArray();
+        // Performance: Eliminated LINQ (.ToArray) - direct array copy
+        public PyObject[] Items
+        {
+            get
+            {
+                var items = new PyObject[_items.Count];
+                _items.CopyTo(items, 0);
+                return items;
+            }
+        }
 
         public PyList(params PyObject[] items)
         {
@@ -544,7 +555,10 @@ namespace SharpPy
         public override PyList AsList()
         {
             // CPython list() 생성자 동작: 새로운 복사본 생성
-            return new PyList(_items.ToArray());
+            // Performance: Eliminated LINQ (.ToArray) - direct array copy
+            var copy = new PyObject[_items.Count];
+            _items.CopyTo(copy, 0);
+            return new PyList(copy);
         }
         
         /// <summary>
@@ -553,7 +567,10 @@ namespace SharpPy
         public override PyTuple AsTuple()
         {
             // CPython tuple() 생성자 동작: 리스트 요소들로 튜플 생성
-            return new PyTuple(_items.ToArray());
+            // Performance: Eliminated LINQ (.ToArray) - direct array copy
+            var items = new PyObject[_items.Count];
+            _items.CopyTo(items, 0);
+            return new PyTuple(items);
         }
         
         /// <summary>

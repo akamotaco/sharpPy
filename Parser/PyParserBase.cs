@@ -4,7 +4,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using SharpPy.Generated;
 
 namespace SharpPy.Generated
@@ -66,10 +65,18 @@ namespace SharpPy.Generated
         protected PyParserBase(List<GeneratedTokenInfo> tokens, string filename)
         {
             // CPython 3.12: Filter out COMMENT, NL, TYPE_COMMENT tokens before parsing
-            _tokens = tokens.Where(t =>
-                t.Type != PyToken.Type.COMMENT &&
-                t.Type != PyToken.Type.NL &&
-                t.Type != PyToken.Type.TYPE_COMMENT).ToList();
+            // Performance: Eliminated LINQ - manual filtering
+            _tokens = new List<GeneratedTokenInfo>();
+            for (int i = 0; i < tokens.Count; i++)
+            {
+                var t = tokens[i];
+                if (t.Type != PyToken.Type.COMMENT &&
+                    t.Type != PyToken.Type.NL &&
+                    t.Type != PyToken.Type.TYPE_COMMENT)
+                {
+                    _tokens.Add(t);
+                }
+            }
             _filename = filename;
         }
 
@@ -354,7 +361,16 @@ namespace SharpPy.Generated
             {
                 // CPython: for (Memo *m = t->memo; m != NULL; m = m->next)
                 // CPython: Cache key is m->type (rule type), NOT affected by call_invalid_rules
-                var cached = token.Memo.FirstOrDefault(m => m.RuleType == ruleName);
+                // Performance: Eliminated LINQ - manual search
+                MemoEntry cached = null;
+                for (int i = 0; i < token.Memo.Count; i++)
+                {
+                    if (token.Memo[i].RuleType == ruleName)
+                    {
+                        cached = token.Memo[i];
+                        break;
+                    }
+                }
                 if (cached != null)
                 {
                     #if DEBUG_PARSE_LOG
@@ -385,7 +401,16 @@ namespace SharpPy.Generated
 
             // CPython: Search for existing entry and update, or insert new
             // CPython: Cache key is just rule name, independent of call_invalid_rules
-            var existing = token.Memo.FirstOrDefault(m => m.RuleType == ruleName);
+            // Performance: Eliminated LINQ - manual search
+            MemoEntry existing = null;
+            for (int i = 0; i < token.Memo.Count; i++)
+            {
+                if (token.Memo[i].RuleType == ruleName)
+                {
+                    existing = token.Memo[i];
+                    break;
+                }
+            }
             if (existing != null)
             {
                 #if DEBUG_PARSE_LOG

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SharpPy.Modules
 {
@@ -40,7 +39,12 @@ namespace SharpPy.Modules
             if (values.Count == 0)
                 throw PyValueError.Create("mean requires at least one data point");
 
-            double sum = values.Sum();
+            // Performance: Eliminated LINQ
+            double sum = 0.0;
+            for (int i = 0; i < values.Count; i++)
+            {
+                sum += values[i];
+            }
             double mean = sum / values.Count;
 
             return new PyFloat(mean);
@@ -64,7 +68,12 @@ namespace SharpPy.Modules
             if (values.Count == 0)
                 throw PyValueError.Create("fmean requires at least one data point");
 
-            double sum = values.Sum();
+            // Performance: Eliminated LINQ
+            double sum = 0.0;
+            for (int i = 0; i < values.Count; i++)
+            {
+                sum += values[i];
+            }
             double mean = sum / values.Count;
 
             return new PyFloat(mean);
@@ -102,7 +111,13 @@ namespace SharpPy.Modules
             double mean;
             if (xbar == null || xbar is PyNone)
             {
-                mean = values.Sum() / values.Count;
+                // Performance: Eliminated LINQ
+                double sum = 0.0;
+                for (int i = 0; i < values.Count; i++)
+                {
+                    sum += values[i];
+                }
+                mean = sum / values.Count;
             }
             else
             {

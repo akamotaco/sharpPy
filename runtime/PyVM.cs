@@ -1,4 +1,4 @@
-using System.Linq;
+// Performance: Eliminated System.Linq - all LINQ calls replaced with manual loops
 
 namespace SharpPy
 {
@@ -171,7 +171,12 @@ namespace SharpPy
             if (parentFrame?.KeywordNamesForNextCall != null && parentFrame.KeywordNamesForNextCall.Items.Length > 0)
             {
                 kwNames = parentFrame.KeywordNamesForNextCall;
-                var kwNamesList = kwNames.Items.Select(name => ((PyString)name).Value).ToArray();
+                // Performance: Eliminated LINQ - manual array conversion
+                var kwNamesList = new string[kwNames.Items.Length];
+                for (int i = 0; i < kwNames.Items.Length; i++)
+                {
+                    kwNamesList[i] = ((PyString)kwNames.Items[i]).Value;
+                }
                 var numKwArgs = kwNamesList.Length;
                 var numPosArgs = args.Length - numKwArgs;
 
@@ -267,7 +272,14 @@ namespace SharpPy
                 {
                     // CPython 3.12: Check for default value from runtime defaults (captured from MAKE_FUNCTION)
                     // Priority: runtimeDefaults (from func.__defaults__) > code.DefaultValues (compile-time, legacy)
-                    var effectiveDefaults = runtimeDefaults ?? (code.DefaultValues.Count > 0 ? new PyTuple(code.DefaultValues.ToArray()) : null);
+                    // Performance: Eliminated LINQ - check List directly
+                    PyTuple effectiveDefaults = runtimeDefaults;
+                    if (effectiveDefaults == null && code.DefaultValues.Count > 0)
+                    {
+                        var defaultsArray = new PyObject[code.DefaultValues.Count];
+                        code.DefaultValues.CopyTo(defaultsArray, 0);
+                        effectiveDefaults = new PyTuple(defaultsArray);
+                    }
                     int numRequiredParams = regularArgCount - (effectiveDefaults?.Items.Length ?? 0);
 
                     if (effectiveDefaults != null && paramIndex >= numRequiredParams && paramIndex - numRequiredParams < effectiveDefaults.Items.Length)
@@ -408,7 +420,13 @@ namespace SharpPy
             else if (keywordArgs != null && keywordArgs.Count > 0)
             {
                 // Unexpected keyword arguments
-                var unexpectedKey = keywordArgs.Keys.First();
+                // Performance: Eliminated LINQ - get first key manually
+                string unexpectedKey = null;
+                foreach (var key in keywordArgs.Keys)
+                {
+                    unexpectedKey = key;
+                    break;
+                }
                 throw PyTypeError.Create($"[PyFrame] {code.Name}() got an unexpected keyword argument '{unexpectedKey}'");
             }
         }
@@ -1010,7 +1028,15 @@ namespace SharpPy
 #if DEBUG_LOG
                     if (frame.ValueStack.Count <= 10) // 스택이 너무 크지 않을 때만 출력
                     {
-                        var stackContents = string.Join(", ", frame.ValueStack.Reverse().Take(5));
+                        // Performance: Eliminated LINQ - manual stack preview
+                        var stackArray = frame.ValueStack.ToArray();
+                        var previewCount = Math.Min(5, stackArray.Length);
+                        var stackItems = new string[previewCount];
+                        for (int i = 0; i < previewCount; i++)
+                        {
+                            stackItems[i] = stackArray[stackArray.Length - 1 - i]?.ToString() ?? "null";
+                        }
+                        var stackContents = string.Join(", ", stackItems);
                         Console.WriteLine($"  {frame.InstructionPointer*2,3}: {instruction,-25} 스택:[{stackContents}]");
                     }
 #endif
@@ -1235,7 +1261,15 @@ namespace SharpPy
                             frame.ValueStack.Push(PyNone.Instance);
                             break;
                         }
-                        throw PyRuntimeError.Create($"COPY index {copyIndex} out of range (stack size: {frame.ValueStack.Count}). Stack contents: [{string.Join(", ", frame.ValueStack.Take(5).Select(x => x.GetType().Name))}]");
+                        // Performance: Eliminated LINQ - manual stack preview for error message
+                        var stackArray = frame.ValueStack.ToArray();
+                        var previewCount = Math.Min(5, stackArray.Length);
+                        var stackTypes = new string[previewCount];
+                        for (int i = 0; i < previewCount; i++)
+                        {
+                            stackTypes[i] = stackArray[i].GetType().Name;
+                        }
+                        throw PyRuntimeError.Create($"COPY index {copyIndex} out of range (stack size: {frame.ValueStack.Count}). Stack contents: [{string.Join(", ", stackTypes)}]");
                     }
 
                     // CPython 3.12: COPY 1 copies TOS, COPY 2 copies TOS-1 (second from top), etc.
@@ -1254,7 +1288,15 @@ namespace SharpPy
                     Console.WriteLine($"🔍 SWAP({oparg}): Stack.Count = {frame.ValueStack.Count}");
                     if (frame.ValueStack.Count > 0)
                     {
-                        var stackPreview = string.Join(", ", frame.ValueStack.Take(Math.Min(5, frame.ValueStack.Count)).Select(x => x.GetType().Name));
+                        // Performance: Eliminated LINQ - manual stack preview
+                        var stackArray = frame.ValueStack.ToArray();
+                        var previewCount = Math.Min(5, stackArray.Length);
+                        var stackTypes = new string[previewCount];
+                        for (int i = 0; i < previewCount; i++)
+                        {
+                            stackTypes[i] = stackArray[i].GetType().Name;
+                        }
+                        var stackPreview = string.Join(", ", stackTypes);
                         Console.WriteLine($"    Stack top items: [{stackPreview}]");
                     }
                     #endif
@@ -1271,7 +1313,13 @@ namespace SharpPy
                     var constant = frame.Code.Constants[instruction.Argument];
                     #if DEBUG_LOG
                     Console.WriteLine($"🔍 LOAD_CONST: 인덱스 {instruction.Argument}, 값 {constant} (타입: {constant?.GetType().Name})");
-                    Console.WriteLine($"🔍 Constants 배열 전체: [{string.Join(", ", frame.Code.Constants.Select((c, i) => $"{i}:{c}"))}]");
+                    // Performance: Eliminated LINQ - manual constant array formatting
+                    var constPairs = new string[frame.Code.Constants.Count];
+                    for (int i = 0; i < frame.Code.Constants.Count; i++)
+                    {
+                        constPairs[i] = $"{i}:{frame.Code.Constants[i]}";
+                    }
+                    Console.WriteLine($"🔍 Constants 배열 전체: [{string.Join(", ", constPairs)}]");
                     #endif
                     frame.ValueStack.Push(constant);
                     break;
@@ -1441,7 +1489,16 @@ namespace SharpPy
                         {
                             #if DEBUG_VM_LOG
                             Console.WriteLine($"  GlobalScope variable count: {frame.ScopeChain.GlobalScope.Variables.Count}");
-                            Console.WriteLine($"  GlobalScope keys: {string.Join(", ", frame.ScopeChain.GlobalScope.Variables.Keys.Take(20))}");
+                            // Performance: Eliminated LINQ - manual key preview
+                            var keyCount = Math.Min(20, frame.ScopeChain.GlobalScope.Variables.Keys.Count);
+                            var keys = new string[keyCount];
+                            int keyIdx = 0;
+                            foreach (var key in frame.ScopeChain.GlobalScope.Variables.Keys)
+                            {
+                                if (keyIdx >= keyCount) break;
+                                keys[keyIdx++] = key;
+                            }
+                            Console.WriteLine($"  GlobalScope keys: {string.Join(", ", keys)}");
                             Console.WriteLine($"  Has '{globalName}': {frame.ScopeChain.GlobalScope.Variables.ContainsKey(globalName)}");
                             #endif
                         }
@@ -1878,7 +1935,10 @@ namespace SharpPy
                         {
                             kwDict[kw.name] = kw.value;
                         }
-                        unpackedResult = ExecuteFunctionCallWithKeywords(function, argsList.ToArray(), kwDict, frame.ScopeChain);
+                        // Performance: Eliminated LINQ - manual List to array conversion
+                        var argsArray = new PyObject[argsList.Count];
+                        argsList.CopyTo(argsArray, 0);
+                        unpackedResult = ExecuteFunctionCallWithKeywords(function, argsArray, kwDict, frame.ScopeChain);
                     }
                     else if (functionToCall is PyBuiltinFunction builtinFunc)
                     {
@@ -1892,7 +1952,10 @@ namespace SharpPy
                                 kwDict.SetItem(new PyString(kw.name), kw.value);
                             }
                         }
-                        unpackedResult = builtinFunc.Call(argsList.ToArray(), kwDict);
+                        // Performance: Eliminated LINQ - manual List to array conversion
+                        var argsArray = new PyObject[argsList.Count];
+                        argsList.CopyTo(argsArray, 0);
+                        unpackedResult = builtinFunc.Call(argsArray, kwDict);
                     }
                     else if (functionToCall is PyMethod method)
                     {
@@ -1906,7 +1969,10 @@ namespace SharpPy
                                 kwDict.SetItem(new PyString(kw.name), kw.value);
                             }
                         }
-                        unpackedResult = method.Call(argsList.ToArray(), kwDict);
+                        // Performance: Eliminated LINQ - manual List to array conversion
+                        var argsArray = new PyObject[argsList.Count];
+                        argsList.CopyTo(argsArray, 0);
+                        unpackedResult = method.Call(argsArray, kwDict);
                     }
                     else
                     {
@@ -1920,7 +1986,10 @@ namespace SharpPy
                                 kwDict.SetItem(new PyString(kw.name), kw.value);
                             }
                         }
-                        unpackedResult = functionToCall.Call(argsList.ToArray(), kwDict);
+                        // Performance: Eliminated LINQ - manual List to array conversion
+                        var argsArray = new PyObject[argsList.Count];
+                        argsList.CopyTo(argsArray, 0);
+                        unpackedResult = functionToCall.Call(argsArray, kwDict);
                     }
 
                     frame.ValueStack.Push(unpackedResult);
@@ -2028,7 +2097,12 @@ namespace SharpPy
                             }
                             try
                             {
-                                closure = closureTupleObj.Items.Cast<PyCell>().ToArray();
+                                // Performance: Eliminated LINQ - manual cast to PyCell array
+                                closure = new PyCell[closureTupleObj.Items.Length];
+                                for (int i = 0; i < closureTupleObj.Items.Length; i++)
+                                {
+                                    closure[i] = (PyCell)closureTupleObj.Items[i];
+                                }
                                 #if DEBUG_LOG
                                 Console.WriteLine($"  → Function has closure: {closure.Length} cells");
                                 #endif
@@ -2230,7 +2304,16 @@ namespace SharpPy
                             if (globalsDict != null)
                             {
                                 #if DEBUG_VM_LOG
-                                Console.WriteLine($"  globalsDict keys: {string.Join(", ", globalsDict.Keys.Take(10))}");
+                                // Performance: Eliminated LINQ - manual key preview
+                                var keyCount = Math.Min(10, globalsDict.Keys.Count);
+                                var keys = new string[keyCount];
+                                int keyIdx = 0;
+                                foreach (var key in globalsDict.Keys)
+                                {
+                                    if (keyIdx >= keyCount) break;
+                                    keys[keyIdx++] = key;
+                                }
+                                Console.WriteLine($"  globalsDict keys: {string.Join(", ", keys)}");
                                 Console.WriteLine($"  globalsDict reference hash: {globalsDict.GetHashCode()}");
                                 #endif
                             }
@@ -2270,7 +2353,16 @@ namespace SharpPy
                             if (globalsDict != null)
                             {
                                 #if DEBUG_VM_LOG
-                                Console.WriteLine($"  globalsDict keys at call time: {string.Join(", ", globalsDict.Keys.Take(10))}");
+                                // Performance: Eliminated LINQ - manual key preview
+                                var keyCount = Math.Min(10, globalsDict.Keys.Count);
+                                var keys = new string[keyCount];
+                                int keyIdx = 0;
+                                foreach (var key in globalsDict.Keys)
+                                {
+                                    if (keyIdx >= keyCount) break;
+                                    keys[keyIdx++] = key;
+                                }
+                                Console.WriteLine($"  globalsDict keys at call time: {string.Join(", ", keys)}");
                                 Console.WriteLine($"  globalsDict reference hash at call time: {globalsDict.GetHashCode()}");
                                 #endif
                             }
@@ -2684,7 +2776,10 @@ namespace SharpPy
 
                         if (allKeysMatch)
                         {
-                            var resultTuple = new PyTuple(values.ToArray());
+                            // Performance: Eliminated LINQ - List already has efficient ToArray
+                            var resultArray = new PyObject[values.Count];
+                            values.CopyTo(resultArray, 0);
+                            var resultTuple = new PyTuple(resultArray);
                             frame.ValueStack.Push(resultTuple);
                         }
                         else
@@ -2800,7 +2895,10 @@ namespace SharpPy
                                     #endif
                                 }
 
-                                frame.ValueStack.Push(new PyTuple(attrs.ToArray()));
+                                // Performance: Eliminated LINQ - manual List to array
+                                var attrsArray = new PyObject[attrs.Count];
+                                attrs.CopyTo(attrsArray, 0);
+                                frame.ValueStack.Push(new PyTuple(attrsArray));
                             }
                             else if (classToMatch is PyClass cls && positionalCount > 0 &&
                                      cls.GetAttribute("__match_args__") is PyTuple matchArgs)
@@ -2819,7 +2917,10 @@ namespace SharpPy
                                     }
                                 }
 
-                                frame.ValueStack.Push(new PyTuple(attrs.ToArray()));
+                                // Performance: Eliminated LINQ - manual List to array
+                                var attrsArray = new PyObject[attrs.Count];
+                                attrs.CopyTo(attrsArray, 0);
+                                frame.ValueStack.Push(new PyTuple(attrsArray));
                             }
                             else
                             {
@@ -3416,7 +3517,14 @@ namespace SharpPy
                     #endif
                     if (frame.ValueStack.Count > 0)
                     {
-                        var stackItems = frame.ValueStack.Take(Math.Min(5, frame.ValueStack.Count)).Select((x, i) => $"[{i}]={x.GetType().Name}").ToList();
+                        // Performance: Eliminated LINQ - manual stack preview
+                        var stackArray = frame.ValueStack.ToArray();
+                        var previewCount = Math.Min(5, stackArray.Length);
+                        var stackItems = new string[previewCount];
+                        for (int i = 0; i < previewCount; i++)
+                        {
+                            stackItems[i] = $"[{i}]={stackArray[i].GetType().Name}";
+                        }
                         #if DEBUG_VM_LOG
                         Console.WriteLine($"    Stack items: {string.Join(", ", stackItems)}");
                         #endif
@@ -4695,9 +4803,13 @@ namespace SharpPy
                     string[] fromlistArray = null;
                     if (fromlist is PyTuple pyTupleFromlist)
                     {
-                        fromlistArray = pyTupleFromlist.Items
-                            .Select(item => item is PyString s ? s.Value : item.AsString())
-                            .ToArray();
+                        // Performance: Eliminated LINQ - manual conversion
+                        fromlistArray = new string[pyTupleFromlist.Items.Length];
+                        for (int i = 0; i < pyTupleFromlist.Items.Length; i++)
+                        {
+                            var item = pyTupleFromlist.Items[i];
+                            fromlistArray[i] = item is PyString s ? s.Value : item.AsString();
+                        }
                     }
 
                     // CPython 3.12: Pass frame.Globals to import system for relative import resolution
@@ -4814,7 +4926,14 @@ namespace SharpPy
                     #endif
                     if (frame.ValueStack.Count > 0)
                     {
-                        var stackBefore = frame.ValueStack.Take(Math.Min(5, frame.ValueStack.Count)).Select((x, i) => $"[{i}]={x.GetType().Name}").ToList();
+                        // Performance: Eliminated LINQ - manual stack preview
+                        var stackArray = frame.ValueStack.ToArray();
+                        var previewCount = Math.Min(5, stackArray.Length);
+                        var stackBefore = new string[previewCount];
+                        for (int i = 0; i < previewCount; i++)
+                        {
+                            stackBefore[i] = $"[{i}]={stackArray[i].GetType().Name}";
+                        }
                         #if DEBUG_VM_LOG
                         Console.WriteLine($"    Stack: {string.Join(", ", stackBefore)}");
                         #endif
@@ -4864,7 +4983,13 @@ namespace SharpPy
 #endif
                         targetPyList.Append(itemToAppend);
 #if DEBUG_LOG
-                        Console.WriteLine($"   LIST_APPEND 완료: 리스트 크기: {targetPyList.Count}, 내용: [{string.Join(", ", targetPyList.Items.Select(x => x?.ToString() ?? "null"))}]");
+                        // Performance: Eliminated LINQ - manual ToString conversion
+                        var itemStrings = new string[targetPyList.Items.Length];
+                        for (int i = 0; i < targetPyList.Items.Length; i++)
+                        {
+                            itemStrings[i] = targetPyList.Items[i]?.ToString() ?? "null";
+                        }
+                        Console.WriteLine($"   LIST_APPEND 완료: 리스트 크기: {targetPyList.Count}, 내용: [{string.Join(", ", itemStrings)}]");
 #endif
                     }
                     else if (PyNull.IsNull(targetList))
@@ -5927,7 +6052,8 @@ namespace SharpPy
                 case 6: // INTRINSIC_LIST_TO_TUPLE
                     if (arg is PyList list)
                     {
-                        return new PyTuple(list.Items.ToArray());
+                        // Performance: Eliminated LINQ - PyList.Items is already an array, no copy needed
+                        return new PyTuple(list.Items);
                     }
                     throw PyTypeError.Create($"INTRINSIC_LIST_TO_TUPLE expected list, got {arg.GetTypeName()}");
                 case 7: // INTRINSIC_TYPEVAR ✅ 이미 정확
@@ -6023,7 +6149,8 @@ namespace SharpPy
             {
                 // CPython 3.12: Set the __type_params__ attribute on the function
                 // This makes the TypeVar objects accessible via function.__type_params__
-                pyFunc.TypeParams = paramTuple.Items.ToList();
+                // Performance: Eliminated LINQ - manual array to List conversion
+                pyFunc.TypeParams = new List<PyObject>(paramTuple.Items);
                 pyFunc.Attributes["__type_params__"] = paramTuple;
                 return pyFunc;
             }
@@ -6053,7 +6180,12 @@ namespace SharpPy
                 // If there are multiple exceptions, create an ExceptionGroup
                 if (list.Length() > 1)
                 {
-                    var exceptions = list.Items.Cast<PyException>().ToList();
+                    // Performance: Eliminated LINQ - manual cast to List<PyException>
+                    var exceptions = new List<PyException>();
+                    foreach (var item in list.Items)
+                    {
+                        exceptions.Add((PyException)item);
+                    }
                     return new PyExceptionGroup("unhandled exceptions", exceptions);
                 }
             }
@@ -6195,10 +6327,19 @@ namespace SharpPy
                 }
 
                 // 키워드 이름 튜플을 마지막에 추가
-                var kwNames = kwargs.Keys.Select(k => (PyObject)new PyString(k)).ToArray();
-                totalArgs.Add(new PyTuple(kwNames));
+                // Performance: Eliminated LINQ - manual conversion
+                var kwNamesArray = new PyObject[kwargs.Count];
+                int kwIndex = 0;
+                foreach (var key in kwargs.Keys)
+                {
+                    kwNamesArray[kwIndex++] = new PyString(key);
+                }
+                totalArgs.Add(new PyTuple(kwNamesArray));
 
-                return pyType.Call(totalArgs.ToArray(), null);
+                // Performance: Eliminated LINQ - manual List to array conversion
+                var totalArgsArray = new PyObject[totalArgs.Count];
+                totalArgs.CopyTo(totalArgsArray, 0);
+                return pyType.Call(totalArgsArray, null);
             }
             else
             {
@@ -6358,7 +6499,10 @@ namespace SharpPy
             if (function.CodeObject?.DefaultValues == null)
                 return new PyObject[0];
 
-            return function.CodeObject.DefaultValues.ToArray();
+            // Performance: Eliminated LINQ - manual List to array conversion
+            var defaults = new PyObject[function.CodeObject.DefaultValues.Count];
+            function.CodeObject.DefaultValues.CopyTo(defaults, 0);
+            return defaults;
         }
 
         /// <summary>
@@ -6479,7 +6623,16 @@ namespace SharpPy
                         #if DEBUG_VM_LOG
                         Console.WriteLine($"[FUNCTION SCOPE] Creating ScopeChain for {pyFunc.Name} from globalsDict:");
                         Console.WriteLine($"  globalsDict count: {pyFunc.GlobalsDict.Count}");
-                        Console.WriteLine($"  globalsDict keys: {string.Join(", ", pyFunc.GlobalsDict.Keys.Take(10))}");
+                        // Performance: Eliminated LINQ - manual key preview
+                        var keyCount = Math.Min(10, pyFunc.GlobalsDict.Keys.Count);
+                        var keys = new string[keyCount];
+                        int keyIdx = 0;
+                        foreach (var key in pyFunc.GlobalsDict.Keys)
+                        {
+                            if (keyIdx >= keyCount) break;
+                            keys[keyIdx++] = key;
+                        }
+                        Console.WriteLine($"  globalsDict keys: {string.Join(", ", keys)}");
                         #endif
 
                         // Use the function's captured globals (CPython 3.12 compatible)
@@ -6544,7 +6697,16 @@ namespace SharpPy
                         #if DEBUG_VM_LOG
                         Console.WriteLine($"[FUNCTION SCOPE] Creating ScopeChain for {pyFunc.Name} from globalsDict:");
                         Console.WriteLine($"  globalsDict count: {pyFunc.GlobalsDict.Count}");
-                        Console.WriteLine($"  globalsDict keys: {string.Join(", ", pyFunc.GlobalsDict.Keys.Take(10))}");
+                        // Performance: Eliminated LINQ - manual key preview
+                        var keyCount = Math.Min(10, pyFunc.GlobalsDict.Keys.Count);
+                        var keys = new string[keyCount];
+                        int keyIdx = 0;
+                        foreach (var key in pyFunc.GlobalsDict.Keys)
+                        {
+                            if (keyIdx >= keyCount) break;
+                            keys[keyIdx++] = key;
+                        }
+                        Console.WriteLine($"  globalsDict keys: {string.Join(", ", keys)}");
                         #endif
 
                         // Use the function's captured globals (CPython 3.12 compatible)
@@ -6736,7 +6898,12 @@ namespace SharpPy
         {
             // KW_NAMES contains the names of keyword arguments
             // args array: [positional_args...] [keyword_values...]
-            var kwNamesList = kwNames.Items.Select(name => ((PyString)name).Value).ToArray();
+            // Performance: Eliminated LINQ - manual array conversion
+            var kwNamesList = new string[kwNames.Items.Length];
+            for (int i = 0; i < kwNames.Items.Length; i++)
+            {
+                kwNamesList[i] = ((PyString)kwNames.Items[i]).Value;
+            }
             var numKwArgs = kwNamesList.Length;
             var numPosArgs = args.Length - numKwArgs;
 
@@ -7025,7 +7192,10 @@ namespace SharpPy
                     remainingPositionalArgs.Add(positionalArgs[i]);
                 }
 
-                var argsTuple = new PyTuple(remainingPositionalArgs.ToArray());
+                // Performance: Eliminated LINQ - manual List to array conversion
+                var argsArray = new PyObject[remainingPositionalArgs.Count];
+                remainingPositionalArgs.CopyTo(argsArray, 0);
+                var argsTuple = new PyTuple(argsArray);
                 frame.LocalsPlus[argsParamIndex] = argsTuple;
                 frame.ScopeChain.AssignVariable(argsParamName, argsTuple);
 
@@ -7066,7 +7236,13 @@ namespace SharpPy
             else if (keywordArgs.Count > 0)
             {
                 // Unexpected keyword arguments and no **kwargs parameter
-                var firstUnexpectedKwarg = keywordArgs.Keys.First();
+                // Performance: Eliminated LINQ - get first key manually
+                string firstUnexpectedKwarg = null;
+                foreach (var key in keywordArgs.Keys)
+                {
+                    firstUnexpectedKwarg = key;
+                    break;
+                }
                 throw PyTypeError.Create($"{code.Name}() got an unexpected keyword argument '{firstUnexpectedKwarg}'");
             }
         }

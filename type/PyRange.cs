@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SharpPy
 {
@@ -190,7 +189,13 @@ namespace SharpPy
         /// </summary>
         public PyList ToList()
         {
-            return new PyList(GetValues().Cast<PyObject>().ToArray());
+            // Performance: Eliminated LINQ (.Cast + .ToArray) - manual conversion
+            var values = new List<PyObject>();
+            foreach (var pyInt in GetValues())
+            {
+                values.Add(pyInt);
+            }
+            return new PyList(values.ToArray());
         }
 
         /// <summary>
@@ -198,7 +203,13 @@ namespace SharpPy
         /// </summary>
         public PyTuple ToTuple()
         {
-            return new PyTuple(GetValues().Cast<PyObject>().ToArray());
+            // Performance: Eliminated LINQ (.Cast + .ToArray) - manual conversion
+            var values = new List<PyObject>();
+            foreach (var pyInt in GetValues())
+            {
+                values.Add(pyInt);
+            }
+            return new PyTuple(values.ToArray());
         }
 
         /// <summary>

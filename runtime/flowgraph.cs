@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+// Performance: Eliminated LINQ
 
 namespace SharpPy
 {
@@ -181,7 +181,9 @@ namespace SharpPy
             HashSet<int> blockStarts,
             Dictionary<string, int> labelToOffset)
         {
-            var sortedStarts = blockStarts.OrderBy(x => x).ToList();
+            // Performance: Eliminated LINQ - replaced OrderBy().ToList() with manual sorting
+            var sortedStarts = new List<int>(blockStarts);
+            sortedStarts.Sort();
             var instructions = instrSeq.Instructions;
 
             // Create instruction index → block mapping
@@ -446,8 +448,10 @@ namespace SharpPy
             // This is needed for updating ExceptionHandlerOffset which can point anywhere
             int finalOffset = 0;
             var oldToNewOffset = new Dictionary<int, int>();
-            foreach (var block in sortedStarts.Select(s => indexToBlock[s]))
+            // Performance: Eliminated LINQ - replaced Select() with manual loop
+            foreach (var startIndex in sortedStarts)
             {
+                var block = indexToBlock[startIndex];
                 int oldBlockOffset = block.Offset;
                 block.Offset = finalOffset;
 

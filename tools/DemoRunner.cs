@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using SharpPy.Core;
 using SharpPy.Interop;
 
@@ -284,7 +283,10 @@ print('Max:', max(numbers))
             // 문자열 처리 함수 등록 - 타입 변환 자동화!
             var reverseFunction = PyFunction.Create("csharp_reverse", (string str) =>
             {
-                var reversed = new string(str.Reverse().ToArray());
+                // Performance: Eliminated LINQ
+                var chars = str.ToCharArray();
+                Array.Reverse(chars);
+                var reversed = new string(chars);
                 Console.WriteLine($"  C# Reverse function called: '{str}' → '{reversed}'");
                 return reversed;
             });
@@ -364,12 +366,17 @@ print('Max:', max(numbers))
             // 숫자 처리 함수 생성 - 복잡한 타입도 지원!
             var processNumbersFunc = PyFunction.Create("process_numbers", (int[] numbers) =>
             {
-                var total = numbers.Sum();
+                // Performance: Eliminated LINQ
+                int total = 0;
+                foreach (var num in numbers)
+                {
+                    total += num;
+                }
                 var count = numbers.Length;
                 var average = (double)total / count;
-                
+
                 Console.WriteLine($"Python processor called: sum={total}, avg={average}");
-                
+
                 return new Dictionary<string, object>
                 {
                     ["sum"] = total,

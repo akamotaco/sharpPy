@@ -1,7 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
+// Performance: Eliminated LINQ
 using System.Text;
 
 namespace SharpPy
@@ -26,11 +26,15 @@ namespace SharpPy
 
         public PyBytesObject(IEnumerable<int> values)
         {
-            _data = values.Select(v => {
+            // Performance: Eliminated LINQ - replaced Select().ToArray() with manual conversion
+            var tempList = new List<byte>();
+            foreach (var v in values)
+            {
                 if (v < 0 || v > 255)
                     throw PyValueError.Create($"bytes must be in range(0, 256)");
-                return (byte)v;
-            }).ToArray();
+                tempList.Add((byte)v);
+            }
+            _data = tempList.ToArray();
         }
 
         public override PyType GetPyType() => PyType.BytesType;
@@ -68,7 +72,13 @@ namespace SharpPy
                     result.Add(_data[i]);
             }
 
-            return new PyBytesObject(result.Select(b => (int)b));
+            // Performance: Eliminated LINQ - replaced Select() with manual conversion
+            var intValues = new List<int>(result.Count);
+            foreach (var b in result)
+            {
+                intValues.Add((int)b);
+            }
+            return new PyBytesObject(intValues);
         }
 
         // String operations
@@ -236,7 +246,13 @@ namespace SharpPy
                 }
             }
 
-            return new PyBytesObject(result.Select(b => (int)b));
+            // Performance: Eliminated LINQ - replaced Select() with manual conversion
+            var intValues2 = new List<int>(result.Count);
+            foreach (var b in result)
+            {
+                intValues2.Add((int)b);
+            }
+            return new PyBytesObject(intValues2);
         }
     }
 
@@ -249,22 +265,34 @@ namespace SharpPy
 
         public PyBytearrayObject(IEnumerable<byte> data = null)
         {
-            _data = data?.ToList() ?? new List<byte>();
+            // Performance: Eliminated LINQ - replaced ToList() with manual conversion
+            if (data != null)
+            {
+                _data = new List<byte>(data);
+            }
+            else
+            {
+                _data = new List<byte>();
+            }
         }
 
         public PyBytearrayObject(string str, string encoding = "utf-8")
         {
             var encoder = Encoding.GetEncoding(encoding);
-            _data = encoder.GetBytes(str).ToList();
+            // Performance: Eliminated LINQ - replaced ToList() with new List constructor
+            _data = new List<byte>(encoder.GetBytes(str));
         }
 
         public PyBytearrayObject(IEnumerable<int> values)
         {
-            _data = values.Select(v => {
+            // Performance: Eliminated LINQ - replaced Select().ToList() with manual conversion
+            _data = new List<byte>();
+            foreach (var v in values)
+            {
                 if (v < 0 || v > 255)
                     throw PyValueError.Create($"byte must be in range(0, 256)");
-                return (byte)v;
-            }).ToList();
+                _data.Add((byte)v);
+            }
         }
 
         public override PyType GetPyType() => PyType.BytearrayType;
@@ -347,7 +375,13 @@ namespace SharpPy
         // Convert to bytes
         public PyBytesObject ToBytes()
         {
-            return new PyBytesObject(_data.Select(b => (int)b));
+            // Performance: Eliminated LINQ - replaced Select() with manual conversion
+            var intValues3 = new List<int>(_data.Count);
+            foreach (var b in _data)
+            {
+                intValues3.Add((int)b);
+            }
+            return new PyBytesObject(intValues3);
         }
 
         public override string ToString()
@@ -451,7 +485,12 @@ namespace SharpPy
         // Convert to list
         public PyList ToList()
         {
-            var items = _buffer.Select(b => new PyInt(b)).Cast<PyObject>().ToArray();
+            // Performance: Eliminated LINQ - replaced Select().Cast().ToArray() with manual conversion
+            var items = new PyObject[_buffer.Length];
+            for (int i = 0; i < _buffer.Length; i++)
+            {
+                items[i] = new PyInt(_buffer[i]);
+            }
             return new PyList(items);
         }
 

@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 
 namespace SharpPy
 {
@@ -203,7 +202,13 @@ namespace SharpPy
                     return PyBool.False;
                 
                 byte b = (byte)pyInt.Value;
-                return PyBool.FromBool(Value.Contains(b));
+                // Performance: Eliminated LINQ - manual loop instead of Array.Contains
+                for (int i = 0; i < Value.Length; i++)
+                {
+                    if (Value[i] == b)
+                        return PyBool.True;
+                }
+                return PyBool.False;
             }
             
             return PyBool.False;

@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+// Performance: Eliminated LINQ
 
 namespace SharpPy
 {
@@ -543,17 +543,43 @@ namespace SharpPy
             if (functionName == "len" && call.Arguments.Count == 1)
             {
                 var arg = call.Arguments[0];
-                
+
                 // len([1,2,3]) → 3
-                if (arg is ListExpression list && list.Elements.All(e => e is ConstantExpression))
+                if (arg is ListExpression list)
                 {
-                    return new ConstantExpression(new PyInt(list.Elements.Count));
+                    // Performance: Eliminated LINQ - replaced All() with manual loop
+                    bool allConstant = true;
+                    foreach (var elem in list.Elements)
+                    {
+                        if (!(elem is ConstantExpression))
+                        {
+                            allConstant = false;
+                            break;
+                        }
+                    }
+                    if (allConstant)
+                    {
+                        return new ConstantExpression(new PyInt(list.Elements.Count));
+                    }
                 }
-                
+
                 // len((1,2,3)) → 3
-                if (arg is TupleExpression tuple && tuple.Elements.All(e => e is ConstantExpression))
+                if (arg is TupleExpression tuple)
                 {
-                    return new ConstantExpression(new PyInt(tuple.Elements.Count));
+                    // Performance: Eliminated LINQ - replaced All() with manual loop
+                    bool allConstant = true;
+                    foreach (var elem in tuple.Elements)
+                    {
+                        if (!(elem is ConstantExpression))
+                        {
+                            allConstant = false;
+                            break;
+                        }
+                    }
+                    if (allConstant)
+                    {
+                        return new ConstantExpression(new PyInt(tuple.Elements.Count));
+                    }
                 }
                 
                 // len("hello") → 5
@@ -654,7 +680,9 @@ namespace SharpPy
         {
             // 간단한 변수 치환 구현
             // 실제로는 더 정교한 AST rewriting이 필요
-            return statements.ToList(); // 임시로 원본 반환
+            // Performance: Eliminated LINQ - replaced ToList() with manual copy
+            var result = new List<Statement>(statements);
+            return result;
         }
     }
 

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SharpPy
 {
@@ -170,7 +169,13 @@ namespace SharpPy
             {
                 if (self is PyClass pyClass)
                 {
-                    return new PyList(pyClass.MRO.Cast<PyObject>().ToList());
+                    // Performance: Eliminated LINQ - manual conversion instead of Cast + ToList
+                    var mroList = new List<PyObject>(pyClass.MRO.Count);
+                    for (int i = 0; i < pyClass.MRO.Count; i++)
+                    {
+                        mroList.Add(pyClass.MRO[i]);
+                    }
+                    return new PyList(mroList);
                 }
                 return new PyList();
             }, 1);
@@ -373,7 +378,12 @@ namespace SharpPy
             }
 
             // Convert bases tuple to PyType array
-            var baseTypes = basesTuple.Items.Cast<PyType>().ToArray();
+            // Performance: Eliminated LINQ - manual cast instead of Cast + ToArray
+            var baseTypes = new PyType[basesTuple.Items.Length];
+            for (int i = 0; i < basesTuple.Items.Length; i++)
+            {
+                baseTypes[i] = (PyType)basesTuple.Items[i];
+            }
 
             // CPython 3.12: If bases is empty, add object as default base
             // This is done in type.__new__, not in __build_class__
@@ -412,8 +422,11 @@ namespace SharpPy
 
                 #if DEBUG_LOG
                 Console.WriteLine($"🔍 type.__new__: namespace dict has {dictItems.Items.Length} items");
-                foreach (var item in dictItems.Items.Take(20))
+                // Performance: Eliminated LINQ - manual loop with limit instead of Take
+                int logLimit = System.Math.Min(20, dictItems.Items.Length);
+                for (int i = 0; i < logLimit; i++)
                 {
+                    var item = dictItems.Items[i];
                     if (item is PyTuple tuple && tuple.Items.Length == 2 && tuple.Items[0] is PyString keyStr)
                     {
                         Console.WriteLine($"   - {keyStr.Value}: {tuple.Items[1].GetTypeName()}");
@@ -1129,7 +1142,13 @@ namespace SharpPy
 
             if (instance is PyType pyType)
             {
-                return new PyTuple(pyType.BaseTypes.Cast<PyObject>().ToArray());
+                // Performance: Eliminated LINQ - manual cast instead of Cast + ToArray
+                var basesArray = new PyObject[pyType.BaseTypes.Length];
+                for (int i = 0; i < pyType.BaseTypes.Length; i++)
+                {
+                    basesArray[i] = pyType.BaseTypes[i];
+                }
+                return new PyTuple(basesArray);
             }
 
             throw PyTypeError.Create($"descriptor '__bases__' for 'type' objects doesn't apply to a '{instance.GetTypeName()}' object");
@@ -1170,12 +1189,24 @@ namespace SharpPy
             // Works for both PyClass and PyType
             if (instance is PyClass pyClass)
             {
-                return new PyTuple(pyClass.MRO.Cast<PyObject>().ToArray());
+                // Performance: Eliminated LINQ - manual conversion instead of Cast + ToArray
+                var mroArray = new PyObject[pyClass.MRO.Count];
+                for (int i = 0; i < pyClass.MRO.Count; i++)
+                {
+                    mroArray[i] = pyClass.MRO[i];
+                }
+                return new PyTuple(mroArray);
             }
 
             if (instance is PyType pyType)
             {
-                return new PyTuple(pyType.MRO.Cast<PyObject>().ToArray());
+                // Performance: Eliminated LINQ - manual conversion instead of Cast + ToArray
+                var mroArray = new PyObject[pyType.MRO.Count];
+                for (int i = 0; i < pyType.MRO.Count; i++)
+                {
+                    mroArray[i] = pyType.MRO[i];
+                }
+                return new PyTuple(mroArray);
             }
 
             throw PyTypeError.Create($"descriptor '__mro__' for 'type' objects doesn't apply to a '{instance.GetTypeName()}' object");

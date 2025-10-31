@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using SharpPy.Interop;
 
@@ -383,7 +382,13 @@ namespace SharpPy.Interop
         /// </summary>
         public static IEnumerable<(T1, T2)> Zip<T1, T2>(IEnumerable<T1> first, IEnumerable<T2> second)
         {
-            return first.Zip(second, (a, b) => (a, b));
+            // Performance: Eliminated LINQ
+            var enum1 = first.GetEnumerator();
+            var enum2 = second.GetEnumerator();
+            while (enum1.MoveNext() && enum2.MoveNext())
+            {
+                yield return (enum1.Current, enum2.Current);
+            }
         }
         
         #endregion

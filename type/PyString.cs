@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Text;
 using System.Globalization;
 
@@ -378,13 +377,21 @@ namespace SharpPy
         /// </summary>
         public override PyObject Multiply(PyObject other)
         {
-            return other switch
+            if (other is PyInt count)
             {
-                PyInt count => count.Value <= 0
-                    ? new PyString("")
-                    : new PyString(string.Concat(Enumerable.Repeat(Value, (int)count.Value))),
-                _ => throw PyTypeError.Create($"can't multiply sequence by non-int of type '{other.GetTypeName()}'")
-            };
+                if (count.Value <= 0)
+                    return new PyString("");
+
+                // Performance: Eliminated LINQ (Enumerable.Repeat) - manual string repetition
+                var sb = new StringBuilder(Value.Length * (int)count.Value);
+                for (int i = 0; i < count.Value; i++)
+                {
+                    sb.Append(Value);
+                }
+                return new PyString(sb.ToString());
+            }
+
+            throw PyTypeError.Create($"can't multiply sequence by non-int of type '{other.GetTypeName()}'");
         }
 
         /// <summary>
@@ -691,48 +698,129 @@ namespace SharpPy
         public PyList Split(string sep = null, int maxsplit = -1)
         {
             string[] parts;
-            
+
             if (sep == null)
             {
                 // 공백문자로 분리
                 var options = StringSplitOptions.RemoveEmptyEntries;
-                parts = maxsplit == -1 
+                parts = maxsplit == -1
                     ? Value.Split(new char[0], options)
                     : Value.Split(new char[0], maxsplit + 1, options);
             }
             else
             {
-                parts = maxsplit == -1 
+                parts = maxsplit == -1
                     ? Value.Split(new[] { sep }, StringSplitOptions.None)
                     : Value.Split(new[] { sep }, maxsplit + 1, StringSplitOptions.None);
             }
-            
-            return new PyList(parts.Select(p => new PyString(p)).Cast<PyObject>().ToArray());
+
+            // Performance: Eliminated LINQ (.Select + .Cast + .ToArray) - direct array creation
+            var pyStrings = new PyObject[parts.Length];
+            for (int i = 0; i < parts.Length; i++)
+            {
+                pyStrings[i] = new PyString(parts[i]);
+            }
+            return new PyList(pyStrings);
         }
 
         public PyString Join(PyObject iterable)
         {
-            return iterable switch
+            if (iterable is PyList list)
             {
-                PyList list => new PyString(string.Join(Value, list.Items.Select(item => item switch
+                // Performance: Eliminated LINQ (.Select) - manual string extraction
+                var items = new string[list.Items.Length];
+                for (int i = 0; i < list.Items.Length; i++)
                 {
-                    PyString str => str.Value,
-                    _ => throw PyTypeError.Create($"sequence item: expected str instance, {item.GetTypeName()} found")
-                }))),
-                _ => throw PyTypeError.Create($"can only join an iterable")
-            };
+                    if (list.Items[i] is PyString str)
+                        items[i] = str.Value;
+                    else
+                        throw PyTypeError.Create($"sequence item: expected str instance, {list.Items[i].GetTypeName()} found");
+                }
+                return new PyString(string.Join(Value, items));
+            }
+
+            throw PyTypeError.Create($"can only join an iterable");
         }
 
         #endregion
 
         #region Type Testing Methods
 
-        public PyBool IsDigit() => PyBool.FromBool(Value.All(char.IsDigit) && Value.Length > 0);
-        public PyBool IsAlpha() => PyBool.FromBool(Value.All(char.IsLetter) && Value.Length > 0);
-        public PyBool IsAlnum() => PyBool.FromBool(Value.All(char.IsLetterOrDigit) && Value.Length > 0);
-        public PyBool IsSpace() => PyBool.FromBool(Value.All(char.IsWhiteSpace) && Value.Length > 0);
-        public PyBool IsUpper() => PyBool.FromBool(Value.Any(char.IsLetter) && Value.All(c => !char.IsLetter(c) || char.IsUpper(c)));
-        public PyBool IsLower() => PyBool.FromBool(Value.Any(char.IsLetter) && Value.All(c => !char.IsLetter(c) || char.IsLower(c)));
+        // Performance: Eliminated LINQ (.All, .Any) - manual character checks
+        public PyBool IsDigit()
+        {
+            if (Value.Length == 0) return PyBool.False;
+            for (int i = 0; i < Value.Length; i++)
+            {
+                if (!char.IsDigit(Value[i]))
+                    return PyBool.False;
+            }
+            return PyBool.True;
+        }
+
+        public PyBool IsAlpha()
+        {
+            if (Value.Length == 0) return PyBool.False;
+            for (int i = 0; i < Value.Length; i++)
+            {
+                if (!char.IsLetter(Value[i]))
+                    return PyBool.False;
+            }
+            return PyBool.True;
+        }
+
+        public PyBool IsAlnum()
+        {
+            if (Value.Length == 0) return PyBool.False;
+            for (int i = 0; i < Value.Length; i++)
+            {
+                if (!char.IsLetterOrDigit(Value[i]))
+                    return PyBool.False;
+            }
+            return PyBool.True;
+        }
+
+        public PyBool IsSpace()
+        {
+            if (Value.Length == 0) return PyBool.False;
+            for (int i = 0; i < Value.Length; i++)
+            {
+                if (!char.IsWhiteSpace(Value[i]))
+                    return PyBool.False;
+            }
+            return PyBool.True;
+        }
+
+        public PyBool IsUpper()
+        {
+            bool hasLetter = false;
+            for (int i = 0; i < Value.Length; i++)
+            {
+                if (char.IsLetter(Value[i]))
+                {
+                    hasLetter = true;
+                    if (!char.IsUpper(Value[i]))
+                        return PyBool.False;
+                }
+            }
+            return PyBool.FromBool(hasLetter);
+        }
+
+        public PyBool IsLower()
+        {
+            bool hasLetter = false;
+            for (int i = 0; i < Value.Length; i++)
+            {
+                if (char.IsLetter(Value[i]))
+                {
+                    hasLetter = true;
+                    if (!char.IsLower(Value[i]))
+                        return PyBool.False;
+                }
+            }
+            return PyBool.FromBool(hasLetter);
+        }
+
         public PyBool IsTitle() => PyBool.FromBool(Value == Capitalize().Value);
 
         #endregion
@@ -825,7 +913,12 @@ namespace SharpPy
         /// </summary>
         public override PyList AsList()
         {
-            var items = Value.Select(c => new PyString(c.ToString()) as PyObject).ToList();
+            // Performance: Eliminated LINQ (.Select + .ToList) - manual character conversion
+            var items = new PyObject[Value.Length];
+            for (int i = 0; i < Value.Length; i++)
+            {
+                items[i] = new PyString(Value[i].ToString());
+            }
             return new PyList(items);
         }
 

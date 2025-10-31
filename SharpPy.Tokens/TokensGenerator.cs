@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.Tracing;
-using System.Linq;
 using System.Text;
 
 namespace SharpPy.Tokenizer
@@ -54,18 +53,25 @@ namespace SharpPy.Tokenizer
 
         void GenerateLiteralslist()
         {
+            // Performance: Eliminated LINQ - Generate operator map
+            var literals = new List<TokenDefinition>();
+            foreach (var token in _tokens)
+            {
+                if (token.IsLiteral)
+                {
+                    literals.Add(token);
+                }
+            }
 
-            // Generate operator map
-            var literals = _tokens.Where(t => t.IsLiteral).ToList();
-            if (literals.Any())
+            if (literals.Count > 0)
             {
                 WriteLine("public static readonly List<(string name, Type type)> Literals = new()");
                 WriteLine("{");
                 Indent();
 
-                // Sort by length (longer first) to match properly (e.g., "==" before "=")
-                var sortedLiterals = literals.OrderByDescending(op => op.Value.Length);
-                foreach (var op in sortedLiterals)
+                // Performance: Eliminated LINQ - Sort by length (longer first) to match properly (e.g., "==" before "=")
+                literals.Sort((a, b) => b.Value.Length.CompareTo(a.Value.Length));
+                foreach (var op in literals)
                 {
                     // Map literal string to its exact type (e.g., "==" → EQEQUAL, "+" → PLUS)
                     WriteLine($"( \"{EscapeString(op.Value)}\", Type.{op.Name} ),");
@@ -75,7 +81,6 @@ namespace SharpPy.Tokenizer
                 WriteLine("};");
                 WriteLine();
             }
-
         }
 
         void GenerateHelperFunctions()

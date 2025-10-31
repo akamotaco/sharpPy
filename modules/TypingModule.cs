@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SharpPy.Modules
 {
@@ -52,7 +51,13 @@ namespace SharpPy.Modules
         {
             if (key is PyTuple tuple)
             {
-                return new PyUnionInstance(tuple.Items.ToArray());
+                // Performance: Eliminated LINQ
+                var items = new PyObject[tuple.Items.Length];
+                for (int i = 0; i < tuple.Items.Length; i++)
+                {
+                    items[i] = tuple.Items[i];
+                }
+                return new PyUnionInstance(items);
             }
             else
             {
@@ -81,7 +86,12 @@ namespace SharpPy.Modules
 
         public override string ToString()
         {
-            var typeNames = Types.Select(t => t.ToString()).ToArray();
+            // Performance: Eliminated LINQ
+            var typeNames = new string[Types.Length];
+            for (int i = 0; i < Types.Length; i++)
+            {
+                typeNames[i] = Types[i].ToString();
+            }
             return $"typing.Union[{string.Join(", ", typeNames)}]";
         }
 
@@ -163,7 +173,12 @@ namespace SharpPy.Modules
         {
             if (TypeArg is PyTuple tuple)
             {
-                var args = tuple.Items.Select(item => item.ToString()).ToArray();
+                // Performance: Eliminated LINQ
+                var args = new string[tuple.Items.Length];
+                for (int i = 0; i < tuple.Items.Length; i++)
+                {
+                    args[i] = tuple.Items[i].ToString();
+                }
                 return $"typing.{GenericName}[{string.Join(", ", args)}]";
             }
             else
@@ -188,7 +203,12 @@ namespace SharpPy.Modules
                 throw PyTypeError.Create("TypeVar() missing 1 required positional argument: 'name'");
 
             var name = args[0].AsString();
-            var constraints = args.Skip(1).ToArray();
+            // Performance: Eliminated LINQ
+            var constraints = new PyObject[args.Length - 1];
+            for (int i = 1; i < args.Length; i++)
+            {
+                constraints[i - 1] = args[i];
+            }
 
             return new PyTypeVar(name, constraints);
         }
@@ -214,7 +234,12 @@ namespace SharpPy.Modules
         {
             if (Constraints.Length > 0)
             {
-                var constraintNames = Constraints.Select(c => c.ToString()).ToArray();
+                // Performance: Eliminated LINQ
+                var constraintNames = new string[Constraints.Length];
+                for (int i = 0; i < Constraints.Length; i++)
+                {
+                    constraintNames[i] = Constraints[i].ToString();
+                }
                 return $"~{Name} (bound by {string.Join(", ", constraintNames)})";
             }
             return $"~{Name}";

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SharpPy
 {
@@ -31,7 +30,8 @@ namespace SharpPy
                 }
                 return result;
             }
-            else if (OrElse.Any())
+            // Performance: Eliminated LINQ - replaced Any() with Count check
+            else if (OrElse != null && OrElse.Count > 0)
             {
                 PyObject result = PyNone.Instance;
                 foreach (var stmt in OrElse)

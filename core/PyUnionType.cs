@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SharpPy
 {
@@ -21,7 +20,12 @@ namespace SharpPy
 
         public override string ToString()
         {
-            var argStrings = Args.Select(arg => arg.ToString()).ToArray();
+            // Performance: Eliminated LINQ - manual conversion instead of Select + ToArray
+            var argStrings = new string[Args.Length];
+            for (int i = 0; i < Args.Length; i++)
+            {
+                argStrings[i] = Args[i].ToString();
+            }
             return string.Join(" | ", argStrings);
         }
 
@@ -33,15 +37,29 @@ namespace SharpPy
             if (other is PyUnionType otherUnion)
             {
                 // Flatten nested unions: (int | str) | (float | bool) → int | str | float | bool
-                var combinedArgs = new List<PyObject>(Args);
-                combinedArgs.AddRange(otherUnion.Args);
-                return new PyUnionType(combinedArgs.ToArray());
+                // Performance: Eliminated LINQ - manual array construction instead of ToArray
+                var combinedArgs = new PyObject[Args.Length + otherUnion.Args.Length];
+                for (int i = 0; i < Args.Length; i++)
+                {
+                    combinedArgs[i] = Args[i];
+                }
+                for (int i = 0; i < otherUnion.Args.Length; i++)
+                {
+                    combinedArgs[Args.Length + i] = otherUnion.Args[i];
+                }
+                return new PyUnionType(combinedArgs);
             }
             else if (other is PyType || other is PyBuiltinType)
             {
                 // Union | Type → extend union
-                var combinedArgs = new List<PyObject>(Args) { other };
-                return new PyUnionType(combinedArgs.ToArray());
+                // Performance: Eliminated LINQ - manual array construction instead of ToArray
+                var combinedArgs = new PyObject[Args.Length + 1];
+                for (int i = 0; i < Args.Length; i++)
+                {
+                    combinedArgs[i] = Args[i];
+                }
+                combinedArgs[Args.Length] = other;
+                return new PyUnionType(combinedArgs);
             }
 
             return base.BitwiseOr(other);
@@ -78,8 +96,38 @@ namespace SharpPy
                     return false;
 
                 // Order doesn't matter for union equality
-                return Args.All(arg => other.Args.Contains(arg)) &&
-                       other.Args.All(arg => Args.Contains(arg));
+                // Performance: Eliminated LINQ - manual loops instead of All + Contains
+                for (int i = 0; i < Args.Length; i++)
+                {
+                    bool found = false;
+                    for (int j = 0; j < other.Args.Length; j++)
+                    {
+                        if (Args[i].Equals(other.Args[j]))
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                        return false;
+                }
+
+                for (int i = 0; i < other.Args.Length; i++)
+                {
+                    bool found = false;
+                    for (int j = 0; j < Args.Length; j++)
+                    {
+                        if (other.Args[i].Equals(Args[j]))
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                        return false;
+                }
+
+                return true;
             }
             return false;
         }
@@ -87,7 +135,27 @@ namespace SharpPy
         public override int GetHashCode()
         {
             // Union types with same args should have same hash regardless of order
-            return Args.Select(arg => arg.GetHashCode()).OrderBy(h => h).Aggregate((h1, h2) => h1 ^ h2);
+            // Performance: Eliminated LINQ - manual sorting and aggregation instead of Select + OrderBy + Aggregate
+            if (Args.Length == 0)
+                return 0;
+
+            var hashes = new int[Args.Length];
+            for (int i = 0; i < Args.Length; i++)
+            {
+                hashes[i] = Args[i].GetHashCode();
+            }
+
+            // Sort hashes for order-independent hashing
+            Array.Sort(hashes);
+
+            // Aggregate with XOR
+            int result = hashes[0];
+            for (int i = 1; i < hashes.Length; i++)
+            {
+                result ^= hashes[i];
+            }
+
+            return result;
         }
     }
 }

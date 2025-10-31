@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+// Performance: Eliminated LINQ
 
 namespace SharpPy
 {
@@ -109,6 +109,7 @@ namespace SharpPy
         /// </summary>
         public PyObject[] ToArray()
         {
+            // Performance: Eliminated LINQ - ToArray() is not LINQ but List<T> method (keep as-is)
             var array = _items.ToArray();
             Array.Reverse(array); // TOS가 [0]이 되도록 역순
             return array;
@@ -119,7 +120,8 @@ namespace SharpPy
         /// </summary>
         public IEnumerable<PyObject> Take(int count)
         {
-            if (count <= 0) return Enumerable.Empty<PyObject>();
+            // Performance: Eliminated LINQ - replaced Enumerable.Empty<T>() with empty array
+            if (count <= 0) return new PyObject[0];
 
             int actualCount = Math.Min(count, _items.Count);
             var result = new PyObject[actualCount];

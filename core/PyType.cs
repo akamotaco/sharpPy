@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SharpPy
 {
@@ -488,7 +487,12 @@ namespace SharpPy
             {
                 if (args[0] is PyString name && args[1] is PyTuple bases && args[2] is PyDict classDict)
                 {
-                    var baseTypes = bases.Items.Cast<PyType>().ToArray();
+                    // Performance: Eliminated LINQ - manual cast instead of Cast + ToArray
+                    var baseTypes = new PyType[bases.Items.Length];
+                    for (int i = 0; i < bases.Items.Length; i++)
+                    {
+                        baseTypes[i] = (PyType)bases.Items[i];
+                    }
                     // CPython 호환: PyDict의 PyObject 키를 string 키로 변환
                     var stringDict = new Dictionary<string, PyObject>();
                     foreach (var kv in classDict.InternalDict)
@@ -998,7 +1002,13 @@ namespace SharpPy
                 getter: self => {
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__bases__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    return new PyTuple(type.BaseTypes.Cast<PyObject>().ToArray());
+                    // Performance: Eliminated LINQ - manual cast instead of Cast + ToArray
+                    var basesArray = new PyObject[type.BaseTypes.Length];
+                    for (int i = 0; i < type.BaseTypes.Length; i++)
+                    {
+                        basesArray[i] = type.BaseTypes[i];
+                    }
+                    return new PyTuple(basesArray);
                 }
             );
 
@@ -1009,7 +1019,13 @@ namespace SharpPy
                 getter: self => {
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__mro__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    return new PyTuple(type.MRO.Cast<PyObject>().ToArray());
+                    // Performance: Eliminated LINQ - manual conversion instead of Cast + ToArray
+                    var mroArray = new PyObject[type.MRO.Count];
+                    for (int i = 0; i < type.MRO.Count; i++)
+                    {
+                        mroArray[i] = type.MRO[i];
+                    }
+                    return new PyTuple(mroArray);
                 }
             );
 
@@ -1026,8 +1042,20 @@ namespace SharpPy
 
                     // Add __name__, __bases__, __mro__
                     typeDict["__name__"] = new PyString(type.Name);
-                    typeDict["__bases__"] = new PyTuple(type.BaseTypes.Cast<PyObject>().ToArray());
-                    typeDict["__mro__"] = new PyTuple(type.MRO.Cast<PyObject>().ToArray());
+                    // Performance: Eliminated LINQ - manual conversions instead of Cast + ToArray
+                    var basesArray = new PyObject[type.BaseTypes.Length];
+                    for (int i = 0; i < type.BaseTypes.Length; i++)
+                    {
+                        basesArray[i] = type.BaseTypes[i];
+                    }
+                    typeDict["__bases__"] = new PyTuple(basesArray);
+
+                    var mroArray = new PyObject[type.MRO.Count];
+                    for (int i = 0; i < type.MRO.Count; i++)
+                    {
+                        mroArray[i] = type.MRO[i];
+                    }
+                    typeDict["__mro__"] = new PyTuple(mroArray);
 
                     // CPython 3.12: Add descriptors from MRO (inherited descriptors)
                     // This ensures int.__dict__ includes __new__ from object
@@ -1114,6 +1142,7 @@ namespace SharpPy
                     }
 
                     // Create new class (CPython equivalent: type_new in typeobject.c)
+                    // Performance: Eliminated LINQ - direct array use
                     var newClass = new PyClass(name.Value, baseTypes.ToArray(), stringDict);
 
                     // If metacls is not type, we might need to set a custom metaclass
@@ -1982,9 +2011,14 @@ namespace SharpPy
             else if (other is PyUnionType unionType)
             {
                 // Type | Union -> extend Union
-                var newTypes = new List<PyObject> { this };
-                newTypes.AddRange(unionType.Args);
-                return new PyUnionType(newTypes.ToArray());
+                // Performance: Eliminated LINQ - manual array construction instead of ToArray
+                var newTypes = new PyObject[1 + unionType.Args.Length];
+                newTypes[0] = this;
+                for (int i = 0; i < unionType.Args.Length; i++)
+                {
+                    newTypes[i + 1] = unionType.Args[i];
+                }
+                return new PyUnionType(newTypes);
             }
             else if (other is PyBuiltinType builtinType)
             {
@@ -2001,7 +2035,13 @@ namespace SharpPy
 
         public void PrintMRO()
         {
-            Console.WriteLine($"{Name} MRO: [{string.Join(", ", MRO.Select(t => t.Name))}]");
+            // Performance: Eliminated LINQ - manual array construction instead of Select
+            var mroNames = new string[MRO.Count];
+            for (int i = 0; i < MRO.Count; i++)
+            {
+                mroNames[i] = MRO[i].Name;
+            }
+            Console.WriteLine($"{Name} MRO: [{string.Join(", ", mroNames)}]");
         }
 
         #endregion
@@ -2036,7 +2076,16 @@ namespace SharpPy
                 if (typeAttr is PyBuiltinFunction builtinFunction)
                 {
                     // Convert PyBuiltinFunction to PyBuiltinMethod
-                    var method = new PyBuiltinMethod(builtinFunction.Name, (self, args) => builtinFunction.Call(new[] { self }.Concat(args).ToArray(), null));
+                    // Performance: Eliminated LINQ - manual array construction instead of Concat + ToArray
+                    var method = new PyBuiltinMethod(builtinFunction.Name, (self, args) => {
+                        var newArgs = new PyObject[args.Length + 1];
+                        newArgs[0] = self;
+                        for (int i = 0; i < args.Length; i++)
+                        {
+                            newArgs[i + 1] = args[i];
+                        }
+                        return builtinFunction.Call(newArgs, null);
+                    });
                     return new PyBoundBuiltinMethod(this, method);
                 }
                 if (typeAttr is PyFunction func)

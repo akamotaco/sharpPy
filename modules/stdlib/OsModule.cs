@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 
 namespace SharpPy.Modules.Stdlib
 {
@@ -110,12 +109,15 @@ namespace SharpPy.Modules.Stdlib
 
             try
             {
-                var entries = Directory.GetFileSystemEntries(path)
-                    .Select(entry => new PyString(Path.GetFileName(entry)))
-                    .Cast<PyObject>()
-                    .ToArray();
-                    
-                return new PyList(entries);
+                // Performance: Eliminated LINQ
+                var entries = Directory.GetFileSystemEntries(path);
+                var pyObjects = new PyObject[entries.Length];
+                for (int i = 0; i < entries.Length; i++)
+                {
+                    pyObjects[i] = new PyString(Path.GetFileName(entries[i]));
+                }
+
+                return new PyList(pyObjects);
             }
             catch (DirectoryNotFoundException)
             {
@@ -357,7 +359,12 @@ namespace SharpPy.Modules.Stdlib
             if (args.Length == 0)
                 throw PyTypeError.Create("join expected at least 1 argument (0 given)");
 
-            var paths = args.Select(arg => arg.ToStr().Value).ToArray();
+            // Performance: Eliminated LINQ
+            var paths = new string[args.Length];
+            for (int i = 0; i < args.Length; i++)
+            {
+                paths[i] = args[i].ToStr().Value;
+            }
             var result = Path.Combine(paths);
             return new PyString(result);
         }
@@ -462,7 +469,20 @@ namespace SharpPy.Modules.Stdlib
             return PyBool.FromBool(Environment.GetEnvironmentVariable(keyStr.Value) != null);
         }
 
-        public override string ToString() => $"environ({{{string.Join(", ", Environment.GetEnvironmentVariables().Cast<System.Collections.DictionaryEntry>().Take(3).Select(kvp => $"'{kvp.Key}': '{kvp.Value}'"))}...}})";
+        public override string ToString()
+        {
+            // Performance: Eliminated LINQ
+            var envVars = Environment.GetEnvironmentVariables();
+            var entries = new List<string>();
+            int count = 0;
+            foreach (System.Collections.DictionaryEntry entry in envVars)
+            {
+                if (count >= 3) break;
+                entries.Add($"'{entry.Key}': '{entry.Value}'");
+                count++;
+            }
+            return $"environ({{{string.Join(", ", entries)}...}})";
+        }
     }
 
     /// <summary>

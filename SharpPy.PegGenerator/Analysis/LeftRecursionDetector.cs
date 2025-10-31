@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using SharpPy.PegGenerator.DataStructures;
 
 namespace SharpPy.PegGenerator.Analysis;
@@ -17,7 +16,12 @@ public class LeftRecursionDetector
     public LeftRecursionDetector(PegRule[] rules)
     {
         _rules = rules;
-        _ruleMap = rules.ToDictionary(r => r.Name);
+        // Performance: Eliminated LINQ
+        _ruleMap = new Dictionary<string, PegRule>();
+        foreach (var rule in rules)
+        {
+            _ruleMap[rule.Name] = rule;
+        }
     }
 
     /// <summary>
@@ -66,14 +70,26 @@ public class LeftRecursionDetector
                     }
                 }
 
-                // Pick the alphabetically first leader (matches CPython's min())
-                var leader = leaderCandidates.OrderBy(x => x).First();
+                // Performance: Eliminated LINQ - Pick the alphabetically first leader (matches CPython's min())
+                string leader = null;
+                foreach (var candidate in leaderCandidates)
+                {
+                    if (leader == null || string.CompareOrdinal(candidate, leader) < 0)
+                    {
+                        leader = candidate;
+                    }
+                }
                 leaders.Add(leader);
             }
             else
             {
-                // Single rule - check if it calls itself
-                var name = scc.First();
+                // Performance: Eliminated LINQ - Single rule - check if it calls itself
+                string name = null;
+                foreach (var n in scc)
+                {
+                    name = n;
+                    break;
+                }
                 if (graph[name].Contains(name))
                 {
                     leftRecursiveRules.Add(name);
@@ -104,7 +120,10 @@ public class LeftRecursionDetector
             // Debug: print star-related rules
             if (rule.Name.Contains("star") || rule.Name.Contains("target"))
             {
-                Console.WriteLine($"[FIRST-GRAPH] {rule.Name} → {{ {string.Join(", ", initialNames.OrderBy(n => n))} }}");
+                // Performance: Eliminated LINQ
+                var sortedNames = new List<string>(initialNames);
+                sortedNames.Sort();
+                Console.WriteLine($"[FIRST-GRAPH] {rule.Name} → {{ {string.Join(", ", sortedNames)} }}");
             }
         }
 
@@ -220,10 +239,34 @@ public class LeftRecursionDetector
             Gather g => !g.IsPlus,  // sep.item* is nullable, sep.item+ is not
             PositiveLookahead => true,  // Lookahead doesn't consume
             NegativeLookahead => true,  // Lookahead doesn't consume
-            Group group => group.Alternatives.Any(alt => alt.Items.All(item => IsNullable(item.Atom))),
+            Group group => GroupHasNullableAlternative(group),
             RuleRef ruleRef => IsRuleNullable(ruleRef.Name),
             _ => false
         };
+    }
+
+    /// <summary>
+    /// Performance: Eliminated LINQ - Check if group has nullable alternative
+    /// </summary>
+    private bool GroupHasNullableAlternative(Group group)
+    {
+        foreach (var alt in group.Alternatives)
+        {
+            bool allItemsNullable = true;
+            foreach (var item in alt.Items)
+            {
+                if (!IsNullable(item.Atom))
+                {
+                    allItemsNullable = false;
+                    break;
+                }
+            }
+            if (allItemsNullable)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     /// <summary>
@@ -254,10 +297,25 @@ public class LeftRecursionDetector
                 return false;
             }
 
-            // A rule is nullable if any of its alternatives is nullable
-            var isNullable = rule.Alternatives.Any(alt =>
-                alt.Items.All(item => IsNullable(item.Atom))
-            );
+            // Performance: Eliminated LINQ - A rule is nullable if any of its alternatives is nullable
+            bool isNullable = false;
+            foreach (var alt in rule.Alternatives)
+            {
+                bool allItemsNullable = true;
+                foreach (var item in alt.Items)
+                {
+                    if (!IsNullable(item.Atom))
+                    {
+                        allItemsNullable = false;
+                        break;
+                    }
+                }
+                if (allItemsNullable)
+                {
+                    isNullable = true;
+                    break;
+                }
+            }
 
             _nullableCache[ruleName] = isNullable;
             return isNullable;
@@ -350,9 +408,13 @@ public class LeftRecursionDetector
         {
             if (path.Contains(node))
             {
-                // Found a cycle
+                // Performance: Eliminated LINQ - Found a cycle
                 var cycleStart = path.IndexOf(node);
-                var cycle = path.Skip(cycleStart).ToList();
+                var cycle = new List<string>();
+                for (int i = cycleStart; i < path.Count; i++)
+                {
+                    cycle.Add(path[i]);
+                }
                 cycles.Add(cycle);
                 return;
             }

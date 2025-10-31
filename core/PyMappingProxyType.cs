@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SharpPy
 {
@@ -58,7 +57,13 @@ namespace SharpPy
 
         public override PyString ToStr()
         {
-            var items = _mapping.Select(kv => $"'{kv.Key}': {kv.Value.ToRepr().Value}");
+            // Performance: Eliminated LINQ - manual loop instead of Select
+            var items = new string[_mapping.Count];
+            int index = 0;
+            foreach (var kv in _mapping)
+            {
+                items[index++] = $"'{kv.Key}': {kv.Value.ToRepr().Value}";
+            }
             return new PyString("{" + string.Join(", ", items) + "}");
         }
 
@@ -77,21 +82,33 @@ namespace SharpPy
                     if (args.Length != 0)
                         throw PyTypeError.Create($"keys() takes no arguments ({args.Length} given)");
                     var mappingProxy = self as PyMappingProxy;
-                    return new PyList(mappingProxy._mapping.Keys.Select(k => (PyObject)new PyString(k)).ToList());
+                    // Performance: Eliminated LINQ - manual conversion instead of Select + ToList
+                    var keysList = new List<PyObject>(mappingProxy._mapping.Keys.Count);
+                    foreach (var key in mappingProxy._mapping.Keys)
+                    {
+                        keysList.Add(new PyString(key));
+                    }
+                    return new PyList(keysList);
                 })),
                 "values" => new PyBoundBuiltinMethod(this, new PyBuiltinMethod("values", (self, args) =>
                 {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"values() takes no arguments ({args.Length} given)");
                     var mappingProxy = self as PyMappingProxy;
-                    return new PyList(mappingProxy._mapping.Values.ToList());
+                    // Performance: Eliminated LINQ - direct List construction instead of ToList
+                    return new PyList(new List<PyObject>(mappingProxy._mapping.Values));
                 })),
                 "items" => new PyBoundBuiltinMethod(this, new PyBuiltinMethod("items", (self, args) =>
                 {
                     if (args.Length != 0)
                         throw PyTypeError.Create($"items() takes no arguments ({args.Length} given)");
                     var mappingProxy = self as PyMappingProxy;
-                    var items = mappingProxy._mapping.Select(kv => (PyObject)new PyTuple(new PyObject[] { new PyString(kv.Key), kv.Value })).ToList();
+                    // Performance: Eliminated LINQ - manual loop instead of Select + ToList
+                    var items = new List<PyObject>(mappingProxy._mapping.Count);
+                    foreach (var kv in mappingProxy._mapping)
+                    {
+                        items.Add(new PyTuple(new PyObject[] { new PyString(kv.Key), kv.Value }));
+                    }
                     return new PyList(items);
                 })),
                 "get" => new PyBoundBuiltinMethod(this, new PyBuiltinMethod("get", (self, args) =>

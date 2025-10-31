@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Text;
 using SharpPy.Core;
@@ -491,9 +490,14 @@ namespace SharpPy.Tools
                     break;
 
                 case DictExpression dict:
-                    // CPython은 keys/values로 분리하지만 SharpPy는 Items로 관리
-                    var keys = dict.Items.Select(item => item.Key).ToList();
-                    var values = dict.Items.Select(item => item.Value).ToList();
+                    // Performance: Eliminated LINQ - CPython은 keys/values로 분리하지만 SharpPy는 Items로 관리
+                    var keys = new List<Expression>();
+                    var values = new List<Expression>();
+                    foreach (var item in dict.Items)
+                    {
+                        keys.Add(item.Key);
+                        values.Add(item.Value);
+                    }
                     fields.Add(("keys", keys));
                     fields.Add(("values", values));
                     break;

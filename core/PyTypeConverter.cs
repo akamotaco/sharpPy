@@ -1,7 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
+using System.Text;
 
 namespace SharpPy.Core
 {
@@ -38,21 +38,22 @@ namespace SharpPy.Core
                 decimal dec => new PyFloat((double)dec),
                 string str => new PyString(str),
                 char c => new PyString(c.ToString()),
-                
+
+                // Performance: Eliminated LINQ - Manual array/list conversion
                 // 컬렉션 타입들
-                byte[] bytes => new PyList(bytes.Select(b => new PyInt(b)).Cast<PyObject>().ToList()),
-                int[] ints => new PyList(ints.Select(i => new PyInt(i)).Cast<PyObject>().ToList()),
-                long[] longs => new PyList(longs.Select(l => new PyInt((int)l)).Cast<PyObject>().ToList()),
-                float[] floats => new PyList(floats.Select(f => new PyFloat(f)).Cast<PyObject>().ToList()),
-                double[] doubles => new PyList(doubles.Select(d => new PyFloat(d)).Cast<PyObject>().ToList()),
-                string[] strings => new PyList(strings.Select(s => new PyString(s)).Cast<PyObject>().ToList()),
-                
+                byte[] bytes => ConvertByteArray(bytes),
+                int[] ints => ConvertIntArray(ints),
+                long[] longs => ConvertLongArray(longs),
+                float[] floats => ConvertFloatArray(floats),
+                double[] doubles => ConvertDoubleArray(doubles),
+                string[] strings => ConvertStringArray(strings),
+
                 // 제네릭 컬렉션들
-                IList<int> intList => new PyList(intList.Select(i => new PyInt(i)).Cast<PyObject>().ToList()),
-                IList<long> longList => new PyList(longList.Select(l => new PyInt((int)l)).Cast<PyObject>().ToList()),
-                IList<float> floatList => new PyList(floatList.Select(f => new PyFloat(f)).Cast<PyObject>().ToList()),
-                IList<double> doubleList => new PyList(doubleList.Select(d => new PyFloat(d)).Cast<PyObject>().ToList()),
-                IList<string> stringList => new PyList(stringList.Select(s => new PyString(s)).Cast<PyObject>().ToList()),
+                IList<int> intList => ConvertIntList(intList),
+                IList<long> longList => ConvertLongList(longList),
+                IList<float> floatList => ConvertFloatList(floatList),
+                IList<double> doubleList => ConvertDoubleList(doubleList),
+                IList<string> stringList => ConvertStringList(stringList),
                 
                 // Dictionary
                 IDictionary<string, object> dict => ConvertDictionary(dict),
@@ -68,6 +69,117 @@ namespace SharpPy.Core
                 // 알 수 없는 타입은 문자열로 변환
                 _ => new PyString(obj.ToString() ?? "")
             };
+        }
+
+        // Performance: Eliminated LINQ - Helper methods for array/list conversion
+        private static PyList ConvertByteArray(byte[] bytes)
+        {
+            var items = new List<PyObject>(bytes.Length);
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                items.Add(new PyInt(bytes[i]));
+            }
+            return new PyList(items);
+        }
+
+        private static PyList ConvertIntArray(int[] ints)
+        {
+            var items = new List<PyObject>(ints.Length);
+            for (int i = 0; i < ints.Length; i++)
+            {
+                items.Add(new PyInt(ints[i]));
+            }
+            return new PyList(items);
+        }
+
+        private static PyList ConvertLongArray(long[] longs)
+        {
+            var items = new List<PyObject>(longs.Length);
+            for (int i = 0; i < longs.Length; i++)
+            {
+                items.Add(new PyInt((int)longs[i]));
+            }
+            return new PyList(items);
+        }
+
+        private static PyList ConvertFloatArray(float[] floats)
+        {
+            var items = new List<PyObject>(floats.Length);
+            for (int i = 0; i < floats.Length; i++)
+            {
+                items.Add(new PyFloat(floats[i]));
+            }
+            return new PyList(items);
+        }
+
+        private static PyList ConvertDoubleArray(double[] doubles)
+        {
+            var items = new List<PyObject>(doubles.Length);
+            for (int i = 0; i < doubles.Length; i++)
+            {
+                items.Add(new PyFloat(doubles[i]));
+            }
+            return new PyList(items);
+        }
+
+        private static PyList ConvertStringArray(string[] strings)
+        {
+            var items = new List<PyObject>(strings.Length);
+            for (int i = 0; i < strings.Length; i++)
+            {
+                items.Add(new PyString(strings[i]));
+            }
+            return new PyList(items);
+        }
+
+        private static PyList ConvertIntList(IList<int> intList)
+        {
+            var items = new List<PyObject>(intList.Count);
+            for (int i = 0; i < intList.Count; i++)
+            {
+                items.Add(new PyInt(intList[i]));
+            }
+            return new PyList(items);
+        }
+
+        private static PyList ConvertLongList(IList<long> longList)
+        {
+            var items = new List<PyObject>(longList.Count);
+            for (int i = 0; i < longList.Count; i++)
+            {
+                items.Add(new PyInt((int)longList[i]));
+            }
+            return new PyList(items);
+        }
+
+        private static PyList ConvertFloatList(IList<float> floatList)
+        {
+            var items = new List<PyObject>(floatList.Count);
+            for (int i = 0; i < floatList.Count; i++)
+            {
+                items.Add(new PyFloat(floatList[i]));
+            }
+            return new PyList(items);
+        }
+
+        private static PyList ConvertDoubleList(IList<double> doubleList)
+        {
+            var items = new List<PyObject>(doubleList.Count);
+            for (int i = 0; i < doubleList.Count; i++)
+            {
+                items.Add(new PyFloat(doubleList[i]));
+            }
+            return new PyList(items);
+        }
+
+        private static PyList ConvertStringList(IList<string> stringList)
+        {
+            var items = new List<PyObject>(stringList.Count);
+            for (int i = 0; i < stringList.Count; i++)
+            {
+                items.Add(new PyString(stringList[i]));
+            }
+            return new PyList(items);
         }
 
         private static PyDict ConvertDictionary(IDictionary<string, object> dict)
@@ -327,10 +439,19 @@ namespace SharpPy.Core
             if (type.IsGenericType)
             {
                 var genericTypeName = type.GetGenericTypeDefinition().Name;
-                var genericArgs = string.Join(", ", type.GetGenericArguments().Select(GetFriendlyTypeName));
-                return $"{genericTypeName.Split('`')[0]}<{genericArgs}>";
+                var genericArgs = type.GetGenericArguments();
+
+                // Performance: Eliminated LINQ - Manual StringBuilder for type names
+                var sb = new StringBuilder();
+                for (int i = 0; i < genericArgs.Length; i++)
+                {
+                    if (i > 0) sb.Append(", ");
+                    sb.Append(GetFriendlyTypeName(genericArgs[i]));
+                }
+
+                return $"{genericTypeName.Split('`')[0]}<{sb}>";
             }
-            
+
             return type.Name;
         }
 

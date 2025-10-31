@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SharpPy
 {
@@ -191,7 +190,18 @@ namespace SharpPy
         public override PyString ToRepr()
         {
             if (_items.Count == 0) return new PyString("set()");
-            return new PyString($"{{{string.Join(", ", _items.Select(item => item.ToRepr().Value))}}}");
+
+            // Performance: Eliminated LINQ (Select) - use StringBuilder
+            var sb = new System.Text.StringBuilder("{");
+            bool first = true;
+            foreach (var item in _items)
+            {
+                if (!first) sb.Append(", ");
+                sb.Append(item.ToRepr().Value);
+                first = false;
+            }
+            sb.Append("}");
+            return new PyString(sb.ToString());
         }
 
         #endregion
@@ -247,8 +257,9 @@ namespace SharpPy
         {
             if (_items.Count == 0)
                 throw PyKeyError.Create("pop from empty set");
-            
-            var item = _items.First();
+
+            // Performance: Eliminated LINQ (First) - use enumerator
+            var item = GetFirstItem();
             _items.Remove(item);
             return item;
         }
@@ -307,7 +318,15 @@ namespace SharpPy
         public PySet Intersection(PyObject other)
         {
             var otherItems = GetSetItems(other);
-            var result = new PySet(_items.Where(item => otherItems.Contains(item)));
+            // Performance: Eliminated LINQ (Where) - manual filtering
+            var result = new PySet();
+            foreach (var item in _items)
+            {
+                if (otherItems.Contains(item))
+                {
+                    result._items.Add(item);
+                }
+            }
             return result;
         }
 
@@ -317,7 +336,15 @@ namespace SharpPy
         public PySet Difference(PyObject other)
         {
             var otherItems = GetSetItems(other);
-            var result = new PySet(_items.Where(item => !otherItems.Contains(item)));
+            // Performance: Eliminated LINQ (Where) - manual filtering
+            var result = new PySet();
+            foreach (var item in _items)
+            {
+                if (!otherItems.Contains(item))
+                {
+                    result._items.Add(item);
+                }
+            }
             return result;
         }
 
@@ -328,17 +355,24 @@ namespace SharpPy
         {
             var otherItems = GetSetItems(other);
             var result = new PySet();
-            
+
+            // Performance: Eliminated LINQ (Where) - manual filtering
             // this - other
-            foreach (var item in _items.Where(item => !otherItems.Contains(item)))
+            foreach (var item in _items)
             {
-                result._items.Add(item);
+                if (!otherItems.Contains(item))
+                {
+                    result._items.Add(item);
+                }
             }
-            
+
             // other - this
-            foreach (var item in otherItems.Where(item => !_items.Contains(item)))
+            foreach (var item in otherItems)
             {
-                result._items.Add(item);
+                if (!_items.Contains(item))
+                {
+                    result._items.Add(item);
+                }
             }
             
             return result;
@@ -486,15 +520,35 @@ namespace SharpPy
 
         private IEnumerable<PyObject> GetIterableItems(PyObject obj)
         {
+            // Performance: Eliminated LINQ (Select) - manual conversion for string
             return obj switch
             {
                 PyList list => list.Items,
                 PyTuple tuple => tuple.Items,
-                PyString str => str.Value.Select(c => new PyString(c.ToString())),
+                PyString str => ConvertStringToCharArray(str.Value),
                 PySet set => set._items,
                 PyFrozenSet frozenSet => frozenSet.Items,
                 _ => throw PyTypeError.Create($"'{obj.GetTypeName()}' object is not iterable")
             };
+        }
+
+        private static IEnumerable<PyObject> ConvertStringToCharArray(string str)
+        {
+            var result = new List<PyObject>(str.Length);
+            for (int i = 0; i < str.Length; i++)
+            {
+                result.Add(new PyString(str[i].ToString()));
+            }
+            return result;
+        }
+
+        private PyObject GetFirstItem()
+        {
+            foreach (var item in _items)
+            {
+                return item;
+            }
+            throw new InvalidOperationException("Set is empty");
         }
 
         #endregion
@@ -568,7 +622,18 @@ namespace SharpPy
         public override PyString ToRepr()
         {
             if (_items.Count == 0) return new PyString("frozenset()");
-            return new PyString($"frozenset({{{string.Join(", ", _items.Select(item => item.ToRepr().Value))}}})");
+
+            // Performance: Eliminated LINQ (Select) - use StringBuilder
+            var sb = new System.Text.StringBuilder("frozenset({");
+            bool first = true;
+            foreach (var item in _items)
+            {
+                if (!first) sb.Append(", ");
+                sb.Append(item.ToRepr().Value);
+                first = false;
+            }
+            sb.Append("})");
+            return new PyString(sb.ToString());
         }
 
         #endregion
@@ -581,10 +646,17 @@ namespace SharpPy
             // Based on CPython's frozenset_hash implementation
             long hash = 1927868237L; // Initial hash value (CPython uses specific prime)
 
+            // Performance: Eliminated LINQ (Select + OrderBy + ToList) - manual sort
             // Sort items by hash to ensure deterministic ordering
-            var sortedHashes = _items.Select(item => (long)item.ToHash()).OrderBy(h => h).ToList();
+            var hashes = new long[_items.Count];
+            int index = 0;
+            foreach (var item in _items)
+            {
+                hashes[index++] = (long)item.ToHash();
+            }
+            Array.Sort(hashes);
 
-            foreach (var itemHash in sortedHashes)
+            foreach (var itemHash in hashes)
             {
                 hash ^= (itemHash ^ 89869747L) * 3644798167L;  // CPython-style mixing
             }

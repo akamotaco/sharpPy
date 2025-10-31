@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+// Performance: Eliminated LINQ
 
 namespace SharpPy
 {
@@ -130,7 +130,16 @@ namespace SharpPy
             }
 
             // Remove unreachable blocks
-            _cfg.AllBlocks = _cfg.AllBlocks.Where(b => reachable.Contains(b)).ToList();
+            // Performance: Eliminated LINQ - replaced Where().ToList() with manual filtering
+            var reachableBlocks = new List<BasicBlock>();
+            foreach (var block in _cfg.AllBlocks)
+            {
+                if (reachable.Contains(block))
+                {
+                    reachableBlocks.Add(block);
+                }
+            }
+            _cfg.AllBlocks = reachableBlocks;
         }
 
         /// <summary>

@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+// Performance: Eliminated LINQ
 
 namespace SharpPy
 {
@@ -367,11 +367,18 @@ namespace SharpPy
             for (int i = 0; i < _instructions.Count; i++)
             {
                 // Check if any label points to this instruction
-                var labelsHere = _labelTargets.Where(kv => kv.Value == i)
-                    .Select(kv => new Label(kv.Key))
-                    .ToList();
+                // Performance: Eliminated LINQ - replaced Where().Select().ToList() with manual filtering
+                var labelsHere = new List<Label>();
+                foreach (var kvp in _labelTargets)
+                {
+                    if (kvp.Value == i)
+                    {
+                        labelsHere.Add(new Label(kvp.Key));
+                    }
+                }
 
-                if (labelsHere.Any())
+                // Performance: Eliminated LINQ - replaced Any() with Count check
+                if (labelsHere.Count > 0)
                 {
                     foreach (var label in labelsHere)
                     {
