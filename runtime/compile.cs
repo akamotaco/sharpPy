@@ -2470,137 +2470,38 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// DEPRECATED: Use CompilerFunctionBody instead (CPython 3.12 pattern)
-        /// Legacy method kept for compatibility with PEP 695 generic functions and generator expressions
+        /// REMOVED: This legacy method has been eliminated to match CPython 3.12 architecture
+        /// Use CompilerFunctionBody instead, which requires proper symbol table setup via SetSymbolTableContext
+        ///
+        /// CPython 3.12 pattern:
+        ///   1. Build symbol table first (_PySymtable_Build)
+        ///   2. Enter scope (compiler_enter_scope sets u->u_ste)
+        ///   3. Compile function body
+        ///
+        /// This ensures symbol table is ALWAYS valid, eliminating need for null checks
         /// </summary>
+        /// <summary>
+        /// LEGACY: Only for AST evaluation path (ast.cs)
+        /// DO NOT use in compiler - use CompilerFunctionBody with SetSymbolTableContext
+        /// This method builds symbol table on-demand, which is less efficient than CPython's approach
+        /// </summary>
+        [Obsolete("Use CompilerFunctionBody with proper symbol table setup for compiler code paths", false)]
         public PyCodeObject CompileFunction(List<Statement> statements, string name, List<string> paramNames, List<PyObject> defaults, int flags = 0, int posonlyArgCount = 0)
         {
-            // Clear all compilation state for new compilation
-            // CPython 3.12: _instructions removed - using InstructionSequence only
-            _constants.Clear();
-            _names.Clear();
-            _varNames.Clear();
-            _exceptionTable.Clear(); // Reset Exception Table
-            _lineNumberTable.Clear(); // Reset line number table
-            _isInFunction = true; // We are now compiling inside a function
-            _currentFunctionName = name; // Track function name for module level detection
+            // AST evaluation path: Build symbol table on-demand
+            var symbolTableBuilder = new SymbolTableBuilder();
+            var functionSymbolTable = symbolTableBuilder.BuildSymbolTable(statements, name);
+            _currentSymbolTable = functionSymbolTable;
 
-            // Calculate correct argCount for CPython 3.12 compatibility
-            int finalArgCount = 0;
-            foreach (var param in paramNames)
-            {
-                if (!param.StartsWith("*")) // Count only regular parameters, exclude *args and **kwargs
-                {
-                    finalArgCount++;
-                }
-            }
+            // Use CompilerFunctionBody now that symbol table is set
+            var kwDefaults = new List<PyObject>();
+            int argCount = paramNames.Count(p => !p.StartsWith("*"));
+            int kwonlyArgCount = 0;
 
-            // 함수 매개변수를 _varNames에 추가
-            foreach (var param in paramNames)
-            {
-                _varNames.Add(param);
-            }
-            
-            #if DEBUG_LOG
-            Console.WriteLine($"\n🔧 컴파일 함수: {name}");
-            #endif
-#if DEBUG_LOG
-            Console.WriteLine($"  매개변수: [{string.Join(", ", paramNames)}]");
-#endif
-            #if DEBUG_LOG
-            Console.WriteLine($"  기본값: [{string.Join(", ", defaults.Select(d => d?.ToString() ?? "None"))}]");
-            #endif
-            
-            // 함수 본문 컴파일
-            foreach (var statement in statements)
-            {
-                CompileStatement(statement);
-            }
-
-            // CPython 3.12: 마지막 statement가 return이 아닐 때만 implicit None return 추가
-            bool endsWithReturn = false;
-            if (statements.Count > 0)
-            {
-                var lastStmt = statements[statements.Count - 1];
-                endsWithReturn = EndsWithReturn(lastStmt);
-#if DEBUG_LOG
-                Console.WriteLine($"🔍 EndsWithReturn check for {name}: lastStmt type = {lastStmt.GetType().Name}, endsWithReturn = {endsWithReturn}");
-#endif
-            }
-
-            if (!endsWithReturn)
-            {
-#if DEBUG_LOG
-                Console.WriteLine($"  → Adding implicit None return for {name}");
-#endif
-                // CPython 3.12: 함수는 RETURN_CONST로 None 반환 (return문이 없을 경우)
-                var noneConstIndex = GetOrAddConstant(PyNone.Instance);
-                EmitInstruction(ByteCodeOp.RETURN_CONST, noneConstIndex);
-            }
-#if DEBUG_LOG
-            else
-            {
-                Console.WriteLine($"  → Skipping implicit None return for {name} (already ends with return)");
-            }
-#endif
-
-            // CPython 3.12: Get final instructions from CFG pipeline FIRST
-            // This is a legacy path that shouldn't be used for generators
-            var finalInstructions = GetFinalInstructions(0);
-
-            // CPython 3.12: Generator 함수 감지 - 임시 객체로 체크
-            var tempCodeObject = new PyCodeObject(name, finalInstructions, _constants, _names, _varNames,
-                                                finalArgCount, posonlyArgCount, 0, null, null, defaults, null, flags, _currentFileName, _sourceLines);
-
-            #if DEBUG_COMPILER_LOG
-            // Performance: Eliminated LINQ
-            var hasYield = false;
-            foreach (var inst in finalInstructions)
-            {
-                if (inst.OpCode == ByteCodeOp.YIELD_VALUE)
-                {
-                    hasYield = true;
-                    break;
-                }
-            }
-            Console.WriteLine($"🔍 Generator 체크: {name}, YIELD_VALUE 있음={hasYield}, IsGenerator()={tempCodeObject.IsGenerator()}");
-            #endif
-
-            // Generator 함수 감지 및 수정
-            if (tempCodeObject.IsGenerator())
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"🔍 Generator 함수 감지: {name}, RETURN_GENERATOR 추가");
-                #endif
-
-                // CPython 3.12: RETURN_GENERATOR -> POP_TOP -> RESUME 0 패턴
-                finalInstructions.Insert(0, new ByteCodeInstruction(ByteCodeOp.RETURN_GENERATOR, 0));
-                finalInstructions.Insert(1, new ByteCodeInstruction(ByteCodeOp.POP_TOP, 0));
-                finalInstructions.Insert(2, new ByteCodeInstruction(ByteCodeOp.RESUME, 0));
-
-                // CO_GENERATOR 플래그 추가
-                flags |= PyCodeObject.CO_GENERATOR;
-                #if DEBUG_LOG
-                Console.WriteLine($"✅ Generator 함수 설정 완료: CO_GENERATOR 플래그 추가");
-                #endif
-            }
-
-            // 최종 PyCodeObject 생성 (수정된 flags 포함)
-            var codeObject = new PyCodeObject(name, finalInstructions, _constants, _names, _varNames,
-                                            finalArgCount, posonlyArgCount, 0, null, null, defaults, null, flags, _currentFileName, _sourceLines);
-            
-            // Add Exception Table entries (CPython 3.12)
-            codeObject.ExceptionTable.AddRange(_exceptionTable);
-            if (!SharpPyConfig.DisassemblyOnlyMode)
-            {
-                #if DEBUG_LOG
-                // CPython 3.12: Function compilation complete (instruction count in CFG)
-                #endif
-            }
-            
-            _isInFunction = false; // Reset function context
-            _currentFunctionName = null; // Reset function name
-            return codeObject;
+            return CompilerFunctionBody(
+                statements, name, paramNames,
+                defaults, kwDefaults, new List<string>(), new List<string>(),
+                flags, argCount, posonlyArgCount, kwonlyArgCount);
         }
         
         /// <summary>
@@ -2827,7 +2728,9 @@ namespace SharpPy
 
                     // CPython 3.12: compile.c:4106-4113
                     // Async generators need to wrap yielded values
-                    if (_currentSymbolTable != null && _currentSymbolTable.IsGenerator && _currentSymbolTable.IsCoroutine)
+                    // CPython guarantees u->u_ste is always valid via compiler_enter_scope (compile.c:1236-1257)
+                    // SharpPy guarantees _currentSymbolTable is set via upfront SymbolTableBuilder analysis
+                    if (_currentSymbolTable.IsGenerator && _currentSymbolTable.IsCoroutine)
                     {
                         EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_ASYNC_GEN_WRAP);
                     }
@@ -5728,11 +5631,27 @@ namespace SharpPy
                 
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, annotationCount);
 
-                // Compile actual function
+                // CPython 3.12: compile.c:2371 - compiler_function_body
+                // Compile actual function using CompilerFunctionBody (not legacy CompileFunction)
                 var compiler = new PythonCompiler();
-                // CPython 3.12: Pass source location information
                 compiler.SetSourceLocation(_currentFileName, _sourceLines);
-                var funcCode = compiler.CompileFunction(func.Body, func.Name, paramNames, defaults, flags);
+
+                // CPython 3.12: Set symbol table context for the function
+                if (_symbolTable != null)
+                {
+                    var funcSymbolTable = _symbolTable.GetChildren().FirstOrDefault(child =>
+                        child.GetName().Contains(func.Name));
+                    if (funcSymbolTable != null)
+                    {
+                        compiler.SetSymbolTableContext(funcSymbolTable);
+                    }
+                    compiler.SetRootSymbolTable(_symbolTable);
+                }
+
+                var funcCode = compiler.CompilerFunctionBody(
+                    func.Body, func.Name, paramNames,
+                    defaults, kwDefaults, new List<string>(), new List<string>(),
+                    flags, argCount, posonlyArgCount, kwonlyArgCount);
                 EmitLoadConst(funcCode);
                 EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 4); // annotations flag
                 
@@ -11393,6 +11312,46 @@ namespace SharpPy
             // CPython 3.12: Pass source location information
             genCompiler.SetSourceLocation(_currentFileName, _sourceLines);
 
+            // CPython 3.12: compile.c:5681-5700
+            // PySTEntryObject *entry = PySymtable_Lookup(c->c_st, (void *)e);
+            // compiler_enter_scope(c, name, COMPILER_SCOPE_COMPREHENSION, ...)
+            // This ensures c->u->u_ste is always set before compiling the generator body
+
+            // CPython uses c->c_st (global symbol table) for lookup, but in practice
+            // the generator expression symbol table is a child of the current scope
+            var searchTable = _currentSymbolTable ?? _symbolTable;
+
+            if (searchTable == null)
+            {
+                throw new InvalidOperationException(
+                    "Symbol table is null when compiling generator expression. " +
+                    "CPython guarantees c->c_st is always valid via _PySymtable_Build. " +
+                    "This indicates SymbolTableBuilder was not called before compilation.");
+            }
+
+            // Look up symbol table for generator expression
+            // Symbol table names for comprehensions use "<genexpr>" pattern
+            var genSymbolTable = searchTable.GetChildren().FirstOrDefault(child =>
+                child.GetName().Contains("genexpr") || child.GetName() == "<genexpr>");
+
+            if (genSymbolTable == null)
+            {
+                throw new InvalidOperationException(
+                    $"Symbol table not found for generator expression '<genexpr>' in scope '{searchTable.GetName()}'. " +
+                    $"CPython guarantees PySymtable_Lookup(c->c_st, (void *)e) always succeeds because " +
+                    $"_PySymtable_Build creates all symbol tables upfront. " +
+                    $"This indicates SymbolTableBuilder.AnalyzeExpression is not recursively analyzing comprehensions. " +
+                    $"Available children: [{string.Join(", ", searchTable.GetChildren().Select(c => c.GetName()))}]");
+            }
+
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"[COMPILER] Found symbol table for genexpr: IsGenerator={genSymbolTable.IsGenerator}, IsCoroutine={genSymbolTable.IsCoroutine}");
+#endif
+            genCompiler.SetSymbolTableContext(genSymbolTable);
+
+            // Pass root symbol table for nested lookups
+            genCompiler.SetRootSymbolTable(_symbolTable);
+
             // 다중 for 루프 지원: 모든 generators 처리
             var outerGenerator = genExp.Generators[0];
             var outerTargetName = outerGenerator.Target is NameExpression nameExpr ? nameExpr.Name : "x";
@@ -11451,8 +11410,14 @@ namespace SharpPy
             // CPython 3.12: 제너레이터 표현식은 iterator를 .0 매개변수로 받음
             var parameters = new List<string> { ".0" };  // 매개변수는 .0 하나
             var defaults = new List<PyObject>();  // 기본값 없음
+            var kwDefaults = new List<PyObject>();  // keyword-only defaults 없음
             var flags = PyCodeObject.CO_GENERATOR;  // CO_GENERATOR 플래그 설정
-            var genCode = genCompiler.CompileFunction(genStatements, "<genexpr>", parameters, defaults, flags);
+
+            // CPython 3.12: Use CompilerFunctionBody (not legacy CompileFunction)
+            var genCode = genCompiler.CompilerFunctionBody(
+                genStatements, "<genexpr>", parameters,
+                defaults, kwDefaults, new List<string>(), new List<string>(),
+                flags, 1, 0, 0);
 
             // 제너레이터 함수 객체 생성
             EmitLoadConst(genCode);

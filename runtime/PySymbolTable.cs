@@ -1173,59 +1173,24 @@ namespace SharpPy
                     AnalyzeExpression(conditional.OrElse);
                     break;
 
+                case GeneratorExpression genExpr:
+                    // CPython 3.12: symtable.c:2605-2610 - symtable_visit_genexp
+                    AnalyzeGeneratorExpression(genExpr);
+                    break;
+
                 case ListComprehension listComp:
-                    // Analyze list comprehensions (walrus operators can be in conditions)
-                    // CPython 3.12: Analyze generators first to define iteration variables
-                    // before analyzing element expression (which may contain lambdas that reference them)
-                    foreach (var generator in listComp.Generators)
-                    {
-                        AnalyzeExpression(generator.Iter);
-                        // CPython 3.12: Comprehension target variables are local to the comprehension
-                        AnalyzeComprehensionTarget(generator.Target);
-                        foreach (var condition in generator.Ifs)
-                        {
-                            AnalyzeExpression(condition);
-                        }
-                    }
-                    // Now analyze the element expression after iteration variables are defined
-                    AnalyzeExpression(listComp.Element);
+                    // CPython 3.12: symtable.c:2612-2618 - symtable_visit_listcomp
+                    AnalyzeListComprehension(listComp);
                     break;
 
                 case DictComprehension dictComp:
-                    // Analyze dict comprehensions
-                    // CPython 3.12: Analyze generators first to define iteration variables
-                    // before analyzing key/value expressions (which may contain lambdas that reference them)
-                    foreach (var generator in dictComp.Generators)
-                    {
-                        AnalyzeExpression(generator.Iter);
-                        // CPython 3.12: Comprehension target variables are local to the comprehension
-                        AnalyzeComprehensionTarget(generator.Target);
-                        foreach (var condition in generator.Ifs)
-                        {
-                            AnalyzeExpression(condition);
-                        }
-                    }
-                    // Now analyze key and value expressions after iteration variables are defined
-                    AnalyzeExpression(dictComp.Key);
-                    AnalyzeExpression(dictComp.Value);
+                    // CPython 3.12: symtable.c:2628-2634 - symtable_visit_dictcomp
+                    AnalyzeDictComprehension(dictComp);
                     break;
 
                 case SetComprehension setComp:
-                    // Analyze set comprehensions
-                    // CPython 3.12: Analyze generators first to define iteration variables
-                    // before analyzing element expression (which may contain lambdas that reference them)
-                    foreach (var generator in setComp.Generators)
-                    {
-                        AnalyzeExpression(generator.Iter);
-                        // CPython 3.12: Comprehension target variables are local to the comprehension
-                        AnalyzeComprehensionTarget(generator.Target);
-                        foreach (var condition in generator.Ifs)
-                        {
-                            AnalyzeExpression(condition);
-                        }
-                    }
-                    // Now analyze the element expression after iteration variables are defined
-                    AnalyzeExpression(setComp.Element);
+                    // CPython 3.12: symtable.c:2620-2626 - symtable_visit_setcomp
+                    AnalyzeSetComprehension(setComp);
                     break;
 
                 case YieldExpression yieldExpr:
@@ -1327,6 +1292,101 @@ namespace SharpPy
             }
 
             _currentTable = savedTable;
+        }
+
+        // CPython 3.12: symtable.c:2530-2602 - symtable_handle_comprehension
+        private void AnalyzeComprehension(Expression expr, string scopeName, List<Comprehension> generators,
+            Expression element, Expression? keyOrValue = null, bool isGenerator = false)
+        {
+            if (generators.Count == 0)
+                return;
+
+            // CPython 3.12: Outermost iterator is evaluated in current scope (line 2549-2552)
+            var outermost = generators[0];
+            AnalyzeExpression(outermost.Iter);
+
+            // CPython 3.12: Create comprehension scope for the rest (line 2554-2559)
+            var compTable = new SymbolTable(scopeName, SymbolTableType.Function);
+            _currentTable?.AddChild(compTable);
+
+            var savedTable = _currentTable;
+            _currentTable = compTable;
+
+            // CPython 3.12: Mark as generator if needed (line 2593)
+            if (isGenerator)
+            {
+                _currentTable.IsGenerator = true;
+            }
+
+            // CPython 3.12: Outermost iter is received as an implicit argument (line 2579-2582)
+            _currentTable.DefineSymbol(".0", SymbolFlags.Parameter | SymbolFlags.Assigned);
+
+            // CPython 3.12: Visit iteration variable target (line 2584-2586)
+            AnalyzeComprehensionTarget(outermost.Target);
+
+            // CPython 3.12: Visit the rest of the comprehension body (line 2588-2592)
+            foreach (var condition in outermost.Ifs)
+            {
+                AnalyzeExpression(condition);
+            }
+
+            // Visit remaining generators
+            for (int i = 1; i < generators.Count; i++)
+            {
+                var gen = generators[i];
+                AnalyzeExpression(gen.Iter);
+                AnalyzeComprehensionTarget(gen.Target);
+                foreach (var condition in gen.Ifs)
+                {
+                    AnalyzeExpression(condition);
+                }
+            }
+
+            // Visit the element expression (and key/value for dict comprehensions)
+            if (keyOrValue != null)
+                AnalyzeExpression(keyOrValue);
+            AnalyzeExpression(element);
+
+            // CPython 3.12: Resolve free variables before exiting scope
+            ResolveFreeVariables(_currentTable);
+
+            _currentTable = savedTable;
+        }
+
+        // CPython 3.12: symtable.c:2605-2610
+        private void AnalyzeGeneratorExpression(GeneratorExpression genExpr)
+        {
+#if DEBUG_LOG
+            Console.WriteLine($"      AnalyzeExpression: GeneratorExpression in scope '{_currentTable?.GetName()}'");
+#endif
+            AnalyzeComprehension(genExpr, "<genexpr>", genExpr.Generators, genExpr.Element, isGenerator: true);
+        }
+
+        // CPython 3.12: symtable.c:2612-2618
+        private void AnalyzeListComprehension(ListComprehension listComp)
+        {
+#if DEBUG_LOG
+            Console.WriteLine($"      AnalyzeExpression: ListComprehension in scope '{_currentTable?.GetName()}'");
+#endif
+            AnalyzeComprehension(listComp, "<listcomp>", listComp.Generators, listComp.Element, isGenerator: false);
+        }
+
+        // CPython 3.12: symtable.c:2620-2626
+        private void AnalyzeSetComprehension(SetComprehension setComp)
+        {
+#if DEBUG_LOG
+            Console.WriteLine($"      AnalyzeExpression: SetComprehension in scope '{_currentTable?.GetName()}'");
+#endif
+            AnalyzeComprehension(setComp, "<setcomp>", setComp.Generators, setComp.Element, isGenerator: false);
+        }
+
+        // CPython 3.12: symtable.c:2628-2634
+        private void AnalyzeDictComprehension(DictComprehension dictComp)
+        {
+#if DEBUG_LOG
+            Console.WriteLine($"      AnalyzeExpression: DictComprehension in scope '{_currentTable?.GetName()}'");
+#endif
+            AnalyzeComprehension(dictComp, "<dictcomp>", dictComp.Generators, dictComp.Value, dictComp.Key, isGenerator: false);
         }
 
         private void AnalyzeClass(ClassDefStatement cls)
