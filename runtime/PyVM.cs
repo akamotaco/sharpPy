@@ -1121,8 +1121,21 @@ namespace SharpPy
                                 #endif
                             }
 
+                            // CPython 3.12: Push lasti if required (for WITH_EXCEPT_START)
+                            // CPython ceval.c:972-978
+                            if (exceptionEntry.Lasti)
+                            {
+                                // Push current instruction pointer as lasti (PyLong)
+                                var lastiValue = new PyInt(frame.InstructionPointer);
+                                frame.ValueStack.Push(lastiValue);
+                                #if DEBUG_LOG
+                                Console.WriteLine($"🔧 Exception handled: pushed lasti={frame.InstructionPointer} to stack");
+                                #endif
+                            }
+
                             // CPython 3.12: Push exception instance to stack for PUSH_EXC_INFO
-                            // PUSH_EXC_INFO will convert it to proper format later
+                            // CPython ceval.c:985-986
+                            // PUSH_EXC_INFO will add prev_exc, transforming stack to: [..., lasti (if lasti=true), prev_exc, exc]
                             frame.ValueStack.Push(pyEx.PyException);
                             #if DEBUG_LOG
                             Console.WriteLine($"🔧 Exception handled: pushed exception instance to stack (depth={exceptionEntry.Depth}, lasti={exceptionEntry.Lasti})");
@@ -3951,84 +3964,70 @@ namespace SharpPy
                         break;
                     }
 
-                    // CPython 3.12: Stack layout after PUSH_EXC_INFO: [..., __exit__, exception, PyExceptionInfo]
-                    // Get PyExceptionInfo (TOS) - should be at top of stack
-                    var exceptionInfoObj = frame.ValueStack.Pop();
+                    // CPython 3.12: Stack layout (CPython bytecodes.c:2523-2549)
+                    // TOS: val (exception instance)
+                    // TOS-1: unused (previous exception)
+                    // TOS-2: lasti (instruction index as PyLong)
+                    // TOS-3: exit_func (__exit__ method)
 
-                    // Dynamic validation: Check if TOS is PyExceptionInfo
-                    if (!(exceptionInfoObj is PyExceptionInfo))
+                    // Pop stack in reverse order
+                    var val = frame.ValueStack.Pop();      // TOS
+                    var unused = frame.ValueStack.Pop();   // TOS-1
+                    var lasti = frame.ValueStack.Pop();    // TOS-2
+                    var exit_func = frame.ValueStack.Pop(); // TOS-3
+
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 WITH_EXCEPT_START: Extracted from stack:");
+                    Console.WriteLine($"   val (exc) = {val}");
+                    Console.WriteLine($"   unused (prev_exc) = {unused}");
+                    Console.WriteLine($"   lasti = {lasti}");
+                    Console.WriteLine($"   exit_func = {exit_func}");
+                    #endif
+
+                    // Validate val is an exception
+                    if (!(val is PyException pyExcVal))
                     {
                         #if DEBUG_LOG
-                        Console.WriteLine($"❌ WITH_EXCEPT_START: Expected PyExceptionInfo at TOS, got {exceptionInfoObj?.GetType().Name}");
+                        Console.WriteLine($"❌ WITH_EXCEPT_START: val is not PyException, got {val?.GetType().Name}");
                         #endif
-                        frame.ValueStack.Push(exceptionInfoObj); // Restore stack
+                        // Restore stack and return False
+                        frame.ValueStack.Push(exit_func);
+                        frame.ValueStack.Push(lasti);
+                        frame.ValueStack.Push(unused);
+                        frame.ValueStack.Push(val);
                         frame.ValueStack.Push(PyBool.False);
                         break;
                     }
 
-                    // Check if we have enough items for context exit method
-                    if (frame.ValueStack.Count == 0)
+                    // CPython bytecodes.c:2535: exc = PyExceptionInstance_Class(val)
+                    var exc_type = pyExcVal.GetPyType();
+
+                    // CPython bytecodes.c:2536-2542: tb = PyException_GetTraceback(val)
+                    PyObject exc_tb;
+                    try
                     {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"❌ WITH_EXCEPT_START: No context exit method on stack");
-                        #endif
-                        frame.ValueStack.Push(exceptionInfoObj); // Restore stack
-                        frame.ValueStack.Push(PyBool.False);
-                        break;
+                        var tb_attr = pyExcVal.GetAttribute("__traceback__");
+                        exc_tb = (tb_attr == PyNone.Instance) ? PyNone.Instance : tb_attr;
+                    }
+                    catch
+                    {
+                        exc_tb = PyNone.Instance;
                     }
 
-                    // Skip exception object and get __exit__ method
-                    var exceptionObj = frame.ValueStack.Pop(); // Skip exception
-
-                    if (frame.ValueStack.Count == 0)
-                    {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"❌ WITH_EXCEPT_START: No context exit method on stack");
-                        #endif
-                        frame.ValueStack.Push(exceptionObj);     // Restore stack
-                        frame.ValueStack.Push(exceptionInfoObj);
-                        frame.ValueStack.Push(PyBool.False);
-                        break;
-                    }
-
-                    var contextExitMethod = frame.ValueStack.Pop(); // __exit__ method
-
                     #if DEBUG_LOG
-                    Console.WriteLine($"🔧 WITH_EXCEPT_START: Found __exit__ method: {contextExitMethod}");
+                    Console.WriteLine($"🔧 WITH_EXCEPT_START: Calling exit_func(exc_type={exc_type}, val={val}, tb={exc_tb})");
                     #endif
 
-                    // Already validated above, safe to cast
-                    var withExceptionInfo = (PyExceptionInfo)exceptionInfoObj;
-
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔧 WITH_EXCEPT_START: Reading exception info from PyExceptionInfo");
-                    #endif
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   exc_type={withExceptionInfo.ExcType}, exc_value={withExceptionInfo.ExcValue}");
-                    #endif
-                    #if DEBUG_LOG
-                    Console.WriteLine($"   exc_traceback={withExceptionInfo.ExcTraceback}, lasti={withExceptionInfo.Lasti}");
-                    #endif
-
-                    // Push items back for POP_TOP and POP_EXCEPT cleanup
-                    // CPython 3.12: Need 4 items for the 4 POP operations (28: POP_TOP, 29: POP_EXCEPT, 30: POP_TOP, 31: POP_TOP)
-                    // Order: Items pushed in reverse order of POP operations
-                    frame.ValueStack.Push(PyNone.Instance);            // For POP_TOP (31) - bottom
-                    frame.ValueStack.Push(PyNone.Instance);            // For POP_TOP (30)
-                    frame.ValueStack.Push(withExceptionInfo);          // For POP_EXCEPT (29)
-                    frame.ValueStack.Push(contextExitMethod);          // For POP_TOP (28) - top
-
+                    // CPython bytecodes.c:2545-2546: Call __exit__(exc_type, val, tb)
                     bool suppressException = false;
-
-                    if (contextExitMethod?.IsCallable() == true)
+                    if (exit_func?.IsCallable() == true)
                     {
                         try
                         {
-                            // CPython 3.12: Call __exit__(exc_type, exc_value, exc_traceback)
-                            var exitResult = contextExitMethod.Call(new PyObject[] {
-                                withExceptionInfo.ExcType,
-                                withExceptionInfo.ExcValue,
-                                withExceptionInfo.ExcTraceback
+                            var exitResult = exit_func.Call(new PyObject[] {
+                                exc_type,
+                                val,
+                                exc_tb
                             }, null);
 
                             // Convert result to boolean
@@ -4043,9 +4042,7 @@ namespace SharpPy
                             #if DEBUG_LOG
                             Console.WriteLine($"❌ WITH_EXCEPT_START: __exit__ threw exception: {exitException.Message}");
                             #endif
-                            suppressException = false;
-
-                            // Re-throw the new exception
+                            // Re-throw the new exception from __exit__
                             var newPyException = ConvertToPythonException(exitException);
                             throw new PythonException(newPyException);
                         }
@@ -4053,12 +4050,16 @@ namespace SharpPy
                     else
                     {
                         #if DEBUG_LOG
-                        Console.WriteLine($"❌ WITH_EXCEPT_START: Not callable: {contextExitMethod?.GetType().Name}");
+                        Console.WriteLine($"❌ WITH_EXCEPT_START: exit_func not callable: {exit_func?.GetType().Name}");
                         #endif
-                        suppressException = false;
                     }
 
-                    // CPython 3.12: Push boolean result for POP_JUMP_IF_TRUE
+                    // CPython bytecodes.c: Restore stack and push result
+                    // Stack after: [..., exit_func, lasti, unused, val, res]
+                    frame.ValueStack.Push(exit_func);
+                    frame.ValueStack.Push(lasti);
+                    frame.ValueStack.Push(unused);
+                    frame.ValueStack.Push(val);
                     frame.ValueStack.Push(PyBool.FromBool(suppressException));
 
                     // DEBUG: 스택 상태 확인

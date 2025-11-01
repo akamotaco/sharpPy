@@ -865,13 +865,17 @@ namespace SharpPy
         /// </summary>
         private void CompilerCallExitWithNones(SourceLocation loc)
         {
-            // Load __exit__ method
-            EmitInstruction(ByteCodeOp.COPY, 2); // context manager
+            // CPython compile.c:1487-1494 compiler_call_exit_with_nones
+            // Stack: [... context_manager]  (after SWAP 2 if preserveTos=true)
+            // Push 3 Nones for __exit__(exc_type, exc_val, exc_tb)
             EmitLoadConst(PyNone.Instance);  // exc_type
             EmitLoadConst(PyNone.Instance);  // exc_value
             EmitLoadConst(PyNone.Instance);  // exc_tb
-            // Call: __exit__(None, None, None)
-            EmitInstruction(ByteCodeOp.CALL, 3);
+            // Call: context_manager.__exit__(None, None, None)
+            // CALL 2: means 2 arguments (not counting the callable itself)
+            // Stack before CALL: [... context_manager, None, None, None]
+            // Stack after CALL: [... return_value]
+            EmitInstruction(ByteCodeOp.CALL, 2);
         }
 
         // ========== End of FBlock Operations ==========
@@ -7601,9 +7605,12 @@ namespace SharpPy
             var finallyExceptCleanupLabel = hasFinally ? _instructionSequence.NewLabel() : default(SharpPy.Label);
 
             // 1. SETUP_FINALLY - marks try block start, pushes exception handler to stack
-            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, exceptLabel, _currentLineNumber);
+            // CPython compile.c:3249 - If finally exists, exception jumps to finally path (end label)
+            // CPython compile.c:3269 - USE_LABEL(end) is where finally exception handler starts
+            var exceptionTarget = hasFinally ? finallyExceptLabel : exceptLabel;
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, exceptionTarget, _currentLineNumber);
             // Push exception handler to compiler stack (CPython: compiler->u->u_except_stack)
-            _exceptionHandlerStack.Push(exceptLabel);
+            _exceptionHandlerStack.Push(exceptionTarget);
             #if DEBUG
             Console.WriteLine($"[TEMP] CompileTryStatementCFG: Pushed outer handler {exceptLabel} to stack. Stack count = {_exceptionHandlerStack.Count}");
             #endif
@@ -8197,14 +8204,26 @@ namespace SharpPy
         {
             var item = withStmt.Items[0];
 
-            // CPython 3.12 pattern with proper exception handling:
+            // CPython 3.12 pattern with proper exception handling (compile.c:6004-6063):
             // 1. Load context manager
             CompileExpression(item.ContextExpr);
 
             // 2. BEFORE_WITH: Load __exit__ to stack, call __enter__(), push result
+            var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
             EmitInstruction(ByteCodeOp.BEFORE_WITH);
 
-            // 3. CPython 3.12: Handle __enter__ result immediately after BEFORE_WITH
+            // 3. SETUP_WITH: Setup exception handler (CPython compile.c:6020)
+            // CRITICAL: This is what enables exception handling in with statement!
+            var withCleanupLabel = _instructionSequence.NewLabel();
+            var endLabel = _instructionSequence.NewLabel();
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_WITH, withCleanupLabel, _currentLineNumber);
+
+            // 4. Push WITH fblock (CPython compile.c:6024)
+            var blockLabel = _instructionSequence.NewLabel();
+            _instructionSequence.UseLabel(blockLabel);
+            PushFBlock(loc, FBlockType.WITH, blockLabel, withCleanupLabel, withStmt);
+
+            // 5. CPython 3.12: Handle __enter__ result immediately after SETUP_WITH
             if (item.OptionalVars != null)
             {
                 // Use proper assignment target compilation for correct scoping
@@ -8216,33 +8235,26 @@ namespace SharpPy
                 EmitInstruction(ByteCodeOp.POP_TOP);
             }
 
-            // 4. Setup exception handler using fblock (CPython 3.12 CFG style)
-            var withCleanupLabel = _instructionSequence.NewLabel();
-            var endLabel = _instructionSequence.NewLabel();
-
-            // Push WITH fblock (CPython 3.12: uses WITH type, not EXCEPTION_HANDLER)
-            // fb_block = withCleanupLabel (not used), fb_exit = endLabel (not used)
-            var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
-            PushFBlock(loc, FBlockType.WITH, withCleanupLabel, endLabel, withStmt);
-
-            // 5. Execute body (all instructions will be marked with exception handler)
+            // 6. Execute body (all instructions will be marked with exception handler)
             foreach (var stmt in withStmt.Body)
             {
                 CompileStatement(stmt);
             }
 
-            // 6. Pop WITH fblock (body complete)
-            PopFBlock(FBlockType.WITH, withCleanupLabel);
+            // 7. Pop exception handler (CPython compile.c:6043)
+            EmitInstruction(ByteCodeOp.POP_BLOCK);
 
-            // 7. Normal exit: call __exit__(None, None, None)
-            var noneConstIndex = GetOrAddConstant(PyNone.Instance);
-            EmitInstruction(ByteCodeOp.LOAD_CONST, noneConstIndex);
-            EmitInstruction(ByteCodeOp.LOAD_CONST, noneConstIndex);
-            EmitInstruction(ByteCodeOp.LOAD_CONST, noneConstIndex);
+            // 8. Pop WITH fblock (body complete - CPython compile.c:6044)
+            PopFBlock(FBlockType.WITH, blockLabel);
+
+            // 9. Normal exit: call __exit__(None, None, None) (CPython compile.c:6051-6052)
+            EmitLoadConst(PyNone.Instance);
+            EmitLoadConst(PyNone.Instance);
+            EmitLoadConst(PyNone.Instance);
             EmitInstruction(ByteCodeOp.CALL, 2);  // __exit__(exc_type, exc_val, exc_tb)
             EmitInstruction(ByteCodeOp.POP_TOP);  // discard __exit__ return value
 
-            // Jump to end
+            // Jump to end (CPython compile.c:6053)
             _instructionSequence.AddOpWithLabel(
                 ByteCodeOp.JUMP,
                 endLabel,
@@ -8251,12 +8263,18 @@ namespace SharpPy
                 _currentFileName
             );
 
-            // 8. Exception handler (CPython 3.12: PUSH_EXC_INFO → WITH_EXCEPT_START)
+            // 10. Exception handler (CPython compile.c:6056-6061)
             _instructionSequence.UseLabel(withCleanupLabel);
+
+            // Setup cleanup for nested exceptions (CPython compile.c:6058)
+            var cleanupLabel = _instructionSequence.NewLabel();
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, cleanupLabel, _currentLineNumber);
+
+            // Push exception info and call __exit__ with exception (CPython compile.c:6059-6060)
             EmitInstruction(ByteCodeOp.PUSH_EXC_INFO);
             EmitInstruction(ByteCodeOp.WITH_EXCEPT_START);
 
-            // Check if exception was suppressed
+            // Check if exception was suppressed (CPython compile.c:6061 - compiler_with_except_finish)
             var suppressLabel = _instructionSequence.NewLabel();
             _instructionSequence.AddOpWithLabel(
                 ByteCodeOp.POP_JUMP_IF_TRUE,
@@ -8267,14 +8285,29 @@ namespace SharpPy
             );
 
             // Re-raise exception if not suppressed
-            EmitInstruction(ByteCodeOp.RERAISE, 0);
+            EmitInstruction(ByteCodeOp.RERAISE, 2);
 
-            // Exception suppressed - continue normally (CPython 3.12 compatible)
+            // Exception suppressed - continue normally (CPython compile.c:5860-5867)
             _instructionSequence.UseLabel(suppressLabel);
-            EmitInstruction(ByteCodeOp.POP_TOP);     // Remove suppress boolean
+            EmitInstruction(ByteCodeOp.POP_TOP);     // Remove exc_value
             EmitInstruction(ByteCodeOp.POP_EXCEPT);  // Remove exception info
-            EmitInstruction(ByteCodeOp.POP_TOP);     // Additional cleanup
-            EmitInstruction(ByteCodeOp.POP_TOP);     // Additional cleanup
+            EmitInstruction(ByteCodeOp.POP_TOP);     // Remove lasti
+            EmitInstruction(ByteCodeOp.POP_TOP);     // Remove exit_func
+
+            // Jump to end label to skip cleanup handler (CPython compile.c:5867)
+            _instructionSequence.AddOpWithLabel(
+                ByteCodeOp.JUMP,
+                endLabel,
+                _currentLineNumber,
+                _currentColumnOffset,
+                _currentFileName
+            );
+
+            // Cleanup handler for nested exceptions (CPython compile.c:5869-5870)
+            _instructionSequence.UseLabel(cleanupLabel);
+            EmitInstruction(ByteCodeOp.COPY, 3);
+            EmitInstruction(ByteCodeOp.POP_EXCEPT);
+            EmitInstruction(ByteCodeOp.RERAISE, 1);
 
             // Mark end label
             _instructionSequence.UseLabel(endLabel);
