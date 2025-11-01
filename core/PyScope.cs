@@ -598,7 +598,7 @@ namespace SharpPy
 #if DEBUG_LOG
             Console.WriteLine($"🔍 AssignVariable Debug: name={name}, CurrentScope={CurrentScope?.Name}, Type={CurrentScope?.Type}");
 #endif
-            
+
             if (globalVars?.Contains(name) == true)
             {
                 GlobalScope.SetVariable(name, value);

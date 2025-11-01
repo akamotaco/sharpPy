@@ -202,6 +202,8 @@ namespace SharpPy
             _builtinImplementations["complex"] = (args, kwargs) => CallComplex(args, kwargs);
             _builtinImplementations["bool"] = (args, kwargs) => CallBool(args, kwargs);
             _builtinImplementations["eval"] = (args, kwargs) => CallEval(args, kwargs);
+            _builtinImplementations["compile"] = (args, kwargs) => CallCompile(args, kwargs);
+            _builtinImplementations["exec"] = (args, kwargs) => CallExec(args, kwargs);
             _builtinImplementations["list"] = (args, kwargs) => CallList(args, kwargs);
             _builtinImplementations["tuple"] = (args, kwargs) => CallTuple(args, kwargs);
             _builtinImplementations["dict"] = (args, kwargs) => CallDict(args, kwargs);
@@ -1195,11 +1197,11 @@ namespace SharpPy
 
             // CPython 3.12: Add __builtins__ to globals if not present
             var builtinsKey = new PyString("__builtins__");
-            if (!globals.InternalDict.ContainsKey(builtinsKey))
+            if (!globals.Contains(builtinsKey).Value)
             {
                 // Get builtins module
                 var builtinsModule = BuiltinsModule.CreateBuiltinsModule();
-                globals.InternalDict[builtinsKey] = builtinsModule;
+                globals.SetItem(builtinsKey, builtinsModule);  // Use SetItem to update _keys
             }
 
             PyCodeObject codeObject;
@@ -1244,6 +1246,276 @@ namespace SharpPy
             // 4. Execute with provided globals/locals
             var vm = PyVM.Instance;
             return vm.ExecuteExpression(codeObject, globals, locals);
+        }
+
+        private static PyObject CallCompile(PyObject[] args, PyDict kwargs = null)
+        {
+            // CPython 3.12: Python/bltinmodule.c:builtin_compile_impl
+            // compile(source, filename, mode, flags=0, dont_inherit=False, optimize=-1)
+
+            if (args.Length < 3)
+                throw PyTypeError.Create($"compile expected at least 3 arguments, got {args.Length}");
+
+            if (args.Length > 6)
+                throw PyTypeError.Create($"compile expected at most 6 arguments, got {args.Length}");
+
+            var source = args[0];
+            var filenameArg = args[1];
+            var modeArg = args[2];
+            // int flags = args.Length > 3 ? ... : 0;  // Future: compilation flags
+            // bool dont_inherit = args.Length > 4 ? ... : false;
+            // int optimize = args.Length > 5 ? ... : -1;
+
+            // Extract filename
+            string filename;
+            if (filenameArg is PyString pyFilename)
+                filename = pyFilename.Value;
+            else
+                throw PyTypeError.Create($"compile() arg 2 must be str, not '{filenameArg.GetTypeName()}'");
+
+            // Extract mode
+            string mode;
+            if (modeArg is PyString pyMode)
+                mode = pyMode.Value;
+            else
+                throw PyTypeError.Create($"compile() arg 3 must be str, not '{modeArg.GetTypeName()}'");
+
+            // Validate mode
+            if (mode != "exec" && mode != "eval" && mode != "single")
+                throw PyValueError.Create($"compile() mode must be 'exec', 'eval' or 'single', not '{mode}'");
+
+            // If source is already a code object, return it as-is (CPython behavior)
+            if (source is PyCodeObject pyCode)
+                return pyCode;
+
+            // Extract source code string
+            string sourceCode;
+            if (source is PyString pyString)
+                sourceCode = pyString.Value;
+            else
+                throw PyTypeError.Create($"compile() arg 1 must be a string, bytes or code object, not '{source.GetTypeName()}'");
+
+            PyCodeObject codeObject;
+
+            try
+            {
+                // 1. Tokenize
+                var tokens = PyParserRuntime.LexerSource(sourceCode);
+
+                // 2. Parse based on mode
+                if (mode == "eval")
+                {
+                    // Parse as expression
+                    var expression = PyParserRuntime.ParseExpression(tokens, sourceCode, filename);
+
+                    // Wrap in Return statement for eval mode
+                    var returnStmt = new ReturnStatement(expression);
+                    var statements = new List<Statement> { returnStmt };
+
+                    var compiler = new PythonCompiler();
+                    // CPython: code object name is "<module>" for eval mode
+                    codeObject = compiler.Compile(statements, "<module>", new List<string>(), filename);
+                }
+                else if (mode == "exec")
+                {
+                    // Parse as module (statements)
+                    var statements = PyParserRuntime.ParseSource(tokens, sourceCode, filename);
+
+                    var compiler = new PythonCompiler();
+                    // CPython: code object name is "<module>" for exec mode
+                    codeObject = compiler.Compile(statements, "<module>", new List<string>(), filename);
+                }
+                else // mode == "single"
+                {
+                    // Parse as single interactive statement
+                    // CPython: single mode prints expression results automatically
+                    var statements = PyParserRuntime.ParseSource(tokens, sourceCode, filename);
+
+                    var compiler = new PythonCompiler();
+                    // CPython: code object name is "<module>" for single mode
+                    codeObject = compiler.Compile(statements, "<module>", new List<string>(), filename);
+                }
+            }
+            catch (Exception ex)
+            {
+                throw PySyntaxError.Create($"invalid syntax: {ex.Message}", filename, 0);
+            }
+
+            return codeObject;
+        }
+
+        private static PyObject CallExec(PyObject[] args, PyDict kwargs = null)
+        {
+            // CPython 3.12: Python/bltinmodule.c:builtin_exec_impl
+            // exec(object, globals=None, locals=None)
+
+            if (args.Length == 0)
+                throw PyTypeError.Create("exec expected at least 1 argument, got 0");
+
+            if (args.Length > 3)
+                throw PyTypeError.Create($"exec expected at most 3 arguments, got {args.Length}");
+
+            var source = args[0];
+            PyDict globals = args.Length > 1 && args[1] != PyNone.Instance ? args[1] as PyDict : null;
+            PyDict locals = args.Length > 2 && args[2] != PyNone.Instance ? args[2] as PyDict : null;
+
+            // Validate arguments
+            if (args.Length > 1 && args[1] != PyNone.Instance && !(args[1] is PyDict))
+                throw PyTypeError.Create("exec() globals must be a dict, not '" + args[1].GetTypeName() + "'");
+            if (args.Length > 2 && args[2] != PyNone.Instance && !(args[2] is PyDict))
+                throw PyTypeError.Create("exec() locals must be a mapping");
+
+            // CPython 3.12: If globals is not provided, use current frame's globals/locals
+            if (globals == null)
+            {
+                // Get current executing frame
+                var currentFrame = PyVM.CurrentFrame;
+                if (currentFrame != null)
+                {
+                    // Convert frame's globals to PyDict
+                    globals = new PyDict();
+                    foreach (var kvp in currentFrame.Globals)
+                    {
+                        globals.InternalDict[new PyString(kvp.Key)] = kvp.Value;
+                    }
+
+                    // Convert frame's local scope to PyDict
+                    if (locals == null)
+                    {
+                        locals = new PyDict();
+                        if (currentFrame.LocalScope != null)
+                        {
+                            foreach (var kvp in currentFrame.LocalScope.Variables)
+                            {
+                                locals.InternalDict[new PyString(kvp.Key)] = kvp.Value;
+                            }
+                        }
+
+                        // If no local variables, use globals for locals (like CPython)
+                        if (locals.InternalDict.Count == 0)
+                            locals = globals;
+                    }
+                }
+                else
+                {
+                    // No current frame - create empty dicts
+                    globals = new PyDict();
+                    if (locals == null)
+                        locals = globals;
+                }
+            }
+            else if (locals == null)
+            {
+                // If globals is provided but locals is not, locals = globals
+                locals = globals;
+            }
+
+            // CPython 3.12: Add __builtins__ to globals if not present
+            var builtinsKey = new PyString("__builtins__");
+            if (!globals.Contains(builtinsKey).Value)
+            {
+                // Get builtins module
+                var builtinsModule = BuiltinsModule.CreateBuiltinsModule();
+                globals.SetItem(builtinsKey, builtinsModule);  // Use SetItem to update _keys
+            }
+
+            PyCodeObject codeObject;
+
+            // If source is already a code object, use it directly
+            if (source is PyCodeObject pyCode)
+            {
+                codeObject = pyCode;
+            }
+            // If source is a string, compile it first
+            else if (source is PyString pyString)
+            {
+                string sourceCode = pyString.Value;
+                string filename = "<string>";
+
+                try
+                {
+                    // 1. Tokenize
+                    var tokens = PyParserRuntime.LexerSource(sourceCode);
+
+                    // 2. Parse as statements (exec mode)
+                    var statements = PyParserRuntime.ParseSource(tokens, sourceCode, filename);
+
+                    // 3. Compile to bytecode
+                    // CPython: code object name is "<module>" for exec mode, filename is "<string>"
+                    var compiler = new PythonCompiler();
+                    codeObject = compiler.Compile(statements, "<module>", new List<string>(), filename);
+                }
+                catch (Exception ex)
+                {
+                    throw PySyntaxError.Create($"invalid syntax: {ex.Message}", filename, 0);
+                }
+            }
+            else
+            {
+                throw PyTypeError.Create($"exec() arg 1 must be a string, bytes or code object, not '{source.GetTypeName()}'");
+            }
+
+            // 4. Execute with provided globals/locals (exec returns None)
+            // CPython pattern: PyEval_EvalCode(source, globals, locals)
+            // Create a scope chain from the provided globals/locals
+            var scopeChain = new PyScopeChain();
+
+            // Convert globals dict to global scope variables
+            // IMPORTANT: Use scopeChain.GlobalScope.Variables directly (like ExecuteExpression)
+            if (globals != null)
+            {
+                foreach (var kvp in globals.InternalDict)
+                {
+                    if (kvp.Key is PyString keyStr)
+                    {
+                        scopeChain.GlobalScope.Variables[keyStr.Value] = kvp.Value;
+                    }
+                }
+            }
+
+            // If locals is different from globals, push a new local scope
+            // CPython 3.12: exec() creates a new local scope if locals dict is provided
+            PyScope localScope = null;
+            if (locals != null && locals != globals)
+            {
+                localScope = scopeChain.PushScope(ScopeType.Local, "exec_locals");
+
+                foreach (var kvp in locals.InternalDict)
+                {
+                    if (kvp.Key is PyString keyStr)
+                    {
+                        localScope.Variables[keyStr.Value] = kvp.Value;
+                    }
+                }
+            }
+
+            // Execute the code object
+            var vm = PyVM.Instance;
+            vm.ExecuteModule(codeObject, scopeChain);
+
+            // Copy modified scope variables back to the dicts
+            // IMPORTANT: Use PyDict.Clear() and SetItem() to update both _dict and _keys
+            if (localScope != null)
+            {
+                // If locals dict was provided separately, copy local scope back
+                locals.Clear();  // Clears both _dict and _keys
+                foreach (var kvp in localScope.Variables)
+                {
+                    locals.SetItem(new PyString(kvp.Key), kvp.Value);  // Updates both _dict and _keys
+                }
+            }
+            else
+            {
+                // If no separate locals, copy global scope back to globals dict
+                globals.Clear();
+                foreach (var kvp in scopeChain.GlobalScope.Variables)
+                {
+                    globals.SetItem(new PyString(kvp.Key), kvp.Value);
+                }
+            }
+
+            // CPython: exec() always returns None
+            return PyNone.Instance;
         }
 
         private static PyObject CallBool(PyObject[] args, PyDict kwargs = null)

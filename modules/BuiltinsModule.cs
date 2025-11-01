@@ -116,6 +116,8 @@ namespace SharpPy.Modules
             module.ModuleDict["input"] = new PyBuiltinFunction("input");
             module.ModuleDict["repr"] = new PyBuiltinFunction("repr");
             module.ModuleDict["eval"] = new PyBuiltinFunction("eval");
+            module.ModuleDict["compile"] = new PyBuiltinFunction("compile");
+            module.ModuleDict["exec"] = new PyBuiltinFunction("exec");
             module.ModuleDict["id"] = new PyBuiltinFunction("id");
             module.ModuleDict["hash"] = new PyBuiltinFunction("hash");
             module.ModuleDict["callable"] = new PyBuiltinFunction("callable");
