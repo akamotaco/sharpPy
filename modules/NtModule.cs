@@ -3,6 +3,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 
+#if GODOT
+using IOHelper = Godot_IO.Helper;
+#else
+using IOHelper = DotNet_IO.Helper;
+#endif
+
 namespace SharpPy.Modules
 {
     /// <summary>
@@ -98,11 +104,11 @@ namespace SharpPy.Modules
 
             try
             {
-                var entries = Directory.GetFileSystemEntries(path);
+                var entries = IOHelper.GetFileSystemEntries(path);
                 var result = new List<PyObject>();
                 foreach (var entry in entries)
                 {
-                    result.Add(new PyString(Path.GetFileName(entry)));
+                    result.Add(new PyString(IOHelper.GetFileName(entry)));
                 }
                 return new PyList(result);
             }
@@ -128,7 +134,7 @@ namespace SharpPy.Modules
 
             try
             {
-                Directory.CreateDirectory(path);
+                IOHelper.CreateDirectory(path);
                 return PyNone.Instance;
             }
             catch (IOException ex)
@@ -151,7 +157,7 @@ namespace SharpPy.Modules
             string path = args[0].ToStr().Value;
             try
             {
-                Directory.Delete(path, false);
+                IOHelper.DeleteDirectory(path, false);
                 return PyNone.Instance;
             }
             catch (DirectoryNotFoundException)
@@ -178,7 +184,7 @@ namespace SharpPy.Modules
             string path = args[0].ToStr().Value;
             try
             {
-                File.Delete(path);
+                IOHelper.DeleteFile(path);
                 return PyNone.Instance;
             }
             catch (FileNotFoundException)
@@ -202,10 +208,8 @@ namespace SharpPy.Modules
             string dst = args[1].ToStr().Value;
             try
             {
-                if (File.Exists(src))
-                    File.Move(src, dst);
-                else if (Directory.Exists(src))
-                    Directory.Move(src, dst);
+                if (IOHelper.FileExists(src) || IOHelper.DirExists(src))
+                    IOHelper.Move(src, dst);
                 else
                     throw new FileNotFoundException();
                 return PyNone.Instance;
@@ -231,9 +235,9 @@ namespace SharpPy.Modules
             try
             {
                 FileSystemInfo info;
-                if (File.Exists(path))
+                if (IOHelper.FileExists(path))
                     info = new FileInfo(path);
-                else if (Directory.Exists(path))
+                else if (IOHelper.DirExists(path))
                     info = new DirectoryInfo(path);
                 else
                     throw new FileNotFoundException();
@@ -266,15 +270,15 @@ namespace SharpPy.Modules
                 // F_OK (0): exists
                 if (mode == 0)
                 {
-                    bool exists = File.Exists(path) || Directory.Exists(path);
+                    bool exists = IOHelper.FileExists(path) || IOHelper.DirExists(path);
                     return exists ? PyBool.True : PyBool.False;
                 }
 
                 // R_OK, W_OK, X_OK - simplified for cross-platform
                 FileSystemInfo info;
-                if (File.Exists(path))
+                if (IOHelper.FileExists(path))
                     info = new FileInfo(path);
-                else if (Directory.Exists(path))
+                else if (IOHelper.DirExists(path))
                     info = new DirectoryInfo(path);
                 else
                     return PyBool.False;

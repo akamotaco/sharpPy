@@ -1,5 +1,11 @@
 using SharpPy.Utils;
 
+#if GODOT
+using IOHelper = Godot_IO.Helper;
+#else
+using IOHelper = DotNet_IO.Helper;
+#endif
+
 namespace SharpPy
 {
     #region Module and Import System
@@ -35,21 +41,21 @@ public class PyNamespaceModule : PyModule
         foreach (var namespaceDir in NamespaceDirs)
         {
             // 서브모듈 파일 검색
-            var submoduleFile = System.IO.Path.Combine(namespaceDir, submoduleName + ".py");
-            if (System.IO.File.Exists(submoduleFile))
+            var submoduleFile = IOHelper.CombinePath(namespaceDir, submoduleName + ".py");
+            if (IOHelper.FileExists(submoduleFile))
             {
                 var fullName = $"{Name}.{submoduleName}";
                 return PyImportSystem.LoadModuleFromFile(fullName, submoduleFile);
             }
-            
+
             // 서브패키지 검색
-            var subpackageDir = System.IO.Path.Combine(namespaceDir, submoduleName);
-            if (System.IO.Directory.Exists(subpackageDir))
+            var subpackageDir = IOHelper.CombinePath(namespaceDir, submoduleName);
+            if (IOHelper.DirExists(subpackageDir))
             {
-                var initFile = System.IO.Path.Combine(subpackageDir, "__init__.py");
+                var initFile = IOHelper.CombinePath(subpackageDir, "__init__.py");
                 var fullName = $"{Name}.{submoduleName}";
-                
-                if (System.IO.File.Exists(initFile))
+
+                if (IOHelper.FileExists(initFile))
                 {
                     // 일반 패키지
                     return PyImportSystem.LoadModuleFromFile(fullName, initFile);
@@ -58,7 +64,7 @@ public class PyNamespaceModule : PyModule
                 {
                     // 중첩된 네임스페이스 패키지
                     var nestedNamespaceDirs = new List<string> { subpackageDir };
-                    
+
                     // 다른 네임스페이스 디렉토리에서도 동일한 서브패키지 검색
                     // Performance: Eliminated LINQ - manual filtering instead of Where
                     for (int i = 0; i < NamespaceDirs.Count; i++)
@@ -67,14 +73,14 @@ public class PyNamespaceModule : PyModule
                         if (otherDir == namespaceDir)
                             continue;
 
-                        var otherSubpackageDir = System.IO.Path.Combine(otherDir, submoduleName);
-                        if (System.IO.Directory.Exists(otherSubpackageDir) &&
-                            !System.IO.File.Exists(System.IO.Path.Combine(otherSubpackageDir, "__init__.py")))
+                        var otherSubpackageDir = IOHelper.CombinePath(otherDir, submoduleName);
+                        if (IOHelper.DirExists(otherSubpackageDir) &&
+                            !IOHelper.FileExists(IOHelper.CombinePath(otherSubpackageDir, "__init__.py")))
                         {
                             nestedNamespaceDirs.Add(otherSubpackageDir);
                         }
                     }
-                    
+
                     return PyImportSystem.CreateNamespacePackage(fullName, nestedNamespaceDirs);
                 }
             }
@@ -478,29 +484,29 @@ public class PyModule : PyObject
             }
             
             // 일반 패키지의 경우 기존 로직
-            var parentDir = System.IO.Path.GetDirectoryName(parentModule.FileName);
+            var parentDir = IOHelper.GetDirectoryName(parentModule.FileName);
             if (string.IsNullOrEmpty(parentDir)) return null;
-            
+
             // 서브모듈 파일 검색
-            var submoduleFile = System.IO.Path.Combine(parentDir, submoduleName + ".py");
-            if (System.IO.File.Exists(submoduleFile))
+            var submoduleFile = IOHelper.CombinePath(parentDir, submoduleName + ".py");
+            if (IOHelper.FileExists(submoduleFile))
             {
                 return LoadModuleFromFile(fullName, submoduleFile);
             }
-            
+
             // 서브패키지 검색
-            var subpackageDir = System.IO.Path.Combine(parentDir, submoduleName);
-            var subpackageInit = System.IO.Path.Combine(subpackageDir, "__init__.py");
-            if (System.IO.Directory.Exists(subpackageDir) && System.IO.File.Exists(subpackageInit))
+            var subpackageDir = IOHelper.CombinePath(parentDir, submoduleName);
+            var subpackageInit = IOHelper.CombinePath(subpackageDir, "__init__.py");
+            if (IOHelper.DirExists(subpackageDir) && IOHelper.FileExists(subpackageInit))
             {
                 // CPython 3.12: Set __path__ for packages
                 var module = LoadModuleFromFile(fullName, subpackageInit);
                 module.ModuleDict["__path__"] = new PyList(new[] { new PyString(subpackageDir) });
                 return module;
             }
-            
+
             // PEP 420: 네임스페이스 서브패키지 검색 (__init__.py 없는 디렉토리)
-            if (System.IO.Directory.Exists(subpackageDir) && !System.IO.File.Exists(subpackageInit))
+            if (IOHelper.DirExists(subpackageDir) && !IOHelper.FileExists(subpackageInit))
             {
                 var namespaceDirs = new List<string> { subpackageDir };
                 return CreateNamespacePackage(fullName, namespaceDirs);
@@ -523,16 +529,16 @@ public class PyModule : PyObject
                 var searchPath = pathStr.Value;
 
                 // .py 파일 검색
-                var pyFile = System.IO.Path.Combine(searchPath, moduleName + ".py");
-                if (System.IO.File.Exists(pyFile))
+                var pyFile = IOHelper.CombinePath(searchPath, moduleName + ".py");
+                if (IOHelper.FileExists(pyFile))
                 {
                     return LoadModuleFromFile(moduleName, pyFile);
                 }
 
                 // 패키지 디렉토리 검색 (moduleName/__init__.py)
-                var packageDir = System.IO.Path.Combine(searchPath, moduleName);
-                var initFile = System.IO.Path.Combine(packageDir, "__init__.py");
-                if (System.IO.Directory.Exists(packageDir) && System.IO.File.Exists(initFile))
+                var packageDir = IOHelper.CombinePath(searchPath, moduleName);
+                var initFile = IOHelper.CombinePath(packageDir, "__init__.py");
+                if (IOHelper.DirExists(packageDir) && IOHelper.FileExists(initFile))
                 {
                     // CPython 3.12: Pass package directory for __path__ attribute
                     var module = LoadModuleFromFile(moduleName, initFile);
@@ -541,7 +547,7 @@ public class PyModule : PyObject
                 }
 
                 // PEP 420: 네임스페이스 패키지 검색 (__init__.py 없는 디렉토리)
-                if (System.IO.Directory.Exists(packageDir) && !System.IO.File.Exists(initFile))
+                if (IOHelper.DirExists(packageDir) && !IOHelper.FileExists(initFile))
                 {
                     namespaceDirs.Add(packageDir);
                 }
@@ -581,19 +587,19 @@ public class PyModule : PyObject
             pathList.Add(new PyString("."));
 
             // 실행 파일 디렉토리 기준 경로
-            var exeDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? "";
+            var exeDir = IOHelper.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? "";
 
             // 프로젝트 루트 디렉토리 (exe는 bin/Debug/net8.0/에 있으므로 3단계 위로)
-            var projectRoot = System.IO.Path.GetFullPath(System.IO.Path.Combine(exeDir, "..", "..", ".."));
+            var projectRoot = IOHelper.GetFullPath(IOHelper.CombinePath(exeDir, "..", "..", ".."));
 
             // 1순위: stdlib 디렉토리 (SharpPy 내장 Python 모듈) - 프로젝트 루트에서
-            pathList.Add(new PyString(System.IO.Path.Combine(projectRoot, "stdlib")));
+            pathList.Add(new PyString(IOHelper.CombinePath(projectRoot, "stdlib")));
 
             // 2순위: Lib 디렉토리 (CPython 호환 표준 라이브러리) - 프로젝트 루트에서
-            pathList.Add(new PyString(System.IO.Path.Combine(projectRoot, "Lib")));
+            pathList.Add(new PyString(IOHelper.CombinePath(projectRoot, "Lib")));
 
             // 3순위: modules 디렉토리 (SharpPy 전용 C# 구현 모듈) - 프로젝트 루트에서
-            pathList.Add(new PyString(System.IO.Path.Combine(projectRoot, "modules")));
+            pathList.Add(new PyString(IOHelper.CombinePath(projectRoot, "modules")));
 
             // 3순위: 실행 파일 디렉토리
             pathList.Add(new PyString(exeDir));
@@ -607,7 +613,7 @@ public class PyModule : PyObject
         {
             try
             {
-                var sourceCode = System.IO.File.ReadAllText(filePath);
+                var sourceCode = IOHelper.ReadAllText(filePath);
                 var module = new PyModule(moduleName, filePath);
 
                 // sys.modules에 등록 (순환 import 방지)

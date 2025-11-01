@@ -2,6 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
+#if GODOT
+using IOHelper = Godot_IO.Helper;
+#else
+using IOHelper = DotNet_IO.Helper;
+#endif
+
 namespace SharpPy.Modules.Stdlib
 {
     /// <summary>
@@ -110,11 +116,11 @@ namespace SharpPy.Modules.Stdlib
             try
             {
                 // Performance: Eliminated LINQ
-                var entries = Directory.GetFileSystemEntries(path);
+                var entries = IOHelper.GetFileSystemEntries(path);
                 var pyObjects = new PyObject[entries.Length];
                 for (int i = 0; i < entries.Length; i++)
                 {
-                    pyObjects[i] = new PyString(Path.GetFileName(entries[i]));
+                    pyObjects[i] = new PyString(IOHelper.GetFileName(entries[i]));
                 }
 
                 return new PyList(pyObjects);
@@ -138,7 +144,7 @@ namespace SharpPy.Modules.Stdlib
 
             try
             {
-                Directory.CreateDirectory(path.Value);
+                IOHelper.CreateDirectory(path.Value);
                 return PyNone.Instance;
             }
             catch (Exception ex)
@@ -156,7 +162,7 @@ namespace SharpPy.Modules.Stdlib
 
             try
             {
-                Directory.CreateDirectory(path.Value); // .NET CreateDirectory는 중간 디렉토리도 자동 생성
+                IOHelper.CreateDirectory(path.Value); // CreateDirectory는 중간 디렉토리도 자동 생성
                 return PyNone.Instance;
             }
             catch (Exception ex)
@@ -174,7 +180,7 @@ namespace SharpPy.Modules.Stdlib
 
             try
             {
-                Directory.Delete(path.Value, false); // 비어있는 디렉토리만 삭제
+                IOHelper.DeleteDirectory(path.Value, false); // 비어있는 디렉토리만 삭제
                 return PyNone.Instance;
             }
             catch (DirectoryNotFoundException)
@@ -196,7 +202,7 @@ namespace SharpPy.Modules.Stdlib
 
             try
             {
-                Directory.Delete(path.Value, true); // 하위 디렉토리까지 모두 삭제
+                IOHelper.DeleteDirectory(path.Value, true); // 하위 디렉토리까지 모두 삭제
                 return PyNone.Instance;
             }
             catch (DirectoryNotFoundException)
@@ -222,7 +228,7 @@ namespace SharpPy.Modules.Stdlib
 
             try
             {
-                File.Delete(path.Value);
+                IOHelper.DeleteFile(path.Value);
                 return PyNone.Instance;
             }
             catch (FileNotFoundException)
@@ -245,13 +251,11 @@ namespace SharpPy.Modules.Stdlib
 
             try
             {
-                if (File.Exists(oldPath.Value))
-                    File.Move(oldPath.Value, newPath.Value);
-                else if (Directory.Exists(oldPath.Value))
-                    Directory.Move(oldPath.Value, newPath.Value);
+                if (IOHelper.FileExists(oldPath.Value) || IOHelper.DirExists(oldPath.Value))
+                    IOHelper.Move(oldPath.Value, newPath.Value);
                 else
                     throw PyFileNotFoundError.Create($"No such file or directory: '{oldPath}'");
-                    
+
                 return PyNone.Instance;
             }
             catch (Exception ex)
@@ -271,13 +275,13 @@ namespace SharpPy.Modules.Stdlib
             {
                 FileSystemInfo info;
 
-                if (File.Exists(path.Value))
+                if (IOHelper.FileExists(path.Value))
                     info = new FileInfo(path.Value);
-                else if (Directory.Exists(path.Value))
+                else if (IOHelper.DirExists(path.Value))
                     info = new DirectoryInfo(path.Value);
                 else
                     throw PyFileNotFoundError.Create($"No such file or directory: '{path}'");
-                    
+
                 return new PyStatResult(info);
             }
             catch (Exception ex)
@@ -333,7 +337,7 @@ namespace SharpPy.Modules.Stdlib
                 throw PyTypeError.Create($"exists expected 1 argument ({args.Length} given)");
 
             var path = args[0].ToStr();
-            return PyBool.FromBool(File.Exists(path.Value) || Directory.Exists(path.Value));
+            return PyBool.FromBool(IOHelper.FileExists(path.Value) || IOHelper.DirExists(path.Value));
         }
 
         private static PyObject PathIsFile(PyObject[] args)
@@ -342,7 +346,7 @@ namespace SharpPy.Modules.Stdlib
                 throw PyTypeError.Create($"isfile expected 1 argument ({args.Length} given)");
 
             var path = args[0].ToStr();
-            return PyBool.FromBool(File.Exists(path.Value));
+            return PyBool.FromBool(IOHelper.FileExists(path.Value));
         }
 
         private static PyObject PathIsDirectory(PyObject[] args)
@@ -351,7 +355,7 @@ namespace SharpPy.Modules.Stdlib
                 throw PyTypeError.Create($"isdir expected 1 argument ({args.Length} given)");
 
             var path = args[0].ToStr();
-            return PyBool.FromBool(Directory.Exists(path.Value));
+            return PyBool.FromBool(IOHelper.DirExists(path.Value));
         }
 
         private static PyObject PathJoin(PyObject[] args)
@@ -365,7 +369,7 @@ namespace SharpPy.Modules.Stdlib
             {
                 paths[i] = args[i].ToStr().Value;
             }
-            var result = Path.Combine(paths);
+            var result = IOHelper.CombinePath(paths);
             return new PyString(result);
         }
 
@@ -375,9 +379,9 @@ namespace SharpPy.Modules.Stdlib
                 throw PyTypeError.Create($"split expected 1 argument ({args.Length} given)");
 
             var path = args[0].ToStr();
-            var dirname = Path.GetDirectoryName(path.Value) ?? "";
-            var basename = Path.GetFileName(path.Value);
-            
+            var dirname = IOHelper.GetDirectoryName(path.Value) ?? "";
+            var basename = IOHelper.GetFileName(path.Value);
+
             return new PyTuple(new PyString(dirname), new PyString(basename));
         }
 
@@ -387,7 +391,7 @@ namespace SharpPy.Modules.Stdlib
                 throw PyTypeError.Create($"dirname expected 1 argument ({args.Length} given)");
 
             var path = args[0].ToStr();
-            var dirname = Path.GetDirectoryName(path.Value) ?? "";
+            var dirname = IOHelper.GetDirectoryName(path.Value) ?? "";
             return new PyString(dirname);
         }
 
@@ -397,7 +401,7 @@ namespace SharpPy.Modules.Stdlib
                 throw PyTypeError.Create($"basename expected 1 argument ({args.Length} given)");
 
             var path = args[0].ToStr();
-            var basename = Path.GetFileName(path.Value);
+            var basename = IOHelper.GetFileName(path.Value);
             return new PyString(basename);
         }
 
@@ -407,7 +411,7 @@ namespace SharpPy.Modules.Stdlib
                 throw PyTypeError.Create($"abspath expected 1 argument ({args.Length} given)");
 
             var path = args[0].ToStr();
-            var abspath = Path.GetFullPath(path.Value);
+            var abspath = IOHelper.GetFullPath(path.Value);
             return new PyString(abspath);
         }
 

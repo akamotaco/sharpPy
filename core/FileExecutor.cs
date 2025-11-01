@@ -1,6 +1,12 @@
 using System;
 using System.IO;
 
+#if GODOT
+using IOHelper = Godot_IO.Helper;
+#else
+using IOHelper = DotNet_IO.Helper;
+#endif
+
 namespace SharpPy.Core
 {
     /// <summary>
@@ -31,14 +37,14 @@ namespace SharpPy.Core
             try
             {
                 // 파일 존재 여부 먼저 확인
-                if (!File.Exists(pythonFile))
+                if (!IOHelper.FileExists(pythonFile))
                 {
                     Console.WriteLine($"python: can't open file '{pythonFile}': [Errno 2] No such file or directory");
                     Environment.Exit(2);
                     return;
                 }
-                
-                string code = File.ReadAllText(pythonFile);
+
+                string code = IOHelper.ReadAllText(pythonFile);
                 var interpreter = new IntegratedPythonInterpreter();
                 interpreter.Execute(code, pythonFile, showTokenize, showAst, showBytecode);
             }

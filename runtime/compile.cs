@@ -1,5 +1,11 @@
 using SharpPy.Utils;
 
+#if GODOT
+using IOHelper = Godot_IO.Helper;
+#else
+using IOHelper = DotNet_IO.Helper;
+#endif
+
 namespace SharpPy
 {
     /// <summary>
@@ -1180,12 +1186,12 @@ namespace SharpPy
             
             // Load source lines for error reporting if fileName is provided
             _sourceLines = null;
-            if (!string.IsNullOrEmpty(fileName) && File.Exists(fileName))
+            if (!string.IsNullOrEmpty(fileName) && IOHelper.FileExists(fileName))
             {
                 try
                 {
                     // Performance: Eliminated LINQ
-                    _sourceLines = new List<string>(File.ReadAllLines(fileName));
+                    _sourceLines = new List<string>(IOHelper.ReadAllLines(fileName));
                 }
                 catch (Exception ex)
                 {

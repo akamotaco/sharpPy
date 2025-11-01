@@ -3,6 +3,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 
+#if GODOT
+using IOHelper = Godot_IO.Helper;
+#else
+using IOHelper = DotNet_IO.Helper;
+#endif
+
 namespace SharpPy.Modules
 {
     /// <summary>
@@ -113,20 +119,20 @@ namespace SharpPy.Modules
             pathList.Add(new PyString("."));
 
             // 2. 실행 파일 디렉토리
-            var exeDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "";
+            var exeDir = IOHelper.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "";
 
             // 프로젝트 루트 디렉토리 (exe는 bin/Debug/net8.0/에 있으므로 3단계 위로)
-            var projectRoot = Path.GetFullPath(Path.Combine(exeDir, "..", "..", ".."));
+            var projectRoot = IOHelper.GetFullPath(IOHelper.CombinePath(exeDir, "..", "..", ".."));
 
             // 3. 표준 라이브러리 경로들 (CPython 호환 순서)
             // 1순위: stdlib 디렉토리 (SharpPy Python 표준 라이브러리) - 프로젝트 루트에서
-            pathList.Add(new PyString(Path.Combine(projectRoot, "stdlib")));
+            pathList.Add(new PyString(IOHelper.CombinePath(projectRoot, "stdlib")));
 
             // 2순위: Lib 디렉토리 (CPython 호환 표준 라이브러리) - 프로젝트 루트에서
-            pathList.Add(new PyString(Path.Combine(projectRoot, "Lib")));
+            pathList.Add(new PyString(IOHelper.CombinePath(projectRoot, "Lib")));
 
             // 3순위: modules 디렉토리 (SharpPy 전용 C# 구현 모듈) - 프로젝트 루트에서
-            pathList.Add(new PyString(Path.Combine(projectRoot, "modules")));
+            pathList.Add(new PyString(IOHelper.CombinePath(projectRoot, "modules")));
 
             // 4순위: 실행 파일 디렉토리
             pathList.Add(new PyString(exeDir));
@@ -179,7 +185,7 @@ namespace SharpPy.Modules
 
         private static string GetPrefixPath()
         {
-            return Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "";
+            return IOHelper.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "";
         }
     }
 

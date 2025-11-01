@@ -1,6 +1,12 @@
 using System;
 using System.IO;
 
+#if GODOT
+using IOHelper = Godot_IO.Helper;
+#else
+using IOHelper = DotNet_IO.Helper;
+#endif
+
 namespace SharpPy.Modules
 {
     /// <summary>
@@ -63,8 +69,8 @@ namespace SharpPy.Modules
             }
 
             string pythonFile = args[0];
-            
-            if (!File.Exists(pythonFile))
+
+            if (!IOHelper.FileExists(pythonFile))
             {
                 Console.WriteLine($"❌ 파일을 찾을 수 없습니다: {pythonFile}");
                 Environment.Exit(1);
