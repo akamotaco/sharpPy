@@ -6713,6 +6713,15 @@ namespace SharpPy
             EmitInstruction(ByteCodeOp.IMPORT_NAME, moduleIndex);
 
             // 4. For each imported name, emit IMPORT_FROM and STORE
+            // CPython 3.12: Check for "import *" case (Python/compile.c:3864-3868)
+            if (importFrom.Names.Count == 1 && importFrom.Names[0].Name == "*")
+            {
+                // from module import * - use INTRINSIC_IMPORT_STAR
+                EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, 2); // INTRINSIC_IMPORT_STAR = 2
+                EmitInstruction(ByteCodeOp.POP_TOP);
+                return;
+            }
+
             foreach (var importAlias in importFrom.Names)
             {
                 // Extract actual item name and alias from ImportAlias object

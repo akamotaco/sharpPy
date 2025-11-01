@@ -6044,9 +6044,13 @@ namespace SharpPy
                     Console.WriteLine(reprValue);
                     return PyNone.Instance;
                 case 2: // INTRINSIC_IMPORT_STAR
-                    throw new NotImplementedException("INTRINSIC_IMPORT_STAR not implemented");
+                    // CPython 3.12: Python/intrinsics.c:127-146 (import_star)
+                    // Import all names from a module (from module import *)
+                    return ImportStar(arg);
                 case 3: // INTRINSIC_STOPITERATION_ERROR
-                    throw new NotImplementedException("INTRINSIC_STOPITERATION_ERROR not implemented");
+                    // CPython 3.12: Python/intrinsics.c:149-190 (stopiteration_error)
+                    // Convert StopIteration in generators to RuntimeError
+                    return StopIterationError(arg);
                 case 4: // INTRINSIC_ASYNC_GEN_WRAP
                     throw new NotImplementedException("INTRINSIC_ASYNC_GEN_WRAP not implemented");
                 case 5: // INTRINSIC_UNARY_POSITIVE
@@ -6071,6 +6075,191 @@ namespace SharpPy
                 default:
                     throw new NotImplementedException($"Intrinsic function {functionId} not implemented");
             }
+        }
+
+        /// <summary>
+        /// CPython 3.12: import_star (Python/intrinsics.c:127-146)
+        /// Implements "from module import *"
+        /// </summary>
+        private PyObject ImportStar(PyObject module)
+        {
+            // CPython: import_all_from(tstate, locals, from)
+            var currentFrame = PyVM.CurrentFrame;
+            if (currentFrame == null)
+            {
+                throw new InvalidOperationException("No current frame during 'import *'");
+            }
+
+            // Get the locals scope from current frame
+            var locals = currentFrame.ScopeChain.CurrentScope;
+            if (locals == null)
+            {
+                throw new InvalidOperationException("no locals found during 'import *'");
+            }
+
+            // CPython: Check for __all__ attribute first
+            PyObject all = null;
+            bool skipUnderscores = false;
+
+            // Try to get __all__
+            bool hasAll = false;
+            try
+            {
+                all = module.GetAttribute("__all__");
+                hasAll = true;
+            }
+            catch
+            {
+                // No __all__, will try __dict__
+            }
+
+            if (!hasAll)
+            {
+                // No __all__, use __dict__ keys instead
+                try
+                {
+                    var dict = module.GetAttribute("__dict__");
+                    if (dict is PyDict pyDict)
+                    {
+                        all = pyDict.Keys();
+                        skipUnderscores = true;
+                    }
+                    else
+                    {
+                        throw PyImportError.Create("from-import-* object has no __dict__ and no __all__");
+                    }
+                }
+                catch
+                {
+                    throw PyImportError.Create("from-import-* object has no __dict__ and no __all__");
+                }
+            }
+
+            // Import each name
+            if (all is PyList list)
+            {
+                foreach (var item in list.Items)
+                {
+                    if (item is PyString nameStr)
+                    {
+                        var name = nameStr.Value;
+
+                        // Skip names starting with underscore if using __dict__
+                        if (skipUnderscores && name.StartsWith("_"))
+                        {
+                            continue;
+                        }
+
+                        // Get attribute from module
+                        try
+                        {
+                            var value = module.GetAttribute(name);
+                            // Set in local scope
+                            locals.SetVariable(name, value);
+                        }
+                        catch
+                        {
+                            // CPython: If attribute doesn't exist, skip it
+                            continue;
+                        }
+                    }
+                }
+            }
+            else if (all is PyTuple tuple)
+            {
+                foreach (var item in tuple.Items)
+                {
+                    if (item is PyString nameStr)
+                    {
+                        var name = nameStr.Value;
+
+                        // Skip names starting with underscore if using __dict__
+                        if (skipUnderscores && name.StartsWith("_"))
+                        {
+                            continue;
+                        }
+
+                        // Get attribute from module
+                        try
+                        {
+                            var value = module.GetAttribute(name);
+                            // Set in local scope
+                            locals.SetVariable(name, value);
+                        }
+                        catch
+                        {
+                            // CPython: If attribute doesn't exist, skip it
+                            continue;
+                        }
+                    }
+                }
+            }
+
+            return PyNone.Instance;
+        }
+
+        /// <summary>
+        /// CPython 3.12: stopiteration_error (Python/intrinsics.c:149-190)
+        /// Converts StopIteration exceptions raised in generators to RuntimeError
+        /// </summary>
+        private PyObject StopIterationError(PyObject exc)
+        {
+            // CPython: assert(PyExceptionInstance_Check(exc))
+            if (exc is not PyBaseException exception)
+            {
+                throw new InvalidOperationException("INTRINSIC_STOPITERATION_ERROR requires an exception instance");
+            }
+
+            var currentFrame = PyVM.CurrentFrame;
+            if (currentFrame == null)
+            {
+                throw new InvalidOperationException("No current frame during INTRINSIC_STOPITERATION_ERROR");
+            }
+
+            // CPython: Check frame owner is FRAME_OWNED_BY_GENERATOR
+            // For now, we'll check if the code object has generator flags
+            var codeObject = currentFrame.Code;
+            string? msg = null;
+
+            // CPython: Check if exception matches StopIteration
+            if (exc is PyStopIteration)
+            {
+                msg = "generator raised StopIteration";
+
+                // CPython: Check CO_ASYNC_GENERATOR flag
+                if ((codeObject.Flags & PyCodeObject.CO_ASYNC_GENERATOR) != 0)
+                {
+                    msg = "async generator raised StopIteration";
+                }
+                // CPython: Check CO_COROUTINE flag
+                else if ((codeObject.Flags & PyCodeObject.CO_COROUTINE) != 0)
+                {
+                    msg = "coroutine raised StopIteration";
+                }
+            }
+            // CPython: Check if async generator raised StopAsyncIteration
+            else if ((codeObject.Flags & PyCodeObject.CO_ASYNC_GENERATOR) != 0 && exc is PyStopAsyncIteration)
+            {
+                msg = "async generator raised StopAsyncIteration";
+            }
+
+            // CPython: If we have a message, create RuntimeError with cause and context
+            if (msg != null)
+            {
+                // Create RuntimeError with the message
+                var runtimeError = new PyRuntimeError(msg);
+
+                // CPython: PyException_SetCause(error, Py_NewRef(exc))
+                runtimeError.__cause__ = exception;
+
+                // CPython: PyException_SetContext(error, Py_NewRef(exc))
+                runtimeError.__context__ = exception;
+
+                return runtimeError;
+            }
+
+            // CPython: return Py_NewRef(exc) - just return the original exception
+            return exc;
         }
 
         /// <summary>

@@ -513,6 +513,35 @@ namespace SharpPy
     }
 
     /// <summary>
+    /// CPython 3.12: StopAsyncIteration - used for async iterator protocol
+    /// </summary>
+    public class PyStopAsyncIteration : PyException
+    {
+        public PyObject Value { get; }
+
+        public PyStopAsyncIteration(PyObject value = null) : base("StopAsyncIteration")
+        {
+            Value = value ?? PyNone.Instance;
+        }
+
+        public override PyType GetPyType() => PyType.StopAsyncIterationType;
+        public override string GetTypeName() => "StopAsyncIteration";
+
+        public override PyObject GetAttribute(string name)
+        {
+            if (name == "value")
+                return Value;
+            return base.GetAttribute(name);
+        }
+
+        public new static System.Exception Create(PyObject value = null)
+        {
+            var pyException = new PyStopAsyncIteration(value);
+            return new PythonException(pyException);
+        }
+    }
+
+    /// <summary>
     /// CPython 3.12: GeneratorExit exception - used for generator cleanup
     /// </summary>
     public class PyGeneratorExit : PyBaseException

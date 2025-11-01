@@ -257,6 +257,7 @@ namespace SharpPy
         public static readonly PyType IndentationErrorType = new PyType("IndentationError", new[] { SyntaxErrorType });
         
         public static readonly PyType StopIterationType = new PyType("StopIteration", new[] { ExceptionType });
+        public static readonly PyType StopAsyncIterationType = new PyType("StopAsyncIteration", new[] { ExceptionType });
         public static readonly PyType AssertionErrorType = new PyType("AssertionError", new[] { ExceptionType });
         public static readonly PyType GeneratorExitType = new PyType("GeneratorExit", new[] { BaseExceptionType });
 
