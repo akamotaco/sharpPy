@@ -1333,7 +1333,8 @@ namespace SharpPy
 
                     var compiler = new PythonCompiler();
                     // CPython: code object name is "<module>" for single mode
-                    codeObject = compiler.Compile(statements, "<module>", new List<string>(), filename);
+                    // isInteractive=true enables INTRINSIC_PRINT for expression statements
+                    codeObject = compiler.Compile(statements, "<module>", new List<string>(), filename, isInteractive: true);
                 }
             }
             catch (Exception ex)

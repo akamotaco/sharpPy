@@ -538,6 +538,7 @@ namespace SharpPy
         private string _currentFunctionName = null; // Track current function name for module level detection
         private bool _isInComprehension = false; // Track if we're compiling inside a comprehension
         private int _comprehensionNestingDepth = 0; // Track nesting depth for dict comprehensions
+        private bool _isInteractive = false; // CPython 3.12: Track if we're in interactive mode ('single' mode)
         
         // Source location tracking for bytecode generation
         private int _currentLineNumber = -1;     // Current line number being compiled
@@ -1134,7 +1135,7 @@ namespace SharpPy
             return null;
         }
 
-        public PyCodeObject Compile(List<Statement> statements, string name, List<string> parameters, string? fileName = null)
+        public PyCodeObject Compile(List<Statement> statements, string name, List<string> parameters, string? fileName = null, bool isInteractive = false)
         {
             // Clear all compilation state for new compilation
             // CPython 3.12: _instructions removed - using InstructionSequence only
@@ -1146,6 +1147,9 @@ namespace SharpPy
 
             // Set current file name for source location tracking
             _currentFileName = fileName;
+
+            // CPython 3.12: Set interactive mode flag
+            _isInteractive = isInteractive;
 
             // CPython 3.12: Build symbol table first
             var symbolTableBuilder = new SymbolTableBuilder();
@@ -1227,8 +1231,9 @@ namespace SharpPy
 
             // CPython 3.12: Handle docstring (compile.c:1694-1704)
             // if not -OO mode, set docstring
+            // BUT: In interactive mode, don't treat first string as docstring
             int startIndex = 0;
-            if (name == "<module>")
+            if (name == "<module>" && !_isInteractive)
             {
                 string? docstring = GetDocString(optimizedStatements);
                 if (docstring != null)
@@ -2724,10 +2729,31 @@ namespace SharpPy
                     break;
                     
                 case ExpressionStatement expr:
-                    CompileExpression(expr.Expression);
-                    // CPython 3.12: After YIELD_VALUE + RESUME, sent value is on stack and needs POP_TOP
-                    // POP_TOP is needed for ALL expressions, including YieldExpression
-                    EmitInstruction(ByteCodeOp.POP_TOP);
+                    // CPython 3.12: compiler_stmt_expr (Python/compile.c line 3915)
+                    if (_isInteractive && !_isInFunction)
+                    {
+                        // Interactive mode: print expression result
+                        // CPython: if (c->c_interactive && c->c_nestlevel <= 1)
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🎯 Interactive mode: Compiling expression statement with INTRINSIC_PRINT");
+                        Console.WriteLine($"   Expression type: {expr.Expression.GetType().Name}");
+                        #endif
+                        CompileExpression(expr.Expression);
+                        EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, 1); // INTRINSIC_PRINT
+                        EmitInstruction(ByteCodeOp.POP_TOP);
+                    }
+                    else
+                    {
+                        // Normal mode: just evaluate and discard
+                        #if DEBUG_LOG
+                        Console.WriteLine($"📝 Normal mode: Compiling expression statement (no print)");
+                        Console.WriteLine($"   _isInteractive={_isInteractive}, _isInFunction={_isInFunction}");
+                        #endif
+                        CompileExpression(expr.Expression);
+                        // CPython 3.12: After YIELD_VALUE + RESUME, sent value is on stack and needs POP_TOP
+                        // POP_TOP is needed for ALL expressions, including YieldExpression
+                        EmitInstruction(ByteCodeOp.POP_TOP);
+                    }
                     break;
                     
                 case ReturnStatement ret:

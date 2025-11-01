@@ -6037,10 +6037,11 @@ namespace SharpPy
             {
                 case 0: // INTRINSIC_1_INVALID
                     throw new InvalidOperationException("Invalid intrinsic function 0");
-                case 1: // INTRINSIC_PRINT (was case 0)
-                    #if DEBUG_LOG
-                    Console.WriteLine(arg.ToString());
-                    #endif
+                case 1: // INTRINSIC_PRINT
+                    // CPython 3.12: Used in 'single' mode to print expression results
+                    // Equivalent to: print(repr(arg))
+                    var reprValue = arg.ToRepr().Value;
+                    Console.WriteLine(reprValue);
                     return PyNone.Instance;
                 case 2: // INTRINSIC_IMPORT_STAR
                     throw new NotImplementedException("INTRINSIC_IMPORT_STAR not implemented");
