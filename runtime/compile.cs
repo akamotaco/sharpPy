@@ -2827,7 +2827,7 @@ namespace SharpPy
 
                     // CPython 3.12: compile.c:4106-4113
                     // Async generators need to wrap yielded values
-                    if (_currentSymbolTable.IsGenerator && _currentSymbolTable.IsCoroutine)
+                    if (_currentSymbolTable != null && _currentSymbolTable.IsGenerator && _currentSymbolTable.IsCoroutine)
                     {
                         EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_ASYNC_GEN_WRAP);
                     }

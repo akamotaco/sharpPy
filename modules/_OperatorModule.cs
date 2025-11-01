@@ -12,6 +12,27 @@ namespace SharpPy.Modules
         {
             var module = new PyModule("_operator", "<_operator C module>");
 
+            // CPython 3.12: __all__ list for "from _operator import *"
+            // Must match CPython's operator module exports
+            var allList = new PyList(new PyObject[]
+            {
+                new PyString("abs"), new PyString("add"), new PyString("and_"),
+                new PyString("attrgetter"), new PyString("concat"), new PyString("contains"),
+                new PyString("countOf"), new PyString("delitem"), new PyString("eq"),
+                new PyString("floordiv"), new PyString("ge"), new PyString("getitem"),
+                new PyString("gt"), new PyString("index"), new PyString("indexOf"),
+                new PyString("inv"), new PyString("invert"), new PyString("is_"),
+                new PyString("is_not"), new PyString("itemgetter"), new PyString("le"),
+                new PyString("length_hint"), new PyString("lshift"), new PyString("lt"),
+                new PyString("matmul"), new PyString("methodcaller"), new PyString("mod"),
+                new PyString("mul"), new PyString("ne"), new PyString("neg"),
+                new PyString("not_"), new PyString("or_"), new PyString("pos"),
+                new PyString("pow"), new PyString("rshift"), new PyString("setitem"),
+                new PyString("sub"), new PyString("truediv"), new PyString("truth"),
+                new PyString("xor")
+            });
+            module.ModuleDict["__all__"] = allList;
+
             // Comparison operators
             module.ModuleDict["lt"] = new PyBuiltinFunction("lt", Lt);
             module.ModuleDict["le"] = new PyBuiltinFunction("le", Le);
