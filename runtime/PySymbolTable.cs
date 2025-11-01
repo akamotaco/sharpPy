@@ -308,6 +308,27 @@ namespace SharpPy
                     }
                     break;
 
+                case YieldStatement yieldStmt:
+                    // CPython 3.12: Mark scope as generator
+                    if (_currentTable != null)
+                    {
+                        _currentTable.IsGenerator = true;
+                    }
+                    if (yieldStmt.Value != null)
+                    {
+                        AnalyzeExpression(yieldStmt.Value);
+                    }
+                    break;
+
+                case YieldFromStatement yieldFromStmt:
+                    // CPython 3.12: Mark scope as generator
+                    if (_currentTable != null)
+                    {
+                        _currentTable.IsGenerator = true;
+                    }
+                    AnalyzeExpression(yieldFromStmt.Value);
+                    break;
+
                 case ExpressionStatement exprStmt:
                     AnalyzeExpression(exprStmt.Expression);
                     break;
@@ -1280,6 +1301,8 @@ namespace SharpPy
             _currentTable?.DefineSymbol(func.Name, SymbolFlags.Assigned);
 
             var functionTable = new SymbolTable($"<async function:{func.Name}>", SymbolTableType.Function);
+            // CPython 3.12: Mark async functions as coroutines
+            functionTable.IsCoroutine = true;
             _currentTable?.AddChild(functionTable);
 
             var savedTable = _currentTable;

@@ -422,10 +422,27 @@ namespace SharpPy.Generated
                         var valueExpr = exprStmt.Value;  // Already GeneratedExpr
                         if (valueExpr != null)
                         {
+                            // CPython 3.12: Yield expressions as statements become YieldStatement
+                            if (valueExpr is GeneratedYield yieldExpr)
+                            {
+                                var yieldValue = yieldExpr.Value != null ? ConvertAnyExpression(yieldExpr.Value) : null;
+                                var result = new YieldStatement(yieldValue);
+                                CopySourceLocation(stmt, result);
+                                return result;
+                            }
+                            // CPython 3.12: YieldFrom expressions as statements become YieldFromStatement
+                            else if (valueExpr is GeneratedYieldFrom yieldFromExpr)
+                            {
+                                var yieldFromValue = ConvertAnyExpression(yieldFromExpr.Value);
+                                var result = new YieldFromStatement(yieldFromValue);
+                                CopySourceLocation(stmt, result);
+                                return result;
+                            }
+
                             var expression = ConvertAnyExpression(valueExpr);
-                            var result = new ExpressionStatement(expression);
-                            CopySourceLocation(stmt, result);
-                            return result;
+                            var exprResult = new ExpressionStatement(expression);
+                            CopySourceLocation(stmt, exprResult);
+                            return exprResult;
                         }
                         var emptyResult = new ExpressionStatement(new ConstantExpression(PyNone.Instance));
                         CopySourceLocation(stmt, emptyResult);
@@ -1187,21 +1204,64 @@ namespace SharpPy.Generated
 
                 case GeneratedAsyncFunctionDef asyncFuncDef:
                     // Async function definition (async def name(): body)
+                    // Same structure as FunctionDef but creates AsyncFunctionDefStatement
                     {
                         var name = asyncFuncDef.Name;
 
                         if (!string.IsNullOrEmpty(name))
                         {
-                            // Create parameter list (empty for now, TODO: parse arguments)
-                            var parameters = new List<string>();
-
-                            // Create body statements (for now, simple pass statement)
-                            var bodyStmts = new List<Statement>
+                            // Convert function body with insideFunction=true (same as FunctionDef)
+                            var bodyStmts = new List<Statement>();
+                            if (asyncFuncDef.Body != null)
                             {
-                                new ExpressionStatement(new ConstantExpression(PyNone.Instance))
-                            };
+                                foreach (var bodyItem in asyncFuncDef.Body)
+                                {
+                                    var convertedStmt = ConvertStatement((GeneratedStmt)bodyItem, insideLoop, true); // insideFunction=true
+                                    if (convertedStmt != null)
+                                    {
+                                        bodyStmts.Add(convertedStmt);
+                                    }
+                                }
+                            }
 
-                            var result = new AsyncFunctionDefStatement(name, parameters, bodyStmts);
+                            // If no body statements, add a pass statement
+                            if (bodyStmts.Count == 0)
+                            {
+                                bodyStmts.Add(new ExpressionStatement(new ConstantExpression(PyNone.Instance)));
+                            }
+
+                            // Convert arguments (same as FunctionDef)
+                            FunctionArguments functionArgs = ConvertArguments(asyncFuncDef.Args);
+
+                            // PEP 695: Convert type parameters if present (returns List<TypeParam>, convert to List<string>)
+                            var typeParamObjs = ConvertTypeParams(asyncFuncDef.TypeParams);
+                            var typeParams = typeParamObjs?.Select(tp => tp.Name).ToList();
+
+                            // Convert decorators
+                            var decoratorExpressions = new List<DecoratorExpression>();
+                            if (asyncFuncDef.DecoratorList != null && asyncFuncDef.DecoratorList.Count > 0)
+                            {
+                                foreach (var decorator in asyncFuncDef.DecoratorList.AsEnumerable())
+                                {
+                                    if (decorator is GeneratedExpr decoratorExpr)
+                                    {
+                                        var convertedDecorator = ConvertAnyExpression(decoratorExpr);
+                                        if (convertedDecorator != null)
+                                        {
+                                            decoratorExpressions.Add(new DecoratorExpression(convertedDecorator));
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Convert return type annotation
+                            Expression? returnAnnotation = null;
+                            if (asyncFuncDef.Returns != null)
+                            {
+                                returnAnnotation = ConvertAnyExpression(asyncFuncDef.Returns);
+                            }
+
+                            var result = new AsyncFunctionDefStatement(name, functionArgs, bodyStmts, typeParams, decoratorExpressions, returnAnnotation);
                             CopySourceLocation(asyncFuncDef, result);
                             return result;
                         }

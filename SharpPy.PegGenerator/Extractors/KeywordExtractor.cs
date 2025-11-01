@@ -1,4 +1,5 @@
 using SharpPy.PegGenerator.DataStructures;
+using SharpPy.Generated;
 
 namespace SharpPy.PegGenerator.Extractors;
 
@@ -95,20 +96,20 @@ public class KeywordExtractor
 
             case Token token:
                 // ASYNC and AWAIT tokens represent 'async' and 'await' keywords
+                // These are special context-sensitive keywords with fixed token numbers from Grammar/Tokens
+                // Use PyToken.GetTypeValue to get actual enum values from generated PyTokens.cs
                 if (token.TokenType == "ASYNC")
                 {
                     if (!hard.ContainsKey("async"))
                     {
-                        _keywordCounter++;
-                        hard["async"] = _keywordCounter;
+                        hard["async"] = PyToken.GetTypeValue("ASYNC");
                     }
                 }
                 else if (token.TokenType == "AWAIT")
                 {
                     if (!hard.ContainsKey("await"))
                     {
-                        _keywordCounter++;
-                        hard["await"] = _keywordCounter;
+                        hard["await"] = PyToken.GetTypeValue("AWAIT");
                     }
                 }
                 break;

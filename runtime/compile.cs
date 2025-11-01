@@ -1729,6 +1729,19 @@ namespace SharpPy
             compiler.SetupClosureCompilation(cellVars, freeVars);
             compiler.SetSourceLocation(_currentFileName, _sourceLines);
 
+            // CPython 3.12: Pass symbol table context to nested compiler
+            if (_symbolTable != null)
+            {
+                // Get the function's symbol table from root children
+                // Symbol table names for functions include prefix like "<function:name>" or "<async function:name>"
+                var funcSymbolTable = _symbolTable.GetChildren().FirstOrDefault(child => child.GetName().Contains(asyncFunc.Name));
+                if (funcSymbolTable != null)
+                {
+                    compiler.SetSymbolTableContext(funcSymbolTable);
+                }
+                compiler.SetRootSymbolTable(_symbolTable);
+            }
+
             var codeObject = compiler.CompilerFunctionBody(
                 asyncFunc.Body, asyncFunc.Name, paramNames,
                 defaults, kwDefaults, freeVars, cellVars,
@@ -2739,7 +2752,7 @@ namespace SharpPy
                         Console.WriteLine($"   Expression type: {expr.Expression.GetType().Name}");
                         #endif
                         CompileExpression(expr.Expression);
-                        EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, 1); // INTRINSIC_PRINT
+                        EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_PRINT);
                         EmitInstruction(ByteCodeOp.POP_TOP);
                     }
                     else
@@ -2811,6 +2824,14 @@ namespace SharpPy
                         CompileExpression(yield.Value);
                     else
                         EmitLoadConst(PyNone.Instance);
+
+                    // CPython 3.12: compile.c:4106-4113
+                    // Async generators need to wrap yielded values
+                    if (_currentSymbolTable.IsGenerator && _currentSymbolTable.IsCoroutine)
+                    {
+                        EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_ASYNC_GEN_WRAP);
+                    }
+
                     EmitInstruction(ByteCodeOp.YIELD_VALUE, 1); // CPython 3.12: yield_value argument 1
                     EmitInstruction(ByteCodeOp.RESUME, 1); // CPython 3.12: Resume after yield
                     EmitInstruction(ByteCodeOp.POP_TOP); // CPython 3.12: POP_TOP after resume
@@ -3176,7 +3197,7 @@ namespace SharpPy
                             }
 
                             // Convert list to tuple for CALL_FUNCTION_EX
-                            EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, 6); // INTRINSIC_LIST_TO_TUPLE
+                            EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_LIST_TO_TUPLE);
                         }
                         else
                         {
@@ -5630,7 +5651,7 @@ namespace SharpPy
                 foreach (var typeParam in typeParams)
                 {
                     EmitLoadConst(new PyString(typeParam.Name));
-                    EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, 7); // INTRINSIC_TYPEVAR
+                    EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_TYPEVAR);
                     EmitInstruction(ByteCodeOp.COPY, 1);
 
                     // Add to varNames for STORE_FAST/LOAD_FAST
@@ -5717,7 +5738,7 @@ namespace SharpPy
                 
                 // SWAP 2 (not 4!) and CALL_INTRINSIC_2 for SET_FUNCTION_TYPE_PARAMS
                 EmitInstruction(ByteCodeOp.SWAP, 2);
-                EmitInstruction(ByteCodeOp.CALL_INTRINSIC_2, 4); // INTRINSIC_SET_FUNCTION_TYPE_PARAMS
+                EmitInstruction(ByteCodeOp.CALL_INTRINSIC_2, (int)IntrinsicFunction.INTRINSIC_SET_FUNCTION_TYPE_PARAMS);
                 
                 EmitInstruction(ByteCodeOp.RETURN_VALUE);
 
@@ -6725,7 +6746,7 @@ namespace SharpPy
             if (importFrom.Names.Count == 1 && importFrom.Names[0].Name == "*")
             {
                 // from module import * - use INTRINSIC_IMPORT_STAR
-                EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, 2); // INTRINSIC_IMPORT_STAR = 2
+                EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_IMPORT_STAR);
                 EmitInstruction(ByteCodeOp.POP_TOP);
                 return;
             }
@@ -7048,7 +7069,7 @@ namespace SharpPy
             _instructionSequence.UseLabel(handlerLabel);
 
             // CPython: ADDOP_I(c, NO_LOCATION, CALL_INTRINSIC_1, INTRINSIC_STOPITERATION_ERROR);
-            EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, 3);  // 3 = INTRINSIC_STOPITERATION_ERROR
+            EmitInstruction(ByteCodeOp.CALL_INTRINSIC_1, (int)IntrinsicFunction.INTRINSIC_STOPITERATION_ERROR);
 
             // CPython: ADDOP_I(c, NO_LOCATION, RERAISE, 1);
             EmitInstruction(ByteCodeOp.RERAISE, 1);

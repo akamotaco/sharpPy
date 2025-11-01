@@ -1584,14 +1584,19 @@ namespace SharpPy
 
         public List<Statement> Body { get; }
         public List<string> TypeParams { get; } // Python 3.12
+        public List<DecoratorExpression> Decorators { get; } // CPython 3.12
+        public Expression? ReturnAnnotation { get; } // CPython 3.12
 
-        // New constructor using FunctionArguments (CPython 3.12 compatible)
-        public AsyncFunctionDefStatement(string name, FunctionArguments arguments, List<Statement> body, List<string>? typeParams = null)
+        // Full constructor with all CPython 3.12 features
+        public AsyncFunctionDefStatement(string name, FunctionArguments arguments, List<Statement> body,
+            List<string>? typeParams = null, List<DecoratorExpression>? decorators = null, Expression? returnAnnotation = null)
         {
             Name = name;
             Arguments = arguments;
             Body = body;
             TypeParams = typeParams ?? new List<string>();
+            Decorators = decorators ?? new List<DecoratorExpression>();
+            ReturnAnnotation = returnAnnotation;
         }
 
         // Legacy constructor for backwards compatibility
@@ -1602,6 +1607,8 @@ namespace SharpPy
             Arguments = FunctionDefStatement.ConvertLegacyParameters(parameters);
             Body = body;
             TypeParams = typeParams ?? new List<string>();
+            Decorators = new List<DecoratorExpression>();
+            ReturnAnnotation = null;
         }
         
         public override PyObject Evaluate(PyScope scope)

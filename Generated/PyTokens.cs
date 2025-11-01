@@ -167,5 +167,20 @@ namespace SharpPy.Generated
             throw new ArgumentException($"Unknown literal: {name}");
         }
 
+        /// <summary>
+        /// Get token type value by enum name
+        /// Used by parser generator to resolve token type names like "ASYNC", "AWAIT"
+        /// </summary>
+        /// <param name="typeName">Token type name (e.g., "ASYNC", "AWAIT", "NAME")</param>
+        /// <returns>Integer value of the token type</returns>
+        public static int GetTypeValue(string typeName)
+        {
+            if (Enum.TryParse<Type>(typeName, out var tokenType))
+            {
+                return (int)tokenType;
+            }
+            throw new ArgumentException($"Unknown token type name: {typeName}");
+        }
+
     }
 }

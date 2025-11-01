@@ -1,5 +1,7 @@
 // Performance: Eliminated System.Linq - all LINQ calls replaced with manual loops
 
+using SharpPy.Core;
+
 namespace SharpPy
 {
     #region Virtual Machine (기존 LEGB 시스템 활용)
@@ -6141,42 +6143,45 @@ namespace SharpPy
             // CPython 3.12 정확한 intrinsic function IDs (pycore_intrinsics.h 호환)
             switch (functionId)
             {
-                case 0: // INTRINSIC_1_INVALID
+                case (int)IntrinsicFunction.INTRINSIC_1_INVALID:
                     throw new InvalidOperationException("Invalid intrinsic function 0");
-                case 1: // INTRINSIC_PRINT
+                case (int)IntrinsicFunction.INTRINSIC_PRINT:
                     // CPython 3.12: Used in 'single' mode to print expression results
                     // Equivalent to: print(repr(arg))
                     var reprValue = arg.ToRepr().Value;
                     Console.WriteLine(reprValue);
                     return PyNone.Instance;
-                case 2: // INTRINSIC_IMPORT_STAR
+                case (int)IntrinsicFunction.INTRINSIC_IMPORT_STAR:
                     // CPython 3.12: Python/intrinsics.c:127-146 (import_star)
                     // Import all names from a module (from module import *)
                     return ImportStar(arg);
-                case 3: // INTRINSIC_STOPITERATION_ERROR
+                case (int)IntrinsicFunction.INTRINSIC_STOPITERATION_ERROR:
                     // CPython 3.12: Python/intrinsics.c:149-190 (stopiteration_error)
                     // Convert StopIteration in generators to RuntimeError
                     return StopIterationError(arg);
-                case 4: // INTRINSIC_ASYNC_GEN_WRAP
-                    throw new NotImplementedException("INTRINSIC_ASYNC_GEN_WRAP not implemented");
-                case 5: // INTRINSIC_UNARY_POSITIVE
+                case (int)IntrinsicFunction.INTRINSIC_ASYNC_GEN_WRAP:
+                    // CPython 3.12: Python/intrinsics.c (INTRINSIC_ASYNC_GEN_WRAP)
+                    // Wraps yielded value from async generator
+                    // Used when: generator && coroutine (async def with yield)
+                    return new PyAsyncGenWrappedValue(arg);
+                case (int)IntrinsicFunction.INTRINSIC_UNARY_POSITIVE:
                     return arg.Positive();
-                case 6: // INTRINSIC_LIST_TO_TUPLE
+                case (int)IntrinsicFunction.INTRINSIC_LIST_TO_TUPLE:
                     if (arg is PyList list)
                     {
                         // Performance: Eliminated LINQ - PyList.Items is already an array, no copy needed
                         return new PyTuple(list.Items);
                     }
                     throw PyTypeError.Create($"INTRINSIC_LIST_TO_TUPLE expected list, got {arg.GetTypeName()}");
-                case 7: // INTRINSIC_TYPEVAR ✅ 이미 정확
+                case (int)IntrinsicFunction.INTRINSIC_TYPEVAR:
                     return CreateTypeVar(arg);
-                case 8: // INTRINSIC_PARAMSPEC ✅ 이미 정확
+                case (int)IntrinsicFunction.INTRINSIC_PARAMSPEC:
                     return CreateParamSpec(arg);
-                case 9: // INTRINSIC_TYPEVARTUPLE ✅ 이미 정확
+                case (int)IntrinsicFunction.INTRINSIC_TYPEVARTUPLE:
                     return CreateTypeVarTuple(arg);
-                case 10: // INTRINSIC_SUBSCRIPT_GENERIC ✅ 이미 정확
+                case (int)IntrinsicFunction.INTRINSIC_SUBSCRIPT_GENERIC:
                     return CreateGenericSubscript(arg);
-                case 11: // INTRINSIC_TYPEALIAS
+                case (int)IntrinsicFunction.INTRINSIC_TYPEALIAS:
                     return CreateTypeAlias(arg);
                 default:
                     throw new NotImplementedException($"Intrinsic function {functionId} not implemented");
@@ -6424,12 +6429,12 @@ namespace SharpPy
             // CPython 3.12 intrinsic function IDs for 2-argument functions
             switch (functionId)
             {
-                case 0: // INTRINSIC_PREP_RERAISE_STAR - Exception Groups cleanup (CPython 3.12: PREP_RERAISE_STAR = 0)
+                case (int)IntrinsicFunction.INTRINSIC_PREP_RERAISE_STAR: // Exception Groups cleanup (CPython 3.12: PREP_RERAISE_STAR = 0)
                     // CPython signature: _PyExc_PrepReraiseStar(orig, excs)
                     // Stack layout: [orig, excs] -> arg1=orig, arg2=excs (list)
                     // But PrepReraiseStarExceptions expects (list, orig), so swap
                     return PrepReraiseStarExceptions(arg2, arg1);
-                case 4: // INTRINSIC_SET_FUNCTION_TYPE_PARAMS - PEP 695 Generic Function
+                case (int)IntrinsicFunction.INTRINSIC_SET_FUNCTION_TYPE_PARAMS: // PEP 695 Generic Function
                     return SetFunctionTypeParams(arg1, arg2);
                 default:
                     throw new NotImplementedException($"Intrinsic function 2-arg {functionId} not implemented");

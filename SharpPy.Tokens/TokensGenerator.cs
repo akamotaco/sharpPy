@@ -123,6 +123,22 @@ namespace SharpPy.Tokenizer
             WriteLine("    throw new ArgumentException($\"Unknown literal: {name}\");");
             WriteLine("}");
             WriteLine();
+
+            WriteLine("/// <summary>");
+            WriteLine("/// Get token type value by enum name");
+            WriteLine("/// Used by parser generator to resolve token type names like \"ASYNC\", \"AWAIT\"");
+            WriteLine("/// </summary>");
+            WriteLine("/// <param name=\"typeName\">Token type name (e.g., \"ASYNC\", \"AWAIT\", \"NAME\")</param>");
+            WriteLine("/// <returns>Integer value of the token type</returns>");
+            WriteLine("public static int GetTypeValue(string typeName)");
+            WriteLine("{");
+            WriteLine("    if (Enum.TryParse<Type>(typeName, out var tokenType))");
+            WriteLine("    {");
+            WriteLine("        return (int)tokenType;");
+            WriteLine("    }");
+            WriteLine("    throw new ArgumentException($\"Unknown token type name: {typeName}\");");
+            WriteLine("}");
+            WriteLine();
         }
 
         private void GenerateTokenTypeEnum()

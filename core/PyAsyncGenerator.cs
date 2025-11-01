@@ -240,4 +240,37 @@ namespace SharpPy.Core
 
         public override string GetTypeName() => "StopAsyncIteration";
     }
+
+    /// <summary>
+    /// CPython 3.12: _PyAsyncGenWrappedValue
+    /// Wrapper for values yielded from async generators
+    /// (Objects/genobject.c: _PyAsyncGenWrappedValue)
+    /// </summary>
+    public class PyAsyncGenWrappedValue : PyObject
+    {
+        public PyObject Value { get; }
+
+        public PyAsyncGenWrappedValue(PyObject value)
+        {
+            Value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        public override string GetTypeName() => "async_generator_wrapped_value";
+        public override PyType GetPyType() => PyType.ObjectType; // Internal type, no public PyType
+
+        public override PyString ToRepr() => new PyString($"<async_generator_wrapped_value {Value.ToRepr().Value}>");
+        public override PyString ToStr() => Value.ToStr();
+
+        public override bool Equals(object obj)
+        {
+            if (obj is PyAsyncGenWrappedValue other)
+                return Value.Equals(other.Value);
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return Value.GetHashCode();
+        }
+    }
 }
