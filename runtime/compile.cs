@@ -2,6 +2,29 @@ using SharpPy.Utils;
 
 namespace SharpPy
 {
+    /// <summary>
+    /// CPython 3.12: SyntaxError exception for compilation errors
+    /// Python/compile.c: compiler_error()
+    /// </summary>
+    public class SyntaxErrorException : Exception
+    {
+        public string? FileName { get; }
+        public int LineNumber { get; }
+        public int ColumnOffset { get; }
+
+        public SyntaxErrorException(string message, string? fileName, int lineNumber, int columnOffset)
+            : base($"SyntaxError: {message} (file {fileName}, line {lineNumber}, column {columnOffset})")
+        {
+            FileName = fileName;
+            LineNumber = lineNumber;
+            ColumnOffset = columnOffset;
+        }
+
+        public SyntaxErrorException(string message) : base($"SyntaxError: {message}")
+        {
+        }
+    }
+
     // CPython 3.12 호환: MAKE_FUNCTION 플래그 상수
     public static class MakeFunctionFlags
     {
@@ -571,41 +594,287 @@ namespace SharpPy
         private SymbolTable? _symbolTable = null;
         private SymbolTable? _currentSymbolTable = null;
 
-        // CPython 3.12: Frame block stack for exception handler tracking
-        private Stack<FBlock> _fblockStack = new Stack<FBlock>();
+        // CPython 3.12: Frame block stack for unified control flow tracking
+        // Replaces both old _fblockStack and _loopStack
+        private const int CO_MAXBLOCKS = 20;
+        private Stack<FBlockInfo> _fblock = new Stack<FBlockInfo>();
 
         /// <summary>
-        /// CPython 3.12: Frame block types
+        /// CPython 3.12: Source location information (Python/compile.c: location struct)
+        /// </summary>
+        private struct SourceLocation
+        {
+            public int Line { get; set; }
+            public int Column { get; set; }
+
+            public SourceLocation(int line, int column)
+            {
+                Line = line;
+                Column = column;
+            }
+
+            public static readonly SourceLocation NoLocation = new SourceLocation(-1, -1);
+        }
+
+        /// <summary>
+        /// CPython 3.12: Frame block types (Python/compile.c lines 130-133)
+        /// Complete enum matching CPython 3.12 implementation
         /// </summary>
         private enum FBlockType
         {
-            WHILE_LOOP,
-            FOR_LOOP,
-            TRY_EXCEPT,
-            EXCEPTION_HANDLER,
-            HANDLER_CLEANUP,
-            EXCEPTION_GROUP_HANDLER
+            WHILE_LOOP,                         // while loop
+            FOR_LOOP,                           // for/async for loop
+            TRY_EXCEPT,                         // try/except block
+            FINALLY_TRY,                        // try with finally
+            FINALLY_END,                        // finally exception handler
+            WITH,                               // with statement
+            ASYNC_WITH,                         // async with statement
+            HANDLER_CLEANUP,                    // exception handler cleanup
+            POP_VALUE,                          // temporary value preservation
+            EXCEPTION_HANDLER,                  // except clause body
+            EXCEPTION_GROUP_HANDLER,            // except* clause body
+            ASYNC_COMPREHENSION_GENERATOR,      // async comprehension iterator
+            STOP_ITERATION                      // generator StopIteration wrapper
         }
 
         /// <summary>
-        /// CPython 3.12: Frame block structure
-        /// Tracks exception handlers and loop contexts
+        /// CPython 3.12: Frame block structure (Python/compile.c lines 135-143)
+        /// Unified structure for loops, exception handlers, and cleanup
+        /// Matches CPython's struct fblockinfo exactly
         /// </summary>
-        private class FBlock
+        private class FBlockInfo
         {
-            public FBlockType Type { get; }
-            public string? HandlerLabel { get; }  // Target label for exception/cleanup
-            public int StackDepth { get; }        // Stack depth when block started
-            public bool PreserveLasti { get; }    // Whether to preserve lasti for exception table
+            public FBlockType Type { get; }         // Block type
+            public Label Block { get; }             // continue target (fb_block)
+            public SourceLocation Loc { get; }      // Source location for diagnostics
+            public Label Exit { get; }              // break target (fb_exit)
+            public object? Datum { get; }           // Type-specific data (fb_datum)
+                                                    // - FINALLY_TRY: finalbody statements
+                                                    // - HANDLER_CLEANUP: exception variable name
+                                                    // - WITH/ASYNC_WITH: statement (for nested)
+                                                    // - Most types: null
 
-            public FBlock(FBlockType type, string? handlerLabel, int stackDepth, bool preserveLasti = false)
+            public FBlockInfo(FBlockType type, Label block, SourceLocation loc, Label exit, object? datum = null)
             {
                 Type = type;
-                HandlerLabel = handlerLabel;
-                StackDepth = stackDepth;
-                PreserveLasti = preserveLasti;
+                Block = block;
+                Loc = loc;
+                Exit = exit;
+                Datum = datum;
             }
         }
+
+        // ========== CPython 3.12: FBlock Operations (Python/compile.c) ==========
+
+        /// <summary>
+        /// Push a frame block onto the fblock stack
+        /// CPython: compiler_push_fblock (Python/compile.c)
+        /// </summary>
+        private void PushFBlock(SourceLocation loc, FBlockType type, Label block, Label exit, object? datum = null)
+        {
+            if (_fblock.Count >= CO_MAXBLOCKS)
+            {
+                throw new InvalidOperationException("too many statically nested blocks");
+            }
+            _fblock.Push(new FBlockInfo(type, block, loc, exit, datum));
+        }
+
+        /// <summary>
+        /// Pop a frame block from the fblock stack with type/label verification
+        /// CPython: compiler_pop_fblock (Python/compile.c)
+        /// </summary>
+        private void PopFBlock(FBlockType expectedType, Label expectedBlock)
+        {
+            if (_fblock.Count == 0)
+            {
+                throw new InvalidOperationException("fblock stack underflow");
+            }
+            var info = _fblock.Pop();
+            System.Diagnostics.Debug.Assert(info.Type == expectedType,
+                $"FBlock type mismatch: expected {expectedType}, got {info.Type}");
+            System.Diagnostics.Debug.Assert(info.Block == expectedBlock,
+                $"FBlock block label mismatch");
+        }
+
+        /// <summary>
+        /// Emit cleanup code when unwinding a single fblock
+        /// CPython: compiler_unwind_fblock (Python/compile.c lines 1543-1641)
+        /// </summary>
+        private void UnwindFBlock(ref SourceLocation loc, FBlockInfo info, bool preserveTos)
+        {
+            switch (info.Type)
+            {
+                case FBlockType.WHILE_LOOP:
+                case FBlockType.EXCEPTION_HANDLER:
+                case FBlockType.EXCEPTION_GROUP_HANDLER:
+                case FBlockType.ASYNC_COMPREHENSION_GENERATOR:
+                case FBlockType.STOP_ITERATION:
+                    // No cleanup needed
+                    break;
+
+                case FBlockType.FOR_LOOP:
+                    // Pop the iterator from stack
+                    if (preserveTos)
+                    {
+                        EmitInstruction(ByteCodeOp.SWAP, 2);
+                    }
+                    EmitInstruction(ByteCodeOp.POP_TOP);
+                    break;
+
+                case FBlockType.TRY_EXCEPT:
+                    EmitInstruction(ByteCodeOp.POP_BLOCK);
+                    break;
+
+                case FBlockType.FINALLY_TRY:
+                    // Execute finally block during unwind
+                    EmitInstruction(ByteCodeOp.POP_BLOCK);
+                    if (preserveTos)
+                    {
+                        PushFBlock(loc, FBlockType.POP_VALUE, Label.NoLabel, Label.NoLabel, null);
+                    }
+                    // Visit finalbody statements (stored in info.Datum)
+                    if (info.Datum is List<Statement> finalbody)
+                    {
+                        foreach (var stmt in finalbody)
+                        {
+                            CompileStatement(stmt);
+                        }
+                    }
+                    if (preserveTos)
+                    {
+                        PopFBlock(FBlockType.POP_VALUE, Label.NoLabel);
+                    }
+                    loc = SourceLocation.NoLocation;
+                    break;
+
+                case FBlockType.FINALLY_END:
+                    if (preserveTos)
+                    {
+                        EmitInstruction(ByteCodeOp.SWAP, 2);
+                    }
+                    EmitInstruction(ByteCodeOp.POP_TOP); // exc_value
+                    if (preserveTos)
+                    {
+                        EmitInstruction(ByteCodeOp.SWAP, 2);
+                    }
+                    EmitInstruction(ByteCodeOp.POP_BLOCK);
+                    EmitInstruction(ByteCodeOp.POP_EXCEPT);
+                    break;
+
+                case FBlockType.WITH:
+                case FBlockType.ASYNC_WITH:
+                    loc = info.Loc;
+                    EmitInstruction(ByteCodeOp.POP_BLOCK);
+                    if (preserveTos)
+                    {
+                        EmitInstruction(ByteCodeOp.SWAP, 2);
+                    }
+                    // Call __exit__(None, None, None)
+                    CompilerCallExitWithNones(loc);
+                    if (info.Type == FBlockType.ASYNC_WITH)
+                    {
+                        EmitInstruction(ByteCodeOp.GET_AWAITABLE, 2);
+                        EmitLoadConst(PyNone.Instance);
+                        EmitInstruction(ByteCodeOp.SEND);
+                    }
+                    EmitInstruction(ByteCodeOp.POP_TOP);
+                    loc = SourceLocation.NoLocation;
+                    break;
+
+                case FBlockType.HANDLER_CLEANUP:
+                    if (info.Datum != null)
+                    {
+                        EmitInstruction(ByteCodeOp.POP_BLOCK);
+                    }
+                    if (preserveTos)
+                    {
+                        EmitInstruction(ByteCodeOp.SWAP, 2);
+                    }
+                    EmitInstruction(ByteCodeOp.POP_BLOCK);
+                    EmitInstruction(ByteCodeOp.POP_EXCEPT);
+                    if (info.Datum is string exceptionVar)
+                    {
+                        // Clean up exception variable: var = None; del var
+                        // CPython: compiler_nameop(c, NO_LOCATION, name, Store); compiler_nameop(c, NO_LOCATION, name, Del);
+                        EmitLoadConst(PyNone.Instance);
+                        EmitStoreName(exceptionVar);
+                        EmitDeleteName(exceptionVar);
+                    }
+                    break;
+
+                case FBlockType.POP_VALUE:
+                    if (preserveTos)
+                    {
+                        EmitInstruction(ByteCodeOp.SWAP, 2);
+                    }
+                    EmitInstruction(ByteCodeOp.POP_TOP);
+                    break;
+
+                default:
+                    throw new NotImplementedException($"Unwind not implemented for FBlockType.{info.Type}");
+            }
+        }
+
+        /// <summary>
+        /// Recursively unwind fblocks until reaching a loop (for break/continue) or all blocks (for return)
+        /// CPython: compiler_unwind_fblock_stack (Python/compile.c lines 1645-1667)
+        /// </summary>
+        /// <param name="loc">Source location (ref - may be modified during unwinding)</param>
+        /// <param name="preserveTos">Whether to preserve top-of-stack value</param>
+        /// <param name="findLoop">If true, stop at first loop block; if false, unwind all blocks</param>
+        /// <returns>The loop block if findLoop is true and a loop was found; otherwise null</returns>
+        private FBlockInfo? UnwindFBlockStack(ref SourceLocation loc, bool preserveTos, bool findLoop)
+        {
+            if (_fblock.Count == 0)
+            {
+                return null;
+            }
+
+            var top = _fblock.Peek();
+
+            // Error: break/continue/return in except*
+            if (top.Type == FBlockType.EXCEPTION_GROUP_HANDLER)
+            {
+                throw new SyntaxErrorException(
+                    "'break', 'continue' and 'return' cannot appear in an except* block",
+                    _currentFileName, loc.Line, loc.Column);
+            }
+
+            // Stop unwinding if we found a loop (for break/continue)
+            if (findLoop && (top.Type == FBlockType.WHILE_LOOP || top.Type == FBlockType.FOR_LOOP))
+            {
+                return top;
+            }
+
+            // Unwind this block (temporarily pop it)
+            var copy = _fblock.Pop();
+            UnwindFBlock(ref loc, copy, preserveTos);
+
+            // Recursively unwind remaining blocks
+            var loop = UnwindFBlockStack(ref loc, preserveTos, findLoop);
+
+            // Restore block (important for preserving fblock state for later PopFBlock calls)
+            _fblock.Push(copy);
+
+            return loop;
+        }
+
+        /// <summary>
+        /// Helper method to call __exit__(None, None, None) for WITH statement cleanup
+        /// CPython: compiler_call_exit_with_nones (Python/compile.c)
+        /// </summary>
+        private void CompilerCallExitWithNones(SourceLocation loc)
+        {
+            // Load __exit__ method
+            EmitInstruction(ByteCodeOp.COPY, 2); // context manager
+            EmitLoadConst(PyNone.Instance);  // exc_type
+            EmitLoadConst(PyNone.Instance);  // exc_value
+            EmitLoadConst(PyNone.Instance);  // exc_tb
+            // Call: __exit__(None, None, None)
+            EmitInstruction(ByteCodeOp.CALL, 3);
+        }
+
+        // ========== End of FBlock Operations ==========
 
         /// <summary>
         /// CPython 3.12: 심볼 테이블 컨텍스트를 설정 (중첩 함수 컴파일용)
@@ -2458,37 +2727,52 @@ namespace SharpPy
                     break;
                     
                 case ReturnStatement ret:
-                    #if DEBUG_LOG
-                    Console.WriteLine($"🔍 CompileStatement ReturnStatement: LineNo={ret.LineNo}, ColOffset={ret.ColOffset}, _currentLineNumber={_currentLineNumber}");
-                    if (ret.Value != null)
+                    // CPython 3.12: compiler_return (Python/compile.c line 3165)
                     {
-                        Console.WriteLine($"   Return value: {ret.Value.GetType().Name}, LineNo={ret.Value.LineNo}");
-                    }
-                    #endif
-
-                    if (ret.Value != null)
-                    {
-                        // CPython 3.12: 상수 표현식이면 RETURN_CONST 직접 생성
-                        if (ret.Value is ConstantExpression literal)
+                        #if DEBUG_LOG
+                        Console.WriteLine($"🔍 CompileStatement ReturnStatement: LineNo={ret.LineNo}, ColOffset={ret.ColOffset}, _currentLineNumber={_currentLineNumber}");
+                        if (ret.Value != null)
                         {
-                            var constIndex = GetOrAddConstant(literal.Value);
-                            EmitInstruction(ByteCodeOp.RETURN_CONST, constIndex);
+                            Console.WriteLine($"   Return value: {ret.Value.GetType().Name}, LineNo={ret.Value.LineNo}");
                         }
-                        else if (ret.Value is NameExpression name && name.Name == "None")
+                        #endif
+
+                        var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
+                        bool preserveTos = (ret.Value != null);
+
+                        // Compile return value first (if exists)
+                        if (ret.Value != null)
+                        {
+                            CompileExpression(ret.Value);
+                        }
+
+                        // Unwind ALL fblocks (findLoop = false means unwind everything)
+                        UnwindFBlockStack(ref loc, preserveTos, findLoop: false);
+
+                        // Emit return instruction
+                        if (ret.Value != null)
+                        {
+                            // CPython 3.12: 상수 표현식이면 RETURN_CONST 직접 생성
+                            if (ret.Value is ConstantExpression literal)
+                            {
+                                var constIndex = GetOrAddConstant(literal.Value);
+                                EmitInstruction(ByteCodeOp.RETURN_CONST, constIndex);
+                            }
+                            else if (ret.Value is NameExpression name && name.Name == "None")
+                            {
+                                var constIndex = GetOrAddConstant(PyNone.Instance);
+                                EmitInstruction(ByteCodeOp.RETURN_CONST, constIndex);
+                            }
+                            else
+                            {
+                                EmitInstruction(ByteCodeOp.RETURN_VALUE);
+                            }
+                        }
+                        else
                         {
                             var constIndex = GetOrAddConstant(PyNone.Instance);
                             EmitInstruction(ByteCodeOp.RETURN_CONST, constIndex);
                         }
-                        else
-                        {
-                            CompileExpression(ret.Value);
-                            EmitInstruction(ByteCodeOp.RETURN_VALUE);
-                        }
-                    }
-                    else
-                    {
-                        var constIndex = GetOrAddConstant(PyNone.Instance);
-                        EmitInstruction(ByteCodeOp.RETURN_CONST, constIndex);
                     }
                     break;
                     
@@ -2587,65 +2871,66 @@ namespace SharpPy
                     break;
                     
                 case BreakStatement:
-                    // CPython 3.12: BREAK_LOOP removed, use JUMP_FORWARD to loop end
-                    if (_loopStack.Count > 0)
+                    // CPython 3.12: compiler_break (Python/compile.c lines 3178-3191)
                     {
-                        var currentLoop = _loopStack.Peek();
+                        var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
+                        var originLoc = loc;
 
-                        // CPython 3.12: For loops need to pop the iterator before breaking
-                        // because break jumps over END_FOR which normally pops the iterator
-                        if (currentLoop.ForIterInstruction >= 0)
+                        // NOP for line number marker
+                        EmitInstruction(ByteCodeOp.NOP);
+
+                        // Unwind fblocks until we find a loop
+                        var loop = UnwindFBlockStack(ref loc, preserveTos: false, findLoop: true);
+
+                        if (loop == null)
                         {
-                            EmitInstruction(ByteCodeOp.POP_TOP); // Pop the iterator from stack
+                            throw new SyntaxErrorException(
+                                "'break' outside loop",
+                                _currentFileName, originLoc.Line, originLoc.Column);
                         }
 
-                        // CFG path: Use InstructionSequence Label
-                        if (currentLoop.NewBreakLabel.HasValue)
-                        {
-#if DEBUG_COMPILER_LOG
-                            Console.WriteLine($"🔷 [CFG] Break: Using InstructionSequence Label");
-#endif
-                            _cfgPathCount++;
-                            _instructionSequence!.AddOpWithLabel(
-                                ByteCodeOp.JUMP,
-                                currentLoop.NewBreakLabel.Value,
-                                _currentLineNumber,
-                                _currentColumnOffset,
-                                _currentFileName
-                            );
-                        }
-                    }
-                    else
-                    {
-                        EmitInstruction(ByteCodeOp.JUMP, 0); // Fallback - will be patched
+                        // Unwind the loop itself (pops iterator for FOR_LOOP)
+                        UnwindFBlock(ref loc, loop, preserveTos: false);
+
+                        // Jump to loop exit (fb_exit)
+                        _instructionSequence!.AddOpWithLabel(
+                            ByteCodeOp.JUMP,
+                            loop.Exit,
+                            _currentLineNumber,
+                            _currentColumnOffset,
+                            _currentFileName
+                        );
                     }
                     break;
-                    
-                case ContinueStatement:
-                    // CPython 3.12: CONTINUE_LOOP removed, use JUMP_BACKWARD to loop start
-                    if (_loopStack.Count > 0)
-                    {
-                        var currentLoop = _loopStack.Peek();
 
-                        // CFG path: Use InstructionSequence Label
-                        if (currentLoop.NewContinueLabel.HasValue)
-                        {
-#if DEBUG_COMPILER_LOG
-                            Console.WriteLine($"🔷 [CFG] Continue: Using InstructionSequence Label");
-#endif
-                            _cfgPathCount++;
-                            _instructionSequence!.AddOpWithLabel(
-                                ByteCodeOp.JUMP,
-                                currentLoop.NewContinueLabel.Value,
-                                _currentLineNumber,
-                                _currentColumnOffset,
-                                _currentFileName
-                            );
-                        }
-                    }
-                    else
+                case ContinueStatement:
+                    // CPython 3.12: compiler_continue (Python/compile.c lines 3194-3206)
                     {
-                        EmitInstruction(ByteCodeOp.JUMP, 0); // Fallback - will be patched
+                        var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
+                        var originLoc = loc;
+
+                        // NOP for line number marker
+                        EmitInstruction(ByteCodeOp.NOP);
+
+                        // Unwind fblocks until we find a loop
+                        var loop = UnwindFBlockStack(ref loc, preserveTos: false, findLoop: true);
+
+                        if (loop == null)
+                        {
+                            throw new SyntaxErrorException(
+                                "'continue' not properly in loop",
+                                _currentFileName, originLoc.Line, originLoc.Column);
+                        }
+
+                        // IMPORTANT: continue does NOT unwind the loop itself (unlike break)
+                        // Just jump directly to loop start (fb_block)
+                        _instructionSequence!.AddOpWithLabel(
+                            ByteCodeOp.JUMP,
+                            loop.Block,
+                            _currentLineNumber,
+                            _currentColumnOffset,
+                            _currentFileName
+                        );
                     }
                     break;
                     
@@ -6583,8 +6868,9 @@ namespace SharpPy
             var breakLabel = _instructionSequence!.NewLabel();
             var continueLabel = _instructionSequence!.NewLabel();
 
-            // Push loop context with NEW labels (uses overloaded PushLoopContext)
-            PushLoopContext(breakLabel, continueLabel);
+            // Push while loop fblock (CPython 3.12: PushFBlock)
+            var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
+            PushFBlock(loc, FBlockType.WHILE_LOOP, continueLabel, breakLabel, null);
 
             // CPython pattern: emit NOP for while True:
             _instructionSequence.AddOp(
@@ -6612,8 +6898,8 @@ namespace SharpPy
                 _currentFileName
             );
 
-            // Pop loop context
-            PopLoopContext();
+            // Pop loop fblock (CPython 3.12: PopFBlock)
+            PopFBlock(FBlockType.WHILE_LOOP, continueLabel);
 
             // Mark break label
             _instructionSequence.UseLabel(breakLabel);
@@ -6773,8 +7059,9 @@ namespace SharpPy
             var loopBodyLabel = _instructionSequence!.NewLabel();    // Loop body start (continue target)
             var endLabel = _instructionSequence!.NewLabel();         // break target (loop end)
 
-            // Push loop context (continue goes to loop body, not initial check)
-            PushLoopContext(endLabel, loopBodyLabel);
+            // Push loop context (CPython 3.12: PushFBlock, continue goes to loop body)
+            var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
+            PushFBlock(loc, FBlockType.WHILE_LOOP, loopBodyLabel, endLabel, null);
 
             // Phase 1: Initial condition check at loop start
             _instructionSequence.UseLabel(loopStartLabel);
@@ -6817,8 +7104,8 @@ namespace SharpPy
                 _currentFileName
             );
 
-            // Pop loop context
-            PopLoopContext();
+            // Pop loop context (CPython 3.12: PopFBlock)
+            PopFBlock(FBlockType.WHILE_LOOP, loopBodyLabel);
 
             // Phase 4: Mark loop end
             _instructionSequence.UseLabel(endLabel);
@@ -6916,9 +7203,10 @@ namespace SharpPy
             // 4. FOR_ITER pushes next value on stack, store it in loop variable
             CompileAssignmentTarget(forStmt.Target);
 
-            // 5. Set up loop context for break/continue
+            // 5. Set up loop context for break/continue (CPython 3.12: PushFBlock)
             // Break → endLabel, Continue → startLabel
-            PushLoopContext(endLabel, startLabel);
+            var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
+            PushFBlock(loc, FBlockType.FOR_LOOP, startLabel, endLabel, null);
 
             // 6. Execute loop body
             foreach (var stmt in forStmt.Body)
@@ -6940,8 +7228,8 @@ namespace SharpPy
             _instructionSequence.UseLabel(cleanupLabel);
             EmitInstruction(ByteCodeOp.END_FOR, 0);
 
-            // 9. Pop loop context
-            PopLoopContext();
+            // 9. Pop loop context (CPython 3.12: PopFBlock)
+            PopFBlock(FBlockType.FOR_LOOP, startLabel);
 
             // 10. Execute else clause if present
             if (forStmt.ElseClause != null && forStmt.ElseClause.Count > 0)
@@ -7001,8 +7289,9 @@ namespace SharpPy
                 EmitStoreName(forTupleStmt.Targets[i]);
             }
 
-            // 7. Push loop context for break/continue
-            PushLoopContext(breakLabel, continueLabel, -1);  // -1 = no longer needed
+            // 7. Push loop fblock for break/continue (CPython 3.12: PushFBlock)
+            var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
+            PushFBlock(loc, FBlockType.FOR_LOOP, startLabel, breakLabel, null);
 
             // 8. Execute loop body
             foreach (var stmt in forTupleStmt.Body)
@@ -7026,8 +7315,8 @@ namespace SharpPy
             _instructionSequence.UseLabel(endLabel);
             EmitInstruction(ByteCodeOp.END_FOR, 0);
 
-            // 12. Pop loop context
-            PopLoopContext();
+            // 12. Pop loop fblock (CPython 3.12: PopFBlock)
+            PopFBlock(FBlockType.FOR_LOOP, startLabel);
 
             // 13. Execute else clause if present
             if (forTupleStmt.ElseClause != null && forTupleStmt.ElseClause.Count > 0)
@@ -7075,8 +7364,9 @@ namespace SharpPy
             // Compile complex target assignment
             CompileComplexAssignTarget(forComplexStmt.Target);
 
-            // 6. Push loop context for break/continue
-            PushLoopContext(breakLabel, continueLabel, -1);  // -1 = no longer needed
+            // 6. Push loop fblock for break/continue (CPython 3.12: PushFBlock)
+            var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
+            PushFBlock(loc, FBlockType.FOR_LOOP, startLabel, breakLabel, null);
 
             // 7. Execute loop body
             foreach (var stmt in forComplexStmt.Body)
@@ -7100,8 +7390,8 @@ namespace SharpPy
             _instructionSequence.UseLabel(endLabel);
             EmitInstruction(ByteCodeOp.END_FOR, 0);
 
-            // 11. Pop loop context
-            PopLoopContext();
+            // 11. Pop loop fblock (CPython 3.12: PopFBlock)
+            PopFBlock(FBlockType.FOR_LOOP, startLabel);
 
             // 12. Execute else clause if present
             if (forComplexStmt.ElseClause != null && forComplexStmt.ElseClause.Count > 0)
@@ -7318,11 +7608,26 @@ namespace SharpPy
             Console.WriteLine($"[TEMP] CompileTryStatementCFG: Pushed outer handler {exceptLabel} to stack. Stack count = {_exceptionHandlerStack.Count}");
             #endif
 
+            // 1.5. Push FINALLY_TRY fblock if finally clause exists
+            // CPython compile.c:3239-3330 compiler_try_finally() pattern
+            // This enables break/continue/return to execute finally inline via UnwindFBlock
+            if (hasFinally)
+            {
+                var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
+                // fb_block: continue target (not used for FINALLY_TRY)
+                // fb_exit: break target (not used for FINALLY_TRY)
+                // fb_datum: finalbody statements to execute inline during unwinding
+                PushFBlock(loc, FBlockType.FINALLY_TRY, finallyLabel, endLabel, tryStmt.FinalBody);
+            }
+
             // 2. Try body (immediately follows SETUP_FINALLY, no label needed)
             foreach (var stmt in tryStmt.Body)
             {
                 CompileStatement(stmt);
             }
+
+            // NOTE: Don't pop FINALLY_TRY yet! Except handlers need to see it too.
+            // CPython: pop happens AFTER compiler_try_except returns (compile.c:3263)
 
             // 3. POP_BLOCK - pop exception handler from stack (normal completion)
             _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
@@ -7489,6 +7794,14 @@ namespace SharpPy
             _instructionSequence.AddOpWithArg(ByteCodeOp.COPY, 3, _currentLineNumber);
             _instructionSequence.AddOp(ByteCodeOp.POP_EXCEPT, _currentLineNumber);
             _instructionSequence.AddOpWithArg(ByteCodeOp.RERAISE, 1, _currentLineNumber);
+
+            // 8.5. Pop FINALLY_TRY fblock after all except handlers complete
+            // CPython: pop happens after compiler_try_except returns (compile.c:3263)
+            // This is where the try/except/finally structure ends and normal finally begins
+            if (hasFinally)
+            {
+                PopFBlock(FBlockType.FINALLY_TRY, finallyLabel);
+            }
 
             // 9. Finally block (normal path) - offset 18 in CPython disassembly
             if (hasFinally)
@@ -7907,15 +8220,10 @@ namespace SharpPy
             var withCleanupLabel = _instructionSequence.NewLabel();
             var endLabel = _instructionSequence.NewLabel();
 
-            // Push exception handler fblock - this marks all subsequent instructions
-            // with the handler offset until the fblock is popped
-            var handlerLabelName = $"with_cleanup_{withCleanupLabel.Id}";
-            _fblockStack.Push(new FBlock(
-                type: FBlockType.EXCEPTION_HANDLER,
-                handlerLabel: handlerLabelName,
-                stackDepth: 1,
-                preserveLasti: true
-            ));
+            // Push WITH fblock (CPython 3.12: uses WITH type, not EXCEPTION_HANDLER)
+            // fb_block = withCleanupLabel (not used), fb_exit = endLabel (not used)
+            var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
+            PushFBlock(loc, FBlockType.WITH, withCleanupLabel, endLabel, withStmt);
 
             // 5. Execute body (all instructions will be marked with exception handler)
             foreach (var stmt in withStmt.Body)
@@ -7923,8 +8231,8 @@ namespace SharpPy
                 CompileStatement(stmt);
             }
 
-            // 6. Pop exception handler fblock (body complete)
-            _fblockStack.Pop();
+            // 6. Pop WITH fblock (body complete)
+            PopFBlock(FBlockType.WITH, withCleanupLabel);
 
             // 7. Normal exit: call __exit__(None, None, None)
             var noneConstIndex = GetOrAddConstant(PyNone.Instance);
@@ -9700,31 +10008,33 @@ namespace SharpPy
         private void EmitLoadAttribute(string attrName) => EmitLoadAttr(attrName);
         private void EmitStoreAttribute(string attrName) => EmitStoreAttr(attrName);
         
-        
+
+        // ========== LEGACY CODE (Replaced by unified FBlock system) ==========
+        // The following LoopContext code has been replaced by the CPython 3.12 style
+        // unified FBlock system. Keeping for reference during transition period.
+        // TODO: Remove after verifying all tests pass with new system.
+
+        /*
         /// <summary>
-        /// Loop context management for break/continue (CPython style)
-        /// Uses CFG-based InstructionSequence Labels
+        /// LEGACY: Loop context management for break/continue
+        /// REPLACED BY: Unified FBlock system (FBlockInfo with FOR_LOOP/WHILE_LOOP types)
         /// </summary>
         private class LoopContext
         {
-            // CFG path: SharpPy.Label (InstructionSequence)
             public SharpPy.Label? NewBreakLabel { get; }
             public SharpPy.Label? NewContinueLabel { get; }
+            public int ForIterInstruction { get; set; } = -1;
+            public int EndForPosition { get; set; } = -1;
 
-            public int ForIterInstruction { get; set; } = -1; // FOR_ITER 명령어 위치
-            public int EndForPosition { get; set; } = -1; // END_FOR 명령어 위치 (for loop용)
-
-            // CFG constructor
             public LoopContext(SharpPy.Label breakLabel, SharpPy.Label continueLabel)
             {
                 NewBreakLabel = breakLabel;
                 NewContinueLabel = continueLabel;
             }
         }
-        
+
         private Stack<LoopContext> _loopStack = new();
 
-        // CFG: PushLoopContext with SharpPy.Label
         private void PushLoopContext(SharpPy.Label breakLabel, SharpPy.Label continueLabel, int forIterInstruction = -1)
         {
             var context = new LoopContext(breakLabel, continueLabel);
@@ -9734,20 +10044,22 @@ namespace SharpPy
             }
             _loopStack.Push(context);
         }
-        
+
         private void PopLoopContext()
         {
-            // CPython 3.12: No manual patching needed - labels are resolved by assembler
             if (_loopStack.Count > 0)
             {
                 _loopStack.Pop();
             }
         }
-        
+
         private LoopContext? GetCurrentLoop()
         {
             return _loopStack.Count > 0 ? _loopStack.Peek() : null;
         }
+        */
+
+        // ========== END OF LEGACY CODE ==========
 
         /// <summary>
         /// Pattern matching context - corresponds to CPython's pattern_context
@@ -9797,10 +10109,12 @@ namespace SharpPy
 
         /// <summary>
         /// FOR 루프 컨텍스트 내부인지 확인
+        /// CPython 3.12: Check if we're inside any loop (FOR_LOOP or WHILE_LOOP)
         /// </summary>
         private bool IsInForLoopContext()
         {
-            return _loopStack.Count > 0;
+            // Check if any fblock on the stack is a loop
+            return _fblock.Any(fb => fb.Type == FBlockType.FOR_LOOP || fb.Type == FBlockType.WHILE_LOOP);
         }
         
         /// <summary>
