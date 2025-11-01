@@ -245,14 +245,146 @@ namespace SharpPy.Core
     /// CPython 3.12: _PyAsyncGenWrappedValue
     /// Wrapper for values yielded from async generators
     /// (Objects/genobject.c: _PyAsyncGenWrappedValue)
+    ///
+    /// Performance: Uses object pooling (freelist) to reduce allocations.
+    /// CPython reports 6-10% performance improvement from freelists.
     /// </summary>
     public class PyAsyncGenWrappedValue : PyObject
     {
-        public PyObject Value { get; }
+        #region CPython 3.12: Freelist for object pooling (pycore_genobject.h:28)
 
-        public PyAsyncGenWrappedValue(PyObject value)
+        /// <summary>
+        /// CPython 3.12: _PyAsyncGen_MAXFREELIST = 80
+        /// Maximum number of cached objects in the freelist
+        /// </summary>
+        private const int MAXFREELIST = 80;
+
+        /// <summary>
+        /// CPython 3.12: value_freelist[]
+        /// Array of reusable wrapper objects
+        /// </summary>
+        private static readonly PyAsyncGenWrappedValue[] _freelist = new PyAsyncGenWrappedValue[MAXFREELIST];
+
+        /// <summary>
+        /// CPython 3.12: value_numfree
+        /// Number of objects currently in the freelist
+        /// </summary>
+        private static int _numFree = 0;
+
+        /// <summary>
+        /// Thread safety lock for freelist operations
+        /// CPython uses per-interpreter state; we use a global lock for simplicity
+        /// </summary>
+        private static readonly object _freelistLock = new object();
+
+        #endregion
+
+        public PyObject Value { get; private set; }
+
+        /// <summary>
+        /// Private constructor - use Create() factory method instead
+        /// </summary>
+        private PyAsyncGenWrappedValue()
         {
-            Value = value ?? throw new ArgumentNullException(nameof(value));
+        }
+
+        /// <summary>
+        /// CPython 3.12: _PyAsyncGenValueWrapperNew (Objects/genobject.c:2028)
+        /// Factory method that uses freelist for object pooling
+        /// </summary>
+        public static PyAsyncGenWrappedValue Create(PyObject value)
+        {
+            if (value == null)
+                throw new ArgumentNullException(nameof(value));
+
+            PyAsyncGenWrappedValue wrapper;
+            bool reusedFromFreelist = false;
+
+            lock (_freelistLock)
+            {
+                // CPython: if (state->value_numfree)
+                if (_numFree > 0)
+                {
+                    // Reuse object from freelist
+                    _numFree--;
+                    wrapper = _freelist[_numFree];
+                    _freelist[_numFree] = null; // Clear reference
+                    reusedFromFreelist = true;
+                }
+                else
+                {
+                    // Allocate new object
+                    wrapper = new PyAsyncGenWrappedValue();
+                }
+            }
+
+#if DEBUG_FREELIST
+            if (reusedFromFreelist)
+                Console.WriteLine($"[FREELIST] Reused wrapper from freelist (free: {_numFree})");
+            else
+                Console.WriteLine($"[FREELIST] Allocated new wrapper (free: {_numFree})");
+#endif
+
+            // Set the value (CPython: o->agw_val = Py_NewRef(val))
+            wrapper.Value = value;
+            return wrapper;
+        }
+
+        /// <summary>
+        /// CPython 3.12: Return object to freelist when no longer needed
+        /// Called during garbage collection or when wrapper is discarded
+        /// (Objects/genobject.c:1962)
+        /// </summary>
+        public void Release()
+        {
+            lock (_freelistLock)
+            {
+                // CPython: if (state->value_numfree < _PyAsyncGen_MAXFREELIST)
+                if (_numFree < MAXFREELIST)
+                {
+                    // Clear the value reference
+                    Value = null;
+
+                    // Add to freelist
+                    _freelist[_numFree] = this;
+                    _numFree++;
+
+#if DEBUG_FREELIST
+                    Console.WriteLine($"[FREELIST] Returned wrapper to freelist (free: {_numFree}/{MAXFREELIST})");
+#endif
+                }
+                else
+                {
+#if DEBUG_FREELIST
+                    Console.WriteLine($"[FREELIST] Freelist full, wrapper will be GC'd (free: {_numFree}/{MAXFREELIST})");
+#endif
+                }
+                // else: freelist is full, object will be garbage collected
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12: _PyAsyncGen_ClearFreeLists (Objects/genobject.c:1665)
+        /// Clear the freelist (useful for testing or shutdown)
+        /// </summary>
+        public static void ClearFreelist()
+        {
+            lock (_freelistLock)
+            {
+                Array.Clear(_freelist, 0, _numFree);
+                _numFree = 0;
+            }
+        }
+
+        /// <summary>
+        /// Get current freelist statistics (for debugging/profiling)
+        /// </summary>
+        public static (int numFree, int maxSize) GetFreelistStats()
+        {
+            lock (_freelistLock)
+            {
+                return (_numFree, MAXFREELIST);
+            }
         }
 
         public override string GetTypeName() => "async_generator_wrapped_value";
