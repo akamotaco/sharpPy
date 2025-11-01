@@ -2997,6 +2997,47 @@ namespace SharpPy
                     frame.ValueStack.Push(awaitable);
                     break;
 
+                case ByteCodeOp.GET_AITER:
+                    // CPython 3.12: GET_AITER for async for loops
+                    // Python/bytecodes.c: inst(GET_AITER)
+                    var aiterObj = frame.ValueStack.Pop();
+                    var aiter = GetAsyncIterator(aiterObj);
+                    frame.ValueStack.Push(aiter);
+                    break;
+
+                case ByteCodeOp.GET_ANEXT:
+                    // CPython 3.12: GET_ANEXT for async for loops
+                    // Python/bytecodes.c: inst(GET_ANEXT)
+                    // Stack: [aiter] -> [aiter, awaitable]
+                    var asyncIter = frame.ValueStack.Peek();  // Keep aiter on stack
+                    var anext = GetAsyncNext(asyncIter);
+                    frame.ValueStack.Push(anext);  // Push awaitable
+                    break;
+
+                case ByteCodeOp.END_ASYNC_FOR:
+                    // CPython 3.12: END_ASYNC_FOR for async for loops
+                    // Python/bytecodes.c: inst(END_ASYNC_FOR)
+                    // Stack: [awaitable, exc] -> []
+                    // Check if exception is StopAsyncIteration
+                    var asyncForExc = frame.ValueStack.Pop();
+                    var asyncForAwaitable = frame.ValueStack.Pop();
+
+                    if (asyncForExc is PyStopAsyncIteration)
+                    {
+                        // Normal loop termination - just discard both values
+                        break;
+                    }
+                    else if (asyncForExc is PyBaseException asyncForException)
+                    {
+                        // Re-raise other exceptions
+                        throw new PythonException(asyncForException);
+                    }
+                    else
+                    {
+                        // Should not happen
+                        throw new InvalidOperationException($"END_ASYNC_FOR received non-exception: {asyncForExc?.GetTypeName() ?? "null"}");
+                    }
+
                 // CPython-style Control Flow Opcodes (Phase 1 - High Priority)
                 case ByteCodeOp.POP_JUMP_IF_TRUE:
                     var truthValue = frame.ValueStack.Pop();
@@ -3894,6 +3935,71 @@ namespace SharpPy
                     #endif
                     #if DEBUG_LOG
                     Console.WriteLine($"   TOS: {frame.ValueStack.Peek()} (enter result)");
+                    #endif
+                    break;
+
+                case ByteCodeOp.BEFORE_ASYNC_WITH:
+                    // CPython 3.12: BEFORE_ASYNC_WITH for async context managers
+                    // Python/bytecodes.c: inst(BEFORE_ASYNC_WITH)
+                    // Stack: [mgr] -> [exit, res]
+                    var asyncContextManager = frame.ValueStack.Pop();
+
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 BEFORE_ASYNC_WITH: Processing async context manager: {asyncContextManager}");
+                    #endif
+
+                    // 1. Load __aenter__ method
+                    PyObject aenterMethod;
+                    try
+                    {
+                        aenterMethod = asyncContextManager.GetAttribute("__aenter__");
+                        if (!aenterMethod.IsCallable())
+                        {
+                            throw PyTypeError.Create(
+                                $"'{asyncContextManager.GetTypeName()}' object does not support the asynchronous context manager protocol");
+                        }
+                    }
+                    catch
+                    {
+                        throw PyTypeError.Create(
+                            $"'{asyncContextManager.GetTypeName()}' object does not support the asynchronous context manager protocol");
+                    }
+
+                    // 2. Load __aexit__ method
+                    PyObject aexitMethod;
+                    try
+                    {
+                        aexitMethod = asyncContextManager.GetAttribute("__aexit__");
+                        if (!aexitMethod.IsCallable())
+                        {
+                            throw PyTypeError.Create(
+                                $"'{asyncContextManager.GetTypeName()}' object does not support the asynchronous context manager protocol (missed __aexit__ method)");
+                        }
+                    }
+                    catch
+                    {
+                        throw PyTypeError.Create(
+                            $"'{asyncContextManager.GetTypeName()}' object does not support the asynchronous context manager protocol (missed __aexit__ method)");
+                    }
+
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 BEFORE_ASYNC_WITH: Found __aenter__ and __aexit__ methods");
+                    #endif
+
+                    // 3. Call __aenter__() to get awaitable
+                    var aenterResult = aenterMethod.Call(new PyObject[0], null);
+
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 BEFORE_ASYNC_WITH: __aenter__ returned: {aenterResult}");
+                    #endif
+
+                    // CPython 3.12 stack layout: [..., __aexit__, __aenter_result__]
+                    // Push __aexit__ first (for later cleanup), then __aenter__ result
+                    frame.ValueStack.Push(aexitMethod);
+                    frame.ValueStack.Push(aenterResult);
+
+                    #if DEBUG_LOG
+                    Console.WriteLine($"🔧 BEFORE_ASYNC_WITH: Stack after setup - size: {frame.ValueStack.Count}");
                     #endif
                     break;
 
@@ -6761,6 +6867,74 @@ namespace SharpPy
 
             // 4. 모든 조건을 만족하지 않으면 TypeError
             throw PyTypeError.Create($"object {obj.GetTypeName()} can't be used in 'await' expression");
+        }
+
+        /// <summary>
+        /// CPython 3.12: GET_AITER implementation (Python/bytecodes.c)
+        /// Get async iterator from an object for async for loops
+        /// </summary>
+        private PyObject GetAsyncIterator(PyObject obj)
+        {
+            // CPython: Call __aiter__() method to get async iterator
+            try
+            {
+                var aiterMethod = obj.GetAttribute("__aiter__");
+                if (aiterMethod != null)
+                {
+                    var aiter = aiterMethod.Call(new PyObject[0], null);
+
+                    // CPython: Verify the async iterator has __anext__ method
+                    try
+                    {
+                        var anextMethod = aiter.GetAttribute("__anext__");
+                        if (anextMethod == null)
+                        {
+                            throw PyTypeError.Create(
+                                $"'async for' received an object from __aiter__ that does not implement __anext__: {aiter.GetTypeName()}");
+                        }
+                    }
+                    catch
+                    {
+                        throw PyTypeError.Create(
+                            $"'async for' received an object from __aiter__ that does not implement __anext__: {aiter.GetTypeName()}");
+                    }
+
+                    return aiter;
+                }
+            }
+            catch (Exception ex) when (!(ex is PythonException))
+            {
+                // __aiter__ doesn't exist or failed
+            }
+
+            // CPython: TypeError if no __aiter__ method
+            throw PyTypeError.Create($"'async for' requires an object with __aiter__ method, got {obj.GetTypeName()}");
+        }
+
+        /// <summary>
+        /// CPython 3.12: GET_ANEXT implementation (Python/bytecodes.c)
+        /// Get next awaitable from async iterator
+        /// </summary>
+        private PyObject GetAsyncNext(PyObject aiter)
+        {
+            // CPython: Call __anext__() method to get awaitable
+            try
+            {
+                var anextMethod = aiter.GetAttribute("__anext__");
+                if (anextMethod != null)
+                {
+                    // Call __anext__() which should return an awaitable
+                    var awaitable = anextMethod.Call(new PyObject[0], null);
+                    return awaitable;
+                }
+            }
+            catch (Exception ex) when (!(ex is PythonException))
+            {
+                // __anext__ doesn't exist or failed
+            }
+
+            // CPython: TypeError if no __anext__ method
+            throw PyTypeError.Create($"async iterator has no __anext__ method");
         }
 
         /// <summary>

@@ -2869,7 +2869,11 @@ namespace SharpPy
                 case ForStatement forStmt:
                     CompileFor(forStmt);
                     break;
-                    
+
+                case AsyncForStatement asyncForStmt:
+                    CompileAsyncFor(asyncForStmt);
+                    break;
+
                 case ForTupleStatement forTupleStmt:
                     CompileForTuple(forTupleStmt);
                     break;
@@ -2895,7 +2899,11 @@ namespace SharpPy
                 case WithStatement withStmt:
                     CompileWith(withStmt);
                     break;
-                    
+
+                case AsyncWithStatement asyncWithStmt:
+                    CompileAsyncWith(asyncWithStmt);
+                    break;
+
                 case MatchStatement matchStmt:
                     CompileMatch(matchStmt);
                     break;
@@ -7288,6 +7296,124 @@ namespace SharpPy
         }
 
         /// <summary>
+        /// CPython 3.12: async for loop compilation (Python/compile.c:3059-3106)
+        /// async for target in iter:
+        ///     body
+        /// else:
+        ///     orelse
+        /// </summary>
+        private void CompileAsyncFor(AsyncForStatement asyncForStmt)
+        {
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"🔷 [CFG] CompileAsyncFor: Using InstructionSequence with Labels (CPython 3.12)");
+#endif
+
+            // CPython: Check if we're in an async function
+            var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
+
+            // TODO: Add proper scope type checking when we have _scopeType field
+            // if (_scopeType != CompilerScopeType.ASYNC_FUNCTION && !_isTopLevelAwait)
+            // {
+            //     throw new SyntaxErrorException("'async for' outside async function", _currentFileName, loc.Line, loc.Column);
+            // }
+
+            // CPython 3.12 pattern: 3 labels (start, except, end)
+            var startLabel = _instructionSequence.NewLabel();    // GET_ANEXT location
+            var exceptLabel = _instructionSequence.NewLabel();   // Exception handler (END_ASYNC_FOR)
+            var endLabel = _instructionSequence.NewLabel();      // Loop exit
+
+            // 1. Get async iterator from iterable
+            // CPython: VISIT(c, expr, s->v.AsyncFor.iter);
+            CompileExpression(asyncForStmt.Iter);
+
+            // CPython: ADDOP(c, LOC(s->v.AsyncFor.iter), GET_AITER);
+            EmitInstruction(ByteCodeOp.GET_AITER);
+
+            // 2. Mark start label
+            // CPython: USE_LABEL(c, start);
+            _instructionSequence.UseLabel(startLabel);
+
+            // 3. Push FOR_LOOP fblock for break/continue
+            // CPython: compiler_push_fblock(c, loc, FOR_LOOP, start, end, NULL);
+            PushFBlock(loc, FBlockType.FOR_LOOP, startLabel, endLabel, null);
+
+            // 4. Setup exception handler for __anext__ call
+            // CPython: ADDOP_JUMP(c, loc, SETUP_FINALLY, except);
+            _instructionSequence.AddOpWithLabel(
+                ByteCodeOp.SETUP_FINALLY,
+                exceptLabel,
+                _currentLineNumber,
+                _currentColumnOffset,
+                _currentFileName
+            );
+
+            // 5. Get next value from async iterator
+            // CPython: ADDOP(c, loc, GET_ANEXT);
+            EmitInstruction(ByteCodeOp.GET_ANEXT);
+
+            // 6. Await the result (yield from pattern)
+            // CPython: ADDOP_LOAD_CONST(c, loc, Py_None);
+            // CPython: ADD_YIELD_FROM(c, loc, 1);  // await=1
+            EmitLoadConst(PyNone.Instance);
+            CompileYieldFrom(isAwait: true);  // This will emit SEND/YIELD_VALUE/RESUME sequence
+
+            // 7. Pop exception handler block
+            // CPython: ADDOP(c, loc, POP_BLOCK);
+            EmitInstruction(ByteCodeOp.POP_BLOCK);
+
+            // 8. Store value to target variable
+            // CPython: VISIT(c, expr, s->v.AsyncFor.target);
+            EmitStoreName(asyncForStmt.Target);
+
+            // 9. Execute loop body
+            // CPython: VISIT_SEQ(c, stmt, s->v.AsyncFor.body);
+            foreach (var stmt in asyncForStmt.Body)
+            {
+                CompileStatement(stmt);
+            }
+
+            // 10. Jump back to start (loop again)
+            // CPython: ADDOP_JUMP(c, NO_LOCATION, JUMP, start);
+            _instructionSequence.AddOpWithLabel(
+                ByteCodeOp.JUMP,
+                startLabel,
+                _currentLineNumber,
+                _currentColumnOffset,
+                _currentFileName
+            );
+
+            // 11. Pop FOR_LOOP fblock
+            // CPython: compiler_pop_fblock(c, FOR_LOOP, start);
+            PopFBlock(FBlockType.FOR_LOOP, startLabel);
+
+            // 12. Mark exception handler label
+            // CPython: USE_LABEL(c, except);
+            _instructionSequence.UseLabel(exceptLabel);
+
+            // 13. Handle StopAsyncIteration
+            // CPython: ADDOP(c, loc, END_ASYNC_FOR);
+            EmitInstruction(ByteCodeOp.END_ASYNC_FOR);
+
+            // 14. Execute else clause if present
+            // CPython: VISIT_SEQ(c, stmt, s->v.For.orelse);  // Note: typo in CPython, should be AsyncFor
+            if (asyncForStmt.ElseClause != null && asyncForStmt.ElseClause.Count > 0)
+            {
+                foreach (var stmt in asyncForStmt.ElseClause)
+                {
+                    CompileStatement(stmt);
+                }
+            }
+
+            // 15. Mark end label
+            // CPython: USE_LABEL(c, end);
+            _instructionSequence.UseLabel(endLabel);
+
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine("🔷 CPython 3.12 async for 루프 컴파일 완료");
+#endif
+        }
+
+        /// <summary>
         /// LEGACY: Offset-based for loop compilation
         /// </summary>
         /// <summary>
@@ -8346,6 +8472,206 @@ namespace SharpPy
 
             // Mark end label
             _instructionSequence.UseLabel(endLabel);
+        }
+
+        /// <summary>
+        /// CPython 3.12: async with statement compilation (Python/compile.c:5901-5979)
+        /// async with expr as var:
+        ///     body
+        /// </summary>
+        private void CompileAsyncWith(AsyncWithStatement asyncWithStmt)
+        {
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"🔷 [CFG] CompileAsyncWith: Using InstructionSequence (CPython 3.12)");
+#endif
+
+            // For now, implement single context manager (recursive for multiple later)
+            if (asyncWithStmt.Items.Count == 0)
+            {
+                throw PySyntaxError.Create("async with statement requires at least one context manager");
+            }
+
+            if (asyncWithStmt.Items.Count == 1)
+            {
+                CompileSingleAsyncWith(asyncWithStmt);
+            }
+            else
+            {
+                // Multiple context managers - transform to nested async with
+                CompileMultipleAsyncWith(asyncWithStmt);
+            }
+        }
+
+        /// <summary>
+        /// CPython 3.12: Compile single async context manager (Python/compile.c:5901-5979)
+        /// </summary>
+        private void CompileSingleAsyncWith(AsyncWithStatement asyncWithStmt)
+        {
+            var item = asyncWithStmt.Items[0];
+            var loc = new SourceLocation(_currentLineNumber, _currentColumnOffset);
+
+            // CPython: Create labels (compile.c:5913-5916)
+            var blockLabel = _instructionSequence.NewLabel();
+            var finalLabel = _instructionSequence.NewLabel();
+            var exitLabel = _instructionSequence.NewLabel();
+            var cleanupLabel = _instructionSequence.NewLabel();
+
+            // 1. Evaluate context expression
+            // CPython: VISIT(c, expr, item->context_expr);
+            CompileExpression(item.ContextExpr);
+
+            // 2. BEFORE_ASYNC_WITH: Call __aenter__()
+            // CPython: ADDOP(c, loc, BEFORE_ASYNC_WITH);
+            EmitInstruction(ByteCodeOp.BEFORE_ASYNC_WITH);
+
+            // 3. Get awaitable from __aenter__() result
+            // CPython: ADDOP_I(c, loc, GET_AWAITABLE, 1);
+            EmitInstruction(ByteCodeOp.GET_AWAITABLE, 1);
+
+            // 4. Await the __aenter__() result (yield from pattern)
+            // CPython: ADDOP_LOAD_CONST(c, loc, Py_None);
+            // CPython: ADD_YIELD_FROM(c, loc, 1);
+            EmitLoadConst(PyNone.Instance);
+            CompileYieldFrom(isAwait: true);
+
+            // 5. Setup exception handler with SETUP_WITH
+            // CPython: ADDOP_JUMP(c, loc, SETUP_WITH, final);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_WITH, finalLabel, _currentLineNumber);
+
+            // 6. Mark block label and push ASYNC_WITH fblock
+            // CPython: USE_LABEL(c, block);
+            // CPython: compiler_push_fblock(c, loc, ASYNC_WITH, block, final, s);
+            _instructionSequence.UseLabel(blockLabel);
+            PushFBlock(loc, FBlockType.ASYNC_WITH, blockLabel, finalLabel, asyncWithStmt);
+
+            // 7. Handle __aenter__() result
+            if (item.OptionalVars != null)
+            {
+                // CPython: VISIT(c, expr, item->optional_vars);
+                CompileAssignmentTarget(item.OptionalVars);
+            }
+            else
+            {
+                // CPython: ADDOP(c, loc, POP_TOP);
+                EmitInstruction(ByteCodeOp.POP_TOP);
+            }
+
+            // 8. Execute body
+            // CPython: pos++; if (pos == len) { VISIT_SEQ(c, stmt, body) }
+            foreach (var stmt in asyncWithStmt.Body)
+            {
+                CompileStatement(stmt);
+            }
+
+            // 9. Pop fblock and exception handler
+            // CPython: compiler_pop_fblock(c, ASYNC_WITH, block);
+            PopFBlock(FBlockType.ASYNC_WITH, blockLabel);
+
+            // CPython: ADDOP(c, loc, POP_BLOCK);
+            EmitInstruction(ByteCodeOp.POP_BLOCK);
+
+            // 10. Normal exit: call __aexit__(None, None, None) and await it
+            // CPython: compiler_call_exit_with_nones(c, loc);
+            EmitLoadConst(PyNone.Instance);
+            EmitLoadConst(PyNone.Instance);
+            EmitLoadConst(PyNone.Instance);
+            EmitInstruction(ByteCodeOp.CALL, 2);  // __aexit__(exc_type, exc_val, exc_tb)
+
+            // CPython: ADDOP_I(c, loc, GET_AWAITABLE, 2);
+            EmitInstruction(ByteCodeOp.GET_AWAITABLE, 2);
+
+            // CPython: ADDOP_LOAD_CONST(c, loc, Py_None);
+            // CPython: ADD_YIELD_FROM(c, loc, 1);
+            EmitLoadConst(PyNone.Instance);
+            CompileYieldFrom(isAwait: true);
+
+            // CPython: ADDOP(c, loc, POP_TOP);
+            EmitInstruction(ByteCodeOp.POP_TOP);
+
+            // CPython: ADDOP_JUMP(c, loc, JUMP, exit);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, exitLabel, _currentLineNumber);
+
+            // 11. Exception handler
+            // CPython: USE_LABEL(c, final);
+            _instructionSequence.UseLabel(finalLabel);
+
+            // CPython: ADDOP_JUMP(c, loc, SETUP_CLEANUP, cleanup);
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_CLEANUP, cleanupLabel, _currentLineNumber);
+
+            // CPython: ADDOP(c, loc, PUSH_EXC_INFO);
+            EmitInstruction(ByteCodeOp.PUSH_EXC_INFO);
+
+            // CPython: ADDOP(c, loc, WITH_EXCEPT_START);
+            EmitInstruction(ByteCodeOp.WITH_EXCEPT_START);
+
+            // CPython: ADDOP_I(c, loc, GET_AWAITABLE, 2);
+            EmitInstruction(ByteCodeOp.GET_AWAITABLE, 2);
+
+            // CPython: ADDOP_LOAD_CONST(c, loc, Py_None);
+            // CPython: ADD_YIELD_FROM(c, loc, 1);
+            EmitLoadConst(PyNone.Instance);
+            CompileYieldFrom(isAwait: true);
+
+            // CPython: compiler_with_except_finish(c, cleanup);
+            // Check if exception was suppressed
+            var suppressLabel = _instructionSequence.NewLabel();
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.POP_JUMP_IF_TRUE, suppressLabel, _currentLineNumber);
+
+            // Re-raise exception if not suppressed
+            EmitInstruction(ByteCodeOp.RERAISE, 2);
+
+            // Exception suppressed
+            _instructionSequence.UseLabel(suppressLabel);
+            EmitInstruction(ByteCodeOp.POP_TOP);
+            EmitInstruction(ByteCodeOp.POP_EXCEPT);
+            EmitInstruction(ByteCodeOp.POP_TOP);
+            EmitInstruction(ByteCodeOp.POP_TOP);
+
+            _instructionSequence.AddOpWithLabel(ByteCodeOp.JUMP, exitLabel, _currentLineNumber);
+
+            // Cleanup handler
+            _instructionSequence.UseLabel(cleanupLabel);
+            EmitInstruction(ByteCodeOp.COPY, 3);
+            EmitInstruction(ByteCodeOp.POP_EXCEPT);
+            EmitInstruction(ByteCodeOp.RERAISE, 1);
+
+            // CPython: USE_LABEL(c, exit);
+            _instructionSequence.UseLabel(exitLabel);
+        }
+
+        /// <summary>
+        /// CPython 3.12: Compile multiple async context managers (recursive)
+        /// </summary>
+        private void CompileMultipleAsyncWith(AsyncWithStatement asyncWithStmt)
+        {
+            if (asyncWithStmt.Items.Count < 2)
+            {
+                throw new InvalidOperationException("CompileMultipleAsyncWith requires at least 2 context managers");
+            }
+
+            // Take the first context manager
+            var outerItem = asyncWithStmt.Items[0];
+
+            // Create inner async with statement with remaining context managers
+            var remainingItems = new List<WithItem>();
+            for (int i = 1; i < asyncWithStmt.Items.Count; i++)
+            {
+                remainingItems.Add(asyncWithStmt.Items[i]);
+            }
+
+            var innerAsyncWith = new AsyncWithStatement(
+                items: remainingItems,
+                body: asyncWithStmt.Body
+            );
+
+            // Create outer async with statement with first context manager and nested inner as body
+            var outerAsyncWith = new AsyncWithStatement(
+                items: new List<WithItem> { outerItem },
+                body: new List<Statement> { innerAsyncWith }
+            );
+
+            // Compile the transformed outer async with statement
+            CompileSingleAsyncWith(outerAsyncWith);
         }
 
         /// <summary>
