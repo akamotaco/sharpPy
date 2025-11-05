@@ -149,7 +149,9 @@ namespace SharpPy
                 if (instr.IsJump && instr.Target.HasValue)
                 {
                     int targetIndex = instrSeq.GetLabelTarget(instr.Target.Value);
-                    if (targetIndex >= 0)
+                    // CPython 3.12: Only add valid boundaries (within instruction range)
+                    // Labels pointing past the end of code are unreachable (e.g., after RETURN)
+                    if (targetIndex >= 0 && targetIndex < instructions.Count)
                     {
                         boundaries.Add(targetIndex);
                     }
@@ -353,29 +355,50 @@ namespace SharpPy
                             // Fallback: resolve using InstructionSequence offset
                             int targetInstrIndex = instrSeq.GetLabelTarget(instr.Target.Value);
 
-                            // Find which block contains this target instruction
-                            for (int bi = 0; bi < sortedStarts.Count; bi++)
+                            // CPython 3.12: Check if target is within valid instruction range
+                            // Labels pointing past the end of code are unreachable (after RETURN/RAISE)
+                            if (targetInstrIndex >= 0 && targetInstrIndex < instructions.Count)
                             {
-                                int blockStart = sortedStarts[bi];
-                                int blockEnd = (bi + 1 < sortedStarts.Count) ? sortedStarts[bi + 1] : instructions.Count;
-
-                                if (blockStart <= targetInstrIndex && targetInstrIndex < blockEnd)
+                                // Find which block contains this target instruction
+                                for (int bi = 0; bi < sortedStarts.Count; bi++)
                                 {
-                                    if (indexToBlock.TryGetValue(blockStart, out var candidateBlock))
+                                    int blockStart = sortedStarts[bi];
+                                    int blockEnd = (bi + 1 < sortedStarts.Count) ? sortedStarts[bi + 1] : instructions.Count;
+
+                                    if (blockStart <= targetInstrIndex && targetInstrIndex < blockEnd)
                                     {
-                                        targetBlock = candidateBlock;
-                                        break;
+                                        if (indexToBlock.TryGetValue(blockStart, out var candidateBlock))
+                                        {
+                                            targetBlock = candidateBlock;
+                                            break;
+                                        }
                                     }
                                 }
-                            }
 
-                            if (targetBlock == null)
+                                if (targetBlock == null)
+                                {
+                                    // CPython 3.12: This should never happen if blockStarts is correctly computed
+                                    var blockInfo = string.Join(", ", sortedStarts.Select((start, i) => {
+                                        int end = (i + 1 < sortedStarts.Count) ? sortedStarts[i + 1] : instructions.Count;
+                                        return $"[{start}..{end})";
+                                    }));
+                                    throw new InvalidOperationException(
+                                        $"Jump target block not found for instruction index {targetInstrIndex}. " +
+                                        $"Total instructions: {instructions.Count}, Blocks: {blockInfo}, " +
+                                        $"Jump from index {i} (opcode: {instr.OpCode})");
+                                }
+
+                                targetCfgOffset = targetBlock.Offset;
+                            }
+                            else
                             {
-                                throw new InvalidOperationException(
-                                    $"Jump target block not found for instruction index {targetInstrIndex}");
+                                // Target is outside instruction range (unreachable code after RETURN/RAISE)
+                                // Skip this instruction - it's dead code that will never execute
+#if DEBUG_COMPILER_LOG
+                                Console.WriteLine($"[flowgraph] Skipping jump from index {i} to out-of-range target {targetInstrIndex} (total instructions: {instructions.Count})");
+#endif
+                                continue;  // Skip adding this instruction to the CFG
                             }
-
-                            targetCfgOffset = targetBlock.Offset;
                         }
 
                         #if DEBUG_COMPILER_LOG

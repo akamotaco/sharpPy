@@ -881,9 +881,10 @@ namespace SharpPy
         private static bool IsInstanceExtended(PyObject obj, PyType type)
         {
             // 기본 isinstance 검사
-            if (obj.IsInstance(type))
+            bool result = obj.IsInstance(type);
+            if (result)
                 return true;
-            
+
             // 제네릭 타입 검사
             if (type is PyGenericType genericType)
             {
@@ -894,7 +895,7 @@ namespace SharpPy
                     return true;
                 }
             }
-            
+
             return false;
         }
 

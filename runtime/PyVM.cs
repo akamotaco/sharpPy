@@ -3281,38 +3281,31 @@ namespace SharpPy
 
                 case ByteCodeOp.LIST_EXTEND:
                     // CPython 3.12 LIST_EXTEND: extend the list at TOS1 with the iterable at TOS
+                    // CPython: Python/bytecodes.c line 1507, _PyList_Extend calls list_extend
+                    // list_extend uses PyObject_GetIter for generic iterables (Objects/listobject.c)
                     var extendArg = instruction.Argument; // Should be 1 for this case
                     var extendIterable = frame.ValueStack.Pop(); // Pop iterable from top
 
                     // The list should now be on top of the stack
                     var extendTargetList = (PyList)frame.ValueStack.Peek();
 
-                    // Handle different iterable types
-                    if (extendIterable is PyTuple extendTuple)
+                    // Use generic iterator approach to handle all iterable types
+                    // This includes PyList, PyTuple, PyString, PyGenerator, etc.
+                    var extendIterator = extendIterable.GetIterator();
+
+                    // Iterate and append all items
+                    while (true)
                     {
-                        foreach (var item in extendTuple.Items)
+                        try
                         {
-                            extendTargetList.Append(item);
+                            var nextItem = extendIterator.Next();
+                            extendTargetList.Append(nextItem);
                         }
-                    }
-                    else if (extendIterable is PyList extendList)
-                    {
-                        foreach (var item in extendList.Items)
+                        catch (PythonException ex) when (ex.PyException is PyStopIteration)
                         {
-                            extendTargetList.Append(item);
+                            // Iterator exhausted
+                            break;
                         }
-                    }
-                    else if (extendIterable is PyString extendStr)
-                    {
-                        foreach (char c in extendStr.Value)
-                        {
-                            extendTargetList.Append(new PyString(c.ToString()));
-                        }
-                    }
-                    else
-                    {
-                        // Generic iterable handling if needed
-                        throw new Exception($"LIST_EXTEND: Unsupported iterable type {extendIterable.GetType()}");
                     }
                     break;
 
@@ -4244,14 +4237,16 @@ namespace SharpPy
                         var cause = frame.ValueStack.Pop();  // Pop TOS (cause)
                         var exc = frame.ValueStack.Pop();     // Pop TOS1 (exc)
 
-                        // Instantiate exc if it's a type
+                        // Handle exc - could be a type or an instance
                         PyException excInstance;
                         if (exc is PyException pyExc2)
                         {
+                            // Already a PyException instance
                             excInstance = pyExc2;
                         }
                         else if (exc is PyType pyType)
                         {
+                            // Exception class (PyType) - instantiate it
                             var instance = pyType.Call(Array.Empty<PyObject>());
                             if (instance is PyException pyExcInst)
                             {
@@ -4264,10 +4259,45 @@ namespace SharpPy
                         }
                         else if (exc is PyBuiltinType builtinType)
                         {
+                            // Builtin exception class - instantiate it
                             var instance = builtinType.Call(Array.Empty<PyObject>());
                             if (instance is PyException pyExcInst)
                             {
                                 excInstance = pyExcInst;
+                            }
+                            else
+                            {
+                                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
+                            }
+                        }
+                        else if (exc is PyClass userClass)
+                        {
+                            // User-defined exception class - instantiate it
+                            var userException = userClass.Call(Array.Empty<PyObject>());
+                            if (userException is PyException pyUserExInstance)
+                            {
+                                excInstance = pyUserExInstance;
+                            }
+                            else
+                            {
+                                throw new PythonException(new PyTypeError($"exceptions must derive from BaseException"));
+                            }
+                        }
+                        else if (exc is PyObject customInstance)
+                        {
+                            // Instance of a user-defined exception (e.g., PyClassInstance)
+                            if (IsExceptionLike(customInstance))
+                            {
+                                // Create a PyException wrapper with class information and instance preserved
+                                if (customInstance is PyClassInstance classInst)
+                                {
+                                    // CRITICAL: Store the original PyClassInstance so attributes are preserved
+                                    excInstance = new PyException(customInstance.ToString(), classInst.InstanceType, classInst);
+                                }
+                                else
+                                {
+                                    excInstance = new PyException(customInstance.ToString());
+                                }
                             }
                             else
                             {

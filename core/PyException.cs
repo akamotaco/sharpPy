@@ -146,6 +146,32 @@ namespace SharpPy
         public override PyType GetPyType() => OriginalClass ?? PyType.ExceptionType;
         public override string GetTypeName() => OriginalClass?.Name ?? "Exception";
 
+        // CPython 3.12: Override GetAttribute to check OriginalInstance for user-defined attributes
+        // In CPython, exception instances store custom attributes in their dict
+        // In SharpPy, we store the original PyClassInstance which has those attributes
+        public override PyObject GetAttribute(string name)
+        {
+            // Try standard exception attributes first
+            try
+            {
+                var result = base.GetAttribute(name);
+                return result;
+            }
+            catch (PythonException ex) when (ex.PyException is PyAttributeError)
+            {
+                // Attribute not in standard exception attributes, continue below
+            }
+
+            // For user-defined exceptions, check OriginalInstance
+            if (OriginalInstance != null)
+            {
+                return OriginalInstance.GetAttribute(name);
+            }
+
+            // Not found anywhere
+            throw PyAttributeError.Create($"'{GetTypeName()}' object has no attribute '{name}'");
+        }
+
         public new static System.Exception Create(string message = "")
         {
             var pyException = new PyException(message);

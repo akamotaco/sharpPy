@@ -1146,6 +1146,26 @@ namespace SharpPy
                     }
                     break;
 
+                case JoinedStrExpression joinedStr:
+                    // CPython 3.12: JoinedStr is the AST node for f-strings
+                    // Same as FStringExpression - analyze all expressions within
+                    foreach (var value in joinedStr.Values)
+                    {
+                        AnalyzeExpression(value);
+                    }
+                    break;
+
+                case FormattedValueExpression formattedValue:
+                    // CPython 3.12: Recursively analyze the value expression inside the formatted value
+                    // This is critical for: f"{x for x in items}" where genexpr is inside f-string
+                    AnalyzeExpression(formattedValue.Value);
+                    // Also analyze format spec if present
+                    if (formattedValue.FormatSpec != null)
+                    {
+                        AnalyzeExpression(formattedValue.FormatSpec);
+                    }
+                    break;
+
                 case LambdaExpression lambda:
                     // Lambda functions need their own scope to track free variables
 #if DEBUG_LOG
@@ -1218,6 +1238,14 @@ namespace SharpPy
 #endif
                     }
                     AnalyzeExpression(yieldFromExpr.Value);
+                    break;
+
+                case StarredExpression starred:
+                    // CPython 3.12: Starred expressions (e.g., *expr in function calls)
+                    // Need to recursively analyze the inner expression
+                    // This is critical for: list(*(x for x in items))
+                    // Without this, the generator expression would not get its symbol table created
+                    AnalyzeExpression(starred.Value);
                     break;
 
                 // Skip constants and other literal expressions

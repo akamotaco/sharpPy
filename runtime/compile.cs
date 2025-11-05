@@ -2756,10 +2756,7 @@ namespace SharpPy
                     Console.WriteLine($"[YieldFrom] Added GET_YIELD_FROM_ITER at instruction count {_instructionSequence!.Count}");
                     #endif
                     // ADDOP_LOAD_CONST(c, loc, Py_None);
-                    EmitLoadConst(PyNone.Instance);
-                    #if DEBUG_COMPILER_LOG
-                    Console.WriteLine($"[YieldFrom] Added LOAD_CONST None at instruction count {_instructionSequence!.Count}");
-                    #endif
+                    // Note: LOAD_CONST None is added inside CompileYieldFrom() so sendLabel points to SEND
                     // ADD_YIELD_FROM(c, loc, 0);
                     CompileYieldFrom(isAwait: false);
                     break;

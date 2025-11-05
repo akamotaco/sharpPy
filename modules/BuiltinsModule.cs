@@ -276,8 +276,23 @@ namespace SharpPy.Modules
             // Check MRO if available
             if (classInfo is PyType pyTypeClass)
             {
-                // For builtin types: check if obj's type matches
-                return PyBool.FromBool(objType == pyTypeClass);
+                // For builtin types: check if obj's type matches OR is in MRO
+                // Fast path: exact type match
+                if (objType == pyTypeClass)
+                    return PyBool.True;
+
+                // Check MRO: objType might be a PyClass that subclasses pyTypeClass
+                // Example: MyTuple (PyClass) subclasses tuple (PyType)
+                if (objType is PyClass objClass)
+                {
+                    foreach (var mroType in objClass.MRO)
+                    {
+                        if (mroType == pyTypeClass)
+                            return PyBool.True;
+                    }
+                }
+
+                return PyBool.False;
             }
             else if (classInfo is PyClass pyClass)
             {

@@ -4573,7 +4573,7 @@ namespace SharpPy
         {
             // Pattern matching logic for class instances
             var cls = Cls.Evaluate(scope);
-            var instance = ((PyType)cls).CreateInstance();
+            var instance = ((PyType)cls).CreateInstance(new PyObject[0]);
             
             // Set positional patterns
             for (int i = 0; i < Patterns.Count; i++)

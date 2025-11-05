@@ -66,17 +66,69 @@ namespace SharpPy
             // ValidateOverrideDecorators(); // Disabled for CPython compatibility
         }
 
-        public new PyClassInstance CreateInstance(params PyObject[] args)
+        public new PyObject CreateInstance(params PyObject[] args)
         {
             return CreateInstance(args, null);
         }
 
-        public new PyClassInstance CreateInstance(PyObject[] args, PyDict kwargs)
+        public new PyObject CreateInstance(PyObject[] args, PyDict kwargs)
         {
-            var instance = new PyClassInstance(this);
+            // CPython 3.12: Check if this class inherits from tuple
+            // If so, create a PyTupleSubclass instead of PyClassInstance
+            // This is necessary for namedtuple and other tuple subclasses
+            bool inheritsFromTuple = MRO.Any(t => t == PyType.TupleType);
+
+            PyObject instance;
+            if (inheritsFromTuple)
+            {
+                // Special handling for tuple subclasses
+                // tuple.__new__ expects the sequence argument, not passed to __init__
+                // For namedtuple: Point(11, 22) → tuple.__new__(Point, (11, 22))
+
+                // Check if there's a custom __new__ method
+                var newMethod = LookupInMRO("__new__");
+                if (newMethod != null && newMethod is PyFunction)
+                {
+                    // Custom __new__ - call it with the class and args
+                    var newArgs = new PyObject[args.Length + 1];
+                    newArgs[0] = this;
+                    Array.Copy(args, 0, newArgs, 1, args.Length);
+                    var result = newMethod.Call(newArgs, kwargs);
+                    return result;
+                }
+                else
+                {
+                    // Default tuple creation: convert args to tuple
+                    PyObject[] tupleItems;
+                    if (args.Length == 1 && args[0] is PyTuple tup)
+                    {
+                        tupleItems = tup.Items;
+                    }
+                    else if (args.Length == 1 && args[0] is PyList list)
+                    {
+                        tupleItems = list.Items;
+                    }
+                    else
+                    {
+                        tupleItems = args;
+                    }
+                    instance = new PyTupleSubclass(this, tupleItems);
+                }
+            }
+            else
+            {
+                instance = new PyClassInstance(this);
+            }
 
             // Store constructor arguments for toString() behavior
-            instance.ConstructorArgs = args;
+            if (instance is PyClassInstance classInstance)
+            {
+                classInstance.ConstructorArgs = args;
+            }
+            else if (instance is PyTupleSubclass tupleSubclass)
+            {
+                tupleSubclass.ConstructorArgs = args;
+            }
 
             // CPython: __init__ lookup bypasses __getattribute__ (uses _PyType_Lookup)
             // Reference: Objects/typeobject.c:9028 (slot_tp_init -> lookup_method -> _PyType_Lookup)
@@ -1163,14 +1215,81 @@ namespace SharpPy
             return base.Contains(item);
         }
 
-        // CPython 3.12: Dict subclasses support iteration
+        // CPython 3.12: Support iteration via __iter__ method or dict storage
         public override PyObject GetIterator()
         {
+            // Try to call __iter__ method if it exists (takes precedence)
+            try
+            {
+                // Check instance dict first
+                if (InstanceDict.ContainsKey("__iter__"))
+                {
+                    var iterMethod = InstanceDict["__iter__"];
+                    return iterMethod.Call(new PyObject[0], null);
+                }
+
+                // Then check class hierarchy
+                foreach (var mroType in InstanceType.MRO)
+                {
+                    if (mroType is PyClass customClass && customClass.ClassDict.ContainsKey("__iter__"))
+                    {
+                        var method = customClass.ClassDict["__iter__"];
+                        if (method is PyFunction func)
+                        {
+                            // Bind to instance
+                            var boundMethod = new PyMethod(this, func);
+                            return boundMethod.Call(new PyObject[0], null);
+                        }
+                        break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw PyTypeError.Create($"iter() returned non-iterator of type '{GetTypeName()}': {ex.Message}");
+            }
+
+            // Fall back to dict storage if this is a dict subclass
             if (_dictStorage != null)
             {
                 return _dictStorage.GetIterator();
             }
+
+            // No __iter__ method found
             return base.GetIterator();
+        }
+
+        /// <summary>
+        /// CPython 3.12: Get next item by calling __next__ method
+        /// </summary>
+        public override PyObject Next()
+        {
+            // Try to call __next__ method if it exists
+            // Check instance dict first
+            if (InstanceDict.ContainsKey("__next__"))
+            {
+                var nextMethod = InstanceDict["__next__"];
+                return nextMethod.Call(new PyObject[0], null);
+            }
+
+            // Then check class hierarchy
+            foreach (var mroType in InstanceType.MRO)
+            {
+                if (mroType is PyClass customClass && customClass.ClassDict.ContainsKey("__next__"))
+                {
+                    var method = customClass.ClassDict["__next__"];
+                    if (method is PyFunction func)
+                    {
+                        // Bind to instance
+                        var boundMethod = new PyMethod(this, func);
+                        return boundMethod.Call(new PyObject[0], null);
+                    }
+                    break;
+                }
+            }
+
+            // No __next__ method found
+            return base.Next();
         }
 
         protected override bool HasCustomGetAttr() => _customGetAttr != null;
@@ -1709,7 +1828,105 @@ namespace SharpPy
 
     #endregion
 
-    #region Super Implementation
+        /// <summary>
+    /// Tuple subclass instance for user-defined classes that inherit from tuple
+    /// CPython 3.12: Used for namedtuple and other tuple subclasses
+    /// </summary>
+    public class PyTupleSubclass : PyTuple
+    {
+        public PyClass InstanceType { get; }
+        public Dictionary<string, PyObject> InstanceDict { get; }
+        public PyObject[] ConstructorArgs { get; set; }
+
+        public PyTupleSubclass(PyClass instanceType, PyObject[] items) : base(items)
+        {
+            InstanceType = instanceType;
+            InstanceDict = new Dictionary<string, PyObject>();
+        }
+
+        public override PyType GetPyType() => InstanceType;
+
+        public override string GetTypeName() => InstanceType.Name;
+
+        // Override IsInstance to properly check MRO for tuple subclasses
+        // CPython 3.12: PyObject_IsInstance checks tp_mro
+        // NOTE: This override is no longer needed since isinstance() in BuiltinsModule.cs
+        // now properly handles MRO checking for PyType (builtin types) at lines 286-293.
+        // Keeping this as documentation of the fix.
+        public override bool IsInstance(PyType type)
+        {
+            // Check if the type is in our MRO
+            bool mroCheck = InstanceType.IsSubclassOf(type);
+            if (mroCheck)
+                return true;
+
+            // Also check C# inheritance (PyTupleSubclass is a PyTuple in C#)
+            return base.IsInstance(type);
+        }
+
+        // Override GetAttribute to support user-defined descriptors and __dict__
+        public override PyObject GetAttribute(string name)
+        {
+            // First check if there's a descriptor in the class
+            PyObject classAttribute = null;
+            foreach (var mroType in InstanceType.MRO)
+            {
+                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))
+                {
+                    classAttribute = classValue;
+                    break;
+                }
+            }
+
+            // If it's a descriptor, use it
+            if (classAttribute is IDescriptor desc)
+            {
+                return desc.Get(this, InstanceType);
+            }
+            else if (classAttribute is PyFunction function)
+            {
+                return new PyMethod(this, function);
+            }
+
+            // Check instance __dict__
+            if (InstanceDict.TryGetValue(name, out PyObject instanceValue))
+            {
+                return instanceValue;
+            }
+
+            // Return class attribute if found
+            if (classAttribute != null)
+            {
+                return classAttribute;
+            }
+
+            // Fall back to base PyTuple behavior
+            return base.GetAttribute(name);
+        }
+
+        // Override SetAttribute to support instance __dict__
+        public override void SetAttribute(string name, PyObject value)
+        {
+            // Check if there's a data descriptor in the class
+            foreach (var mroType in InstanceType.MRO)
+            {
+                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(name, out PyObject classValue))
+                {
+                    if (classValue is IDescriptor desc && desc.IsDataDescriptor())
+                    {
+                        desc.Set(this, value);
+                        return;
+                    }
+                    break;
+                }
+            }
+
+            // Set in instance __dict__
+            InstanceDict[name] = value;
+        }
+    }
+
+#region Super Implementation
 
     /// <summary>
     /// Python의 super() 구현

@@ -43,7 +43,7 @@ namespace SharpPy
         {
         }
 
-        public override PyObject CreateInstance(params PyObject[] args)
+        public override PyObject CreateInstance(PyObject[] args, PyDict kwargs = null)
         {
             throw PyTypeError.Create("Buffer is an abstract base class and cannot be instantiated directly");
         }

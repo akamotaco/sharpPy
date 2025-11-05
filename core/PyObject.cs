@@ -1009,7 +1009,7 @@ namespace SharpPy
         #region Type Checking
 
         public bool IsInstance<T>() where T : PyObject => this is T;
-        public bool IsInstance(PyType type) => GetPyType().IsSubclassOf(type);
+        public virtual bool IsInstance(PyType type) => GetPyType().IsSubclassOf(type);
 
         #endregion
 

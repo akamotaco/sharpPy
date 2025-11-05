@@ -468,8 +468,67 @@ namespace SharpPy.Modules
 
         private static PyObject ItemGetter(PyObject[] args)
         {
-            // Simplified implementation - returns a callable that gets items
-            throw PyNotImplementedError.Create("itemgetter() not yet implemented");
+            // CPython 3.12: operator.itemgetter implementation
+            // Returns a callable object that fetches items from its operand
+            // operator.py line 271-300
+            if (args.Length == 0)
+                throw PyTypeError.Create("itemgetter() requires at least 1 argument (0 given)");
+
+            return new PyItemGetter(args);
+        }
+
+        /// <summary>
+        /// CPython 3.12: itemgetter class
+        /// operator.py line 271-300
+        /// </summary>
+        private class PyItemGetter : PyObject
+        {
+            private readonly PyObject[] _items;
+            private readonly bool _single;
+
+            public PyItemGetter(PyObject[] items)
+            {
+                _items = items;
+                _single = items.Length == 1;
+            }
+
+            public override string GetTypeName() => "operator.itemgetter";
+
+            public override bool IsCallable() => true;
+
+            public override PyObject Call(PyObject[] args, PyDict kwargs)
+            {
+                if (args.Length != 1)
+                    throw PyTypeError.Create($"itemgetter expected 1 argument, got {args.Length}");
+
+                var obj = args[0];
+
+                if (_single)
+                {
+                    // Single item: return obj[item]
+                    return obj.GetItem(_items[0]);
+                }
+                else
+                {
+                    // Multiple items: return tuple of obj[i] for each i
+                    var results = new PyObject[_items.Length];
+                    for (int i = 0; i < _items.Length; i++)
+                    {
+                        results[i] = obj.GetItem(_items[i]);
+                    }
+                    return new PyTuple(results);
+                }
+            }
+
+            public override PyString ToRepr()
+            {
+                var itemReprs = new string[_items.Length];
+                for (int i = 0; i < _items.Length; i++)
+                {
+                    itemReprs[i] = _items[i].ToRepr().Value;
+                }
+                return new PyString($"operator.itemgetter({string.Join(", ", itemReprs)})");
+            }
         }
 
         private static PyObject MethodCaller(PyObject[] args)

@@ -5,9 +5,18 @@ Provides namedtuple and other container types.
 """
 
 from keyword import iskeyword as _iskeyword
+from operator import itemgetter as _itemgetter
 import sys as _sys
 
 __all__ = ['namedtuple', 'deque', 'defaultdict', 'OrderedDict', 'Counter']
+
+# CPython 3.12: _tuplegetter for creating field properties
+# collections/__init__.py line 350-353
+try:
+    from _collections import _tuplegetter
+except (ImportError, AttributeError):
+    # SharpPy: AttributeError is raised when _collections exists but doesn't have _tuplegetter
+    _tuplegetter = lambda index, doc: property(_itemgetter(index), doc=doc)
 
 # CPython 3.12: namedtuple implementation
 # Based on Lib/collections/__init__.py
@@ -74,7 +83,9 @@ def namedtuple(typename, field_names, *, rename=False, defaults=None, module=Non
     # Create the tuple subclass
     field_names_str = ', '.join(field_names)
     arg_list = ', '.join(field_names)
-    repr_fmt = ', '.join(f'{name}=%r' for name in field_names)
+    # CPython 3.12: repr_fmt includes parentheses for use with % formatting
+    # Use list comprehension instead of generator expression to avoid compilation issues
+    repr_fmt = '(' + ', '.join([f'{name}=%r' for name in field_names]) + ')'
 
     # CPython uses exec to create the class dynamically
     # We'll use a simpler approach with type()
@@ -107,10 +118,11 @@ def namedtuple(typename, field_names, *, rename=False, defaults=None, module=Non
         return tuple.__new__(cls, result_list)
 
     # Create __repr__ method
+    # CPython 3.12: Use pre-computed repr_fmt with % formatting instead of generator expression
+    # This avoids nested function + f-string + generator expression compilation issues
     def __repr__(self):
         'Return a nicely formatted representation string'
-        values = tuple(self)
-        return f'{typename}({", ".join(f"{name}={val!r}" for name, val in zip(field_names, values))})'
+        return self.__class__.__name__ + repr_fmt % self
 
     # Create _asdict method
     def _asdict(self):
@@ -142,9 +154,11 @@ def namedtuple(typename, field_names, *, rename=False, defaults=None, module=Non
         '__module__': module or 'collections',
     }
 
-    # Add properties for each field
+    # Add properties for each field using _tuplegetter
+    # CPython 3.12: collections/__init__.py line 504-506
     for index, name in enumerate(field_names):
-        namespace[name] = property(lambda self, i=index: self[i])
+        doc = f'Alias for field number {index}'
+        namespace[name] = _tuplegetter(index, doc)
 
     # Create the class using type()
     result = type(typename, (tuple,), namespace)

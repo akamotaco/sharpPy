@@ -468,7 +468,24 @@ namespace SharpPy
         // isinstance/issubclass 지원
         public bool IsSubclassOf(PyType other)
         {
-            return MRO.Contains(other);
+            // CPython 3.12: Check by reference first (fast path)
+            if (MRO.Contains(other))
+                return true;
+
+            // Fallback: Check by type name for built-in types
+            // This handles cases where the same built-in type might have different PyType instances
+            foreach (var mroType in MRO)
+            {
+                if (mroType.Name == other.Name &&
+                    (mroType.Name == "tuple" || mroType.Name == "list" || mroType.Name == "dict" ||
+                     mroType.Name == "str" || mroType.Name == "int" || mroType.Name == "float" ||
+                     mroType.Name == "bool" || mroType.Name == "object" || mroType.Name == "type"))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         // type은 항상 호출 가능 (인스턴스 생성)
@@ -543,11 +560,11 @@ namespace SharpPy
             }
 
             // 일반 타입 호출 - 인스턴스 생성
-            return CreateInstance(args);
+            return CreateInstance(args, kwargs);
         }
 
         // 인스턴스 생성 (기본 구현)
-        public virtual PyObject CreateInstance(params PyObject[] args)
+        public virtual PyObject CreateInstance(PyObject[] args, PyDict kwargs = null)
         {
             // 예외 타입들에 대한 특별 처리
             string message = args.Length > 0 && args[0] is PyString pyStr ? pyStr.Value : "";
@@ -1460,7 +1477,80 @@ namespace SharpPy
         /// </summary>
         private void InitializeTupleTypeDescriptors()
         {
-            // TODO: tuple 메서드들 구현
+            var tupleType = this;
+
+            // tuple.__new__(cls, iterable=()) - CPython Objects/tupleobject.c:tuple_new
+            // This is called when creating tuple subclasses
+            // Note: PyMethodDescriptor passes the class as 'self' when called on a type
+            TypeDict["__new__"] = new PyMethodDescriptor(
+                "__new__",
+                tupleType,
+                (self, args, kwargs) => {
+                    // __new__ is a static method, 'self' is actually the class
+                    var cls = self;
+
+                    // Get the iterable argument (default to empty tuple)
+                    PyObject iterable = null;
+                    if (args.Length > 0)
+                    {
+                        iterable = args[0];
+                    }
+
+                    // CPython 3.12: If cls is tuple itself (not a subclass), use tuple() constructor
+                    if (cls == PyType.TupleType)
+                    {
+                        if (iterable == null)
+                            return new PyTuple();
+                        return iterable.AsTuple();
+                    }
+
+                    // CPython 3.12: Creating a tuple subclass
+                    // Convert iterable to tuple items
+                    PyObject[] tupleItems;
+                    if (iterable == null)
+                    {
+                        tupleItems = new PyObject[0];
+                    }
+                    else if (iterable is PyTuple tup)
+                    {
+                        tupleItems = tup.Items;
+                    }
+                    else if (iterable is PyList list)
+                    {
+                        tupleItems = list.Items;
+                    }
+                    else
+                    {
+                        // Generic iterable - use iterator
+                        var items = new System.Collections.Generic.List<PyObject>();
+                        var iterator = iterable.GetIterator();
+                        while (true)
+                        {
+                            try
+                            {
+                                items.Add(iterator.Next());
+                            }
+                            catch (PythonException ex) when (ex.PyException is PyStopIteration)
+                            {
+                                break;
+                            }
+                        }
+                        tupleItems = items.ToArray();
+                    }
+
+                    // Create PyTupleSubclass instance
+                    if (cls is PyClass pyClass)
+                    {
+                        return new PyTupleSubclass(pyClass, tupleItems);
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create($"tuple.__new__(X): X is not a type object ({cls.GetTypeName()})");
+                    }
+                },
+                minArgs: 0,
+                maxArgs: 1
+            );
         }
 
         /// <summary>
