@@ -901,15 +901,38 @@ namespace SharpPy
 
         private static PyObject CallIsSubclass(PyObject[] args, PyDict kwargs = null)
         {
+#if DEBUG
+            Console.WriteLine($"[CallIsSubclass] Called with {args.Length} arguments");
+            Console.WriteLine($"  args[0] = {args[0]}, type = {args[0].GetType().Name}");
+            Console.WriteLine($"  args[1] = {args[1]}, type = {args[1].GetType().Name}");
+#endif
+
             if (args.Length != 2)
                 throw PyTypeError.Create($"issubclass expected exactly 2 arguments ({args.Length} given)");
 
             if (!(args[0] is PyType subclass))
+            {
+#if DEBUG
+                Console.WriteLine($"[CallIsSubclass] args[0] is not PyType!");
+#endif
                 throw PyTypeError.Create("issubclass() arg 1 must be a class");
+            }
+
+#if DEBUG
+            Console.WriteLine($"[CallIsSubclass] args[0] IS PyType: {subclass.Name}");
+#endif
 
             if (args[1] is PyType superclass)
             {
-                return PyBool.FromBool(subclass.IsSubclassOf(superclass));
+#if DEBUG
+                Console.WriteLine($"[CallIsSubclass] args[1] IS PyType: {superclass.Name}");
+                Console.WriteLine($"[CallIsSubclass] Calling {subclass.Name}.IsSubclassOf({superclass.Name})");
+#endif
+                var result = subclass.IsSubclassOf(superclass);
+#if DEBUG
+                Console.WriteLine($"[CallIsSubclass] IsSubclassOf returned: {result}");
+#endif
+                return PyBool.FromBool(result);
             }
             else if (args[1] is PyTuple tuple)
             {
@@ -923,6 +946,9 @@ namespace SharpPy
             }
             else
             {
+#if DEBUG
+                Console.WriteLine($"[CallIsSubclass] args[1] is NOT PyType or PyTuple!");
+#endif
                 throw PyTypeError.Create("issubclass() arg 2 must be a class or tuple of classes");
             }
         }

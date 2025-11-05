@@ -600,6 +600,7 @@ namespace SharpPy
         // CPython 3.12 호환: Symbol Table 지원
         private SymbolTable? _symbolTable = null;
         private SymbolTable? _currentSymbolTable = null;
+        private SymbolTableBuilder? _symbolTableBuilder = null;  // CPython 3.12: st->st_blocks lookup
 
         // CPython 3.12: Frame block stack for unified control flow tracking
         // Replaces both old _fblockStack and _loopStack
@@ -1161,6 +1162,7 @@ namespace SharpPy
             var symbolTableBuilder = new SymbolTableBuilder();
             _symbolTable = symbolTableBuilder.BuildSymbolTable(statements, name);
             _currentSymbolTable = _symbolTable;
+            _symbolTableBuilder = symbolTableBuilder;  // CPython 3.12: Store for PySymtable_Lookup
 
 #if DEBUG_LOG
             Console.WriteLine($"🔍 Symbol table built for {name}: {_symbolTable.GetIdentifiers().Count()} symbols");
@@ -2049,6 +2051,17 @@ namespace SharpPy
             _isInFunction = true;
             _currentFunctionName = name;
 
+            // CRITICAL: Set free and cell variables from parameters
+            // These must be set BEFORE compiling the body so EmitLoadName can find them
+            _freeVars = freeVars ?? new List<string>();
+            _cellVars = cellVars ?? new List<string>();
+
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"  🔍 DEBUG CompilerFunctionBody: _currentSymbolTable = {_currentSymbolTable?.Name ?? "NULL"}");
+            Console.WriteLine($"  🔍 DEBUG _freeVars set to: [{string.Join(", ", _freeVars)}]");
+            Console.WriteLine($"  🔍 DEBUG _cellVars set to: [{string.Join(", ", _cellVars)}]");
+#endif
+
             // Calculate correct argCount for CPython 3.12 compatibility
             int finalArgCount = (argCount >= 0) ? argCount : paramNames.Count;
 
@@ -2498,6 +2511,7 @@ namespace SharpPy
             var symbolTableBuilder = new SymbolTableBuilder();
             var functionSymbolTable = symbolTableBuilder.BuildSymbolTable(statements, name);
             _currentSymbolTable = functionSymbolTable;
+            _symbolTableBuilder = symbolTableBuilder;  // CPython 3.12: Store for PySymtable_Lookup
 
             // Use CompilerFunctionBody now that symbol table is set
             var kwDefaults = new List<PyObject>();
@@ -3165,27 +3179,59 @@ namespace SharpPy
                             Console.WriteLine($"   → Checking scope for function name: '{funcName.Name}'");
                             #endif
 
-                            // Check if it's a local variable (LOAD_FAST) in function scope
-                            bool isLocal = false;
+                            // Check if it's a local variable (LOAD_FAST) or free variable (LOAD_DEREF) in function scope
+                            bool isHandled = false;
                             if (_currentSymbolTable != null && _isInFunction)
                             {
                                 var symbol = _currentSymbolTable.Lookup(funcName.Name);
-                                if (symbol != null && symbol.Scope == SymbolScope.Local)
+                                if (symbol != null)
                                 {
-                                    var localIndex = _varNames.IndexOf(funcName.Name);
-                                    if (localIndex >= 0)
+                                    if (symbol.Scope == SymbolScope.Local)
                                     {
-                                        isLocal = true;
-                                        #if DEBUG_LOG
-                                        Console.WriteLine($"   → Found as local variable, using PUSH_NULL + LOAD_FAST");
-                                        #endif
-                                        EmitInstruction(ByteCodeOp.PUSH_NULL);
-                                        EmitInstruction(ByteCodeOp.LOAD_FAST, localIndex);
+                                        var localIndex = _varNames.IndexOf(funcName.Name);
+                                        if (localIndex >= 0)
+                                        {
+                                            isHandled = true;
+                                            #if DEBUG_LOG
+                                            Console.WriteLine($"   → Found as local variable, using PUSH_NULL + LOAD_FAST");
+                                            #endif
+                                            EmitInstruction(ByteCodeOp.PUSH_NULL);
+                                            EmitInstruction(ByteCodeOp.LOAD_FAST, localIndex);
+                                        }
+                                    }
+                                    else if (symbol.Scope == SymbolScope.Free)
+                                    {
+                                        // Free variable: use PUSH_NULL + LOAD_DEREF
+                                        if (_freeVars.Contains(funcName.Name))
+                                        {
+                                            var freeIndex = _freeVars.IndexOf(funcName.Name);
+                                            isHandled = true;
+                                            #if DEBUG_COMPILER_LOG
+                                            Console.WriteLine($"   → Found as free variable, using PUSH_NULL + LOAD_DEREF");
+                                            #endif
+                                            EmitInstruction(ByteCodeOp.PUSH_NULL);
+                                            EmitInstruction(ByteCodeOp.LOAD_DEREF, freeIndex);
+                                        }
+                                    }
+                                    else if (symbol.Scope == SymbolScope.Cell)
+                                    {
+                                        // Cell variable: use PUSH_NULL + LOAD_DEREF
+                                        if (_cellVars.Contains(funcName.Name))
+                                        {
+                                            var cellIndex = _cellVars.IndexOf(funcName.Name);
+                                            var instructionIndex = _freeVars.Count + cellIndex;
+                                            isHandled = true;
+                                            #if DEBUG_COMPILER_LOG
+                                            Console.WriteLine($"   → Found as cell variable, using PUSH_NULL + LOAD_DEREF");
+                                            #endif
+                                            EmitInstruction(ByteCodeOp.PUSH_NULL);
+                                            EmitInstruction(ByteCodeOp.LOAD_DEREF, instructionIndex);
+                                        }
                                     }
                                 }
                             }
 
-                            if (!isLocal)
+                            if (!isHandled)
                             {
                                 if (_isInFunction)
                                 {
@@ -3906,9 +3952,19 @@ namespace SharpPy
             SymbolTable? savedSymbolTable = null;
             if (_currentSymbolTable != null)
             {
-                // Look for symbol table with function name format
-                funcSymbolTable = _currentSymbolTable.Children.FirstOrDefault(child =>
-                    child.Name == $"<function:{func.Name}>" || child.Name == func.Name);
+                // First check if _currentSymbolTable itself is the function's symbol table
+                // (e.g., for generator expressions where SetSymbolTableContext was already called)
+                if (_currentSymbolTable.Name == func.Name ||
+                    _currentSymbolTable.Name == $"<function:{func.Name}>")
+                {
+                    funcSymbolTable = _currentSymbolTable;
+                }
+                else
+                {
+                    // Otherwise, look for symbol table in children with function name format
+                    funcSymbolTable = _currentSymbolTable.Children.FirstOrDefault(child =>
+                        child.Name == $"<function:{func.Name}>" || child.Name == func.Name);
+                }
 
                 #if DEBUG_LOG
                 Console.WriteLine($"  🔍 Looking for symbol table for function {func.Name}");
@@ -4232,6 +4288,16 @@ namespace SharpPy
                 Console.WriteLine($"  📤 Passed root symbol table to nested compiler: {_symbolTable.Name}");
                 #endif
             }
+
+            // CPython 3.12: Pass symbol table builder for PySymtable_Lookup
+            // Corresponds to c->c_st in compile.c - needed to lookup symbol tables by AST node
+            if (_symbolTableBuilder != null)
+            {
+                compiler._symbolTableBuilder = _symbolTableBuilder;
+                #if DEBUG_LOG
+                Console.WriteLine($"  📤 Passed symbol table builder to nested compiler for PySymtable_Lookup");
+                #endif
+            }
             // CPython 3.12: Use CompilerFunctionBody instead of CompileWithClosureAndDefaults
             var funcCode = compiler.CompilerFunctionBody(func.Body, func.Name, paramNames, defaults, kwDefaults, freeVars, cellVars, flags, argCount, posonlyArgCount, kwonlyArgCount);
 
@@ -4507,13 +4573,18 @@ namespace SharpPy
         {
             // Phase 2: 클로저 지원 - 자유 변수 처리 개선
 
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"  🔧 EmitLoadName('{name}') called. Function: {_currentFunctionName}");
+            Console.WriteLine($"     _currentSymbolTable: {_currentSymbolTable?.Name ?? "NULL"}");
+#endif
+
             // 0. CPython 3.12: Symbol Table을 먼저 확인 (우선순위)
             if (_currentSymbolTable != null)
             {
                 var symbol = _currentSymbolTable.Lookup(name);
                 if (symbol != null)
                 {
-                    #if DEBUG_LOG
+                    #if DEBUG_COMPILER_LOG
                     Console.WriteLine($"    🔍 Symbol Table lookup: {name} → Scope: {symbol.Scope}");
                     #endif
 
@@ -4522,14 +4593,24 @@ namespace SharpPy
                     {
                         case SymbolScope.Free:
                             // Free variable: LOAD_DEREF 사용
+                            #if DEBUG_COMPILER_LOG
+                            Console.WriteLine($"      → Symbol is FREE. _freeVars contains '{name}': {_freeVars.Contains(name)}");
+                            Console.WriteLine($"      → _freeVars list: [{string.Join(", ", _freeVars)}]");
+                            #endif
                             if (_freeVars.Contains(name))
                             {
                                 var freeIndex = _freeVars.IndexOf(name);
                                 EmitInstruction(ByteCodeOp.LOAD_DEREF, freeIndex);
-                                #if DEBUG_LOG
+                                #if DEBUG_COMPILER_LOG
                                 Console.WriteLine($"    → LOAD_DEREF for free var: {name} (index {freeIndex})");
                                 #endif
                                 return;
+                            }
+                            else
+                            {
+                                #if DEBUG_COMPILER_LOG
+                                Console.WriteLine($"    ❌ ERROR: Symbol is Free but not in _freeVars list!");
+                                #endif
                             }
                             break;
 
@@ -4652,11 +4733,16 @@ namespace SharpPy
             }
             
             // 2. 자유 변수 처리 (Phase 2)
+            #if DEBUG_COMPILER_LOG
+            Console.WriteLine($"  🔍 EmitLoadName('{name}'): Checking _freeVars. List contains: [{string.Join(", ", _freeVars)}]");
+            Console.WriteLine($"     _cellVars: [{string.Join(", ", _cellVars)}]");
+            Console.WriteLine($"     _isInFunction: {_isInFunction}");
+            #endif
             if (_freeVars.Contains(name))
             {
                 var freeIndex = _freeVars.IndexOf(name);
                 EmitInstruction(ByteCodeOp.LOAD_DEREF, freeIndex);
-                #if DEBUG_LOG
+                #if DEBUG_COMPILER_LOG
                 Console.WriteLine($"    → LOAD_DEREF for free var: {name} (index {freeIndex})");
                 #endif
                 return;
@@ -5020,6 +5106,16 @@ namespace SharpPy
             }
 
             _constants.Add(value);
+#if DEBUG_COMPILER_LOG
+            var valueDesc = value switch
+            {
+                PyCodeObject code => $"<code:{code.Name}>",
+                PyString str => $"\"{str.Value}\"",
+                PyTuple tuple => $"tuple[{tuple.Items.Length}]",
+                _ => value.ToString()
+            };
+            Console.WriteLine($"🔧 [CONST] Added constant [{_constants.Count - 1}] = {valueDesc} to compiler instance {this.GetHashCode():X}");
+#endif
             return _constants.Count - 1;
         }
 
@@ -10038,13 +10134,15 @@ namespace SharpPy
             var tempConstants = _constants;
             var tempNames = _names;
             var tempVarNames = _varNames; // Save current VarNames
+            var tempCellVars = _cellVars; // Save current CellVars
+            var tempFreeVars = _freeVars; // Save current FreeVars
 
             // Set up lambda compiler context
             _instructionSequence = lambdaInstructionSequence;
             _constants = lambdaConstants;
             _names = lambdaNames;
             _varNames = new List<string>(); // Fresh VarNames for lambda
-            
+
             // Parameters must be first in VarNames for LOAD_FAST to work
             foreach (var paramName in cleanParamNames)
             {
@@ -10053,7 +10151,7 @@ namespace SharpPy
                 Console.WriteLine($"  → Added parameter '{paramName}' as FAST variable at index {_varNames.Count - 1}");
                 #endif
             }
-            
+
             // Set up closure compilation if there are free variables
             if (freeVars.Count > 0)
             {
@@ -10097,6 +10195,8 @@ namespace SharpPy
             _constants = tempConstants;
             _names = tempNames;
             _varNames = tempVarNames; // Restore original VarNames
+            _cellVars = tempCellVars; // Restore original CellVars
+            _freeVars = tempFreeVars; // Restore original FreeVars
             _currentSymbolTable = originalSymbolTable; // Restore original symbol table
             
             // CPython 3.12: Create function code object with correct VarNames order
@@ -11364,6 +11464,8 @@ namespace SharpPy
             var genCompiler = new PythonCompiler();
             // CPython 3.12: Pass source location information
             genCompiler.SetSourceLocation(_currentFileName, _sourceLines);
+            // CPython 3.12: Pass symbol table builder for PySymtable_Lookup
+            genCompiler._symbolTableBuilder = _symbolTableBuilder;
 
             // CPython 3.12: compile.c:5681-5700
             // PySTEntryObject *entry = PySymtable_Lookup(c->c_st, (void *)e);
@@ -11382,19 +11484,33 @@ namespace SharpPy
                     "This indicates SymbolTableBuilder was not called before compilation.");
             }
 
-            // Look up symbol table for generator expression
-            // Symbol table names for comprehensions use "<genexpr>" pattern
-            var genSymbolTable = searchTable.GetChildren().FirstOrDefault(child =>
-                child.GetName().Contains("genexpr") || child.GetName() == "<genexpr>");
+            // CPython 3.12: PySymtable_Lookup(c->c_st, (void *)e) - symtable.c:381-400
+            // Uses AST node pointer as key to lookup corresponding symbol table entry
+            SymbolTable? genSymbolTable = null;
+            if (_symbolTableBuilder != null)
+            {
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"[COMPILER] PySymtable_Lookup: AST node type={genExp.GetType().Name}, HashCode={genExp.GetHashCode()}");
+#endif
+                genSymbolTable = _symbolTableBuilder.LookupSymbolTable(genExp);
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"[COMPILER] PySymtable_Lookup: Result={(genSymbolTable != null ? $"Found ({genSymbolTable.GetName()})" : "NULL")}");
+#endif
+            }
+            else
+            {
+#if DEBUG_COMPILER_LOG
+                Console.WriteLine($"[COMPILER] WARNING: _symbolTableBuilder is NULL in scope '{searchTable.GetName()}'");
+#endif
+            }
 
             if (genSymbolTable == null)
             {
                 throw new InvalidOperationException(
-                    $"Symbol table not found for generator expression '<genexpr>' in scope '{searchTable.GetName()}'. " +
+                    $"Symbol table not found for generator expression in scope '{searchTable.GetName()}'. " +
                     $"CPython guarantees PySymtable_Lookup(c->c_st, (void *)e) always succeeds because " +
-                    $"_PySymtable_Build creates all symbol tables upfront. " +
-                    $"This indicates SymbolTableBuilder.AnalyzeExpression is not recursively analyzing comprehensions. " +
-                    $"Available children: [{string.Join(", ", searchTable.GetChildren().Select(c => c.GetName()))}]");
+                    $"_PySymtable_Build creates all symbol tables upfront and registers them in st->st_blocks. " +
+                    $"This indicates SymbolTableBuilder did not register this AST node during AnalyzeComprehension.");
             }
 
 #if DEBUG_COMPILER_LOG
@@ -11466,19 +11582,40 @@ namespace SharpPy
             var kwDefaults = new List<PyObject>();  // keyword-only defaults 없음
             var flags = PyCodeObject.CO_GENERATOR;  // CO_GENERATOR 플래그 설정
 
+            // Get free variables and cell variables from the genexpr symbol table
+            var genFreeVars = genSymbolTable.FindFreeVariables();
+            var genCellVars = genSymbolTable.FindCellVariables();
+
             // CPython 3.12: Use CompilerFunctionBody (not legacy CompileFunction)
             var genCode = genCompiler.CompilerFunctionBody(
                 genStatements, "<genexpr>", parameters,
-                defaults, kwDefaults, new List<string>(), new List<string>(),
+                defaults, kwDefaults, genFreeVars, genCellVars,
                 flags, 1, 0, 0);
+
+            // CPython 3.12: Create closure if there are free variables (compile.c:1800-1848)
+            int makeFunctionFlags = 0;
+            if (genFreeVars.Count > 0)
+            {
+                // Load closure cells for each free variable
+                foreach (var freeVar in genFreeVars)
+                {
+                    EmitLoadClosure(freeVar);
+                }
+                // Build tuple of closure cells
+                EmitInstruction(ByteCodeOp.BUILD_TUPLE, genFreeVars.Count);
+                makeFunctionFlags |= 0x08;  // Closure flag
+            }
 
             // 제너레이터 함수 객체 생성
             EmitLoadConst(genCode);
-            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, 0);
-            
+            EmitInstruction(ByteCodeOp.MAKE_FUNCTION, makeFunctionFlags);
+
             // CPython 3.12: 올바른 스택 순서로 호출
-            CompileExpression(outerGenerator.Iter);  // range(5) 컴파일
-            EmitInstruction(ByteCodeOp.GET_ITER);  // iterator 생성
+            CompileExpression(outerGenerator.Iter);  // range(5) 또는 중첩 genexpr 컴파일
+
+            // CPython 3.12: 중첩된 generator expression의 경우 이미 CALL이 되어 generator 반환됨
+            // 그 generator를 GET_ITER로 iterator화 해야 함
+            EmitInstruction(ByteCodeOp.GET_ITER);  // iterator 생성 (generator도 iterable이므로 GET_ITER 필요)
             EmitInstruction(ByteCodeOp.CALL, 0);  // 제너레이터 함수 호출 (iterator는 특별 처리)
             
             #if DEBUG_LOG

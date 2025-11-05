@@ -191,42 +191,17 @@ namespace SharpPy
         {
             if (_items.Count == 0) return StringCache.GetOrCreate("set()");
 
-            // Performance: string.Create() - CPython-style single allocation
-
-            // Step 1: Calculate total length and cache reprs
-            var reprs = new string[_items.Count];
-            int totalLength = 2; // "{}"
-            int index = 0;
+            // Performance: Eliminated LINQ (Select) - use StringBuilder
+            var sb = new System.Text.StringBuilder("{");
+            bool first = true;
             foreach (var item in _items)
             {
-                reprs[index] = item.ToRepr().Value;
-                if (index > 0) totalLength += 2; // ", "
-                totalLength += reprs[index].Length;
-                index++;
+                if (!first) sb.Append(", ");
+                sb.Append(item.ToRepr().Value);
+                first = false;
             }
-
-            // Step 2: string.Create with single allocation
-            var result = string.Create(totalLength, reprs, (span, items) =>
-            {
-                int pos = 0;
-                span[pos++] = '{';
-
-                for (int i = 0; i < items.Length; i++)
-                {
-                    if (i > 0)
-                    {
-                        span[pos++] = ',';
-                        span[pos++] = ' ';
-                    }
-
-                    items[i].AsSpan().CopyTo(span.Slice(pos));
-                    pos += items[i].Length;
-                }
-
-                span[pos] = '}';
-            });
-
-            return StringCache.GetOrCreate(result);
+            sb.Append("}");
+            return StringCache.GetOrCreate(sb.ToString());
         }
 
         #endregion
@@ -648,47 +623,17 @@ namespace SharpPy
         {
             if (_items.Count == 0) return StringCache.GetOrCreate("frozenset()");
 
-            // Performance: string.Create() - CPython-style single allocation
-
-            // Step 1: Calculate total length and cache reprs
-            var reprs = new string[_items.Count];
-            int totalLength = 12; // "frozenset({})"
-            int index = 0;
+            // Performance: Eliminated LINQ (Select) - use StringBuilder
+            var sb = new System.Text.StringBuilder("frozenset({");
+            bool first = true;
             foreach (var item in _items)
             {
-                reprs[index] = item.ToRepr().Value;
-                if (index > 0) totalLength += 2; // ", "
-                totalLength += reprs[index].Length;
-                index++;
+                if (!first) sb.Append(", ");
+                sb.Append(item.ToRepr().Value);
+                first = false;
             }
-
-            // Step 2: string.Create with single allocation
-            var result = string.Create(totalLength, reprs, (span, items) =>
-            {
-                int pos = 0;
-
-                // "frozenset({"
-                "frozenset({".AsSpan().CopyTo(span);
-                pos += 11;
-
-                for (int i = 0; i < items.Length; i++)
-                {
-                    if (i > 0)
-                    {
-                        span[pos++] = ',';
-                        span[pos++] = ' ';
-                    }
-
-                    items[i].AsSpan().CopyTo(span.Slice(pos));
-                    pos += items[i].Length;
-                }
-
-                // "})"
-                span[pos++] = '}';
-                span[pos] = ')';
-            });
-
-            return StringCache.GetOrCreate(result);
+            sb.Append("})");
+            return StringCache.GetOrCreate(sb.ToString());
         }
 
         #endregion

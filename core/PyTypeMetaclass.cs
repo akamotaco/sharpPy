@@ -127,7 +127,11 @@ namespace SharpPy
                     #if DEBUG_LOG
                     Console.WriteLine($"   → CreateNewClass with metaclass={args[0]}");
                     #endif
-                    return CreateNewClass(args, skipMetaclassCheck: false);
+                    // CRITICAL: Pass skipMetaclassCheck=true to prevent infinite recursion
+                    // When type.__new__ is called (e.g. from ABCMeta.__new__ via super().__new__()),
+                    // we should NOT check for custom metaclass __new__ methods again.
+                    // CPython avoids this because type_new is a C function that doesn't go through metaclass lookup.
+                    return CreateNewClass(args, skipMetaclassCheck: true);
                 }
                 else
                 {
@@ -459,28 +463,79 @@ namespace SharpPy
             Console.WriteLine($"   skipMetaclassCheck: {skipMetaclassCheck}");
             #endif
 
+            // CPython 3.12: Special handling for metaclass creation (subclass of type)
+            // If we're creating a metaclass (base class is type or subclass of type),
+            // we must NOT call the __new__ from the namespace being created,
+            // because that would cause infinite recursion (ABCMeta.__new__ calling super().__new__ → CreateNewClass → ABCMeta.__new__ → ...)
+            bool creatingMetaclass = false;
+            Console.WriteLine($"🔍 CreateNewClass: {nameStr.Value}, winner={winner?.GetPyType()?.Name ?? "null"}, bases={string.Join(", ", baseTypes.Select(b => b.GetPyType()?.Name ?? b.ToString()))}");
+
+            foreach (var baseType in baseTypes)
+            {
+                Console.WriteLine($"  🔍 Checking base: {baseType.GetPyType()?.Name ?? baseType.ToString()}, Instance={baseType == Instance}, isMetaclass={baseType is PyTypeMetaclass}");
+
+                if (baseType == Instance || baseType is PyTypeMetaclass)
+                {
+                    creatingMetaclass = true;
+                    Console.WriteLine($"  ✅ Detected metaclass creation (base is type or PyTypeMetaclass)");
+                    break;
+                }
+                // Check if baseType is a subclass of type by checking its MRO
+                if (baseType is PyClass baseClass)
+                {
+                    Console.WriteLine($"  🔍 Checking MRO for {baseClass.Name}...");
+                    foreach (var mroType in baseClass.MRO)
+                    {
+                        Console.WriteLine($"    - MRO entry: {mroType.GetPyType()?.Name ?? mroType.ToString()}");
+                        if (mroType == Instance || mroType is PyTypeMetaclass)
+                        {
+                            creatingMetaclass = true;
+                            Console.WriteLine($"    ✅ Found type in MRO - this is a metaclass");
+                            break;
+                        }
+                    }
+                    if (creatingMetaclass) break;
+                }
+            }
+
+            if (creatingMetaclass)
+            {
+                Console.WriteLine($"🔧 Creating metaclass '{nameStr.Value}' (subclass of type) - skipping custom __new__ check to prevent recursion");
+            }
+            else
+            {
+                Console.WriteLine($"📦 Creating regular class '{nameStr.Value}'");
+            }
+
             // CPython: Check if the winner metaclass (or metatype if winner==metatype) has custom __new__
             // We need to call it even when winner == metatype if it's overridden!
+            // BUT: Skip this check if we're creating a metaclass (would cause infinite recursion)
             bool shouldCallCustomNew = false;
             PyObject customNewMethod = null;
 
-            if (!skipMetaclassCheck && winner != null && winner != Instance)
+            Console.WriteLine($"🔍 Should check for custom __new__? skipCheck={skipMetaclassCheck}, creatingMetaclass={creatingMetaclass}, winner={winner?.GetPyType()?.Name ?? "null"}");
+
+            if (!skipMetaclassCheck && !creatingMetaclass && winner != null && winner != Instance)
             {
                 // Try to get __new__ from the winner metaclass
+                Console.WriteLine($"  ✅ Checking for custom __new__ on {winner.GetPyType()?.Name ?? winner.ToString()}");
                 try
                 {
                     var newMethod = winner.GetAttribute("__new__");
                     if (newMethod != null && newMethod.IsCallable())
                     {
                         bool isTypeNew = IsTypeNew(newMethod);
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   winner={winner.Name}, has custom __new__: {!isTypeNew}");
-                        #endif
+                        Console.WriteLine($"    Found __new__ method, isTypeNew={isTypeNew}, method={newMethod.GetType().Name}");
 
                         if (!isTypeNew)
                         {
                             shouldCallCustomNew = true;
                             customNewMethod = newMethod;  // Store the method to reuse it
+                            Console.WriteLine($"    ⚠️  Will call custom __new__");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"    ✅ Using default type.__new__");
                         }
                     }
                 }
@@ -491,6 +546,10 @@ namespace SharpPy
                         throw;
                     }
                 }
+            }
+            else
+            {
+                Console.WriteLine($"  ⛔ Skipping custom __new__ check");
             }
 
             if (shouldCallCustomNew && customNewMethod != null)

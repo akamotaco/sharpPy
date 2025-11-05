@@ -427,7 +427,7 @@ namespace SharpPy
         {
             Name = name;
             Instructions = instructions;
-            Constants = constants;
+            Constants = constants != null ? new List<PyObject>(constants) : new List<PyObject>();
             Names = names;
             VarNames = varNames;
             ArgCount = argCount;

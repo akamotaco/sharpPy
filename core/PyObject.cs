@@ -974,10 +974,51 @@ namespace SharpPy
 
         /// <summary>
         /// 요소 포함 여부 확인 (__contains__)
+        /// CPython 3.12: PySequence_Contains (Objects/abstract.c:2260-2297)
         /// </summary>
         public virtual PyBool Contains(PyObject item)
         {
-            throw PyTypeError.Create($"argument of type '{GetTypeName()}' is not iterable");
+            // CPython 3.12: Try __contains__ first (Objects/abstract.c:2266-2278)
+            try
+            {
+                var containsMethod = PyGetAttribute("__contains__");
+                if (containsMethod != null && containsMethod != PyNone.Instance)
+                {
+                    var result = containsMethod.Call(new PyObject[] { item }, null);
+                    return PyBool.FromBool(result.PyBoolValue());
+                }
+            }
+            catch (PythonException ex) when (ex is PyAttributeError)
+            {
+                // __contains__ not found, try iteration fallback
+            }
+
+            // CPython 3.12: Fallback to iteration (Objects/abstract.c:2279-2291)
+            try
+            {
+                var iterator = GetIterator();
+                while (true)
+                {
+                    try
+                    {
+                        var current = iterator.Next();
+                        // CPython: Use rich comparison for equality check
+                        if (((PyBool)current.RichCompare(item, CompareOp.EQ)).Value)
+                        {
+                            return PyBool.True;
+                        }
+                    }
+                    catch (PythonException ex) when (ex is PyStopIteration)
+                    {
+                        return PyBool.False;
+                    }
+                }
+            }
+            catch (PythonException)
+            {
+                // Not iterable either
+                throw PyTypeError.Create($"argument of type '{GetTypeName()}' is not iterable");
+            }
         }
 
         /// <summary>

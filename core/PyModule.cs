@@ -306,6 +306,7 @@ public class PyModule : PyObject
 
             // CPython 3.12 C 확장 모듈 (Python 모듈의 백엔드)
             ["_operator"] = () => SharpPy.Modules._OperatorModule.CreateOperatorModule(),  // operator.py가 사용
+            ["_abc"] = () => SharpPy.Modules.AbcModule.CreateAbcModule(),  // abc.py가 사용
 
             // CPython 3.12 Built-in C 모듈 (성능 중요)
             ["math"] = () => SharpPy.Modules.MathModule.CreateMathModule(),

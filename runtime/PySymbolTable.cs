@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 // Performance: Eliminated LINQ - no LINQ usage found
 
 namespace SharpPy
@@ -136,23 +137,23 @@ namespace SharpPy
         public List<string> FindFreeVariables()
         {
             var freeVars = new List<string>();
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
             Console.WriteLine($"    🔍 FindFreeVariables in {_name}: checking {_symbols.Count} symbols");
 #endif
             foreach (var symbol in _symbols.Values)
             {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                 Console.WriteLine($"      Symbol {symbol.Name}: Scope={symbol.Scope}, IsFree={symbol.IsFree()}");
 #endif
                 if (symbol.IsFree())
                 {
                     freeVars.Add(symbol.Name);
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                     Console.WriteLine($"        → Added to freeVars: {symbol.Name}");
 #endif
                 }
             }
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
             Console.WriteLine($"    → FindFreeVariables result: [{string.Join(", ", freeVars)}]");
 #endif
             return freeVars;
@@ -164,23 +165,23 @@ namespace SharpPy
         public List<string> FindCellVariables()
         {
             var cellVars = new List<string>();
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
             Console.WriteLine($"    🔍 FindCellVariables in {_name}: checking {_symbols.Count} symbols");
 #endif
             foreach (var symbol in _symbols.Values)
             {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                 Console.WriteLine($"      Symbol {symbol.Name}: Scope={symbol.Scope}, IsCell={symbol.IsCell()}");
 #endif
                 if (symbol.IsCell())
                 {
                     cellVars.Add(symbol.Name);
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                     Console.WriteLine($"        → Added to cellVars: {symbol.Name}");
 #endif
                 }
             }
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
             Console.WriteLine($"    → FindCellVariables result: [{string.Join(", ", cellVars)}]");
 #endif
             return cellVars;
@@ -206,9 +207,16 @@ namespace SharpPy
         private SymbolTable? _currentTable;
         private int _lambdaCounter = 0;
 
+        // CPython 3.12: st->st_blocks - AST node → SymbolTable mapping
+        // Corresponds to PyDict_SetItem(st->st_blocks, ste->ste_id, ste) in symtable.c:142
+        // Uses ConditionalWeakTable for O(1) lookup without boxing, based on reference equality
+        // (equivalent to CPython's pointer-based identity comparison)
+        private ConditionalWeakTable<Expression, SymbolTable> _astNodeToSymbolTable
+            = new ConditionalWeakTable<Expression, SymbolTable>();
+
         public SymbolTable BuildSymbolTable(List<Statement> statements, string name = "<module>")
         {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
             Console.WriteLine($"🔧 Building symbol table for: {name}");
 #endif
 
@@ -217,6 +225,7 @@ namespace SharpPy
             _propagationInProgress.Clear();
             _cellProcessingInProgress.Clear();
             _recursionDepth = 0;
+            _astNodeToSymbolTable.Clear();  // CPython 3.12: Clear st_blocks
 
             _rootTable = new SymbolTable(name, SymbolTableType.Module);
             _currentTable = _rootTable;
@@ -230,13 +239,13 @@ namespace SharpPy
             // Resolve free variables across all scopes after initial analysis
             ResolveFreeVariablesRecursive(_rootTable);
 
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
             Console.WriteLine($"✅ Symbol table built: {_rootTable.GetIdentifiers().Count()} symbols");
 #endif
             foreach (var symbol in _rootTable.GetIdentifiers())
             {
                 var sym = _rootTable.Lookup(symbol);
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                 Console.WriteLine($"  {symbol}: {sym?.Scope} scope, flags: {sym?.Flags}");
 #endif
             }
@@ -246,7 +255,7 @@ namespace SharpPy
 
         private void AnalyzeStatement(Statement statement)
         {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
             Console.WriteLine($"  AnalyzeStatement: Type={statement.GetType().Name} in scope '{_currentTable?.GetName()}'");
 #endif
             switch (statement)
@@ -302,6 +311,9 @@ namespace SharpPy
                     break;
 
                 case ReturnStatement returnStmt:
+#if DEBUG_COMPILER_LOG
+                    Console.WriteLine($"    ReturnStatement: Value is {(returnStmt.Value != null ? returnStmt.Value.GetType().Name : "null")}");
+#endif
                     if (returnStmt.Value != null)
                     {
                         AnalyzeExpression(returnStmt.Value);
@@ -334,7 +346,7 @@ namespace SharpPy
                     break;
 
                 case TryStatement tryStmt:
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                     Console.WriteLine($"  AnalyzeStatement: TryStatement in scope '{_currentTable?.GetName()}'");
 #endif
                     // Analyze try block
@@ -373,7 +385,7 @@ namespace SharpPy
                     break;
 
                 case ForStatement forStmt:
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                     Console.WriteLine($"  AnalyzeStatement: ForStatement in scope '{_currentTable?.GetName()}'");
 #endif
                     // 1. Analyze iterable expression
@@ -399,7 +411,7 @@ namespace SharpPy
                     break;
 
                 case IfStatement ifStmt:
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                     Console.WriteLine($"  AnalyzeStatement: IfStatement in scope '{_currentTable?.GetName()}'");
 #endif
                     // Analyze condition
@@ -421,7 +433,7 @@ namespace SharpPy
 
                 case WhileStatement whileStmt:
                     // CPython 3.12: symtable.c:1718-1723 - VISIT while test, body, and orelse
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                     Console.WriteLine($"  AnalyzeStatement: WhileStatement in scope '{_currentTable?.GetName()}'");
 #endif
                     // 1. Analyze test condition (CPython: VISIT(st, expr, s->v.While.test))
@@ -448,7 +460,7 @@ namespace SharpPy
                     foreach (var moduleName in importStmt.Names)
                     {
                         _currentTable?.DefineSymbol(moduleName, SymbolFlags.Assigned);
-                        #if DEBUG_LOG
+                        #if DEBUG_COMPILER_LOG
                         Console.WriteLine($"  ImportStatement: Registered '{moduleName}' as global symbol");
                         #endif
                     }
@@ -461,14 +473,14 @@ namespace SharpPy
                         // Use alias name if available, otherwise use the actual name
                         string symbolName = importAlias.AsName ?? importAlias.Name;
                         _currentTable?.DefineSymbol(symbolName, SymbolFlags.Assigned);
-                        #if DEBUG_LOG
+                        #if DEBUG_COMPILER_LOG
                         Console.WriteLine($"  ImportFromStatement: Registered '{symbolName}' as global symbol");
                         #endif
                     }
                     break;
 
                 case MatchStatement matchStmt:
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                     Console.WriteLine($"  AnalyzeStatement: MatchStatement in scope '{_currentTable?.GetName()}'");
 #endif
                     // 1. Analyze the subject expression
@@ -496,7 +508,7 @@ namespace SharpPy
                     break;
 
                 case WithStatement withStmt:
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                     Console.WriteLine($"  AnalyzeStatement: WithStatement in scope '{_currentTable?.GetName()}'");
 #endif
                     // 1. Analyze context expressions
@@ -528,7 +540,7 @@ namespace SharpPy
 
                 // For now, skip complex statement types
                 default:
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                     Console.WriteLine($"  AnalyzeStatement: Unhandled statement type {statement.GetType().Name} in scope '{_currentTable?.GetName()}'");
 #endif
                     break;
@@ -588,7 +600,7 @@ namespace SharpPy
                 {
                     // Add __class__ as a used (free) variable
                     _currentTable.DefineSymbol("__class__", SymbolFlags.Used);
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                     Console.WriteLine($"  ✅ Added __class__ to {_currentTable.GetName()} due to super() in function or nested functions");
 #endif
                 }
@@ -605,20 +617,20 @@ namespace SharpPy
         /// </summary>
         private void ResolveFreeVariables(SymbolTable table)
         {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
             Console.WriteLine($"  🔍 ResolveFreeVariables: Processing {table.GetSymbols().Count} symbols in {table.GetName()}");
 #endif
 
             foreach (var symbol in table.GetSymbols().Values)
             {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                 Console.WriteLine($"    Symbol: {symbol.Name}, Scope: {symbol.Scope}, Flags: {symbol.Flags}");
 #endif
 
                 // Special handling for nonlocal variables
                 if (symbol.IsNonlocal())
                 {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                     Console.WriteLine($"      ↳ Processing NONLOCAL variable: {symbol.Name}");
 #endif
                     // nonlocal variables must be found in enclosing scope
@@ -631,14 +643,14 @@ namespace SharpPy
                         // Mark the parent symbol as cell variable (needs to be captured)
                         parentSymbol.Scope = SymbolScope.Cell;
 
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                         Console.WriteLine($"      ↳ NONLOCAL marked as FREE (found in parent: {parentSymbol.Name})");
 #endif
                     }
                     else
                     {
                         // nonlocal variable not found in parent scope - this is an error
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                         Console.WriteLine($"      ⚠️ NONLOCAL variable '{symbol.Name}' not found in enclosing scope");
 #endif
                         symbol.Scope = SymbolScope.Global; // fallback
@@ -649,7 +661,7 @@ namespace SharpPy
                 // Skip if already resolved or is parameter/assigned locally
                 if (symbol.Scope != SymbolScope.Unknown)
                 {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                     Console.WriteLine($"      ↳ Skipped (already resolved or local)");
 #endif
                     continue;
@@ -661,7 +673,7 @@ namespace SharpPy
                 {
                     // Variable explicitly declared as global - don't make it a free variable
                     symbol.Scope = SymbolScope.Global;
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                     Console.WriteLine($"      ↳ Marked as GLOBAL (explicitly declared with 'global' statement)");
 #endif
                 }
@@ -681,7 +693,7 @@ namespace SharpPy
                             foundInParent.Scope = SymbolScope.Cell;
                         }
 
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                         Console.WriteLine($"      ↳ Marked as FREE (found in parent: {foundInParent.Name})");
 #endif
                     }
@@ -689,7 +701,7 @@ namespace SharpPy
                     {
                         // Not found in any parent scope, assume global
                         symbol.Scope = SymbolScope.Global;
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                         Console.WriteLine($"      ↳ Marked as GLOBAL (not found in parents)");
 #endif
                     }
@@ -707,7 +719,7 @@ namespace SharpPy
             // Check for built-in variables first - they should never be cell variables
             if (IsBuiltinName(name))
             {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                 Console.WriteLine($"      ↳ {name} is a builtin - should be GLOBAL, not FREE/CELL");
 #endif
                 return null; // Built-ins should be accessed as GLOBAL
@@ -725,14 +737,14 @@ namespace SharpPy
 
                 if (parent.GetSymbols().TryGetValue(name, out var symbol))
                 {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                     Console.WriteLine($"      ↳ Found {name} in enclosing scope {parent.GetName()}");
 #endif
                     // CPython 3.12: If the symbol is declared as global in the parent scope,
                     // it should not be treated as a free variable in the current scope
                     if (symbol.IsGlobal())
                     {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                         Console.WriteLine($"      ↳ Symbol {name} is marked as GLOBAL in parent scope - skipping");
 #endif
                         parent = parent.GetParent();
@@ -778,7 +790,7 @@ namespace SharpPy
             // Prevent processing the same table multiple times
             if (_processedTables.Contains(table))
             {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                 Console.WriteLine($"⚠️  Skipping already processed table: {table.GetName()}");
 #endif
                 _recursionDepth--;
@@ -787,7 +799,7 @@ namespace SharpPy
 
             _processedTables.Add(table);
 
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
             Console.WriteLine($"🔍 Resolving free variables in scope: {table.GetName()} (depth: {_recursionDepth})");
 #endif
 
@@ -822,7 +834,7 @@ namespace SharpPy
             string tableKey = $"cell_process_{table.GetName()}";
             if (_cellProcessingInProgress.Contains(tableKey))
             {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                 Console.WriteLine($"⚠️  Skipping already processed cell variables for: {table.GetName()}");
 #endif
                 return;
@@ -832,7 +844,7 @@ namespace SharpPy
 
             try
             {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                 Console.WriteLine($"🔄 Post-processing cell variables for scope: {table.GetName()}");
                 Console.WriteLine($"    Current symbols in {table.GetName()}:");
                 foreach (var kvp in table.GetSymbols())
@@ -846,12 +858,12 @@ namespace SharpPy
                     // Skip class scopes for now - they have different rules
                     if (child.Type == SymbolTableType.Class) continue;
 
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                     Console.WriteLine($"    Checking child scope: {child.GetName()}");
 #endif
                     foreach (var childSymbol in child.GetSymbols().Values)
                     {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                         Console.WriteLine($"      Symbol {childSymbol.Name}: Scope={childSymbol.Scope}, IsFree={childSymbol.IsFree()}");
 #endif
                         // If child has a free or cell variable, parent should have it as cell variable
@@ -860,7 +872,7 @@ namespace SharpPy
                         if (childSymbol.IsFree() || childSymbol.Scope == SymbolScope.Cell)
                         {
                             var parentSymbol = table.Lookup(childSymbol.Name);
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                             Console.WriteLine($"        → Looking for {childSymbol.Name} in parent {table.GetName()}: found={parentSymbol != null}");
                             if (parentSymbol != null)
                             {
@@ -871,7 +883,7 @@ namespace SharpPy
                                 (parentSymbol.Scope == SymbolScope.Local || parentSymbol.Scope == SymbolScope.Cell) &&
                                 (parentSymbol.IsAssigned() || parentSymbol.IsParameter()))
                             {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                                 Console.WriteLine($"    → ✅ Marking {childSymbol.Name} as CELL in {table.GetName()} (used as FREE in {child.GetName()})");
 #endif
                             parentSymbol.Scope = SymbolScope.Cell;
@@ -881,19 +893,19 @@ namespace SharpPy
                                   parentSymbol.Scope == SymbolScope.Unknown))
                         {
                             // Parent also treats this as Free/Unknown variable - don't change to Cell
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                             Console.WriteLine($"    → ❌ Skipping {childSymbol.Name} - parent scope is {parentSymbol.Scope}, not owner");
 #endif
                         }
                         else if (parentSymbol != null)
                         {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                             Console.WriteLine($"    → ⚠️ Checking {childSymbol.Name} - parent scope: {parentSymbol.Scope}, assigned: {parentSymbol.IsAssigned()}");
 #endif
                         }
                         else
                         {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                             Console.WriteLine($"    → ❓ {childSymbol.Name} not found in parent {table.GetName()}");
 #endif
                         }
@@ -901,7 +913,7 @@ namespace SharpPy
                 }
             }
 
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                 Console.WriteLine($"    Final symbols in {table.GetName()} after processing:");
                 foreach (var kvp in table.GetSymbols())
                 {
@@ -928,7 +940,7 @@ namespace SharpPy
             string propagationKey = $"{child.GetName()}→{parent.GetName()}";
             if (_propagationInProgress.Contains(propagationKey))
             {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                 Console.WriteLine($"⚠️  Skipping circular propagation: {propagationKey}");
 #endif
                 return;
@@ -939,7 +951,7 @@ namespace SharpPy
             try
             {
                 var childFreeVars = child.FindFreeVariables();
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                 Console.WriteLine($"  🔄 Propagating free vars from {child.GetName()} to {parent.GetName()}: [{string.Join(", ", childFreeVars)}]");
 #endif
 
@@ -957,13 +969,13 @@ namespace SharpPy
                         {
                             addedSymbol.Scope = SymbolScope.Free;
                         }
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                         Console.WriteLine($"    → Added {freeVar} as free variable to {parent.GetName()}");
 #endif
                     }
                     else
                     {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                         Console.WriteLine($"    → {freeVar} already available in {parent.GetName()} (scope: {parentSymbol.Scope})");
 #endif
                     }
@@ -981,7 +993,7 @@ namespace SharpPy
         /// </summary>
         private void AnalyzePattern(Expression pattern)
         {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
             Console.WriteLine($"      AnalyzePattern: {pattern.GetType().Name} in scope '{_currentTable?.GetName()}'");
 #endif
             switch (pattern)
@@ -1020,7 +1032,7 @@ namespace SharpPy
                     {
                         // CPython: symtable_add_def(st, name, DEF_LOCAL)
                         _currentTable?.DefineSymbol(starName.Name, SymbolFlags.Assigned);
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                         Console.WriteLine($"        AnalyzePattern: Defined star variable '{starName.Name}' as LOCAL");
 #endif
                     }
@@ -1032,7 +1044,7 @@ namespace SharpPy
                     {
                         // CPython: symtable_add_def(st, name, DEF_LOCAL)
                         _currentTable?.DefineSymbol(starPat.Name, SymbolFlags.Assigned);
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                         Console.WriteLine($"        AnalyzePattern: Defined star pattern variable '{starPat.Name}' as LOCAL");
 #endif
                     }
@@ -1051,21 +1063,21 @@ namespace SharpPy
                     {
                         // CPython: symtable_add_def(st, name, DEF_LOCAL)
                         _currentTable?.DefineSymbol(name.Name, SymbolFlags.Assigned);
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                         Console.WriteLine($"        AnalyzePattern: Defined capture variable '{name.Name}' as LOCAL");
 #endif
                     }
                     break;
 
                 // MatchOr: pattern1 | pattern2 - recursively analyze all alternatives
-                case BinaryOpExpression binOp when binOp.Operator == "|":
+                case BinOpExpression binOp when binOp.OpNode.OperatorType == "BitOr":
                     AnalyzePattern(binOp.Left);
                     AnalyzePattern(binOp.Right);
                     break;
 
                 // Default: treat as expression (for complex patterns)
                 default:
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                     Console.WriteLine($"        AnalyzePattern: Treating {pattern.GetType().Name} as expression");
 #endif
                     AnalyzeExpression(pattern);
@@ -1082,7 +1094,7 @@ namespace SharpPy
             {
                 case NameExpression name:
                     // Reference to a variable - define it if not already defined
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                     Console.WriteLine($"      AnalyzeExpression: NameExpression '{name.Name}' in scope '{_currentTable?.GetName()}'");
 #endif
                     // Only add if it's not a keyword
@@ -1115,13 +1127,13 @@ namespace SharpPy
                     break;
 
                 case AttributeExpression attr:
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                     Console.WriteLine($"      AnalyzeExpression: AttributeExpression '{attr.Attr}' on object in scope '{_currentTable?.GetName()}'");
 #endif
                     AnalyzeExpression(attr.Value);
                     break;
 
-                case BinaryOpExpression binOp:
+                case BinOpExpression binOp:
                     AnalyzeExpression(binOp.Left);
                     AnalyzeExpression(binOp.Right);
                     break;
@@ -1168,7 +1180,7 @@ namespace SharpPy
 
                 case LambdaExpression lambda:
                     // Lambda functions need their own scope to track free variables
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                     Console.WriteLine($"      AnalyzeExpression: LambdaExpression in scope '{_currentTable?.GetName()}'");
 #endif
                     AnalyzeLambda(lambda);
@@ -1218,7 +1230,7 @@ namespace SharpPy
                     if (_currentTable != null)
                     {
                         _currentTable.IsGenerator = true;
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                         Console.WriteLine($"      AnalyzeExpression: YieldExpression - marked scope '{_currentTable.GetName()}' as generator");
 #endif
                     }
@@ -1233,7 +1245,7 @@ namespace SharpPy
                     if (_currentTable != null)
                     {
                         _currentTable.IsGenerator = true;
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                         Console.WriteLine($"      AnalyzeExpression: YieldFromExpression - marked scope '{_currentTable.GetName()}' as generator");
 #endif
                     }
@@ -1277,7 +1289,7 @@ namespace SharpPy
             }
 
             // Analyze lambda body (single expression)
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
             Console.WriteLine($"        Analyzing lambda body in scope '{_currentTable?.GetName()}'");
 #endif
             AnalyzeExpression(lambda.Body);
@@ -1337,6 +1349,13 @@ namespace SharpPy
             var compTable = new SymbolTable(scopeName, SymbolTableType.Function);
             _currentTable?.AddChild(compTable);
 
+            // CPython 3.12: Register AST node → symbol table mapping (symtable.c:142)
+            // Corresponds to PyDict_SetItem(st->st_blocks, ste->ste_id, ste)
+            _astNodeToSymbolTable.Add(expr, compTable);
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"[SYMTABLE] Registered AST node: type={expr.GetType().Name}, HashCode={expr.GetHashCode()}, SymbolTable={scopeName}");
+#endif
+
             var savedTable = _currentTable;
             _currentTable = compTable;
 
@@ -1384,7 +1403,7 @@ namespace SharpPy
         // CPython 3.12: symtable.c:2605-2610
         private void AnalyzeGeneratorExpression(GeneratorExpression genExpr)
         {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
             Console.WriteLine($"      AnalyzeExpression: GeneratorExpression in scope '{_currentTable?.GetName()}'");
 #endif
             AnalyzeComprehension(genExpr, "<genexpr>", genExpr.Generators, genExpr.Element, isGenerator: true);
@@ -1393,7 +1412,7 @@ namespace SharpPy
         // CPython 3.12: symtable.c:2612-2618
         private void AnalyzeListComprehension(ListComprehension listComp)
         {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
             Console.WriteLine($"      AnalyzeExpression: ListComprehension in scope '{_currentTable?.GetName()}'");
 #endif
             AnalyzeComprehension(listComp, "<listcomp>", listComp.Generators, listComp.Element, isGenerator: false);
@@ -1402,7 +1421,7 @@ namespace SharpPy
         // CPython 3.12: symtable.c:2620-2626
         private void AnalyzeSetComprehension(SetComprehension setComp)
         {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
             Console.WriteLine($"      AnalyzeExpression: SetComprehension in scope '{_currentTable?.GetName()}'");
 #endif
             AnalyzeComprehension(setComp, "<setcomp>", setComp.Generators, setComp.Element, isGenerator: false);
@@ -1411,7 +1430,7 @@ namespace SharpPy
         // CPython 3.12: symtable.c:2628-2634
         private void AnalyzeDictComprehension(DictComprehension dictComp)
         {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
             Console.WriteLine($"      AnalyzeExpression: DictComprehension in scope '{_currentTable?.GetName()}'");
 #endif
             AnalyzeComprehension(dictComp, "<dictcomp>", dictComp.Generators, dictComp.Value, dictComp.Key, isGenerator: false);
@@ -1456,7 +1475,7 @@ namespace SharpPy
 
         private void AnalyzeChainedAssignment(ChainedAssignStatement chainedAssign)
         {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
             Console.WriteLine($"  AnalyzeChainedAssignment: Processing {chainedAssign.Targets.Count} targets in scope '{_currentTable?.GetName()}'");
 #endif
             // For chained assignments like "a = b = c = value" or "gen = (x for x in [1, 2, 3])"
@@ -1469,7 +1488,7 @@ namespace SharpPy
             // Then mark all targets as assigned (left-to-right)
             foreach (var target in chainedAssign.Targets)
             {
-#if DEBUG_LOG
+#if DEBUG_COMPILER_LOG
                 Console.WriteLine($"    → Analyzing target: {target.GetType().Name}");
 #endif
                 AnalyzeAssignmentTarget(target);
@@ -1633,6 +1652,20 @@ namespace SharpPy
                 }
             }
             // AttributeExpression, SubscriptExpression don't define new symbols
+        }
+
+        /// <summary>
+        /// CPython 3.12: PySymtable_Lookup(st, key)
+        /// Lookup symbol table for a given AST node (comprehension/generator expression)
+        /// Corresponds to PySymtable_Lookup in Python/symtable.c:381-400
+        /// </summary>
+        public SymbolTable? LookupSymbolTable(Expression astNode)
+        {
+            if (_astNodeToSymbolTable.TryGetValue(astNode, out var table))
+            {
+                return table;
+            }
+            return null;
         }
     }
 }

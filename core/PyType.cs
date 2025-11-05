@@ -468,9 +468,29 @@ namespace SharpPy
         // isinstance/issubclass 지원
         public bool IsSubclassOf(PyType other)
         {
+#if DEBUG
+            Console.WriteLine($"[IsSubclassOf] Checking if {this.Name} (id={this.GetHashCode()}) is subclass of {other.Name} (id={other.GetHashCode()})");
+            Console.WriteLine($"[IsSubclassOf] MRO.Count = {MRO.Count}");
+            for (int i = 0; i < MRO.Count; i++)
+            {
+                var mroType = MRO[i];
+                Console.WriteLine($"  MRO[{i}]: {mroType.Name} (id={mroType.GetHashCode()}), ReferenceEquals={ReferenceEquals(mroType, other)}");
+            }
+#endif
+
             // CPython 3.12: Check by reference first (fast path)
-            if (MRO.Contains(other))
-                return true;
+            // CPython equivalent: PyTuple_GET_ITEM(mro, i) == (PyObject *)b
+            // This checks if the exact same type object is in the MRO
+            for (int i = 0; i < MRO.Count; i++)
+            {
+                if (ReferenceEquals(MRO[i], other))
+                {
+#if DEBUG
+                    Console.WriteLine($"[IsSubclassOf] Found match at MRO[{i}] by ReferenceEquals");
+#endif
+                    return true;
+                }
+            }
 
             // Fallback: Check by type name for built-in types
             // This handles cases where the same built-in type might have different PyType instances
@@ -481,10 +501,16 @@ namespace SharpPy
                      mroType.Name == "str" || mroType.Name == "int" || mroType.Name == "float" ||
                      mroType.Name == "bool" || mroType.Name == "object" || mroType.Name == "type"))
                 {
+#if DEBUG
+                    Console.WriteLine($"[IsSubclassOf] Found match by name: {mroType.Name}");
+#endif
                     return true;
                 }
             }
 
+#if DEBUG
+            Console.WriteLine($"[IsSubclassOf] No match found, returning false");
+#endif
             return false;
         }
 

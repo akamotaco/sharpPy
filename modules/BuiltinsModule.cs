@@ -42,6 +42,7 @@ namespace SharpPy.Modules
             module.ModuleDict["bytearray"] = PyType.BytearrayType;
             module.ModuleDict["NoneType"] = PyType.NoneType;
             module.ModuleDict["function"] = PyType.FunctionType;
+            module.ModuleDict["slice"] = PyType.SliceType;
 
             // Built-in constants
             module.ModuleDict["None"] = PyNone.Instance;
@@ -346,7 +347,80 @@ namespace SharpPy.Modules
             if (args.Length != 2)
                 throw PyTypeError.Create($"issubclass() takes exactly 2 arguments ({args.Length} given)");
 
-            // Simple implementation - can be extended
+            var subclass = args[0];
+            var classInfo = args[1];
+
+            // CPython 3.12: Check for tuple first (Objects/abstract.c:2701-2721)
+            if (classInfo is PyTuple tuple)
+            {
+                foreach (var item in tuple.Items)
+                {
+                    // Recursively check each type in the tuple
+                    var result = IsSubclass(new PyObject[] { subclass, item });
+                    if (result == PyBool.True)
+                        return PyBool.True;
+                }
+                return PyBool.False;
+            }
+
+            // CPython 3.12: Check if classInfo is a valid type by looking for __bases__
+            try
+            {
+                var bases = classInfo.GetAttribute("__bases__");
+                if (bases == null || !(bases is PyTuple))
+                {
+                    throw PyTypeError.Create("issubclass() arg 2 must be a class");
+                }
+            }
+            catch
+            {
+                throw PyTypeError.Create("issubclass() arg 2 must be a class");
+            }
+
+            // Check if subclass is a valid type
+            try
+            {
+                var subBases = subclass.GetAttribute("__bases__");
+                if (subBases == null || !(subBases is PyTuple))
+                {
+                    throw PyTypeError.Create("issubclass() arg 1 must be a class");
+                }
+            }
+            catch
+            {
+                throw PyTypeError.Create("issubclass() arg 1 must be a class");
+            }
+
+            // CPython 3.12: Check for __subclasscheck__ on the metaclass of classInfo
+            // Objects/abstract.c:2727-2739 (PyObject_IsSubclass)
+            var metaclass = classInfo.GetPyType();
+
+            try
+            {
+                var subclasscheck = metaclass.GetAttribute("__subclasscheck__");
+
+                if (subclasscheck != null && subclasscheck != PyNone.Instance)
+                {
+                    // Call __subclasscheck__(cls, subclass)
+                    var result = subclasscheck.Call(new PyObject[] { classInfo, subclass }, null);
+                    return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                // If __subclasscheck__ lookup fails, fall through to default behavior
+            }
+
+            // Fallback: check MRO directly
+            if (subclass is PyClass subPyClass && classInfo is PyClass classPyClass)
+            {
+                foreach (var mroType in subPyClass.MRO)
+                {
+                    if (ReferenceEquals(mroType, classPyClass))
+                        return PyBool.True;
+                }
+            }
+
             return PyBool.False;
         }
 

@@ -1292,6 +1292,145 @@ namespace SharpPy
             return base.Next();
         }
 
+        /// <summary>
+        /// CPython 3.12: Helper to call a magic method if it exists
+        /// Searches instance dict first, then class MRO
+        /// </summary>
+        private PyObject CallMagicMethod(string methodName, params PyObject[] args)
+        {
+            // Check instance dict first
+            if (InstanceDict.ContainsKey(methodName))
+            {
+                var method = InstanceDict[methodName];
+                return method.Call(args, null);
+            }
+
+            // Then check class hierarchy (MRO)
+            foreach (var mroType in InstanceType.MRO)
+            {
+                if (mroType is PyClass pyClass && pyClass.ClassDict.TryGetValue(methodName, out PyObject method))
+                {
+                    // Bind method to this instance and call
+                    if (method is PyFunction func)
+                    {
+                        var boundMethod = new PyMethod(this, func);
+                        return boundMethod.Call(args, null);
+                    }
+                    else if (method.IsCallable())
+                    {
+                        // For non-function callables, pass self as first argument
+                        var argsWithSelf = new PyObject[args.Length + 1];
+                        argsWithSelf[0] = this;
+                        Array.Copy(args, 0, argsWithSelf, 1, args.Length);
+                        return method.Call(argsWithSelf, null);
+                    }
+                    break;
+                }
+            }
+
+            return null; // Method not found
+        }
+
+        /// <summary>
+        /// CPython 3.12: Binary operation with magic method support
+        /// Implements the protocol: try __add__, then __radd__ on other
+        /// </summary>
+        private PyObject BinaryOpWithMagicMethod(PyObject other, string methodName, string reflectedMethodName)
+        {
+            // Try left operand's method first (e.g., self.__add__(other))
+            var result = CallMagicMethod(methodName, other);
+            if (result != null)
+            {
+                return result;
+            }
+
+            // Try right operand's reflected method (e.g., other.__radd__(self))
+            if (other is PyClassInstance otherInstance)
+            {
+                result = otherInstance.CallMagicMethod(reflectedMethodName, this);
+                if (result != null)
+                {
+                    return result;
+                }
+            }
+
+            // No magic method found - fall back to base implementation (will throw TypeError)
+            return null;
+        }
+
+        // CPython 3.12: Magic method overrides for binary operations
+        public override PyObject Add(PyObject other)
+        {
+            var result = BinaryOpWithMagicMethod(other, "__add__", "__radd__");
+            return result ?? base.Add(other);
+        }
+
+        public override PyObject Subtract(PyObject other)
+        {
+            var result = BinaryOpWithMagicMethod(other, "__sub__", "__rsub__");
+            return result ?? base.Subtract(other);
+        }
+
+        public override PyObject Multiply(PyObject other)
+        {
+            var result = BinaryOpWithMagicMethod(other, "__mul__", "__rmul__");
+            return result ?? base.Multiply(other);
+        }
+
+        public override PyObject Divide(PyObject other)
+        {
+            var result = BinaryOpWithMagicMethod(other, "__truediv__", "__rtruediv__");
+            return result ?? base.Divide(other);
+        }
+
+        public override PyObject FloorDivide(PyObject other)
+        {
+            var result = BinaryOpWithMagicMethod(other, "__floordiv__", "__rfloordiv__");
+            return result ?? base.FloorDivide(other);
+        }
+
+        public override PyObject Modulo(PyObject other)
+        {
+            var result = BinaryOpWithMagicMethod(other, "__mod__", "__rmod__");
+            return result ?? base.Modulo(other);
+        }
+
+        public override PyObject Power(PyObject other)
+        {
+            var result = BinaryOpWithMagicMethod(other, "__pow__", "__rpow__");
+            return result ?? base.Power(other);
+        }
+
+        public override PyObject LeftShift(PyObject other)
+        {
+            var result = BinaryOpWithMagicMethod(other, "__lshift__", "__rlshift__");
+            return result ?? base.LeftShift(other);
+        }
+
+        public override PyObject RightShift(PyObject other)
+        {
+            var result = BinaryOpWithMagicMethod(other, "__rshift__", "__rrshift__");
+            return result ?? base.RightShift(other);
+        }
+
+        public override PyObject BitwiseAnd(PyObject other)
+        {
+            var result = BinaryOpWithMagicMethod(other, "__and__", "__rand__");
+            return result ?? base.BitwiseAnd(other);
+        }
+
+        public override PyObject BitwiseOr(PyObject other)
+        {
+            var result = BinaryOpWithMagicMethod(other, "__or__", "__ror__");
+            return result ?? base.BitwiseOr(other);
+        }
+
+        public override PyObject BitwiseXor(PyObject other)
+        {
+            var result = BinaryOpWithMagicMethod(other, "__xor__", "__rxor__");
+            return result ?? base.BitwiseXor(other);
+        }
+
         protected override bool HasCustomGetAttr() => _customGetAttr != null;
 
         protected override PyObject CallGetAttr(string name)
