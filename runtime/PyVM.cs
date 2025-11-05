@@ -3846,12 +3846,10 @@ namespace SharpPy
 
                  case ByteCodeOp.POP_EXCEPT:
                     // CPython 3.12: POP_EXCEPT pops the prev_exc value left by PUSH_EXC_INFO
+                    // and RESTORES it to the current exception state
+                    // CPython bytecodes.c:929-932: Py_XSETREF(exc_info->exc_value, exc_value)
                     // Stack before: [..., prev_exc]
                     // Stack after: [...]
-                    // IMPORTANT: Does NOT clear CurrentException - preserved for RERAISE 0
-                    // Exception is only cleared when:
-                    // 1. RERAISE re-raises it (becomes outer handler's problem)
-                    // 2. Normal exit from handler (no reraise)
                     #if DEBUG_LOG
                     Console.WriteLine($"🔧 POP_EXCEPT: stack size = {frame.ValueStack.Count}");
                     #endif
@@ -3860,16 +3858,22 @@ namespace SharpPy
                     {
                         // Pop prev_exc from stack (pushed by PUSH_EXC_INFO)
                         var prevExcValue = frame.ValueStack.Pop();
+
+                        // RESTORE previous exception to CurrentException
+                        // This is what Py_XSETREF does in CPython bytecodes.c:931
+                        if (prevExcValue is PyBaseException previousException)
+                        {
+                            frame.CurrentException = previousException;
+                        }
+                        else if (prevExcValue == PyNone.Instance)
+                        {
+                            frame.CurrentException = null;  // No previous exception
+                        }
+
                         #if DEBUG_LOG
                         Console.WriteLine($"🔧 POP_EXCEPT: Popped prev_exc={prevExcValue} from stack");
-                        Console.WriteLine($"🔧 POP_EXCEPT: CurrentException={frame.CurrentException} (preserved for RERAISE)");
+                        Console.WriteLine($"🔧 POP_EXCEPT: Restored CurrentException={frame.CurrentException}");
                         #endif
-
-                        // NOTE: We do NOT clear frame.CurrentException here!
-                        // If RERAISE 0 follows, it needs CurrentException to still be set
-                        // The exception will be cleared by:
-                        // - RERAISE itself when it re-raises
-                        // - Normal handler exit (not implemented yet, but should be)
                     }
                     else
                     {

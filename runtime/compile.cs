@@ -7734,6 +7734,20 @@ namespace SharpPy
                 PushFBlock(loc, FBlockType.FINALLY_TRY, finallyLabel, endLabel, tryStmt.FinalBody);
             }
 
+            // 1.6. If both except handlers AND finally exist, add inner SETUP_FINALLY for except handlers
+            // CPython compile.c:3256-3257 pattern: compiler_try_except is called from within compiler_try_finally
+            // This creates nested SETUP_FINALLY instructions:
+            //   Outer: SETUP_FINALLY finallyExceptLabel (for try-finally)
+            //   Inner: SETUP_FINALLY exceptLabel (for try-except)  ← THIS ONE!
+            if (hasExceptHandlers && hasFinally)
+            {
+                _instructionSequence.AddOpWithLabel(ByteCodeOp.SETUP_FINALLY, exceptLabel, _currentLineNumber);
+                _exceptionHandlerStack.Push(exceptLabel);
+                #if DEBUG
+                Console.WriteLine($"[TEMP] CompileTryStatementCFG: Pushed inner except handler {exceptLabel} to stack. Stack count = {_exceptionHandlerStack.Count}");
+                #endif
+            }
+
             // 2. Try body (immediately follows SETUP_FINALLY, no label needed)
             foreach (var stmt in tryStmt.Body)
             {
@@ -7748,8 +7762,17 @@ namespace SharpPy
             // Pop exception handler from compiler stack
             _exceptionHandlerStack.Pop();
             #if DEBUG
-            Console.WriteLine($"[TEMP] CompileTryStatementCFG: Popped outer handler from stack. Stack count = {_exceptionHandlerStack.Count}");
+            Console.WriteLine($"[TEMP] CompileTryStatementCFG: Popped handler from stack. Stack count = {_exceptionHandlerStack.Count}");
             #endif
+
+            // 3.5. If inner except handler exists, pop it too
+            if (hasExceptHandlers && hasFinally)
+            {
+                _exceptionHandlerStack.Pop();
+                #if DEBUG
+                Console.WriteLine($"[TEMP] CompileTryStatementCFG: Popped inner except handler from stack. Stack count = {_exceptionHandlerStack.Count}");
+                #endif
+            }
 
             // 4. Else clause (only runs if no exception)
             if (hasElse)
@@ -7809,11 +7832,25 @@ namespace SharpPy
                         // No variable binding: just POP_TOP
                         _instructionSequence.AddOp(ByteCodeOp.POP_TOP, _currentLineNumber);
 
+                        // CPython 3.12: Push HANDLER_CLEANUP fblock so break/continue/return emit POP_EXCEPT
+                        // CPython compile.c:3475-3480
+                        var handlerBodyLabel = _instructionSequence.NewLabel();
+                        PushFBlock(
+                            new SourceLocation(_currentLineNumber, _currentColumnOffset),
+                            FBlockType.HANDLER_CLEANUP,
+                            handlerBodyLabel,
+                            Label.NoLabel,
+                            null  // No exception variable
+                        );
+
                         // Handler body
                         foreach (var stmt in handler.Body)
                         {
                             CompileStatement(stmt);
                         }
+
+                        // CPython 3.12: Pop HANDLER_CLEANUP fblock
+                        PopFBlock(FBlockType.HANDLER_CLEANUP, handlerBodyLabel);
 
                         // Clean exit: POP_BLOCK + POP_EXCEPT + JUMP
                         _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);
@@ -7850,11 +7887,24 @@ namespace SharpPy
 
                         _instructionSequence.UseLabel(cleanupBodyLabel);
 
+                        // CPython 3.12: Push HANDLER_CLEANUP fblock so break/continue/return emit POP_EXCEPT
+                        // CPython compile.c:3439-3445
+                        PushFBlock(
+                            new SourceLocation(_currentLineNumber, _currentColumnOffset),
+                            FBlockType.HANDLER_CLEANUP,
+                            cleanupBodyLabel,
+                            Label.NoLabel,
+                            handler.Name  // Exception variable name for cleanup
+                        );
+
                         // Handler body
                         foreach (var stmt in handler.Body)
                         {
                             CompileStatement(stmt);
                         }
+
+                        // CPython 3.12: Pop HANDLER_CLEANUP fblock
+                        PopFBlock(FBlockType.HANDLER_CLEANUP, cleanupBodyLabel);
 
                         // Normal path cleanup (CPython compile.c:3447-3455)
                         _instructionSequence.AddOp(ByteCodeOp.POP_BLOCK, _currentLineNumber);  // Inner SETUP_CLEANUP
