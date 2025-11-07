@@ -24,6 +24,11 @@ public partial class PyFunction : PyObject, IDescriptor
     // CPython 3.12: __globals__ attribute - function's global namespace
     public Dictionary<string, PyObject>? GlobalsDict { get; set; }  // func.__globals__
 
+    // CPython 3.12 호환: __dict__ 및 __globals__ 캐시 (매번 새 객체 생성 방지)
+    // Python에서 func.__dict__ is func.__dict__는 True여야 함
+    private PyDict? _dictCache = null;
+    private PyDict? _globalsCache = null;
+
     public PyFunction(string name, Func<PyObject[], PyObject> implementation = null, PyModule definingModule = null, List<PyObject>? typeParams = null, PyCell[] closure = null, PyCodeObject codeObject = null)
     {
         Name = name;
@@ -133,12 +138,23 @@ public partial class PyFunction : PyObject, IDescriptor
         );
 
         // __globals__ getset descriptor - CPython 3.12
+        // CPython 3.12: func.__globals__ is func.__globals__ must be True
         funcType.TypeDict["__globals__"] = new PyGetSetDescriptor(
             "__globals__",
             funcType,
             getter: self => {
                 if (self is PyFunction func)
-                    return func.GlobalsDict != null ? new PyDict(func.GlobalsDict) : PyNone.Instance;
+                {
+                    if (func.GlobalsDict == null)
+                        return PyNone.Instance;
+
+                    // Lazy-initialize and cache the globals dict wrapper
+                    if (func._globalsCache == null)
+                    {
+                        func._globalsCache = new PyDict(func.GlobalsDict);
+                    }
+                    return func._globalsCache;
+                }
                 throw PyTypeError.Create("descriptor '__globals__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
             }
         );
@@ -176,12 +192,22 @@ public partial class PyFunction : PyObject, IDescriptor
         );
 
         // __dict__ getset descriptor
+        // CPython 3.12: func.__dict__ is func.__dict__ must be True
         funcType.TypeDict["__dict__"] = new PyGetSetDescriptor(
             "__dict__",
             funcType,
             getter: self => {
                 if (self is PyFunction func)
-                    return new PyDict(func.Attributes);
+                {
+                    // Lazy-initialize and cache the synchronized dict wrapper
+                    // This ensures func.__dict__ returns the same object every time
+                    // AND modifications to the dict are reflected in Attributes
+                    if (func._dictCache == null)
+                    {
+                        func._dictCache = new PyFunctionAttrDict(func.Attributes);
+                    }
+                    return func._dictCache;
+                }
                 throw PyTypeError.Create("descriptor '__dict__' for 'function' objects doesn't apply to a '" + self.GetTypeName() + "' object");
             }
         );

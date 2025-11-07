@@ -307,26 +307,38 @@ namespace SharpPy.Modules
                                         var methodName = iterator.Next();
                                         var methodNameStr = ((PyString)methodName).Value;
 
-                                        // Check if overridden in current class
-                                        if (classDict.ContainsKey(methodNameStr))
+                                        // Check if overridden in current class or inherited
+                                        // Use GetAttribute to check MRO, not just ClassDict
+                                        try
                                         {
-                                            var overriddenValue = classDict[methodNameStr];
-                                            try
+                                            var method = cls.GetAttribute(methodNameStr);
+                                            if (method != null && method != PyNone.Instance)
                                             {
-                                                var isStillAbstract = overriddenValue.GetAttribute("__isabstractmethod__");
-                                                if (isStillAbstract != null && ((PyBool)isStillAbstract).Value)
+                                                // Method exists, check if still abstract
+                                                try
                                                 {
-                                                    abstractMethods.Add(methodName);
+                                                    var isStillAbstract = method.GetAttribute("__isabstractmethod__");
+                                                    if (isStillAbstract != null && isStillAbstract.PyBoolValue())
+                                                    {
+                                                        // Still abstract
+                                                        abstractMethods.Add(methodName);
+                                                    }
+                                                    // else: Concrete implementation found, not abstract
+                                                }
+                                                catch
+                                                {
+                                                    // No __isabstractmethod__, so it's concrete
                                                 }
                                             }
-                                            catch
+                                            else
                                             {
-                                                // Not abstract in current class
+                                                // Method not found, still abstract
+                                                abstractMethods.Add(methodName);
                                             }
                                         }
-                                        else
+                                        catch
                                         {
-                                            // Not overridden, still abstract
+                                            // Error getting attribute, assume still abstract
                                             abstractMethods.Add(methodName);
                                         }
                                     }

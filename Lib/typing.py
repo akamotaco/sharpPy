@@ -157,5 +157,24 @@ Union = _SpecialForm('Union')
 Optional = _SpecialForm('Optional')
 
 # Simple stubs for other typing constructs
-Any = object
-Callable = object
+class _AnyMeta(type):
+    """Metaclass for Any type"""
+    def __repr__(cls):
+        return 'typing.Any'
+
+    def __instancecheck__(cls, instance):
+        return True
+
+class Any(metaclass=_AnyMeta):
+    """Special type indicating an unconstrained type"""
+    pass
+
+# Callable is a special generic alias
+Callable = _SpecialGenericAlias(type(lambda: None), 'Callable')
+
+# Generator is a special generic alias
+class _GeneratorType:
+    """Placeholder for generator type"""
+    pass
+
+Generator = _SpecialGenericAlias(_GeneratorType, 'Generator')

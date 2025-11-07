@@ -2731,12 +2731,30 @@ namespace SharpPy
                         PyObject? result = null;
                         try
                         {
-                            // Execute metaclass.__new__ - this should modify namespaceDict and call type.__new__
+                            // CPython 3.12: slot_tp_new uses _PyObject_Call_Prepend to explicitly prepend the type argument
+                            // This ensures __new__ always receives (cls, name, bases, namespace) regardless of binding
                             #if DEBUG_LOG
                             Console.WriteLine($"🚀 Calling metaclass.__new__ for class: {className}");
+                            Console.WriteLine($"  newMethod type: {newMethod.GetType().Name}");
                             Console.WriteLine($"  newArgs[3] type: {newArgs[3]?.GetType().Name}, PyType: {newArgs[3]?.GetTypeName()}");
                             #endif
-                            result = newMethod.Call(newArgs, newKwargs);
+
+                            // CPython 3.12: If newMethod is a bound method (PyMethod), we need to call the underlying function
+                            // directly with all args including cls, because _PyObject_Call_Prepend always adds cls
+                            if (newMethod is PyMethod boundMethod)
+                            {
+                                #if DEBUG_LOG
+                                Console.WriteLine($"  ⚠️ newMethod is PyMethod (bound), calling underlying function directly");
+                                #endif
+                                // Get the underlying function and call it with all 4 args
+                                var underlyingFunc = boundMethod.Function;
+                                result = underlyingFunc.Call(newArgs, newKwargs);
+                            }
+                            else
+                            {
+                                // For unbound functions or staticmethods, call normally
+                                result = newMethod.Call(newArgs, newKwargs);
+                            }
                             #if DEBUG_LOG
                             Console.WriteLine($"🚀 metaclass.__new__ returned: {result?.GetType().Name ?? "null"}");
                             #endif

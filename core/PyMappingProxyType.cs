@@ -12,11 +12,30 @@ namespace SharpPy
 
         public PyMappingProxy(Dictionary<string, PyObject> mapping)
         {
-            _mapping = new Dictionary<string, PyObject>(mapping); // Copy to ensure immutability
+            // CPython 3.12: Keep reference to original dictionary, don't copy
+            // This allows equality comparison between mappingproxies wrapping the same dict
+            _mapping = mapping;
         }
 
         public override PyType GetPyType() => PyType.MappingProxyType;
         public override string GetTypeName() => "mappingproxy";
+
+        // CPython 3.12: mappingproxy delegates comparison to the underlying dictionary
+        // See Objects/descrobject.c - mappingproxy_richcompare
+        // return PyObject_RichCompare(v->mapping, w, op);
+        public override PyObject RichCompare(PyObject other, CompareOp op)
+        {
+            // If other is also a mappingproxy, extract its underlying dictionary
+            PyObject otherToCompare = other;
+            if (other is PyMappingProxy otherProxy)
+            {
+                otherToCompare = new PyDict(otherProxy._mapping);
+            }
+
+            // Convert internal dict to PyDict and delegate comparison
+            var pyDict = new PyDict(_mapping);
+            return pyDict.RichCompare(otherToCompare, op);
+        }
 
         #region Dictionary-like operations (read-only)
 

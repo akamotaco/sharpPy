@@ -294,6 +294,11 @@ namespace SharpPy
         public List<PyType> MRO { get; private set; }
         public string Module { get; }
 
+        // Cached tuple objects for __mro__ and __bases__ identity consistency
+        // CPython 3.12 requirement: type.__mro__ is type.__mro__ must be True
+        internal PyTuple _cachedMroTuple;
+        internal PyTuple _cachedBasesTuple;
+
         #endregion
 
         #region Constructor
@@ -1046,13 +1051,19 @@ namespace SharpPy
                 getter: self => {
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__bases__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    // Performance: Eliminated LINQ - manual cast instead of Cast + ToArray + Cache
-                    var basesArray = new PyObject[type.BaseTypes.Length];
-                    for (int i = 0; i < type.BaseTypes.Length; i++)
+
+                    // CPython 3.12 requirement: type.__bases__ is type.__bases__ must be True
+                    // Cache the tuple object to ensure identity consistency
+                    if (type._cachedBasesTuple == null)
                     {
-                        basesArray[i] = type.BaseTypes[i];
+                        var basesArray = new PyObject[type.BaseTypes.Length];
+                        for (int i = 0; i < type.BaseTypes.Length; i++)
+                        {
+                            basesArray[i] = type.BaseTypes[i];
+                        }
+                        type._cachedBasesTuple = new PyTuple(basesArray);
                     }
-                    return TupleCache.GetOrCreate(basesArray);
+                    return type._cachedBasesTuple;
                 }
             );
 
@@ -1063,13 +1074,19 @@ namespace SharpPy
                 getter: self => {
                     if (self is not PyType type)
                         throw PyTypeError.Create("descriptor '__mro__' for 'type' objects doesn't apply to a '" + self.GetTypeName() + "' object");
-                    // Performance: Eliminated LINQ - manual conversion instead of Cast + ToArray + Cache
-                    var mroArray = new PyObject[type.MRO.Count];
-                    for (int i = 0; i < type.MRO.Count; i++)
+
+                    // CPython 3.12 requirement: type.__mro__ is type.__mro__ must be True
+                    // Cache the tuple object to ensure identity consistency
+                    if (type._cachedMroTuple == null)
                     {
-                        mroArray[i] = type.MRO[i];
+                        var mroArray = new PyObject[type.MRO.Count];
+                        for (int i = 0; i < type.MRO.Count; i++)
+                        {
+                            mroArray[i] = type.MRO[i];
+                        }
+                        type._cachedMroTuple = new PyTuple(mroArray);
                     }
-                    return TupleCache.GetOrCreate(mroArray);
+                    return type._cachedMroTuple;
                 }
             );
 
@@ -1086,20 +1103,24 @@ namespace SharpPy
 
                     // Add __name__, __bases__, __mro__
                     typeDict["__name__"] = StringCache.GetOrCreate(type.Name);
-                    // Performance: Eliminated LINQ - manual conversions instead of Cast + ToArray + Cache
+
+                    // CPython 3.12 requirement: Cache tuples for identity consistency
+                    // type.__bases__ is type.__bases__ must be True
                     var basesArray = new PyObject[type.BaseTypes.Length];
                     for (int i = 0; i < type.BaseTypes.Length; i++)
                     {
                         basesArray[i] = type.BaseTypes[i];
                     }
-                    typeDict["__bases__"] = TupleCache.GetOrCreate(basesArray);
+                    type._cachedBasesTuple = new PyTuple(basesArray);
+                    typeDict["__bases__"] = type._cachedBasesTuple;
 
                     var mroArray = new PyObject[type.MRO.Count];
                     for (int i = 0; i < type.MRO.Count; i++)
                     {
                         mroArray[i] = type.MRO[i];
                     }
-                    typeDict["__mro__"] = TupleCache.GetOrCreate(mroArray);
+                    type._cachedMroTuple = new PyTuple(mroArray);
+                    typeDict["__mro__"] = type._cachedMroTuple;
 
                     // CPython 3.12: Add descriptors from MRO (inherited descriptors)
                     // This ensures int.__dict__ includes __new__ from object

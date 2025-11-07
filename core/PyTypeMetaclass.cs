@@ -1016,8 +1016,8 @@ namespace SharpPy
                 #if DEBUG_LOG
                 Console.WriteLine($"  → Returning mappingproxy of {pyClass.Name}.__dict__ (count: {pyClass.ClassDict.Count})");
                 #endif
-                // CPython 3.12: Return ClassDict as mappingproxy
-                // All descriptors are now in ClassDict, no need to merge
+                // CPython 3.12: Each access creates a NEW mappingproxy instance
+                // (class.__dict__ is class.__dict__) returns False in CPython
                 return new PyMappingProxy(pyClass.ClassDict);
             }
             // CPython 3.12: Handle builtin PyType instances (like dict, str, int, etc.)
@@ -1196,18 +1196,34 @@ namespace SharpPy
             // Works for both PyClass and PyType
             if (instance is PyClass pyClass)
             {
-                return new PyTuple(pyClass.BaseTypes);
+                // CPython 3.12 requirement: type.__bases__ is type.__bases__ must be True
+                // Return cached tuple to ensure identity consistency
+                if (pyClass._cachedBasesTuple == null)
+                {
+                    var basesArray = new PyObject[pyClass.BaseTypes.Length];
+                    for (int i = 0; i < pyClass.BaseTypes.Length; i++)
+                    {
+                        basesArray[i] = pyClass.BaseTypes[i];
+                    }
+                    pyClass._cachedBasesTuple = new PyTuple(basesArray);
+                }
+                return pyClass._cachedBasesTuple;
             }
 
             if (instance is PyType pyType)
             {
-                // Performance: Eliminated LINQ - manual cast instead of Cast + ToArray
-                var basesArray = new PyObject[pyType.BaseTypes.Length];
-                for (int i = 0; i < pyType.BaseTypes.Length; i++)
+                // CPython 3.12 requirement: type.__bases__ is type.__bases__ must be True
+                // Return cached tuple to ensure identity consistency
+                if (pyType._cachedBasesTuple == null)
                 {
-                    basesArray[i] = pyType.BaseTypes[i];
+                    var basesArray = new PyObject[pyType.BaseTypes.Length];
+                    for (int i = 0; i < pyType.BaseTypes.Length; i++)
+                    {
+                        basesArray[i] = pyType.BaseTypes[i];
+                    }
+                    pyType._cachedBasesTuple = new PyTuple(basesArray);
                 }
-                return new PyTuple(basesArray);
+                return pyType._cachedBasesTuple;
             }
 
             throw PyTypeError.Create($"descriptor '__bases__' for 'type' objects doesn't apply to a '{instance.GetTypeName()}' object");
@@ -1248,24 +1264,34 @@ namespace SharpPy
             // Works for both PyClass and PyType
             if (instance is PyClass pyClass)
             {
-                // Performance: Eliminated LINQ - manual conversion instead of Cast + ToArray
-                var mroArray = new PyObject[pyClass.MRO.Count];
-                for (int i = 0; i < pyClass.MRO.Count; i++)
+                // CPython 3.12 requirement: type.__mro__ is type.__mro__ must be True
+                // Return cached tuple to ensure identity consistency
+                if (pyClass._cachedMroTuple == null)
                 {
-                    mroArray[i] = pyClass.MRO[i];
+                    var mroArray = new PyObject[pyClass.MRO.Count];
+                    for (int i = 0; i < pyClass.MRO.Count; i++)
+                    {
+                        mroArray[i] = pyClass.MRO[i];
+                    }
+                    pyClass._cachedMroTuple = new PyTuple(mroArray);
                 }
-                return new PyTuple(mroArray);
+                return pyClass._cachedMroTuple;
             }
 
             if (instance is PyType pyType)
             {
-                // Performance: Eliminated LINQ - manual conversion instead of Cast + ToArray
-                var mroArray = new PyObject[pyType.MRO.Count];
-                for (int i = 0; i < pyType.MRO.Count; i++)
+                // CPython 3.12 requirement: type.__mro__ is type.__mro__ must be True
+                // Return cached tuple to ensure identity consistency
+                if (pyType._cachedMroTuple == null)
                 {
-                    mroArray[i] = pyType.MRO[i];
+                    var mroArray = new PyObject[pyType.MRO.Count];
+                    for (int i = 0; i < pyType.MRO.Count; i++)
+                    {
+                        mroArray[i] = pyType.MRO[i];
+                    }
+                    pyType._cachedMroTuple = new PyTuple(mroArray);
                 }
-                return new PyTuple(mroArray);
+                return pyType._cachedMroTuple;
             }
 
             throw PyTypeError.Create($"descriptor '__mro__' for 'type' objects doesn't apply to a '{instance.GetTypeName()}' object");

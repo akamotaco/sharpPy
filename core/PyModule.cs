@@ -100,14 +100,18 @@ public class PyModule : PyObject
     public Dictionary<string, PyObject> ModuleDict { get; }  // __dict__ (Variable == Attribute)
     public List<string> All { get; set; }  // __all__
     public bool IsInitialized { get; private set; }
-    
+
+    // CPython 3.12 requirement: module.__dict__ is module.__dict__ must be True
+    // Cache the PyDict wrapper to ensure identity consistency
+    private PyDict _cachedDict;
+
     public PyModule(string name, string fileName = null)
     {
         Name = name;
         FileName = fileName ?? $"{name}.py";
         ModuleDict = new Dictionary<string, PyObject>();
         All = new List<string>();
-        
+
         InitializeBuiltinAttributes();
     }
     
@@ -144,9 +148,46 @@ public class PyModule : PyObject
     // 모듈 attribute 접근 (Variable == Attribute)
     public override PyObject GetAttribute(string name)
     {
+        // CPython 3.12: Special handling for __dict__ - return same object every time
+        if (name == "__dict__")
+        {
+            if (_cachedDict == null)
+            {
+                // Create a PyDict wrapper around ModuleDict
+                _cachedDict = new PyDict();
+                // Populate with current contents
+                foreach (var kv in ModuleDict)
+                {
+                    _cachedDict.SetItem(new PyString(kv.Key), kv.Value);
+                }
+            }
+            else
+            {
+                // Sync any changes from ModuleDict to _cachedDict
+                foreach (var kv in ModuleDict)
+                {
+                    var pyKey = new PyString(kv.Key);
+                    // Only update if key doesn't exist or value changed
+                    try
+                    {
+                        var existing = _cachedDict.GetItem(pyKey);
+                        if (existing != kv.Value)
+                        {
+                            _cachedDict.SetItem(pyKey, kv.Value);
+                        }
+                    }
+                    catch (PythonException ex) when (ex.PyException is PyKeyError)
+                    {
+                        _cachedDict.SetItem(pyKey, kv.Value);
+                    }
+                }
+            }
+            return _cachedDict;
+        }
+
         if (ModuleDict.TryGetValue(name, out PyObject value))
             return value;
-        
+
         throw PyAttributeError.Create($"module '{Name}' has no attribute '{name}'");
     }
     

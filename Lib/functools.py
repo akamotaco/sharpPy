@@ -30,7 +30,7 @@ from types import GenericAlias
 # wrapper functions that can handle naive introspection
 
 WRAPPER_ASSIGNMENTS = ('__module__', '__name__', '__qualname__', '__doc__',
-                       '__annotations__', '__type_params__')
+                       '__annotations__', '__type_params__', '__isabstractmethod__')
 WRAPPER_UPDATES = ('__dict__',)
 def update_wrapper(wrapper,
                    wrapped,
@@ -50,9 +50,14 @@ def update_wrapper(wrapper,
     for attr in assigned:
         try:
             value = getattr(wrapped, attr)
-        except AttributeError:
+        except AttributeError as e:
+            # Debug: why is __isabstractmethod__ not being copied?
+            if attr == '__isabstractmethod__':
+                print(f"[DEBUG] AttributeError getting {attr}: {e}")
             pass
         else:
+            if attr == '__isabstractmethod__':
+                print(f"[DEBUG] Successfully copied {attr} = {value}")
             setattr(wrapper, attr, value)
     for attr in updated:
         getattr(wrapper, attr).update(getattr(wrapped, attr, {}))

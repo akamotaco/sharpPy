@@ -37,6 +37,12 @@ namespace SharpPy
         public List<PyObject>? TypeParams { get; set; } // PEP 695 __type_params__
         public PyClass? Metaclass { get; set; } // Metaclass information for type() calls
 
+        // Cached tuple objects for __mro__ and __bases__ identity consistency
+        // CPython 3.12 requirement: type.__mro__ is type.__mro__ must be True
+        internal PyTuple _cachedMroTuple;
+        internal PyTuple _cachedBasesTuple;
+        // Note: __dict__ does NOT cache in CPython 3.12 - each access returns new mappingproxy
+
         // Note: Method lookups use global TypeMethodCache (CPython-style array cache)
         // See PyType.GlobalMethodCache and LookupInMRO() below
 
@@ -1015,54 +1021,57 @@ namespace SharpPy
 
         /// <summary>
         /// Check if a method object is marked as abstract
+        /// CPython 3.12: Uses _PyObject_LookupAttr to check __isabstractmethod__ on any object
+        /// Objects/_abc.c:982-996 (_PyObject_IsAbstract)
         /// </summary>
         private bool IsAbstractMethod(PyObject method)
         {
-            if (method is PyFunction func)
+            if (method == null)
             {
-                try
+                return false;
+            }
+
+            // CPython uses _PyObject_LookupAttr which works on ANY object, not just PyFunction
+            // This is critical for decorated methods and descriptors
+            try
+            {
+                var abstractAttr = method.GetAttribute("__isabstractmethod__");
+                if (abstractAttr != null && abstractAttr != PyNone.Instance)
                 {
-                    if (func.Attributes.TryGetValue("__isabstractmethod__", out PyObject abstractAttr))
-                    {
-                        return abstractAttr.PyBoolValue();
-                    }
-                }
-                catch
-                {
-                    // If we can't check, assume not abstract
+                    return abstractAttr.PyBoolValue();
                 }
             }
+            catch
+            {
+                // If we can't check, assume not abstract
+            }
+
             return false;
         }
 
         /// <summary>
         /// Check if a method is implemented (not abstract) in this class
+        /// CPython 3.12: Search through full MRO for non-abstract implementation
         /// </summary>
         private bool IsMethodImplemented(string methodName)
         {
-            // Look for the method in this class's dict
-            if (ClassDict.TryGetValue(methodName, out PyObject method))
+            // Search through MRO for non-abstract implementation
+            // This matches CPython's attribute lookup behavior
+            foreach (var mroType in MRO)
             {
-                // If we have the method and it's not abstract, it's implemented
-                return !IsAbstractMethod(method);
-            }
-
-            // Check if any base classes have a non-abstract implementation
-            foreach (var baseType in BaseTypes)
-            {
-                if (baseType is PyClass baseClass)
+                if (mroType is PyClass mroClass)
                 {
-                    if (baseClass.ClassDict.TryGetValue(methodName, out PyObject baseMethod))
+                    if (mroClass.ClassDict.TryGetValue(methodName, out PyObject method))
                     {
-                        if (!IsAbstractMethod(baseMethod))
+                        if (!IsAbstractMethod(method))
                         {
-                            return true; // Found non-abstract implementation in base
+                            return true; // Found non-abstract implementation in MRO
                         }
                     }
                 }
             }
 
-            return false; // No non-abstract implementation found
+            return false; // No non-abstract implementation found in MRO
         }
     }
 
@@ -1082,6 +1091,9 @@ namespace SharpPy
 
         // CPython 3.12: Dict subclasses have internal dict storage
         private PyDict _dictStorage;
+
+        // CPython 3.12: Cache the __dict__ wrapper for identity consistency
+        private PyDict _dictCache;
 
         public PyClassInstance(PyClass instanceType)
         {
@@ -1599,7 +1611,13 @@ namespace SharpPy
             }
             if (name == "__dict__")
             {
-                return new PyDict(InstanceDict);
+                // CPython 3.12: Return cached wrapper for identity consistency
+                // obj.__dict__ is obj.__dict__ must be True
+                if (_dictCache == null)
+                {
+                    _dictCache = new PyInstanceAttrDict(InstanceDict);
+                }
+                return _dictCache;
             }
 
             // CPython 3.12 descriptor protocol (without custom __getattribute__ check):

@@ -213,7 +213,7 @@ namespace SharpPy
         /// 키가 있으면 값 반환하고 삭제, 없으면 기본값 반환
         /// Python 3.7+: 삽입 순서 유지 (_keys에서도 제거)
         /// </summary>
-        public PyObject Pop(PyObject key, PyObject defaultValue = null)
+        public virtual PyObject Pop(PyObject key, PyObject defaultValue = null)
         {
             if (_dict.TryGetValue(key, out PyObject value))
             {
@@ -232,7 +232,7 @@ namespace SharpPy
         /// 임의의 키-값 쌍을 제거하고 반환
         /// Python 3.7+: LIFO 순서 (마지막 삽입된 항목 반환)
         /// </summary>
-        public PyTuple PopItem()
+        public virtual PyTuple PopItem()
         {
             if (_dict.Count == 0)
                 throw PyKeyError.Create("popitem(): dictionary is empty");
@@ -249,7 +249,7 @@ namespace SharpPy
         /// 모든 키-값 쌍 제거
         /// Python 3.7+: 삽입 순서 리스트도 함께 제거
         /// </summary>
-        public PyNone Clear()
+        public virtual PyNone Clear()
         {
             _dict.Clear();
             _keys.Clear();
@@ -260,7 +260,7 @@ namespace SharpPy
         /// 다른 딕셔너리나 매핑의 키-값으로 업데이트 (CPython dict.update 호환)
         /// Python 3.7+: 삽입 순서 유지
         /// </summary>
-        public PyNone Update(PyObject other)
+        public virtual PyNone Update(PyObject other)
         {
             // CPython 3.12: dict.update() can accept dict, mappingproxy, or any mapping-like object
             if (other is PyDict otherDict)
