@@ -383,10 +383,11 @@ namespace SharpPy
                                 if (PyClassInstance.IsDescriptor(baseValue))
                                 {
                                     #if DEBUG_LOG
-                                    Console.WriteLine($"   🔧 calling descriptor.__get__({Name}, {pyClass.Name}) for '{name}' from MRO");
+                                    Console.WriteLine($"   🔧 calling descriptor.__get__(null, {Name}) for '{name}' from MRO");
                                     #endif
-                                    // Pass 'this' as instance so descriptor can access the actual type object
-                                    var result = PyClassInstance.CallDescriptorGet(baseValue, this, pyClass);
+                                    // CPython 3.12: Class attribute access passes NULL as instance
+                                    // Reference: Objects/funcobject.c:892 (if obj == NULL, return Py_NewRef(func))
+                                    var result = PyClassInstance.CallDescriptorGet(baseValue, null, this);
                                     #if DEBUG_LOG
                                     Console.WriteLine($"   → descriptor returned: {result?.GetType().Name}");
                                     #endif
@@ -980,99 +981,80 @@ namespace SharpPy
         /// <summary>
         /// Check if this class has any unimplemented abstract methods
         /// Throws TypeError if abstract methods are found (CPython 3.12 compatible)
+        /// Reference: Objects/typeobject.c:5459-5505 (object_new)
         /// </summary>
         private void CheckAbstractMethods()
         {
-            var abstractMethods = new List<string>();
-
-            // Check all methods in MRO for abstract methods
-            foreach (var mroType in MRO)
-            {
-                if (mroType is PyClass mroClass)
-                {
-                    foreach (var kvp in mroClass.ClassDict)
-                    {
-                        string methodName = kvp.Key;
-                        PyObject methodValue = kvp.Value;
-
-                        // Check if method is marked as abstract
-                        if (IsAbstractMethod(methodValue))
-                        {
-                            // Check if this method is implemented in this class or any of its ancestors
-                            if (!IsMethodImplemented(methodName))
-                            {
-                                abstractMethods.Add(methodName);
-                            }
-                        }
-                    }
-                }
-            }
-
-            // If any abstract methods are found, throw TypeError
-            if (abstractMethods.Count > 0)
-            {
-                abstractMethods.Sort(); // CPython sorts the method names
-                string methodList = abstractMethods.Count == 1
-                    ? $"abstract method '{abstractMethods[0]}'"
-                    : $"abstract methods {string.Join(", ", abstractMethods.Select(m => $"'{m}'"))}";
-                throw PyTypeError.Create($"Can't instantiate abstract class {Name} without an implementation for {methodList}");
-            }
-        }
-
-        /// <summary>
-        /// Check if a method object is marked as abstract
-        /// CPython 3.12: Uses _PyObject_LookupAttr to check __isabstractmethod__ on any object
-        /// Objects/_abc.c:982-996 (_PyObject_IsAbstract)
-        /// </summary>
-        private bool IsAbstractMethod(PyObject method)
-        {
-            if (method == null)
-            {
-                return false;
-            }
-
-            // CPython uses _PyObject_LookupAttr which works on ANY object, not just PyFunction
-            // This is critical for decorated methods and descriptors
+            // CPython 3.12: Check __abstractmethods__ attribute directly
+            // Reference: Objects/typeobject.c:5468 (type_abstractmethods)
+            PyObject abstractMethodsAttr = null;
             try
             {
-                var abstractAttr = method.GetAttribute("__isabstractmethod__");
-                if (abstractAttr != null && abstractAttr != PyNone.Instance)
-                {
-                    return abstractAttr.PyBoolValue();
-                }
+                // Get __abstractmethods__ from class (NOT instance)
+                // This is set by AbcModule._abc_init or manually
+                abstractMethodsAttr = this.GetAttribute("__abstractmethods__");
             }
             catch
             {
-                // If we can't check, assume not abstract
+                // No __abstractmethods__ attribute - class is not abstract
+                return;
             }
 
-            return false;
-        }
-
-        /// <summary>
-        /// Check if a method is implemented (not abstract) in this class
-        /// CPython 3.12: Search through full MRO for non-abstract implementation
-        /// </summary>
-        private bool IsMethodImplemented(string methodName)
-        {
-            // Search through MRO for non-abstract implementation
-            // This matches CPython's attribute lookup behavior
-            foreach (var mroType in MRO)
+            // Check if __abstractmethods__ is None or empty
+            if (abstractMethodsAttr == null || abstractMethodsAttr == PyNone.Instance)
             {
-                if (mroType is PyClass mroClass)
-                {
-                    if (mroClass.ClassDict.TryGetValue(methodName, out PyObject method))
-                    {
-                        if (!IsAbstractMethod(method))
-                        {
-                            return true; // Found non-abstract implementation in MRO
-                        }
-                    }
-                }
+                return;
             }
 
-            return false; // No non-abstract implementation found in MRO
+            // __abstractmethods__ should be a frozenset or set
+            // If it's non-empty, prevent instantiation
+            if (abstractMethodsAttr is PyFrozenSet frozenSet)
+            {
+                if (frozenSet.Items.Count == 0)
+                {
+                    return; // Empty frozenset - all methods implemented
+                }
+
+                // CPython 3.12: Sort method names and format error message
+                // Reference: Objects/typeobject.c:5471-5502
+                var methodNames = frozenSet.Items
+                    .Select(item => ((PyString)item).Value)
+                    .OrderBy(name => name)
+                    .ToList();
+
+                // Format: "Can't instantiate abstract class X without an implementation for abstract method 'foo'"
+                // or: "Can't instantiate abstract class X without an implementation for abstract methods 'bar', 'foo'"
+                string joinedMethods = string.Join("', '", methodNames);
+                string methodWord = methodNames.Count == 1 ? "method" : "methods";
+
+                throw PyTypeError.Create(
+                    $"Can't instantiate abstract class {Name} " +
+                    $"without an implementation for abstract {methodWord} '{joinedMethods}'"
+                );
+            }
+            else if (abstractMethodsAttr is PySet set)
+            {
+                if (set.Items.Count == 0)
+                {
+                    return; // Empty set - all methods implemented
+                }
+
+                // Same logic for PySet
+                var methodNames = set.Items
+                    .Select(item => ((PyString)item).Value)
+                    .OrderBy(name => name)
+                    .ToList();
+
+                string joinedMethods = string.Join("', '", methodNames);
+                string methodWord = methodNames.Count == 1 ? "method" : "methods";
+
+                throw PyTypeError.Create(
+                    $"Can't instantiate abstract class {Name} " +
+                    $"without an implementation for abstract {methodWord} '{joinedMethods}'"
+                );
+            }
         }
+
     }
 
     #endregion

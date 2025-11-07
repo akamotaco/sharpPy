@@ -746,6 +746,19 @@ namespace SharpPy
 
         #endregion
 
+        #region Iterator
+
+        /// <summary>
+        /// CPython 3.12: frozenset iterator support
+        /// Reference: Objects/setobject.c tp_iter slot (line 2252-2253)
+        /// </summary>
+        public override PyIterator GetIterator()
+        {
+            return new PySetIterator(this);
+        }
+
+        #endregion
+
         #region Evaluate Method (NotImplementedException)
 
         public PyObject Evaluate(PyScope scope)

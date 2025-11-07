@@ -289,13 +289,22 @@ namespace SharpPy.Modules
 
                 // Also collect abstract methods from base classes
                 var bases = GetBases(cls);
+#if DEBUG
+                Console.WriteLine($"[ComputeAbstractMethods] Class: {cls}, Bases count: {bases?.Count ?? 0}");
+#endif
                 if (bases != null)
                 {
                     foreach (var baseCls in bases)
                     {
+#if DEBUG
+                        Console.WriteLine($"[ComputeAbstractMethods] Processing base class: {baseCls}");
+#endif
                         try
                         {
                             var baseAbstractMethods = baseCls.GetAttribute("__abstractmethods__");
+#if DEBUG
+                            Console.WriteLine($"[ComputeAbstractMethods] Base __abstractmethods__: {baseAbstractMethods}");
+#endif
                             if (baseAbstractMethods != null && baseAbstractMethods != PyNone.Instance)
                             {
                                 // Add methods from base that are still abstract in this class
@@ -306,40 +315,61 @@ namespace SharpPy.Modules
                                     {
                                         var methodName = iterator.Next();
                                         var methodNameStr = ((PyString)methodName).Value;
+#if DEBUG
+                                        Console.WriteLine($"[ComputeAbstractMethods] Checking method '{methodNameStr}' from base");
+#endif
 
-                                        // Check if overridden in current class or inherited
-                                        // Use GetAttribute to check MRO, not just ClassDict
+                                        // CPython 3.12: Use attribute lookup (MRO search) to find method
+                                        // Reference: Modules/_abc.c:378-399
+                                        // if (_PyObject_LookupAttr(self, key, &value) < 0)
                                         try
                                         {
-                                            var method = cls.GetAttribute(methodNameStr);
-                                            if (method != null && method != PyNone.Instance)
+                                            var value = cls.GetAttribute(methodNameStr);
+#if DEBUG
+                                            Console.WriteLine($"[ComputeAbstractMethods] cls.GetAttribute('{methodNameStr}') returned: {value?.GetType().Name}");
+#endif
+                                            if (value != null && value != PyNone.Instance)
                                             {
-                                                // Method exists, check if still abstract
+                                                // Method found via MRO - check if still abstract
                                                 try
                                                 {
-                                                    var isStillAbstract = method.GetAttribute("__isabstractmethod__");
+                                                    var isStillAbstract = value.GetAttribute("__isabstractmethod__");
+#if DEBUG
+                                                    Console.WriteLine($"[ComputeAbstractMethods] __isabstractmethod__: {isStillAbstract}");
+#endif
                                                     if (isStillAbstract != null && isStillAbstract.PyBoolValue())
                                                     {
-                                                        // Still abstract
+#if DEBUG
+                                                        Console.WriteLine($"[ComputeAbstractMethods] ✓ Adding '{methodNameStr}' to abstract methods");
+#endif
+                                                        // Still abstract - add it
                                                         abstractMethods.Add(methodName);
                                                     }
-                                                    // else: Concrete implementation found, not abstract
+#if DEBUG
+                                                    else
+                                                    {
+                                                        Console.WriteLine($"[ComputeAbstractMethods] ✗ NOT adding '{methodNameStr}' - concrete implementation");
+                                                    }
+#endif
+                                                    // else: Concrete implementation found - don't add
                                                 }
                                                 catch
                                                 {
-                                                    // No __isabstractmethod__, so it's concrete
+#if DEBUG
+                                                    Console.WriteLine($"[ComputeAbstractMethods] ✗ NOT adding '{methodNameStr}' - no __isabstractmethod__ attribute");
+#endif
+                                                    // No __isabstractmethod__ attribute - it's concrete
+                                                    // Don't add to abstract methods
                                                 }
                                             }
-                                            else
-                                            {
-                                                // Method not found, still abstract
-                                                abstractMethods.Add(methodName);
-                                            }
+                                            // else: Method not found - skip (CPython behavior at line 384-387)
                                         }
-                                        catch
+                                        catch (Exception ex)
                                         {
-                                            // Error getting attribute, assume still abstract
-                                            abstractMethods.Add(methodName);
+#if DEBUG
+                                            Console.WriteLine($"[ComputeAbstractMethods] Exception during lookup: {ex.Message}");
+#endif
+                                            // Error during attribute lookup - skip this method
                                         }
                                     }
                                     catch (System.Exception ex) when (ex is PyStopIteration)
@@ -349,8 +379,11 @@ namespace SharpPy.Modules
                                 }
                             }
                         }
-                        catch
+                        catch (Exception ex)
                         {
+#if DEBUG
+                            Console.WriteLine($"[ComputeAbstractMethods] Base class exception: {ex.Message}");
+#endif
                             // Base class doesn't have __abstractmethods__
                             continue;
                         }
