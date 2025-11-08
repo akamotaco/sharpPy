@@ -127,14 +127,17 @@ namespace SharpPy
                 if (!_started)
                 {
                     // 첫 번째 실행: CPython 3.12 패턴
-                    // RETURN_GENERATOR는 generator 생성 시 이미 처리되었으므로
-                    // POP_TOP부터 시작 (RETURN_GENERATOR를 skip)
-                    // POP_TOP를 위해 초기 None 값을 스택에 push
-                    _frame.InstructionPointer = 2; // Skip RETURN_GENERATOR, start from POP_TOP
-                    _frame.ValueStack.Push(PyNone.Instance); // CPython 3.12: initial sent value is None
+                    // Execution sequence:
+                    // 0: COPY_FREE_VARS - Initialize closure cells from parent function
+                    // 2: RETURN_GENERATOR - No-op in SharpPy (generator already created)
+                    // 4: POP_TOP - Pop the initial sent value (None)
+                    // 6: RESUME - Resume execution
+                    // We must start from instruction 0 to execute COPY_FREE_VARS!
+                    _frame.InstructionPointer = 0; // Start from COPY_FREE_VARS
+                    _frame.ValueStack.Push(PyNone.Instance); // Initial sent value for POP_TOP
                     _started = true;
                     #if DEBUG_GENERATOR_LOG
-                    Console.WriteLine($"🔄 Native Generator: First execution, starting from instruction 2 (after RETURN_GENERATOR), stack size: {_frame.ValueStack.Count}");
+                    Console.WriteLine($"🔄 Native Generator: First execution, starting from instruction 0 (COPY_FREE_VARS), stack size: {_frame.ValueStack.Count}");
                     #endif
                 }
                 else

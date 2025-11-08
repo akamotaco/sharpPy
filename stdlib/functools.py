@@ -62,7 +62,6 @@ def wraps(wrapped, assigned=WRAPPER_ASSIGNMENTS, updated=WRAPPER_UPDATES):
     update_wrapper().
     """
     def decorator(wrapper):
-        print(f"DEBUG decorator: wrapper={wrapper}, wrapped={wrapped}, assigned={assigned}, updated={updated}")
         return update_wrapper(wrapper, wrapped, assigned, updated)
     return decorator
 

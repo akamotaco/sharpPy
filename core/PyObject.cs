@@ -990,7 +990,7 @@ namespace SharpPy
                     return PyBool.FromBool(result.PyBoolValue());
                 }
             }
-            catch (PythonException ex) when (ex is PyAttributeError)
+            catch (PythonException ex) when (ex.PyException is PyAttributeError)
             {
                 // __contains__ not found, try iteration fallback
             }
