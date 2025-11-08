@@ -1890,13 +1890,24 @@ namespace SharpPy
             }
             
             // **핵심 수정**: 함수 본문에서 지역 변수들도 수집해서 _varNames에 추가
-            var localVarNames = new List<string>(paramNames);
+            // CPython 3.12: paramNames may contain "*args" and "**kwargs" but we need clean names
+            var localVarNames = new List<string>();
+            foreach (var param in paramNames)
+            {
+                string cleanName = param;
+                if (param.StartsWith("**"))
+                    cleanName = param.Substring(2);
+                else if (param.StartsWith("*"))
+                    cleanName = param.Substring(1);
+                localVarNames.Add(cleanName);
+            }
             CollectLocalVariables(statements, localVarNames);
             
             // 매개변수가 아닌 지역 변수들을 _varNames에 추가
+            // CPython 3.12: Cell variables should NOT be in varNames!
             foreach (var localVar in localVarNames)
             {
-                if (!_varNames.Contains(localVar))
+                if (!_varNames.Contains(localVar) && !cellVars.Contains(localVar))
                 {
                     _varNames.Add(localVar);
                 }
@@ -2107,13 +2118,24 @@ namespace SharpPy
             }
 
             // Collect local variables from function body
-            var localVarNames = new List<string>(paramNames);
+            // CPython 3.12: paramNames may contain "*args" and "**kwargs" but we need clean names
+            var localVarNames = new List<string>();
+            foreach (var param in paramNames)
+            {
+                string cleanName = param;
+                if (param.StartsWith("**"))
+                    cleanName = param.Substring(2);
+                else if (param.StartsWith("*"))
+                    cleanName = param.Substring(1);
+                localVarNames.Add(cleanName);
+            }
             CollectLocalVariables(statements, localVarNames);
 
             // Add non-parameter local variables to _varNames
+            // CPython 3.12: Cell variables should NOT be in varNames!
             foreach (var localVar in localVarNames)
             {
-                if (!_varNames.Contains(localVar))
+                if (!_varNames.Contains(localVar) && !cellVars.Contains(localVar))
                 {
                     _varNames.Add(localVar);
                 }
@@ -3219,16 +3241,16 @@ namespace SharpPy
                                     else if (symbol.Scope == SymbolScope.Cell)
                                     {
                                         // Cell variable: use PUSH_NULL + LOAD_DEREF
+                                        // CPython 3.12: Use cellvar index directly (FixCellOffsets will remap to localsplus offset)
                                         if (_cellVars.Contains(funcName.Name))
                                         {
                                             var cellIndex = _cellVars.IndexOf(funcName.Name);
-                                            var instructionIndex = _freeVars.Count + cellIndex;
                                             isHandled = true;
                                             #if DEBUG_COMPILER_LOG
-                                            Console.WriteLine($"   → Found as cell variable, using PUSH_NULL + LOAD_DEREF");
+                                            Console.WriteLine($"   → Found as cell variable, using PUSH_NULL + LOAD_DEREF (cell index {cellIndex})");
                                             #endif
                                             EmitInstruction(ByteCodeOp.PUSH_NULL);
-                                            EmitInstruction(ByteCodeOp.LOAD_DEREF, instructionIndex);
+                                            EmitInstruction(ByteCodeOp.LOAD_DEREF, cellIndex);
                                         }
                                     }
                                 }
@@ -4692,12 +4714,11 @@ namespace SharpPy
                 if (_cellVars.Contains(name))
                 {
                     // Cell 변수는 LOAD_DEREF로 접근
+                    // CPython 3.12: Use cellvar index directly (FixCellOffsets will remap to localsplus offset)
                     var cellIndex = _cellVars.IndexOf(name);
-                    // CPython 3.12: Cell variables come after free variables in instruction indices
-                    var instructionIndex = _freeVars.Count + cellIndex;
-                    EmitInstruction(ByteCodeOp.LOAD_DEREF, instructionIndex);
+                    EmitInstruction(ByteCodeOp.LOAD_DEREF, cellIndex);
                     #if DEBUG_LOG
-                    Console.WriteLine($"    → LOAD_DEREF for cell var: {name} (cell index {cellIndex} → instruction index {instructionIndex})");
+                    Console.WriteLine($"    → LOAD_DEREF for cell var: {name} (cell index {cellIndex})");
                     #endif
                 }
                 else
@@ -4777,14 +4798,14 @@ namespace SharpPy
                         switch (symbol.Scope)
                         {
                             case SymbolScope.Cell:
-                                // Cell variable: STORE_DEREF 사용 (offset 계산)
+                                // Cell variable: STORE_DEREF 사용
+                                // CPython 3.12: Use cellvar index directly (FixCellOffsets will remap to localsplus offset)
                                 if (_cellVars.Contains(name))
                                 {
                                     var cellIndex = _cellVars.IndexOf(name);
-                                    var instructionIndex = _freeVars.Count + cellIndex;
-                                    EmitInstruction(ByteCodeOp.STORE_DEREF, instructionIndex);
+                                    EmitInstruction(ByteCodeOp.STORE_DEREF, cellIndex);
                                     #if DEBUG_LOG
-                                    Console.WriteLine($"    → STORE_DEREF for cell var: {name} (cell index {cellIndex} → instruction index {instructionIndex})");
+                                    Console.WriteLine($"    → STORE_DEREF for cell var: {name} (cell index {cellIndex})");
                                     #endif
                                     return;
                                 }
@@ -4839,14 +4860,13 @@ namespace SharpPy
                 }
                 
                 // 셀 변수 처리 (Phase 2)
+                // CPython 3.12: Use cellvar index directly (FixCellOffsets will remap to localsplus offset)
                 if (_cellVars.Contains(name))
                 {
                     var cellIndex = _cellVars.IndexOf(name);
-                    // CPython 3.12: Cell variables come after free variables in instruction indices
-                    var instructionIndex = _freeVars.Count + cellIndex;
-                    EmitInstruction(ByteCodeOp.STORE_DEREF, instructionIndex);
+                    EmitInstruction(ByteCodeOp.STORE_DEREF, cellIndex);
                     #if DEBUG_LOG
-                    Console.WriteLine($"    → STORE_DEREF for cell var: {name} (cell index {cellIndex} → instruction index {instructionIndex})");
+                    Console.WriteLine($"    → STORE_DEREF for cell var: {name} (cell index {cellIndex})");
                     #endif
                     return;
                 }

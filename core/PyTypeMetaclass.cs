@@ -1086,8 +1086,27 @@ namespace SharpPy
 
         public PyObject Get(PyObject instance, PyType owner)
         {
+            // CPython 3.12: When accessing type.__name__ (instance=NULL, owner=type),
+            // return type's name, not the descriptor itself
             if (instance == null || instance == PyNone.Instance)
+            {
+                // If owner is provided, return its name
+                if (owner != null)
+                {
+                    if (owner is PyClass ownerClass)
+                    {
+                        // CPython 3.12: Return the owner's tp_name directly, don't look in ClassDict
+                        // (otherwise we'd return the descriptor itself!)
+                        return new PyString(ownerClass.Name);
+                    }
+
+                    // Owner is a PyType (including PyTypeMetaclass)
+                    return new PyString(owner.Name);
+                }
+
+                // Fallback: return descriptor itself for unbound access
                 return this;
+            }
 
             // CPython 3.12: Handle both PyClass and PyType
             if (instance is PyClass pyClass)
@@ -1265,8 +1284,42 @@ namespace SharpPy
 
         public PyObject Get(PyObject instance, PyType owner)
         {
+            // CPython 3.12: When accessing type.__mro__ (instance=NULL, owner=type),
+            // return type's MRO, not the descriptor itself
             if (instance == null || instance == PyNone.Instance)
+            {
+                // If owner is a type, return its MRO
+                if (owner is PyClass ownerClass)
+                {
+                    if (ownerClass._cachedMroTuple == null)
+                    {
+                        var mroArray = new PyObject[ownerClass.MRO.Count];
+                        for (int i = 0; i < ownerClass.MRO.Count; i++)
+                        {
+                            mroArray[i] = ownerClass.MRO[i];
+                        }
+                        ownerClass._cachedMroTuple = new PyTuple(mroArray);
+                    }
+                    return ownerClass._cachedMroTuple;
+                }
+
+                if (owner is PyType ownerType)
+                {
+                    if (ownerType._cachedMroTuple == null)
+                    {
+                        var mroArray = new PyObject[ownerType.MRO.Count];
+                        for (int i = 0; i < ownerType.MRO.Count; i++)
+                        {
+                            mroArray[i] = ownerType.MRO[i];
+                        }
+                        ownerType._cachedMroTuple = new PyTuple(mroArray);
+                    }
+                    return ownerType._cachedMroTuple;
+                }
+
+                // Fallback: return descriptor itself for unbound access
                 return this;
+            }
 
             // CPython: Return lookup_tp_mro(type)
             // Works for both PyClass and PyType

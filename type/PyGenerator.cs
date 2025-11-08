@@ -249,30 +249,57 @@ namespace SharpPy
 
         /// <summary>
         /// generator.throw(type, value=None, traceback=None) - 제너레이터에 예외를 보냄
+        /// CPython 3.12: Objects/genobject.c:_gen_throw (line 387-564)
         /// </summary>
         public PyObject Throw(PyObject excType, PyObject? value = null, PyObject? traceback = null)
         {
             if (_finished)
                 throw PyStopIteration.Create();
 
+            // CPython 3.12: Extract traceback from exception instance if provided
+            // genobject.c:544: tb = PyException_GetTraceback(val)
+            PyTraceback? tb = null;
+            PythonException thrownException;
+
             // CPython 3.12 호환: 다양한 예외 타입 처리
             if (excType is PyType exceptionType)
             {
-                _thrownException = CreateExceptionFromType(exceptionType, value);
+                var exc = CreateExceptionFromType(exceptionType, value);
+                thrownException = exc as PythonException ?? new PythonException(new PyRuntimeError(exc.Message));
             }
             else if (excType is PyBuiltinType builtinType)
             {
                 // 내장 예외 타입 (ValueError, TypeError 등) 처리
-                _thrownException = CreateExceptionFromBuiltinType(builtinType, value);
+                var exc = CreateExceptionFromBuiltinType(builtinType, value);
+                thrownException = exc as PythonException ?? new PythonException(new PyRuntimeError(exc.Message));
             }
             else if (excType is PyException exception)
             {
-                _thrownException = new PythonException(exception);
+                thrownException = new PythonException(exception);
+                // Extract existing traceback from exception instance
+                tb = exception.__traceback__;
             }
             else
             {
                 throw PyTypeError.Create("throw() arg 1 must be exception type or instance");
             }
+
+            // CPython 3.12: If traceback argument provided, use it
+            // genobject.c:514-521: Replace None with NULL, validate traceback
+            if (traceback != null && traceback is PyTraceback pyTb)
+            {
+                tb = pyTb;
+            }
+
+            // CPython 3.12: Attach traceback to exception before throwing
+            // genobject.c:556: PyErr_Restore(typ, val, tb)
+            // This preserves the traceback through the generator throw
+            if (tb != null)
+            {
+                thrownException.PyException.__traceback__ = tb;
+            }
+
+            _thrownException = thrownException;
 
             try
             {

@@ -453,6 +453,7 @@ namespace SharpPy
 
 #if DEBUG_COMPILER_LOG
             Console.WriteLine($"🔷 [CFG] FixCellOffsets: nlocals={nlocals}, ncellvars={ncellvars}, nfreevars={nfreevars}");
+            Console.WriteLine($"   varNames: [{string.Join(", ", varNames)}]");
             for (int i = 0; i < ncellvars; i++)
             {
                 Console.WriteLine($"   cellvar[{i}] '{cellVars[i]}' → localsplus[{fixedmap[i]}]");
