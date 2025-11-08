@@ -3504,27 +3504,27 @@ namespace SharpPy
 
                 // CPython-style Iterator Opcodes
                 case ByteCodeOp.GET_ITER:
-                    #if DEBUG_VM_LOG
-                    Console.WriteLine($"🔍 GET_ITER: Stack.Count before pop = {frame.ValueStack.Count}");
+                    #if DEBUG_GET_ITER
+                    Console.WriteLine($"🔍 GET_ITER at IP {frame.InstructionPointer}: Stack.Count = {frame.ValueStack.Count}");
+                    Console.WriteLine($"   Current function: {frame.Code.Name}");
                     #endif
                     var iterable = frame.ValueStack.Pop();
+                    #if DEBUG_GET_ITER
+                    Console.WriteLine($"   Iterable type: {iterable.GetType().Name}, value: {iterable}");
+                    if (iterable is PyFunction funcObj)
+                    {
+                        Console.WriteLine($"   ❌ ERROR: Trying to iterate over function '{funcObj.Name}'");
+                        Console.WriteLine($"   Frame locals: {string.Join(", ", frame.Code.VarNames.Select((v, i) => $"{v}={frame.LocalsPlus[i]}"))}");
+                    }
+                    #endif
                     if (iterable is PyTuple iterTuple)
                     {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔍 GET_ITER: 튜플 길이 = {iterTuple.Items.Length}");
-                        #endif
                         for (int i = 0; i < iterTuple.Items.Length; i++)
                         {
-                            #if DEBUG_LOG
-                            Console.WriteLine($"  튜플[{i}] = {iterTuple.Items[i]}");
-                            #endif
                         }
                     }
                     else
                     {
-                        #if DEBUG_LOG
-                        Console.WriteLine($"🔍 GET_ITER: iterable 타입 = {iterable.GetType().Name}, 값 = {iterable}");
-                        #endif
                     }
                     var iterator = iterable.GetIterator();
                     frame.ValueStack.Push(iterator);

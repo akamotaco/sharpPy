@@ -1368,19 +1368,28 @@ namespace SharpPy
             }
             
             // Phase 2: Cell 변수들을 위한 MAKE_CELL 명령어 발행
-            // CPython 3.12: MAKE_CELL uses CellVars index order (0, 1, 2...)
+            // CPython 3.12: MAKE_CELL argument is the localsplus index (varnames index for parameters)
+            // NOT the cellvars index!
+            // Example: wraps(wrapped, assigned, updated)
+            //   varnames: ['wrapped', 'assigned', 'updated', 'decorator']
+            //   cellvars: ['assigned', 'updated', 'wrapped'] (alphabetically sorted)
+            //   MAKE_CELL 0 (wrapped) → varnames[0]
+            //   MAKE_CELL 1 (assigned) → varnames[1]
+            //   MAKE_CELL 2 (updated) → varnames[2]
             for (int cellIndex = 0; cellIndex < cellVars.Count; cellIndex++)
             {
                 var cellVar = cellVars[cellIndex];
                 if (parameters.Contains(cellVar))
                 {
+                    // Get the varnames index (localsplus offset) for this parameter
+                    var localsPlusOffset = parameters.IndexOf(cellVar);
                     if (!SharpPyConfig.DisassemblyOnlyMode)
                     {
 #if DEBUG_LOG
-                        Console.WriteLine($"  → Making cell for parameter: {cellVar} (cell index {cellIndex})");
+                        Console.WriteLine($"  → Making cell for parameter: {cellVar} (varnames index {localsPlusOffset}, cellvars index {cellIndex})");
 #endif
                     }
-                    EmitInstruction(ByteCodeOp.MAKE_CELL, cellIndex);
+                    EmitInstruction(ByteCodeOp.MAKE_CELL, localsPlusOffset);
                 }
             }
             
@@ -1928,17 +1937,32 @@ namespace SharpPy
             }
 
             // Phase 2: Cell 변수들을 위한 MAKE_CELL 명령어 발행 (CPython 3.12 호환)
-            // CPython 3.12: MAKE_CELL uses CellVars index order (0, 1, 2...)
+            // CPython 3.12: MAKE_CELL argument is the localsplus index!
+            // - For parameters that are cells: use varnames index (parameter position)
+            // - For non-parameter cells: use nlocals + cellvars index
             for (int cellIndex = 0; cellIndex < cellVars.Count; cellIndex++)
             {
                 var cellVar = cellVars[cellIndex];
+                // Check if this cell variable is a parameter
+                var paramIndex = _varNames.IndexOf(cellVar);
+                int localsPlusOffset;
+                if (paramIndex != -1)
+                {
+                    // It's a parameter - use its varnames index
+                    localsPlusOffset = paramIndex;
+                }
+                else
+                {
+                    // It's a non-parameter cell variable: nlocals + cell index
+                    localsPlusOffset = _varNames.Count + cellIndex;
+                }
                 if (!SharpPyConfig.DisassemblyOnlyMode)
                 {
 #if DEBUG_LOG
-                    Console.WriteLine($"  → Making cell for variable: {cellVar} (cell index {cellIndex})");
+                    Console.WriteLine($"  → Making cell for variable: {cellVar} (localsplus offset {localsPlusOffset}, cellvars index {cellIndex})");
 #endif
                 }
-                EmitInstruction(ByteCodeOp.MAKE_CELL, cellIndex);
+                EmitInstruction(ByteCodeOp.MAKE_CELL, localsPlusOffset);
             }
 
             // CPython 3.12: RESUME instruction after MAKE_CELL and before function body
@@ -2377,43 +2401,15 @@ namespace SharpPy
                 #endif
 
                 // Load closure cells for each free variable
+                // CPython 3.12: Iterate through nested function's freevars (already alphabetically sorted)
+                // and emit LOAD_CLOSURE with parent's localsplus offset for each
                 foreach (var freeVar in freeVars)
                 {
-                    int closureIndex = -1;
-                    string source = "";
-
-                    // First check in free variables (from outer closure)
-                    var freeVarIndex = _freeVars.IndexOf(freeVar);
-                    if (freeVarIndex >= 0)
-                    {
-                        closureIndex = freeVarIndex;
-                        source = "free";
-                    }
-                    else
-                    {
-                        // Then check in cell variables (current function's cells)
-                        var cellVarIndex = _cellVars.IndexOf(freeVar);
-                        if (cellVarIndex >= 0)
-                        {
-                            closureIndex = _freeVars.Count + cellVarIndex;
-                            source = "cell";
-                        }
-                    }
-
-                    if (closureIndex >= 0)
-                    {
-                        EmitInstruction(ByteCodeOp.LOAD_CLOSURE, closureIndex);
-                        #if DEBUG_COMPILER_LOG
-                        Console.WriteLine($"    → LOAD_CLOSURE for {freeVar} ({source} index {closureIndex})");
-                        #endif
-                    }
-                    else
-                    {
-                        #if DEBUG_COMPILER_LOG
-                        Console.WriteLine($"    ⚠️ Warning: Free variable {freeVar} not available");
-                        #endif
-                        EmitInstruction(ByteCodeOp.LOAD_CLOSURE, 0); // Fallback
-                    }
+                    // Use EmitLoadClosure helper which calculates correct localsplus offset
+                    // - For parameters that are cells: uses varnames index
+                    // - For non-parameter cells: uses nlocals + cellvars index
+                    // - For freevars: uses nlocals + ncellvars + freevars index
+                    EmitLoadClosure(freeVar);
                 }
 
                 EmitInstruction(ByteCodeOp.BUILD_TUPLE, freeVars.Count);
@@ -6116,10 +6112,13 @@ namespace SharpPy
                 }
                 
                 // Emit MAKE_CELL instructions
-                // CPython 3.12 uses direct CellVars indexing: 0, 1, 2...
+                // CPython 3.12: MAKE_CELL argument is localsplus offset
+                // For PEP 695 generic function: nlocals=1 (.generic_base), then cells
                 for (int i = 0; i < _cellVars.Count; i++)
                 {
-                    EmitInstruction(ByteCodeOp.MAKE_CELL, i);
+                    // Localsplus offset: nlocals + cell_index = 1 + i
+                    int localsPlusOffset = _varNames.Count + i;
+                    EmitInstruction(ByteCodeOp.MAKE_CELL, localsPlusOffset);
                 }
                 
                 // 2. RESUME instruction
@@ -10164,16 +10163,18 @@ namespace SharpPy
             }
             
             // Phase 2: Cell 변수들을 위한 MAKE_CELL 명령어 발행 (람다 파라미터용)
-            // CPython 3.12: MAKE_CELL uses CellVars index order (0, 1, 2...)
+            // CPython 3.12: MAKE_CELL argument is localsplus offset (varnames index for parameters)
             for (int cellIndex = 0; cellIndex < cellVars.Count; cellIndex++)
             {
                 var cellVar = cellVars[cellIndex];
                 if (cleanParamNames.Contains(cellVar))
                 {
+                    // Get the varnames index (localsplus offset) for this parameter
+                    var localsPlusOffset = _varNames.IndexOf(cellVar);
                     #if DEBUG_LOG
-                    Console.WriteLine($"  → Making cell for lambda parameter: {cellVar} (cell index {cellIndex})");
+                    Console.WriteLine($"  → Making cell for lambda parameter: {cellVar} (localsplus offset {localsPlusOffset}, cellvars index {cellIndex})");
                     #endif
-                    EmitInstruction(ByteCodeOp.MAKE_CELL, cellIndex);
+                    EmitInstruction(ByteCodeOp.MAKE_CELL, localsPlusOffset);
                 }
             }
             
@@ -11950,13 +11951,15 @@ namespace SharpPy
         /// </summary>
         private void EmitLoadDeref(string varName)
         {
+            // CPython 3.12: Emit cellvars/freevars index, will be remapped to localsplus offset by FixCellOffsets
             // Check if it's a free variable first
             var freeIndex = _freeVars.IndexOf(varName);
             if (freeIndex != -1)
             {
-                // Free variables are at: nlocals + ncellvars + free_index
-                var localsPlusOffset = _varNames.Count + _cellVars.Count + freeIndex;
-                EmitInstruction(ByteCodeOp.LOAD_DEREF, localsPlusOffset);
+                // CPython 3.12: Emit freevars index (will be remapped to localsplus offset later)
+                // freevars start at offset ncellvars in the combined cellvars+freevars space
+                int combinedIndex = _cellVars.Count + freeIndex;
+                EmitInstruction(ByteCodeOp.LOAD_DEREF, combinedIndex);
                 return;
             }
 
@@ -11964,20 +11967,8 @@ namespace SharpPy
             var cellIndex = _cellVars.IndexOf(varName);
             if (cellIndex != -1)
             {
-                // Cell variables: check if it's also a local variable (parameter or local)
-                var localIndex = _varNames.IndexOf(varName);
-                if (localIndex != -1)
-                {
-                    // It's a local that's also a cell - use local index
-                    // (MAKE_CELL will convert it to a cell at runtime)
-                    EmitInstruction(ByteCodeOp.LOAD_DEREF, localIndex);
-                }
-                else
-                {
-                    // It's a non-local cell variable: nlocals + cell_index
-                    var localsPlusOffset = _varNames.Count + cellIndex;
-                    EmitInstruction(ByteCodeOp.LOAD_DEREF, localsPlusOffset);
-                }
+                // CPython 3.12: Emit cellvars index (will be remapped to localsplus offset later)
+                EmitInstruction(ByteCodeOp.LOAD_DEREF, cellIndex);
                 return;
             }
 
@@ -11991,16 +11982,25 @@ namespace SharpPy
         /// </summary>
         private void EmitLoadClosure(string varName)
         {
+            #if DEBUG_COMPILER_LOG
+            Console.WriteLine($"    → EmitLoadClosure('{varName}') called");
+            Console.WriteLine($"       _varNames: [{string.Join(", ", _varNames)}]");
+            Console.WriteLine($"       _cellVars: [{string.Join(", ", _cellVars)}]");
+            Console.WriteLine($"       _freeVars: [{string.Join(", ", _freeVars)}]");
+            #endif
+
+            // CPython 3.12: Emit cellvars/freevars index, will be remapped to localsplus offset by FixCellOffsets
             // Check if it's a free variable first
             var freeIndex = _freeVars.IndexOf(varName);
             if (freeIndex != -1)
             {
-                // Free variables are at: nlocals + ncellvars + free_index
-                var localsPlusOffset = _varNames.Count + _cellVars.Count + freeIndex;
-                #if DEBUG_LOG
-                Console.WriteLine($"    📋 LOAD_CLOSURE for free var: {varName} (free index {freeIndex} → localsplus offset {localsPlusOffset})");
+                // CPython 3.12: Emit freevars index (will be remapped to localsplus offset later)
+                // freevars start at offset ncellvars in the combined cellvars+freevars space
+                int combinedIndex = _cellVars.Count + freeIndex;
+                #if DEBUG_COMPILER_LOG
+                Console.WriteLine($"    → LOAD_CLOSURE for free var: {varName} (free index {freeIndex} → combined index {combinedIndex})");
                 #endif
-                EmitInstruction(ByteCodeOp.LOAD_CLOSURE, localsPlusOffset);
+                EmitInstruction(ByteCodeOp.LOAD_CLOSURE, combinedIndex);
                 return;
             }
 
@@ -12008,26 +12008,11 @@ namespace SharpPy
             var cellIndex = _cellVars.IndexOf(varName);
             if (cellIndex != -1)
             {
-                // Cell variables: check if it's also a local variable (parameter or local)
-                var localIndex = _varNames.IndexOf(varName);
-                if (localIndex != -1)
-                {
-                    // It's a local that's also a cell - use local index
-                    // (MAKE_CELL will convert it to a cell at runtime)
-                    #if DEBUG_LOG
-                    Console.WriteLine($"    📋 LOAD_CLOSURE for cell var (local): {varName} (local index {localIndex})");
-                    #endif
-                    EmitInstruction(ByteCodeOp.LOAD_CLOSURE, localIndex);
-                }
-                else
-                {
-                    // It's a non-local cell variable: nlocals + cell_index
-                    var localsPlusOffset = _varNames.Count + cellIndex;
-                    #if DEBUG_LOG
-                    Console.WriteLine($"    📋 LOAD_CLOSURE for cell var: {varName} (cell index {cellIndex} → localsplus offset {localsPlusOffset})");
-                    #endif
-                    EmitInstruction(ByteCodeOp.LOAD_CLOSURE, localsPlusOffset);
-                }
+                // CPython 3.12: Emit cellvars index (will be remapped to localsplus offset later)
+                #if DEBUG_COMPILER_LOG
+                Console.WriteLine($"    → LOAD_CLOSURE for cell var: {varName} (cell index {cellIndex})");
+                #endif
+                EmitInstruction(ByteCodeOp.LOAD_CLOSURE, cellIndex);
                 return;
             }
 
