@@ -411,5 +411,97 @@ namespace SharpPy
                 }
             }
         }
+
+        /// <summary>
+        /// CPython 3.12: compile.c:7590-7632 fix_cell_offsets()
+        /// Remap cell/free variable indices to localsplus offsets
+        /// CRITICAL: Must be called AFTER CFG is built but BEFORE final assembly
+        /// </summary>
+        public void FixCellOffsets(List<string> varNames, List<string> cellVars, List<string> freeVars)
+        {
+            int nlocals = varNames.Count;
+            int ncellvars = cellVars.Count;
+            int nfreevars = freeVars.Count;
+            int noffsets = ncellvars + nfreevars;
+
+            if (noffsets == 0)
+            {
+                return; // No cell/free vars to remap
+            }
+
+            // CPython compile.c:7484-7514: build_cellfixedoffsets()
+            // Build mapping: cellvar_index → localsplus_offset
+            int[] fixedmap = new int[noffsets];
+
+            // Initialize: cellvars at nlocals+i, freevars at nlocals+ncellvars+i
+            for (int i = 0; i < noffsets; i++)
+            {
+                fixedmap[i] = nlocals + i;
+            }
+
+            // If a cellvar is also a parameter (in varNames), use parameter's index
+            for (int cellIndex = 0; cellIndex < ncellvars; cellIndex++)
+            {
+                string cellName = cellVars[cellIndex];
+                int varIndex = varNames.IndexOf(cellName);
+                if (varIndex >= 0)
+                {
+                    // This cellvar is also a parameter - use parameter's localsplus offset
+                    fixedmap[cellIndex] = varIndex;
+                }
+            }
+
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"🔷 [CFG] FixCellOffsets: nlocals={nlocals}, ncellvars={ncellvars}, nfreevars={nfreevars}");
+            for (int i = 0; i < ncellvars; i++)
+            {
+                Console.WriteLine($"   cellvar[{i}] '{cellVars[i]}' → localsplus[{fixedmap[i]}]");
+            }
+            for (int i = 0; i < nfreevars; i++)
+            {
+                Console.WriteLine($"   freevar[{i}] '{freeVars[i]}' → localsplus[{fixedmap[ncellvars + i]}]");
+            }
+#endif
+
+            // CPython compile.c:7609-7629: Remap all deref/cell instructions
+            foreach (var block in AllBlocks)
+            {
+                for (int i = 0; i < block.Instructions.Count; i++)
+                {
+                    var instr = block.Instructions[i];
+                    int oldoffset = instr.Argument;
+
+                    switch (instr.OpCode)
+                    {
+                        case ByteCodeOp.MAKE_CELL:
+                        case ByteCodeOp.LOAD_CLOSURE:
+                        case ByteCodeOp.LOAD_DEREF:
+                        case ByteCodeOp.STORE_DEREF:
+                        case ByteCodeOp.DELETE_DEREF:
+                        case ByteCodeOp.LOAD_FROM_DICT_OR_DEREF:
+                            if (oldoffset >= 0 && oldoffset < noffsets)
+                            {
+                                int newoffset = fixedmap[oldoffset];
+#if DEBUG_COMPILER_LOG
+                                if (instr.OpCode == ByteCodeOp.MAKE_CELL)
+                                {
+                                    Console.WriteLine($"   Remapping {instr.OpCode}: arg {oldoffset} → {newoffset}");
+                                }
+#endif
+                                block.Instructions[i] = new ByteCodeInstruction(
+                                    instr.OpCode,
+                                    newoffset,
+                                    instr.LineNumber,
+                                    instr.ColumnOffset,
+                                    instr.FileName,
+                                    instr.TargetBlock,
+                                    instr.ExceptBlock
+                                );
+                            }
+                            break;
+                    }
+                }
+            }
+        }
     }
 }

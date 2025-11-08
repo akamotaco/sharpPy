@@ -1272,6 +1272,10 @@ namespace SharpPy
             var lambdaTable = new SymbolTable($"<lambda_{_lambdaCounter++}>", SymbolTableType.Function);
             _currentTable?.AddChild(lambdaTable);
 
+            // CPython 3.12: Register lambda AST node → SymbolTable mapping (st_blocks)
+            // This allows compiler to find symbol table by AST node reference
+            _astNodeToSymbolTable.Add(lambda, lambdaTable);
+
             var savedTable = _currentTable;
             _currentTable = lambdaTable;
 
@@ -1453,6 +1457,10 @@ namespace SharpPy
             {
                 AnalyzeStatement(stmt);
             }
+
+            // CPython 3.12: Resolve free variables after analyzing class body
+            // This ensures nested lambdas and comprehensions have correct scope
+            ResolveFreeVariables(_currentTable);
 
             _currentTable = savedTable;
         }

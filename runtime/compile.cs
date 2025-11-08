@@ -2562,6 +2562,13 @@ namespace SharpPy
             Console.WriteLine($"   ✅ CFG optimized: {cfg.AllBlocks.Count} blocks");
 #endif
 
+            // Phase 2.5: Fix cell/free variable offsets (CPython compile.c:7659)
+            // CRITICAL: Must be called AFTER CFG is built but BEFORE final assembly
+#if DEBUG_COMPILER_LOG
+            Console.WriteLine($"   🔧 Phase 2.5: Fixing cell/free variable offsets...");
+#endif
+            cfg.FixCellOffsets(_varNames ?? new List<string>(), _cellVars ?? new List<string>(), _freeVars ?? new List<string>());
+
             // Phase 3: CFG → ByteCode (with correct offsets)
             // CPython compile.c:7724 _PyCfg_ResolveJumps - JUMP offsets calculated here
 #if DEBUG_COMPILER_LOG
@@ -6229,6 +6236,7 @@ namespace SharpPy
             // Performance: Eliminated LINQ
             var savedExceptionTable = new List<ExceptionTableEntry>(_exceptionTable); // Preserve Exception Table entries
             var savedCurrentSymbolTable = _currentSymbolTable;
+            var savedIsInFunction = _isInFunction;  // CPython 3.12: Save function context flag
 
             // CPython 3.12: Find class symbol table for this class
             SymbolTable? classSymbolTable = null;
@@ -6285,6 +6293,10 @@ namespace SharpPy
             _freeVars = new List<string>();
             // Keep existing Exception Table entries instead of resetting
             // _exceptionTable = new List<ExceptionTableEntry>(); // Removed: This was causing Exception Table entry loss
+
+            // CPython 3.12: Class bodies compile statements in class scope, NOT function scope
+            // This is critical for proper STORE_NAME emission for decorated methods (@property, etc.)
+            _isInFunction = false;
 
             // CPython 3.12: Class bodies do NOT use free variables
             // All external variable references use LOAD_NAME (global/builtin lookup)
@@ -6424,6 +6436,9 @@ namespace SharpPy
 
                 // CPython 3.12: Restore symbol table context
                 _currentSymbolTable = savedCurrentSymbolTable;
+
+                // CPython 3.12: Restore function context flag
+                _isInFunction = savedIsInFunction;
             }
         }
         
@@ -10067,14 +10082,14 @@ namespace SharpPy
         {
             // CPython 3.12 compatible lambda compilation
             // Lambda creates an anonymous function object with proper parameter scope
-            
+
             // Create a unique name for the lambda function
             string lambdaName = $"<lambda_{_lambdaCounter++}>";
-            
+
             // CPython 3.12: Extract clean parameter names and default values FIRST
             var cleanParamNames = new List<string>();
             var defaultValues = new List<PyObject>();
-            
+
             foreach (var arg in lambda.Args)
             {
                 if (arg.Contains("="))
@@ -10083,13 +10098,13 @@ namespace SharpPy
                     var parts = arg.Split('=', 2);
                     var paramName = parts[0].Trim();
                     var defaultValueStr = parts[1].Trim();
-                    
+
                     cleanParamNames.Add(paramName);
-                    
+
                     // Parse and evaluate default value at compile time (CPython way)
                     var defaultValue = ParseAndEvaluateDefaultValue(defaultValueStr);
                     defaultValues.Add(defaultValue);
-                    
+
                     #if DEBUG_LOG
                     Console.WriteLine($"  → Parameter '{paramName}' with default value: {defaultValue}");
                     #endif
@@ -10103,9 +10118,10 @@ namespace SharpPy
                     #endif
                 }
             }
-            
-            // Phase 1: Use Symbol Table analysis instead of FreeVariableAnalyzer
-            var lambdaTable = FindLambdaSymbolTable(lambdaName);
+
+            // CPython 3.12: Look up symbol table by AST node reference (not by name!)
+            // This matches CPython's st_blocks lookup: PyDict_GetItem(st->st_blocks, (void *)e)
+            var lambdaTable = FindLambdaSymbolTableByNode(lambda);
             var (freeVars, cellVars) = GetFreeAndCellVariables(lambdaTable);
             
             #if DEBUG_LOG
@@ -10136,12 +10152,14 @@ namespace SharpPy
             var tempVarNames = _varNames; // Save current VarNames
             var tempCellVars = _cellVars; // Save current CellVars
             var tempFreeVars = _freeVars; // Save current FreeVars
+            var tempIsInFunction = _isInFunction; // Save function context flag
 
             // Set up lambda compiler context
             _instructionSequence = lambdaInstructionSequence;
             _constants = lambdaConstants;
             _names = lambdaNames;
             _varNames = new List<string>(); // Fresh VarNames for lambda
+            _isInFunction = true; // CPython 3.12: Lambdas are functions, use LOAD_FAST for parameters
 
             // Parameters must be first in VarNames for LOAD_FAST to work
             foreach (var paramName in cleanParamNames)
@@ -10152,11 +10170,16 @@ namespace SharpPy
                 #endif
             }
 
-            // Set up closure compilation if there are free variables
-            if (freeVars.Count > 0)
-            {
-                SetupClosureCompilation(cellVars, freeVars);
-            }
+            // CPython 3.12: CRITICAL - Always clear and set _cellVars and _freeVars for lambda
+            // Even if empty, we must clear parent scope's cellVars (like __class__ from class body)
+            // This ensures lambda doesn't inherit cell variables from enclosing class/function
+            _cellVars = new List<string>(cellVars);
+            _freeVars = new List<string>(freeVars);
+
+            #if DEBUG_LOG
+            Console.WriteLine($"  🔧 Set lambda cellVars: [{string.Join(", ", _cellVars)}]");
+            Console.WriteLine($"  🔧 Set lambda freeVars: [{string.Join(", ", _freeVars)}]");
+            #endif
 
             // Set lambda symbol table context for proper variable resolution
             var originalSymbolTable = _currentSymbolTable;
@@ -10197,6 +10220,7 @@ namespace SharpPy
             _varNames = tempVarNames; // Restore original VarNames
             _cellVars = tempCellVars; // Restore original CellVars
             _freeVars = tempFreeVars; // Restore original FreeVars
+            _isInFunction = tempIsInFunction; // Restore function context flag
             _currentSymbolTable = originalSymbolTable; // Restore original symbol table
             
             // CPython 3.12: Create function code object with correct VarNames order
@@ -10288,7 +10312,9 @@ namespace SharpPy
         }
         
         // Lambda counter for unique names
-        private static int _lambdaCounter = 0;
+        // IMPORTANT: Must NOT be static - each compilation session should start from 0
+        // to match symbol table lambda naming (which also starts from 0 per session)
+        private int _lambdaCounter = 0;
 
         private SymbolTable? FindLambdaSymbolTable(string lambdaName)
         {
@@ -10301,6 +10327,41 @@ namespace SharpPy
             #if DEBUG_LOG
             Console.WriteLine($"  🔍 Found lambda symbol table: {result?.GetName()} (null: {result == null})");
             #endif
+            return result;
+        }
+
+        /// <summary>
+        /// CPython 3.12: Look up lambda symbol table by AST node reference
+        /// Matches CPython's st_blocks lookup: PyDict_GetItem(st->st_blocks, (void *)e)
+        /// See Python/compile.c:2955 - compiler_enter_scope with (void *)e
+        /// See Python/symtable.c:2065 - symtable_enter_block with (void *)e
+        /// </summary>
+        private SymbolTable? FindLambdaSymbolTableByNode(LambdaExpression lambda)
+        {
+            if (_symbolTableBuilder == null)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"  🔍 WARNING: _symbolTableBuilder is NULL, cannot lookup lambda by node");
+                #endif
+                return null;
+            }
+
+            // CPython 3.12: Use AST node pointer lookup (st_blocks)
+            var result = _symbolTableBuilder.LookupSymbolTable(lambda);
+
+            #if DEBUG_LOG
+            Console.WriteLine($"  🔍 Looking up lambda by AST node reference");
+            Console.WriteLine($"  🔍 Found lambda symbol table: {result?.GetName()} (null: {result == null})");
+            if (result != null)
+            {
+                Console.WriteLine($"  🔍 Lambda table symbols: {result.GetSymbols().Count}");
+                foreach (var (name, symbol) in result.GetSymbols())
+                {
+                    Console.WriteLine($"      {name}: {symbol.Scope} ({symbol.Flags})");
+                }
+            }
+            #endif
+
             return result;
         }
 

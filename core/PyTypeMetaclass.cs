@@ -408,13 +408,21 @@ namespace SharpPy
 
             // CPython 3.12: Check if we have a custom metaclass before converting namespace
             // If we have a custom metaclass, we should pass the namespace as-is to its __new__
+            // IMPORTANT: Only detect custom metaclass on the FIRST call, not on recursive calls (skipMetaclassCheck=true)
+            // When metaclass.__new__ calls super().__new__, we're in a recursive call and should NOT treat it as custom
             PyClass customMetaclass = null;
-            if (winner != null && winner != Instance)
+            if (!skipMetaclassCheck && winner != null && winner != Instance)
             {
                 customMetaclass = winner;
                 #if DEBUG_LOG
                 Console.WriteLine($"🔧 Custom metaclass detected early: {customMetaclass.Name}");
                 Console.WriteLine($"   Will pass namespace dict as-is to metaclass.__new__");
+                #endif
+            }
+            else if (skipMetaclassCheck)
+            {
+                #if DEBUG_LOG
+                Console.WriteLine($"🔧 Recursive call (skipMetaclassCheck=true): will create classDict from namespace");
                 #endif
             }
 

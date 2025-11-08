@@ -281,7 +281,10 @@ public interface IDescriptor
             }
         }
 
-        public bool IsDataDescriptor() => _setter != null || _deleter != null;
+        // CPython 3.12 호환: property는 항상 data descriptor임 (tp_descr_set이 항상 존재)
+        // property_descr_set 함수는 setter가 없을 때도 존재하며, 호출 시 AttributeError 발생
+        // Reference: Objects/descrobject.c:1630 property_descr_set, line 1980 tp_descr_set
+        public bool IsDataDescriptor() => true;
 
         // Property decorator chaining methods - CPython 호환: descriptor 테이블 사용
         public override PyObject GetAttribute(string name)

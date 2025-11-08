@@ -1361,18 +1361,43 @@ namespace SharpPy.Generated
                 }
 
                 // Check for closing brace
-                if (c == '}' && _fstringBraceDepth > 0)
+                // CPython 3.12: tokenizer.c:2568 - only return when depth matches expression start
+                // This allows dict literals {} inside f-string expressions
+                if (c == '}')
                 {
-                    // Decrement level BEFORE creating RBRACE token (CPython 3.12 compatibility)
-                    if (_level > 0)
-                        _level--;
-                    // Emit } as OP token
-                    var rbraceType = PyToken.GetOpType("}", exactType: !_generateExtraTokens);
-                    AddToken(rbraceType, "}", _line, _column);
-                    _currentLineHasRealTokens = true;
-                    _fstringBraceDepth--;
-                    Advance();
-                    return;
+                    if (_fstringBraceDepth == exprStartDepth)
+                    {
+                        // This is the closing brace for the f-string expression
+                        // Decrement level BEFORE creating RBRACE token (CPython 3.12 compatibility)
+                        if (_level > 0)
+                            _level--;
+                        // Emit } as OP token
+                        var rbraceType = PyToken.GetOpType("}", exactType: !_generateExtraTokens);
+                        AddToken(rbraceType, "}", _line, _column);
+                        _currentLineHasRealTokens = true;
+                        _fstringBraceDepth--;
+                        Advance();
+                        return;
+                    }
+                    else if (_fstringBraceDepth > exprStartDepth)
+                    {
+                        // This is a closing brace for a nested construct (dict/set literal)
+                        // Decrement level BEFORE creating RBRACE token
+                        if (_level > 0)
+                            _level--;
+                        // Emit } as OP token
+                        var rbraceType = PyToken.GetOpType("}", exactType: !_generateExtraTokens);
+                        AddToken(rbraceType, "}", _line, _column);
+                        _currentLineHasRealTokens = true;
+                        _fstringBraceDepth--;
+                        Advance();
+                        continue; // Continue processing expression, not return
+                    }
+                    else
+                    {
+                        // _fstringBraceDepth < exprStartDepth - this shouldn't happen
+                        throw new InvalidOperationException($"F-string: unmatched '}}' at line {_line}, column {_column}");
+                    }
                 }
 
                 // Handle nested braces (like in dict literals inside f-string)

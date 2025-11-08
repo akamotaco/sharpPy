@@ -165,7 +165,9 @@ namespace SharpPy
                 case "__dict__":
                     if (this is PyClassInstance instance)
                         return new PyDict(instance.InstanceDict);
-                    return PyNone.Instance;
+                    // CPython 3.12: Non-instance objects should delegate to type's __dict__ descriptor
+                    // For objects like None, functions, etc., __dict__ access should go through the type
+                    return PyGetAttribute(name);
                 case "__str__":
                     // CPython 3.12: object.__str__ bound method
                     return new PyBuiltinMethod("__str__", (self, args) => {

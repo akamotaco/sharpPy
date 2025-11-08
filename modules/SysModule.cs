@@ -370,8 +370,8 @@ namespace SharpPy.Modules
 
             if (currentFrame == null)
             {
-                // No frame context: raise RuntimeError
-                throw PyRuntimeError.Create("no active exception to reraise");
+                // CPython 3.12: No frame context → return None (sysmodule.c:885: Py_RETURN_NONE)
+                return PyNone.Instance;
             }
 
             // Check for current exception in frame
@@ -379,8 +379,9 @@ namespace SharpPy.Modules
 
             if (exception == null)
             {
-                // No exception being handled
-                throw PyRuntimeError.Create("no active exception to reraise");
+                // CPython 3.12: No exception being handled → return None (sysmodule.c:885)
+                // Reference: sys_exception_impl() returns None when err_info->exc_value == NULL
+                return PyNone.Instance;
             }
 
             return exception;

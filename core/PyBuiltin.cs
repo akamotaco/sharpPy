@@ -2414,8 +2414,10 @@ namespace SharpPy
                     #if DEBUG_LOG
                     Console.WriteLine($"Stack trace: {ex.StackTrace}");
                     #endif
-                    // Don't re-throw to allow class creation to continue
-                    // The real issue is that method bodies should not execute during class definition
+                    // CPython 3.12: If class body execution fails, class creation must fail
+                    // Reference: Python/bltinmodule.c:201 - cell = _PyEval_Vector(...)
+                    // If cell is NULL (execution failed), class creation is aborted
+                    throw;
                 }
             }
             else

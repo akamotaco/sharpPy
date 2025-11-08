@@ -43,9 +43,9 @@ def update_wrapper(wrapper, wrapped,
             pass
 
     # Update wrapper's __dict__ with wrapped's __dict__
+    # CPython 3.12: functools.py:57-58
     for attr in updated:
-        if hasattr(wrapper, attr) and hasattr(wrapped, attr):
-            getattr(wrapper, attr).update(getattr(wrapped, attr, {}))
+        getattr(wrapper, attr).update(getattr(wrapped, attr, {}))
 
     # Set __wrapped__ to allow introspection
     wrapper.__wrapped__ = wrapped

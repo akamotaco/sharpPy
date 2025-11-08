@@ -91,6 +91,22 @@ namespace SharpPy
                 minArgs: 0, maxArgs: 0
             );
 
+            // CPython 3.12: str.title() - titlecase the string
+            strType.TypeDict["title"] = new PyMethodDescriptor(
+                "title", strType,
+                (self, args, kwargs) => {
+                    if (args.Length != 0)
+                        throw PyTypeError.Create($"title() takes no arguments ({args.Length} given)");
+                    if (self is not PyString str)
+                        throw PyTypeError.Create($"descriptor 'title' requires a 'str' object but received a '{self.GetTypeName()}'");
+
+                    // Python's title() converts to titlecase (first char of each word uppercase)
+                    var textInfo = System.Globalization.CultureInfo.InvariantCulture.TextInfo;
+                    return new PyString(textInfo.ToTitleCase(str.Value.ToLowerInvariant()));
+                },
+                minArgs: 0, maxArgs: 0
+            );
+
             strType.TypeDict["split"] = new PyMethodDescriptor(
                 "split", strType,
                 (self, args, kwargs) => {
