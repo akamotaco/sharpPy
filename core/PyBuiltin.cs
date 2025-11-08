@@ -4070,32 +4070,59 @@ namespace SharpPy
 
         /// <summary>
         /// CPython 3.12: _super_lookup_descr() + descriptor protocol
+        /// Key insight: super() uses the MRO of the *instance's actual type*, not the type that called super()
+        /// See CPython Objects/typeobject.c: super_getattro() uses su->obj_type->tp_mro
         /// </summary>
         private PyObject LookupInMRO(string name, bool bindDescriptor)
         {
-            // CPython 3.12: Use MRO to find the method in parent classes
-            // Skip the current class and look in its parents
-            if (Type.MRO != null && Type.MRO.Count > 1)
+            // CPython 3.12: Use the MRO of the actual instance's type (ObjectType), NOT Type!
+            // This is crucial for cooperative multiple inheritance
+            PyType startType = ObjectType ?? Type;
+
+            if (startType.MRO == null || startType.MRO.Count <= 1)
             {
-                // Check each base type in order (MRO), skipping the current type
-                for (int i = 1; i < Type.MRO.Count; i++)
+                throw PyAttributeError.Create($"'super' object has no attribute '{name}'");
+            }
+
+            // Find the position of Type in the MRO of startType
+            int skipUntil = -1;
+            for (int i = 0; i < startType.MRO.Count; i++)
+            {
+                if (startType.MRO[i] == Type || startType.MRO[i].Name == Type.Name)
                 {
-                    var baseType = Type.MRO[i];
+                    skipUntil = i;
+                    break;
+                }
+            }
+
+            if (skipUntil == -1)
+            {
+                throw PyAttributeError.Create($"super(type, obj): obj must be an instance or subtype of type");
+            }
+
+            // Look for the attribute starting from the class AFTER Type in the MRO
+            for (int i = skipUntil + 1; i < startType.MRO.Count; i++)
+            {
+                var baseType = startType.MRO[i];
 
                     try
                     {
                         PyObject attr = null;
 
-                        // CPython 3.12: For built-in types, use PyClass.GetTypeAttribute() to access descriptors
-                        // This is crucial for finding wrapper descriptors like dict.__setitem__
-                        if (baseType is PyType pyType && !(baseType is PyClass))
+                        // CPython 3.12: Look ONLY in the class's __dict__, NOT its MRO!
+                        // This is critical - we are already iterating through the MRO manually,
+                        // so we must NOT use GetAttribute which would follow the MRO again!
+                        // See CPython Objects/typeobject.c:10345: PyDict_GetItemWithError(dict, name)
+                        if (baseType is PyClass pyClass)
                         {
-                            attr = SharpPy.PyClass.GetTypeAttribute(pyType, name);
+                            // For user-defined classes, look only in ClassDict
+                            pyClass.ClassDict.TryGetValue(name, out attr);
                         }
-                        else
+                        else if (baseType is PyType pyType)
                         {
-                            // For user-defined classes, use normal GetAttribute
-                            attr = baseType.GetAttribute(name);
+                            // For built-in types, use GetTypeAttribute
+                            // (built-in types don't have the double-MRO issue because they don't call GetAttribute recursively)
+                            attr = SharpPy.PyClass.GetTypeAttribute(pyType, name);
                         }
 
                         if (attr != null)
@@ -4123,7 +4150,6 @@ namespace SharpPy
                         Console.WriteLine($"   ⚠️ Error checking {baseType.Name}: {ex.Message}");
                         #endif
                     }
-                }
             }
 
             throw PyAttributeError.Create($"'super' object has no attribute '{name}'");
