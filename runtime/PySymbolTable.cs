@@ -153,8 +153,13 @@ namespace SharpPy
 #endif
                 }
             }
+
+            // CPython 3.12: Free variables must be in ALPHABETICAL order!
+            // This is critical for LOAD_CLOSURE indices and closure tuple creation
+            freeVars.Sort(StringComparer.Ordinal);
+
 #if DEBUG_COMPILER_LOG
-            Console.WriteLine($"    → FindFreeVariables result: [{string.Join(", ", freeVars)}]");
+            Console.WriteLine($"    → FindFreeVariables result (sorted): [{string.Join(", ", freeVars)}]");
 #endif
             return freeVars;
         }
@@ -181,8 +186,13 @@ namespace SharpPy
 #endif
                 }
             }
+
+            // CPython 3.12: Cell variables must be in ALPHABETICAL order!
+            // This is critical for LOAD_CLOSURE indices and closure tuple creation
+            cellVars.Sort(StringComparer.Ordinal);
+
 #if DEBUG_COMPILER_LOG
-            Console.WriteLine($"    → FindCellVariables result: [{string.Join(", ", cellVars)}]");
+            Console.WriteLine($"    → FindCellVariables result (sorted): [{string.Join(", ", cellVars)}]");
 #endif
             return cellVars;
         }

@@ -4599,41 +4599,13 @@ namespace SharpPy
                     switch (symbol.Scope)
                     {
                         case SymbolScope.Free:
-                            // Free variable: LOAD_DEREF 사용
-                            #if DEBUG_COMPILER_LOG
-                            Console.WriteLine($"      → Symbol is FREE. _freeVars contains '{name}': {_freeVars.Contains(name)}");
-                            Console.WriteLine($"      → _freeVars list: [{string.Join(", ", _freeVars)}]");
-                            #endif
-                            if (_freeVars.Contains(name))
-                            {
-                                var freeIndex = _freeVars.IndexOf(name);
-                                EmitInstruction(ByteCodeOp.LOAD_DEREF, freeIndex);
-                                #if DEBUG_COMPILER_LOG
-                                Console.WriteLine($"    → LOAD_DEREF for free var: {name} (index {freeIndex})");
-                                #endif
-                                return;
-                            }
-                            else
-                            {
-                                #if DEBUG_COMPILER_LOG
-                                Console.WriteLine($"    ❌ ERROR: Symbol is Free but not in _freeVars list!");
-                                #endif
-                            }
-                            break;
-
                         case SymbolScope.Cell:
-                            // Cell variable: LOAD_DEREF 사용 (offset 계산)
-                            if (_cellVars.Contains(name))
-                            {
-                                var cellIndex = _cellVars.IndexOf(name);
-                                var instructionIndex = _freeVars.Count + cellIndex;
-                                EmitInstruction(ByteCodeOp.LOAD_DEREF, instructionIndex);
-                                #if DEBUG_LOG
-                                Console.WriteLine($"    → LOAD_DEREF for cell var: {name} (cell index {cellIndex} → instruction index {instructionIndex})");
-                                #endif
-                                return;
-                            }
-                            break;
+                            // Free/Cell variable: Use EmitLoadDeref which calculates correct localsplus offset
+                            #if DEBUG_COMPILER_LOG
+                            Console.WriteLine($"      → Symbol is {symbol.Scope}. Calling EmitLoadDeref");
+                            #endif
+                            EmitLoadDeref(name);
+                            return;
 
                         case SymbolScope.Global:
                             // CPython 3.12: 모듈 레벨에서는 LOAD_NAME, 함수 내에서는 LOAD_GLOBAL
@@ -10385,9 +10357,15 @@ namespace SharpPy
                 }
             }
 
+            // CPython 3.12: Free/cell variables must be in ALPHABETICAL order!
+            // This is critical for closure tuple creation and LOAD_CLOSURE indices.
+            // See CPython: co_freevars and co_cellvars are sorted alphabetically
+            freeVars.Sort(StringComparer.Ordinal);
+            cellVars.Sort(StringComparer.Ordinal);
+
             #if DEBUG_LOG
-            Console.WriteLine($"  Symbol Table Free Variables: [{string.Join(", ", freeVars)}]");
-            Console.WriteLine($"  Symbol Table Cell Variables: [{string.Join(", ", cellVars)}]");
+            Console.WriteLine($"  Symbol Table Free Variables (sorted): [{string.Join(", ", freeVars)}]");
+            Console.WriteLine($"  Symbol Table Cell Variables (sorted): [{string.Join(", ", cellVars)}]");
             Console.WriteLine($"  Symbol Table Debug - Table: {table?.GetName()}, Symbols: {table?.GetSymbols().Count}");
             if (table != null)
             {
@@ -11966,42 +11944,90 @@ namespace SharpPy
         }
         
         /// <summary>
-        /// Emit LOAD_DEREF for cell variables (PEP 695)
+        /// Emit LOAD_DEREF for cell/free variables
+        /// CPython 3.12: LOAD_DEREF uses localsplus offset, not cell/free index!
+        /// localsplus layout: [nlocals] + [ncellvars] + [nfreevars]
         /// </summary>
         private void EmitLoadDeref(string varName)
         {
-            var index = _cellVars.IndexOf(varName);
-            if (index == -1)
-                throw new Exception($"Variable '{varName}' not found in cell variables");
-            EmitInstruction(ByteCodeOp.LOAD_DEREF, index);
-        }
-        
-        /// <summary>
-        /// Emit LOAD_CLOSURE for creating closure tuples (PEP 695)
-        /// </summary>
-        private void EmitLoadClosure(string varName)
-        {
-            // Check free variables first (for class body compilation)
+            // Check if it's a free variable first
             var freeIndex = _freeVars.IndexOf(varName);
             if (freeIndex != -1)
             {
-                #if DEBUG_LOG
-                Console.WriteLine($"    📋 LOAD_CLOSURE for free var: {varName} (free index {freeIndex})");
-                #endif
-                EmitInstruction(ByteCodeOp.LOAD_CLOSURE, freeIndex);
+                // Free variables are at: nlocals + ncellvars + free_index
+                var localsPlusOffset = _varNames.Count + _cellVars.Count + freeIndex;
+                EmitInstruction(ByteCodeOp.LOAD_DEREF, localsPlusOffset);
                 return;
             }
 
-            // Check cell variables (for regular function compilation)
+            // Check if it's a cell variable
             var cellIndex = _cellVars.IndexOf(varName);
             if (cellIndex != -1)
             {
-                // CPython 3.12: Cell variables come after free variables in instruction indices
-                var instructionIndex = _freeVars.Count + cellIndex;
+                // Cell variables: check if it's also a local variable (parameter or local)
+                var localIndex = _varNames.IndexOf(varName);
+                if (localIndex != -1)
+                {
+                    // It's a local that's also a cell - use local index
+                    // (MAKE_CELL will convert it to a cell at runtime)
+                    EmitInstruction(ByteCodeOp.LOAD_DEREF, localIndex);
+                }
+                else
+                {
+                    // It's a non-local cell variable: nlocals + cell_index
+                    var localsPlusOffset = _varNames.Count + cellIndex;
+                    EmitInstruction(ByteCodeOp.LOAD_DEREF, localsPlusOffset);
+                }
+                return;
+            }
+
+            throw new Exception($"Variable '{varName}' not found in cell or free variables");
+        }
+        
+        /// <summary>
+        /// Emit LOAD_CLOSURE for creating closure tuples
+        /// CPython 3.12: LOAD_CLOSURE uses localsplus offset, same as LOAD_DEREF!
+        /// localsplus layout: [nlocals] + [ncellvars] + [nfreevars]
+        /// </summary>
+        private void EmitLoadClosure(string varName)
+        {
+            // Check if it's a free variable first
+            var freeIndex = _freeVars.IndexOf(varName);
+            if (freeIndex != -1)
+            {
+                // Free variables are at: nlocals + ncellvars + free_index
+                var localsPlusOffset = _varNames.Count + _cellVars.Count + freeIndex;
                 #if DEBUG_LOG
-                Console.WriteLine($"    📋 LOAD_CLOSURE for cell var: {varName} (cell index {cellIndex} → instruction index {instructionIndex})");
+                Console.WriteLine($"    📋 LOAD_CLOSURE for free var: {varName} (free index {freeIndex} → localsplus offset {localsPlusOffset})");
                 #endif
-                EmitInstruction(ByteCodeOp.LOAD_CLOSURE, instructionIndex);
+                EmitInstruction(ByteCodeOp.LOAD_CLOSURE, localsPlusOffset);
+                return;
+            }
+
+            // Check if it's a cell variable
+            var cellIndex = _cellVars.IndexOf(varName);
+            if (cellIndex != -1)
+            {
+                // Cell variables: check if it's also a local variable (parameter or local)
+                var localIndex = _varNames.IndexOf(varName);
+                if (localIndex != -1)
+                {
+                    // It's a local that's also a cell - use local index
+                    // (MAKE_CELL will convert it to a cell at runtime)
+                    #if DEBUG_LOG
+                    Console.WriteLine($"    📋 LOAD_CLOSURE for cell var (local): {varName} (local index {localIndex})");
+                    #endif
+                    EmitInstruction(ByteCodeOp.LOAD_CLOSURE, localIndex);
+                }
+                else
+                {
+                    // It's a non-local cell variable: nlocals + cell_index
+                    var localsPlusOffset = _varNames.Count + cellIndex;
+                    #if DEBUG_LOG
+                    Console.WriteLine($"    📋 LOAD_CLOSURE for cell var: {varName} (cell index {cellIndex} → localsplus offset {localsPlusOffset})");
+                    #endif
+                    EmitInstruction(ByteCodeOp.LOAD_CLOSURE, localsPlusOffset);
+                }
                 return;
             }
 
