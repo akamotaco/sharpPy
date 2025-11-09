@@ -1183,6 +1183,24 @@ namespace SharpPy
                     AnalyzePattern(binOp.Right);
                     break;
 
+                // MatchAs: pattern as name - CPython symtable.c:2292-2298 (MatchAs_kind)
+                case AsPattern asPattern:
+                    // First analyze the inner pattern if present
+                    if (asPattern.Pattern != null)
+                    {
+                        AnalyzePattern(asPattern.Pattern);
+                    }
+                    // Then define the 'as' name as LOCAL variable
+                    if (asPattern.Name != null && asPattern.Name != "_")
+                    {
+                        // CPython: symtable_add_def(st, p->v.MatchAs.name, DEF_LOCAL, LOCATION(p))
+                        _currentTable?.DefineSymbol(asPattern.Name, SymbolFlags.Assigned);
+#if DEBUG_COMPILER_LOG
+                        Console.WriteLine($"        AnalyzePattern: Defined 'as' variable '{asPattern.Name}' as LOCAL");
+#endif
+                    }
+                    break;
+
                 // Default: treat as expression (for complex patterns)
                 default:
 #if DEBUG_COMPILER_LOG
