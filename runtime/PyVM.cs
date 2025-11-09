@@ -2838,7 +2838,10 @@ namespace SharpPy
                     break;
 
                 case ByteCodeOp.MATCH_CLASS:
-                    // Match class pattern - CPython 3.12 compatible implementation
+                    // CPython 3.12: Python/bytecodes.c:2230-2243 - MATCH_CLASS opcode
+                    // CPython 3.12: Python/ceval.c:406-428 - match_class_attr helper
+                    // CPython 3.12: Python/ceval.c:430-533 - match_class helper
+                    // Match class pattern - structural pattern matching (PEP 634)
                     var classKwNames = frame.ValueStack.Pop(); // keyword names tuple (unused for now)
                     var classToMatch = frame.ValueStack.Pop(); // class to match against
                     var classSubject = frame.ValueStack.Pop(); // subject to match
@@ -2940,8 +2943,19 @@ namespace SharpPy
                             }
                             else
                             {
-                                // No attributes to extract, return empty tuple
-                                frame.ValueStack.Push(new PyTuple(new PyObject[0]));
+                                // CPython 3.12: Python/ceval.c:515-523
+                                // For built-in types (int, str, etc.) with positional patterns like case int(x):
+                                // Return tuple containing the subject if positionalCount > 0
+                                // This allows unpacking: case int(x): captures x=5 from match 5
+                                if (positionalCount > 0)
+                                {
+                                    frame.ValueStack.Push(new PyTuple(new[] { classSubject }));
+                                }
+                                else
+                                {
+                                    // No attributes to extract, return empty tuple
+                                    frame.ValueStack.Push(new PyTuple(new PyObject[0]));
+                                }
                             }
                         }
                         else
