@@ -148,6 +148,15 @@ namespace SharpPy.Modules
             module.ModuleDict["globals"] = new PyBuiltinFunction("globals");
             module.ModuleDict["locals"] = new PyBuiltinFunction("locals");
 
+            // Python 3.12 number conversion builtins
+            module.ModuleDict["bin"] = new PyBuiltinFunction("bin", Bin);
+            module.ModuleDict["hex"] = new PyBuiltinFunction("hex", Hex);
+            module.ModuleDict["oct"] = new PyBuiltinFunction("oct", Oct);
+            module.ModuleDict["ascii"] = new PyBuiltinFunction("ascii", Ascii);
+            module.ModuleDict["vars"] = new PyBuiltinFunction("vars", Vars);
+            module.ModuleDict["format"] = new PyBuiltinFunction("format", Format);
+            module.ModuleDict["memoryview"] = new PyBuiltinFunction("memoryview", MemoryView);
+
             // CPython 3.12: __build_class__ is a builtin function for class creation
             module.ModuleDict["__build_class__"] = new PyBuiltinFunction("__build_class__");
 
@@ -484,6 +493,323 @@ namespace SharpPy.Modules
 
             obj.SetAttribute(nameStr.Value, value);
             return PyNone.Instance;
+        }
+
+        // CPython 3.12: Python/bltinmodule.c:560 - builtin_bin
+        private static PyObject Bin(PyObject[] args)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"bin() takes exactly one argument ({args.Length} given)");
+
+            var obj = args[0];
+
+            // Try to get __index__ method for integer conversion
+            long value;
+            if (obj is PyInt pyInt)
+            {
+                value = pyInt.Value;
+            }
+            else if (obj is PyBool pyBool)
+            {
+                value = pyBool.Value ? 1 : 0;
+            }
+            else
+            {
+                // Try to call __index__ method
+                var indexMethod = obj.GetAttribute("__index__");
+                if (indexMethod != null && indexMethod != PyNone.Instance)
+                {
+                    var result = indexMethod.Call(Array.Empty<PyObject>(), null);
+                    if (result is PyInt indexInt)
+                    {
+                        value = indexInt.Value;
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create($"__index__ returned non-int (type {result.GetTypeName()})");
+                    }
+                }
+                else
+                {
+                    throw PyTypeError.Create($"'{obj.GetTypeName()}' object cannot be interpreted as an integer");
+                }
+            }
+
+            // Convert to binary string with "0b" prefix
+            if (value >= 0)
+            {
+                return new PyString("0b" + Convert.ToString(value, 2));
+            }
+            else
+            {
+                // Negative numbers: "-0b..." format
+                return new PyString("-0b" + Convert.ToString(-value, 2));
+            }
+        }
+
+        // CPython 3.12: Python/bltinmodule.c:1133 - builtin_hex
+        private static PyObject Hex(PyObject[] args)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"hex() takes exactly one argument ({args.Length} given)");
+
+            var obj = args[0];
+
+            // Try to get __index__ method for integer conversion
+            long value;
+            if (obj is PyInt pyInt)
+            {
+                value = pyInt.Value;
+            }
+            else if (obj is PyBool pyBool)
+            {
+                value = pyBool.Value ? 1 : 0;
+            }
+            else
+            {
+                // Try to call __index__ method
+                var indexMethod = obj.GetAttribute("__index__");
+                if (indexMethod != null && indexMethod != PyNone.Instance)
+                {
+                    var result = indexMethod.Call(Array.Empty<PyObject>(), null);
+                    if (result is PyInt indexInt)
+                    {
+                        value = indexInt.Value;
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create($"__index__ returned non-int (type {result.GetTypeName()})");
+                    }
+                }
+                else
+                {
+                    throw PyTypeError.Create($"'{obj.GetTypeName()}' object cannot be interpreted as an integer");
+                }
+            }
+
+            // Convert to hexadecimal string with "0x" prefix
+            if (value >= 0)
+            {
+                return new PyString("0x" + value.ToString("x"));
+            }
+            else
+            {
+                // Negative numbers: "-0x..." format
+                return new PyString("-0x" + (-value).ToString("x"));
+            }
+        }
+
+        // CPython 3.12: Python/bltinmodule.c:1664 - builtin_oct
+        private static PyObject Oct(PyObject[] args)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"oct() takes exactly one argument ({args.Length} given)");
+
+            var obj = args[0];
+
+            // Try to get __index__ method for integer conversion
+            long value;
+            if (obj is PyInt pyInt)
+            {
+                value = pyInt.Value;
+            }
+            else if (obj is PyBool pyBool)
+            {
+                value = pyBool.Value ? 1 : 0;
+            }
+            else
+            {
+                // Try to call __index__ method
+                var indexMethod = obj.GetAttribute("__index__");
+                if (indexMethod != null && indexMethod != PyNone.Instance)
+                {
+                    var result = indexMethod.Call(Array.Empty<PyObject>(), null);
+                    if (result is PyInt indexInt)
+                    {
+                        value = indexInt.Value;
+                    }
+                    else
+                    {
+                        throw PyTypeError.Create($"__index__ returned non-int (type {result.GetTypeName()})");
+                    }
+                }
+                else
+                {
+                    throw PyTypeError.Create($"'{obj.GetTypeName()}' object cannot be interpreted as an integer");
+                }
+            }
+
+            // Convert to octal string with "0o" prefix
+            if (value >= 0)
+            {
+                return new PyString("0o" + Convert.ToString(value, 8));
+            }
+            else
+            {
+                // Negative numbers: "-0o..." format
+                return new PyString("-0o" + Convert.ToString(-value, 8));
+            }
+        }
+
+        // CPython 3.12: Python/bltinmodule.c:537 - builtin_ascii
+        private static PyObject Ascii(PyObject[] args)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"ascii() takes exactly one argument ({args.Length} given)");
+
+            var obj = args[0];
+
+            // Get repr() of the object
+            var reprStr = obj.ToRepr();
+            if (reprStr is not PyString pyStr)
+            {
+                throw PyTypeError.Create($"__repr__ returned non-string (type {reprStr.GetTypeName()})");
+            }
+
+            // Escape non-ASCII characters
+            var result = new System.Text.StringBuilder();
+            foreach (char c in pyStr.Value)
+            {
+                if (c < 128)
+                {
+                    result.Append(c);
+                }
+                else if (c <= 0xFF)
+                {
+                    result.Append($"\\x{(int)c:x2}");
+                }
+                else if (c <= 0xFFFF)
+                {
+                    result.Append($"\\u{(int)c:x4}");
+                }
+                else
+                {
+                    result.Append($"\\U{(int)c:x8}");
+                }
+            }
+
+            return new PyString(result.ToString());
+        }
+
+        // CPython 3.12: Python/bltinmodule.c:3079 - builtin_vars
+        private static PyObject Vars(PyObject[] args)
+        {
+            if (args.Length == 0)
+            {
+                // No argument: return locals()
+                // This should return the current local symbol table
+                // For now, throw NotImplementedError as it requires VM integration
+                throw PyNotImplementedError.Create("vars() without arguments requires locals() implementation");
+            }
+            else if (args.Length == 1)
+            {
+                var obj = args[0];
+
+                // Try to get __dict__ attribute
+                var dictAttr = obj.GetAttribute("__dict__");
+                if (dictAttr != null && dictAttr != PyNone.Instance)
+                {
+                    return dictAttr;
+                }
+                else
+                {
+                    throw PyTypeError.Create($"vars() argument must have __dict__ attribute");
+                }
+            }
+            else
+            {
+                throw PyTypeError.Create($"vars() takes at most 1 argument ({args.Length} given)");
+            }
+        }
+
+        // CPython 3.12: Python/bltinmodule.c:689 - builtin_format
+        // format(value[, format_spec]) -> string
+        // Returns value.__format__(format_spec)
+        private static PyObject Format(PyObject[] args)
+        {
+            if (args.Length < 1 || args.Length > 2)
+                throw PyTypeError.Create($"format() takes 1 or 2 arguments ({args.Length} given)");
+
+            var value = args[0];
+            var formatSpec = args.Length == 2 ? args[1] : new PyString("");
+
+            // format_spec must be a string
+            if (formatSpec is not PyString formatStr)
+            {
+                throw PyTypeError.Create($"format() argument 2 must be str, not {formatSpec.GetTypeName()}");
+            }
+
+            // Try to call __format__ method
+            try
+            {
+                var formatMethod = value.GetAttribute("__format__");
+                if (formatMethod != null && formatMethod != PyNone.Instance)
+                {
+                    // Call __format__(format_spec)
+                    var result = formatMethod.Call(new PyObject[] { formatStr }, null);
+
+                    // Result must be a string
+                    if (result is not PyString)
+                    {
+                        throw PyTypeError.Create($"__format__ must return a str, not {result.GetTypeName()}");
+                    }
+
+                    return result;
+                }
+            }
+            catch (Exception ex) when (ex.Message.Contains("AttributeError") || ex.Message.Contains("has no attribute"))
+            {
+                // __format__ attribute doesn't exist, fall through to default handling
+            }
+
+            // If no __format__ method or AttributeError, use str() for empty format_spec
+            if (formatStr.Value == "")
+            {
+                return value.ToStr();
+            }
+            else
+            {
+                throw PyTypeError.Create($"unsupported format string passed to {value.GetTypeName()}.__format__");
+            }
+        }
+
+        // CPython 3.12: Objects/memoryobject.c:850 - PyMemoryView_FromObject
+        // memoryview(object) -> memoryview
+        // Create a new memoryview object which references the given object
+        private static PyObject MemoryView(PyObject[] args)
+        {
+            if (args.Length != 1)
+                throw PyTypeError.Create($"memoryview() takes exactly one argument ({args.Length} given)");
+
+            var obj = args[0];
+
+            // Try to get buffer from object using buffer protocol
+            if (obj.SupportsBuffer())
+            {
+                // Object implements buffer protocol, get buffer
+                return obj.GetBuffer(0);  // 0 = PyBUF_FULL_RO
+            }
+
+            // Check if object has __buffer__ method
+            try
+            {
+                var bufferMethod = obj.GetAttribute("__buffer__");
+                if (bufferMethod != null && bufferMethod != PyNone.Instance)
+                {
+                    var result = bufferMethod.Call(Array.Empty<PyObject>(), null);
+                    if (result is PyMemoryView memView)
+                    {
+                        return memView;
+                    }
+                    throw PyTypeError.Create($"__buffer__ returned non-memoryview (type {result.GetTypeName()})");
+                }
+            }
+            catch (Exception ex) when (ex.Message.Contains("AttributeError") || ex.Message.Contains("has no attribute"))
+            {
+                // __buffer__ doesn't exist, continue with error
+            }
+
+            throw PyTypeError.Create($"memoryview: a bytes-like object is required, not '{obj.GetTypeName()}'");
         }
     }
 }

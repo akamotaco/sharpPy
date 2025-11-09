@@ -99,18 +99,34 @@ namespace SharpPy
     {
         private readonly byte[] _data;
         private readonly bool _readonly;
+        private readonly int _itemsize;
 
-        public PyMemoryView(byte[] data, bool readOnly = false)
+        public PyMemoryView(byte[] data, bool readOnly = false, int itemsize = 1)
         {
             _data = data ?? throw new ArgumentNullException(nameof(data));
             _readonly = readOnly;
+            _itemsize = itemsize;  // CPython: Py_buffer.itemsize
         }
 
         public byte[] Data => _data;
         public bool ReadOnly => _readonly;
+        public int ItemSize => _itemsize;  // CPython: self->view.itemsize
 
         public override PyType GetPyType() => PyType.MemoryViewType;
         public override string GetTypeName() => "memoryview";
+
+        /// <summary>
+        /// CPython: PyGetSetDef memory_getsetlist - expose C# properties as Python attributes
+        /// Objects/memoryobject.c:memory_itemsize_get
+        /// </summary>
+        public override PyObject GetAttribute(string name)
+        {
+            if (name == "itemsize")
+            {
+                return new PyInt(_itemsize);  // CPython: PyLong_FromSsize_t(self->view.itemsize)
+            }
+            return base.GetAttribute(name);
+        }
 
         public override PyObject GetItem(PyObject index)
         {
