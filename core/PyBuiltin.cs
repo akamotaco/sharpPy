@@ -2707,29 +2707,9 @@ namespace SharpPy
                         // Note: We pass empty kwargs which should use the default values from the function signature
                         PyDict newKwargs = new PyDict();
 
-                        // CPython 3.12: Make metaclass name available during metaclass.__new__ execution
-                        // This enables explicit super(MetaclassName, cls) calls
-                        PyObject? previousValue = null;
-                        bool hadPreviousValue = false;
-                        var globalScope = PyVM.CurrentFrame?.ScopeChain?.GlobalScope;
-                        if (globalScope != null && metaclass is PyClass metaclassForScope)
-                        {
-                            string metaclassName = metaclassForScope.Name;
-                            #if DEBUG_LOG
-                            Console.WriteLine($"🔧 CPython 3.12: Temporarily adding {metaclassName} to global scope for explicit super()");
-                            #endif
-                            
-                            // Save any existing value
-                            if (globalScope.Variables.ContainsKey(metaclassName))
-                            {
-                                previousValue = globalScope.GetVariable(metaclassName);
-                                hadPreviousValue = true;
-                            }
-                            
-                            // Set the metaclass in global scope
-                            globalScope.SetVariable(metaclassName, metaclass);
-                        }
-                        
+                        // CPython 3.12: Metaclass methods use __class__ cell variable (compile-time generated)
+                        // No need to manipulate global scope - __class__ cell is set during class creation
+
                         PyObject? result = null;
                         try
                         {
@@ -2761,27 +2741,10 @@ namespace SharpPy
                             Console.WriteLine($"🚀 metaclass.__new__ returned: {result?.GetType().Name ?? "null"}");
                             #endif
                         }
-                        finally
+                        catch (Exception ex)
                         {
-                            // CPython 3.12: Restore previous global scope state
-                            if (globalScope != null && metaclass is PyClass metaclassForRestore)
-                            {
-                                string metaclassName = metaclassForRestore.Name;
-                                if (hadPreviousValue)
-                                {
-                                    globalScope.SetVariable(metaclassName, previousValue!);
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"🔧 Restored {metaclassName} to previous value in global scope");
-                                    #endif
-                                }
-                                else
-                                {
-                                    globalScope.Variables.Remove(metaclassName);
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"🔧 Removed {metaclassName} from global scope");
-                                    #endif
-                                }
-                            }
+                            // Re-throw exception - no cleanup needed
+                            throw;
                         }
                         #if DEBUG_LOG
                         Console.WriteLine($"Metaclass.__new__ returned: {result?.GetType().Name}");
@@ -3359,16 +3322,8 @@ namespace SharpPy
                                 Console.WriteLine($"🔍 Retrieved __class__ from cell[{classIndex}]: {classValue}");
                                 #endif
                                 
-                                // CPython 3.12: Dynamic __class__ resolution for metaclass inheritance
-                                // When TopMeta class is being created, its inherited __new__ method should use TopMeta, not MiddleMeta
-                                var actualClassValue = ResolveActualClass(classValue, currentFrame);
-                                if (actualClassValue != classValue)
-                                {
-                                    #if DEBUG_LOG
-                                    Console.WriteLine($"🎯 CPython 3.12: Dynamic __class__ resolution: {classValue} → {actualClassValue}");
-                                    #endif
-                                    classValue = actualClassValue;
-                                }
+                                // CPython 3.12: __class__ cell value is already correct
+                                // Each metaclass method sees its own class in __class__
                                 
                                 // CPython 3.12: zero-argument super() needs __class__ and first parameter
                                 // CPython uses LOAD_FAST 0 - always the first parameter, regardless of name
@@ -3733,86 +3688,6 @@ namespace SharpPy
             return result;
         }
         
-        /// <summary>
-        /// CPython 3.12: Each metaclass method should see its own class as __class__
-        /// </summary>
-        private static PyObject ResolveActualClass(PyObject cellClassValue, PyFrame currentFrame)
-        {
-            #if DEBUG_LOG
-            Console.WriteLine($"🔍 ResolveActualClass: cellClassValue = {cellClassValue}");
-            #endif
-            
-            // CPython 3.12 correct behavior: Each method should see its own class as __class__
-            // The __class__ cell value is already correct - don't try to resolve to a different class
-            
-            if (cellClassValue is PyClass cellClass)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"   ✅ Using cell class as-is: {cellClass.Name}");
-                #endif
-                #if DEBUG_LOG
-                Console.WriteLine($"   🎯 CPython 3.12: Each metaclass method sees its own class in __class__");
-                #endif
-            }
-            
-            return cellClassValue; // Use the original cell value - it's already correct
-        }
-        
-        /// <summary>
-        /// CPython 3.12: Find or create a target class reference for dynamic __class__ resolution
-        /// </summary>
-        private PyObject FindOrCreateTargetClass(string targetClassName, PyClass basedOnClass)
-        {
-            try
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"🔍 FindOrCreateTargetClass: target='{targetClassName}', basedOn='{basedOnClass.Name}'");
-                #endif
-                
-                // For metaclass inheritance, the target class should have the same base types as the cell class
-                // but with the target name. This creates a "future reference" to the class being created.
-                
-                // Create a temporary class that inherits from the same base as the cell class
-                var targetBaseTypes = basedOnClass.BaseTypes ?? new PyType[] { PyType.TypeType };
-                #if DEBUG_LOG
-                // Performance: Eliminated LINQ - manual loop instead of Select()
-                var baseTypeNames = new string[targetBaseTypes.Length];
-                for (int i = 0; i < targetBaseTypes.Length; i++)
-                {
-                    baseTypeNames[i] = targetBaseTypes[i].Name;
-                }
-                Console.WriteLine($"   Creating target class with base types: [{string.Join(", ", baseTypeNames)}]");
-                #endif
-                
-                // Create the target class with the correct name and base types
-                var targetClass = new PyClass(targetClassName, targetBaseTypes);
-                
-                // Copy essential attributes from the base class to maintain metaclass behavior
-                foreach (var attr in basedOnClass.ClassDict)
-                {
-                    if (attr.Key != "__name__" && attr.Key != "__qualname__")
-                    {
-                        targetClass.SetAttribute(attr.Key, attr.Value);
-                        #if DEBUG_LOG
-                        Console.WriteLine($"   Copied attribute: {attr.Key}");
-                        #endif
-                    }
-                }
-                
-                #if DEBUG_LOG
-                Console.WriteLine($"✅ Created target class reference: {targetClass}");
-                #endif
-                return targetClass;
-            }
-            catch (Exception ex)
-            {
-                #if DEBUG_LOG
-                Console.WriteLine($"❌ Error in FindOrCreateTargetClass: {ex.Message}");
-                #endif
-                // Fallback to original class
-                return basedOnClass;
-            }
-        }
 
         #region Buffer Protocol Functions
 

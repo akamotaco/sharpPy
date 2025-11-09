@@ -586,9 +586,9 @@ namespace SharpPy
                 else if (callMethod.IsCallable())
                     return callMethod.Call(args, kwargs);
             }
-            catch (PythonException pe)
+            catch (PythonException pe) when (pe.PyException is PyAttributeError)
             {
-                var pae = (PyAttributeError)pe.PyException;
+                // If __call__ attribute doesn't exist, fall through to TypeError below
             }
 
             throw PyTypeError.Create($"'{GetTypeName()}' object is not callable");
