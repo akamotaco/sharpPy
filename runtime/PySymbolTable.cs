@@ -1158,9 +1158,46 @@ namespace SharpPy
                     }
                     break;
 
-                // MatchMapping: {key: pattern, ...} - TODO: implement if needed
-                // MatchClass: ClassName(patterns...) - TODO: implement if needed
-                // For now, treat these as expressions
+                // MatchMapping: {key: pattern, ...}
+                // CPython 3.12: symtable.c:2280-2286 - MatchMapping_kind
+                case MatchMapping matchMapping:
+                    // Visit keys as expressions
+                    foreach (var key in matchMapping.Keys)
+                    {
+                        AnalyzeExpression(key);
+                    }
+                    // Visit patterns recursively
+                    foreach (var pat in matchMapping.Patterns)
+                    {
+                        AnalyzePattern(pat);
+                    }
+                    // Define **rest variable if present
+                    if (matchMapping.Rest != null && matchMapping.Rest != "_")
+                    {
+                        // CPython: symtable_add_def(st, p->v.MatchMapping.rest, DEF_LOCAL, LOCATION(p))
+                        _currentTable?.DefineSymbol(matchMapping.Rest, SymbolFlags.Assigned);
+#if DEBUG_COMPILER_LOG
+                        Console.WriteLine($"        AnalyzePattern: Defined mapping rest variable '{matchMapping.Rest}' as LOCAL");
+#endif
+                    }
+                    break;
+
+                // MatchClass: ClassName(patterns...)
+                // CPython 3.12: symtable.c:2287-2291 - MatchClass_kind
+                case MatchClass matchClass:
+                    // Visit class expression
+                    AnalyzeExpression(matchClass.Cls);
+                    // Visit positional patterns
+                    foreach (var pat in matchClass.Patterns)
+                    {
+                        AnalyzePattern(pat);
+                    }
+                    // Visit keyword patterns
+                    foreach (var kwdPat in matchClass.KwdPatterns)
+                    {
+                        AnalyzePattern(kwdPat);
+                    }
+                    break;
 
                 // MatchAs: pattern as name - analyze nested pattern and define name
                 // In SharpPy AST, this might be represented differently

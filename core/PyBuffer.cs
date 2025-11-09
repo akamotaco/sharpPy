@@ -128,18 +128,44 @@ namespace SharpPy
             return base.GetAttribute(name);
         }
 
+        /// <summary>
+        /// CPython 3.12: Objects/memoryobject.c:2547-2606 - memory_subscript
+        /// Supports both integer indexing and slicing
+        /// </summary>
         public override PyObject GetItem(PyObject index)
         {
+            // CPython 3.12: line 2571-2576 - integer indexing
             if (index is PyInt pyInt)
             {
                 var idx = pyInt.Value;
                 if (idx < 0) idx += _data.Length;
                 if (idx < 0 || idx >= _data.Length)
                     throw PyIndexError.Create("memoryview index out of range");
-                
+
                 return new PyInt(_data[idx]);
             }
-            throw PyTypeError.Create($"memoryview indices must be integers, not {index.GetTypeName()}");
+            // CPython 3.12: line 2578-2593 - slice support
+            else if (index is PySlice slice)
+            {
+                // Calculate slice indices
+                var (start, stop, step) = slice.Indices(_data.Length);
+
+                // Create new byte array for sliced data
+                var sliceLength = slice.GetLength(_data.Length);
+                var slicedData = new byte[sliceLength];
+
+                int idx = 0;
+                for (int i = start; step > 0 ? i < stop : i > stop; i += step)
+                {
+                    slicedData[idx++] = _data[i];
+                }
+
+                // Return new memoryview with sliced data
+                // CPython: creates a new memoryview object sharing the same buffer
+                // SharpPy: creates a new memoryview with copied data (simpler implementation)
+                return new PyMemoryView(slicedData, _readonly, _itemsize);
+            }
+            throw PyTypeError.Create($"memoryview indices must be integers or slices, not {index.GetTypeName()}");
         }
 
         public override void SetItem(PyObject index, PyObject value)
